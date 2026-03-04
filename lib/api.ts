@@ -1,6 +1,7 @@
 import { getToken } from "./auth";
 
-const BASE_URL = "http://localhost:8000/api";
+const API_ORIGIN = "http://localhost:8000";
+export const API_BASE_URL = `${API_ORIGIN}/api`;
 
 function normalizeHeaders(h?: HeadersInit): Record<string, string> {
   if (!h) return {};
@@ -21,7 +22,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
     headers["Authorization"] = `Token ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
