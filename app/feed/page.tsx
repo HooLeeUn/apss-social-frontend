@@ -8,15 +8,19 @@ interface Author {
   id: number;
   username: string;
   bio?: string;
-  avatar?: string;
+  avatar?: string | null;
 }
 
 interface Post {
   id: number;
-  content: string;
+  text: string;
+  image: string | null;
+  created_at: string;
+  avg_rating: number | null;
+  ratings_count: number;
+  comments_count: number;
+  my_rating: number | null;
   author: string | Author;
-  created_at?: string;
-  [key: string]: unknown;
 }
 
 interface PaginatedResponse<T> {
@@ -92,8 +96,16 @@ export default function FeedPage() {
       ) : (
         posts.map((post) => (
           <div key={post.id} className="border p-4 mb-3 rounded">
-            <div className="font-semibold">{getAuthorName(post.author)}</div>
-            <div>{post.content}</div>
+            <div className="font-semibold">
+              {typeof post.author === "string" ? post.author : post.author.username}
+            </div>
+            <div className="mt-1">{post.text}</div>
+
+            <div className="text-sm opacity-70 mt-2">
+              ⭐ {post.avg_rating !== null ? post.avg_rating.toFixed(1) : "-"} ·{" "}
+              {post.ratings_count} ratings · {post.comments_count} comments · mi rating:{" "}
+              {post.my_rating ?? "-"}
+            </div>
           </div>
         ))
       )}
