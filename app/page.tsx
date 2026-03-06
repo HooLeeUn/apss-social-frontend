@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setToken } from "../lib/auth";
@@ -30,12 +31,10 @@ export default function LoginPage() {
       const data = await res.json();
       setToken(data.token);
 
-      // verificación temporal (Paso 1)
       console.log("Token recibido:", data.token);
       console.log("Token en localStorage:", localStorage.getItem("token"));
 
       router.push("/feed");
-
     } catch (error) {
       console.error(error);
       alert("No se pudo conectar con el backend");
@@ -45,7 +44,6 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <div className="bg-white p-6 rounded shadow-md w-80">
-
         <h1 className="text-xl font-bold mb-4">Login</h1>
 
         <input
@@ -70,6 +68,12 @@ export default function LoginPage() {
           Entrar
         </button>
 
+        <p className="text-sm mt-4 text-center">
+          ¿No tienes cuenta?{" "}
+          <Link href="/signup" className="text-blue-600 hover:underline">
+            Regístrate
+          </Link>
+        </p>
       </div>
     </div>
   );
