@@ -11,7 +11,6 @@ import {
   filterMoviesByGenre,
   GENRES_ENDPOINT,
   Movie,
-  MOVIES_FEED_ENDPOINT,
   PERSONALIZED_MOVIES_FEED_ENDPOINT,
   parseGenres,
   parseMovieList,
@@ -38,14 +37,48 @@ export default function FeedPage() {
 
     const loadFeed = async () => {
       try {
-        const [weeklyPayload, personalizedPayload, genresPayload] = await Promise.all([
-          apiFetch(WEEKLY_MOVIES_FEED_ENDPOINT),
-          apiFetch(PERSONALIZED_MOVIES_FEED_ENDPOINT),
+        const [weeklyResult, personalizedResult, genresPayload] = await Promise.all([
+          apiFetch(WEEKLY_MOVIES_FEED_ENDPOINT).then(
+            (payload) => ({ ok: true as const, payload }),
+            (error) => ({ ok: false as const, error }),
+          ),
+          apiFetch(PERSONALIZED_MOVIES_FEED_ENDPOINT).then(
+            (payload) => ({ ok: true as const, payload }),
+            (error) => ({ ok: false as const, error }),
+          ),
           apiFetch(GENRES_ENDPOINT).catch(() => []),
         ]);
 
-        const normalizedWeekly = parseMovieList(weeklyPayload);
-        const normalizedPersonalized = parseMovieList(personalizedPayload);
+        if (!weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        if (
+          !personalizedResult.ok &&
+          personalizedResult.error instanceof ApiError &&
+          personalizedResult.error.status === 401
+        ) {
+          router.replace("/login");
+          return;
+        }
+
+        if (
+          !weeklyResult.ok &&
+          !(weeklyResult.error instanceof ApiError && [404, 405].includes(weeklyResult.error.status))
+        ) {
+          throw weeklyResult.error;
+        }
+
+        if (
+          !personalizedResult.ok &&
+          !(personalizedResult.error instanceof ApiError && [404, 405].includes(personalizedResult.error.status))
+        ) {
+          throw personalizedResult.error;
+        }
+
+        const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload) : [];
+        const normalizedPersonalized = personalizedResult.ok ? parseMovieList(personalizedResult.payload) : [];
 
         setWeeklyMovies(normalizedWeekly);
         setPersonalizedMovies(normalizedPersonalized);
@@ -62,25 +95,6 @@ export default function FeedPage() {
         );
         setGenres(discoveredGenres);
       } catch (loadError) {
-        if (
-          loadError instanceof ApiError &&
-          (loadError.status === 404 || loadError.status === 405)
-        ) {
-          try {
-            const fallbackFeedPayload = await apiFetch(MOVIES_FEED_ENDPOINT);
-            const normalizedFeed = parseMovieList(fallbackFeedPayload);
-            setWeeklyMovies(normalizedFeed.slice(0, 8));
-            setPersonalizedMovies(normalizedFeed.slice(8));
-
-            const discoveredGenres = Array.from(new Set(normalizedFeed.flatMap((movie) => movie.genres)));
-            setGenres(discoveredGenres);
-            setError("");
-            return;
-          } catch (fallbackError) {
-            console.error("Fallback feed load error:", fallbackError);
-          }
-        }
-
         console.error("Feed load error:", loadError);
 
         if (loadError instanceof ApiError && loadError.status === 401) {
