@@ -17,6 +17,10 @@ export interface PaginatedResponse<T> {
 }
 
 export const MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_MOVIES_FEED_ENDPOINT || "/feed/movies/";
+export const WEEKLY_MOVIES_FEED_ENDPOINT =
+  process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_ENDPOINT || "/feed/weekly/";
+export const PERSONALIZED_MOVIES_FEED_ENDPOINT =
+  process.env.NEXT_PUBLIC_PERSONALIZED_MOVIES_FEED_ENDPOINT || "/feed/personalized/";
 export const GENRES_ENDPOINT = process.env.NEXT_PUBLIC_GENRES_ENDPOINT || "/movies/genres/";
 export const SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_SEARCH_ENDPOINT || "/movies/search/";
 
@@ -60,7 +64,9 @@ function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
 export function normalizeMovie(raw: Record<string, unknown>, index: number): Movie {
   const genres = toStringList(pickFirst(raw.genres, raw.genre));
 
-  const title = String(pickFirst(raw.title, raw.name, `Movie ${index + 1}`));
+  const title = String(
+    pickFirst(raw.title_spanish, raw.title_english, raw.title, raw.name, "Sin título"),
+  );
   const id = pickFirst(raw.id, raw.movie_id, `${title}-${index + 1}`) as number | string;
 
   const yearValue = pickFirst(raw.year, raw.release_year, raw.release_date);
