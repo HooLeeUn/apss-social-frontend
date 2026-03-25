@@ -17,6 +17,12 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+export interface MoviePaginationMeta {
+  count: number | null;
+  next: string | null;
+  previous: string | null;
+}
+
 export const MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_MOVIES_FEED_ENDPOINT || "/feed/movies/";
 export const WEEKLY_MOVIES_FEED_ENDPOINT =
   process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_ENDPOINT || "/feed/weekly/";
@@ -122,6 +128,22 @@ export function parseMovieList(payload: unknown): Movie[] {
   return source
     .filter((item): item is Record<string, unknown> => isRecord(item))
     .map((item, index) => normalizeMovie(item, index));
+}
+
+export function parseMoviePagination(payload: unknown): MoviePaginationMeta {
+  if (isRecord(payload)) {
+    return {
+      count: typeof payload.count === "number" ? payload.count : null,
+      next: typeof payload.next === "string" ? payload.next : null,
+      previous: typeof payload.previous === "string" ? payload.previous : null,
+    };
+  }
+
+  return {
+    count: null,
+    next: null,
+    previous: null,
+  };
 }
 
 export function parseGenres(payload: unknown): string[] {

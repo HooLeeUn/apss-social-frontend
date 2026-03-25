@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, apiFetch } from "../../lib/api";
+import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
@@ -11,22 +11,60 @@ import {
   filterMoviesByGenre,
   GENRES_ENDPOINT,
   Movie,
-  PERSONALIZED_MOVIES_FEED_ENDPOINT,
+  MOVIES_FEED_ENDPOINT,
   parseGenres,
   parseMovieList,
+  parseMoviePagination,
   WEEKLY_MOVIES_FEED_ENDPOINT,
 } from "../../lib/movies";
+
+function normalizeNextEndpoint(nextUrl: string): string {
+  if (nextUrl.startsWith("http://") || nextUrl.startsWith("https://")) {
+    const { pathname, search } = new URL(nextUrl);
+    const normalizedPath = pathname.startsWith("/api/") ? pathname.replace(/^\/api/, "") : pathname;
+    return `${normalizedPath}${search}`;
+  }
+
+  if (nextUrl.startsWith("/api/")) {
+    return nextUrl.replace(/^\/api/, "");
+  }
+
+  if (nextUrl.startsWith("/")) {
+    return nextUrl;
+  }
+
+  const basePath = new URL(API_BASE_URL).pathname.replace(/\/$/, "");
+  return `${basePath ? `${basePath}/` : "/"}${nextUrl}`;
+}
+
+function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
+  const merged = [...existing];
+  const seenIds = new Set(existing.map((movie) => String(movie.id)));
+
+  for (const movie of incoming) {
+    const movieId = String(movie.id);
+    if (!seenIds.has(movieId)) {
+      seenIds.add(movieId);
+      merged.push(movie);
+    }
+  }
+
+  return merged;
+}
 
 export default function FeedPage() {
   const router = useRouter();
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
+  const [personalizedNext, setPersonalizedNext] = useState<string | null>(null);
+  const [isLoadingMorePersonalized, setIsLoadingMorePersonalized] = useState(false);
   const [genres, setGenres] = useState<string[]>([]);
 
   const [selectedGenre, setSelectedGenre] = useState("Todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -42,7 +80,7 @@ export default function FeedPage() {
             (payload) => ({ ok: true as const, payload }),
             (error) => ({ ok: false as const, error }),
           ),
-          apiFetch(PERSONALIZED_MOVIES_FEED_ENDPOINT).then(
+          apiFetch(MOVIES_FEED_ENDPOINT).then(
             (payload) => ({ ok: true as const, payload }),
             (error) => ({ ok: false as const, error }),
           ),
@@ -79,9 +117,13 @@ export default function FeedPage() {
 
         const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload) : [];
         const normalizedPersonalized = personalizedResult.ok ? parseMovieList(personalizedResult.payload) : [];
+        const personalizedPagination = personalizedResult.ok
+          ? parseMoviePagination(personalizedResult.payload)
+          : { next: null };
 
         setWeeklyMovies(normalizedWeekly);
         setPersonalizedMovies(normalizedPersonalized);
+        setPersonalizedNext(personalizedPagination.next);
 
         const genresFromEndpoint = parseGenres(genresPayload);
 
@@ -110,6 +152,45 @@ export default function FeedPage() {
 
     loadFeed();
   }, [router]);
+
+  const loadMorePersonalized = useCallback(async () => {
+    if (!personalizedNext || isLoadingMorePersonalized) return;
+
+    try {
+      setIsLoadingMorePersonalized(true);
+      const payload = await apiFetch(normalizeNextEndpoint(personalizedNext));
+      const nextPageMovies = parseMovieList(payload);
+      const pagination = parseMoviePagination(payload);
+
+      setPersonalizedMovies((current) => mergeUniqueMovies(current, nextPageMovies));
+      setPersonalizedNext(pagination.next);
+    } catch (loadMoreError) {
+      console.error("Personalized pagination load error:", loadMoreError);
+    } finally {
+      setIsLoadingMorePersonalized(false);
+    }
+  }, [isLoadingMorePersonalized, personalizedNext]);
+
+  useEffect(() => {
+    const node = loadMoreTriggerRef.current;
+    if (!node || !personalizedNext) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          void loadMorePersonalized();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loadMorePersonalized, personalizedNext]);
 
   const filteredWeekly = useMemo(
     () => filterMoviesByGenre(weeklyMovies, selectedGenre),
@@ -175,6 +256,18 @@ export default function FeedPage() {
             ))}
           </div>
         )}
+        {personalizedNext ? (
+          <div ref={loadMoreTriggerRef} className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={() => void loadMorePersonalized()}
+              disabled={isLoadingMorePersonalized}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {isLoadingMorePersonalized ? "Cargando..." : "Cargar más"}
+            </button>
+          </div>
+        ) : null}
       </section>
     </main>
   );
