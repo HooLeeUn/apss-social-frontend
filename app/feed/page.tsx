@@ -12,8 +12,10 @@ import {
   GENRES_ENDPOINT,
   Movie,
   MOVIES_FEED_ENDPOINT,
+  PERSONALIZED_MOVIES_FEED_ENDPOINT,
   parseGenres,
   parseMovieList,
+  WEEKLY_MOVIES_FEED_ENDPOINT,
 } from "../../lib/movies";
 
 export default function FeedPage() {
@@ -36,14 +38,17 @@ export default function FeedPage() {
 
     const loadFeed = async () => {
       try {
-        const [feedPayload, genresPayload] = await Promise.all([
-          apiFetch(MOVIES_FEED_ENDPOINT),
+        const [weeklyPayload, personalizedPayload, genresPayload] = await Promise.all([
+          apiFetch(WEEKLY_MOVIES_FEED_ENDPOINT),
+          apiFetch(PERSONALIZED_MOVIES_FEED_ENDPOINT),
           apiFetch(GENRES_ENDPOINT).catch(() => []),
         ]);
 
-        const normalizedFeed = parseMovieList(feedPayload);
-        setWeeklyMovies(normalizedFeed.slice(0, 8));
-        setPersonalizedMovies(normalizedFeed.slice(8));
+        const normalizedWeekly = parseMovieList(weeklyPayload);
+        const normalizedPersonalized = parseMovieList(personalizedPayload);
+
+        setWeeklyMovies(normalizedWeekly);
+        setPersonalizedMovies(normalizedPersonalized);
 
         const genresFromEndpoint = parseGenres(genresPayload);
 
@@ -52,9 +57,30 @@ export default function FeedPage() {
           return;
         }
 
-        const discoveredGenres = Array.from(new Set(normalizedFeed.flatMap((movie) => movie.genres)));
+        const discoveredGenres = Array.from(
+          new Set([...normalizedWeekly, ...normalizedPersonalized].flatMap((movie) => movie.genres)),
+        );
         setGenres(discoveredGenres);
       } catch (loadError) {
+        if (
+          loadError instanceof ApiError &&
+          (loadError.status === 404 || loadError.status === 405)
+        ) {
+          try {
+            const fallbackFeedPayload = await apiFetch(MOVIES_FEED_ENDPOINT);
+            const normalizedFeed = parseMovieList(fallbackFeedPayload);
+            setWeeklyMovies(normalizedFeed.slice(0, 8));
+            setPersonalizedMovies(normalizedFeed.slice(8));
+
+            const discoveredGenres = Array.from(new Set(normalizedFeed.flatMap((movie) => movie.genres)));
+            setGenres(discoveredGenres);
+            setError("");
+            return;
+          } catch (fallbackError) {
+            console.error("Fallback feed load error:", fallbackError);
+          }
+        }
+
         console.error("Feed load error:", loadError);
 
         if (loadError instanceof ApiError && loadError.status === 401) {
