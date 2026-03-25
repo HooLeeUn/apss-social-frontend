@@ -1,6 +1,7 @@
 export interface Movie {
   id: number | string;
   title: string;
+  contentType: string;
   year: string;
   genres: string[];
   posterUrl: string | null;
@@ -61,6 +62,23 @@ function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
   return null;
 }
 
+function normalizeContentType(value: unknown): string {
+  if (typeof value !== "string") return "Desconocido";
+
+  const normalized = value.trim();
+  if (!normalized) return "Desconocido";
+
+  const lower = normalized.toLowerCase();
+  if (lower === "movie") return "Movie";
+  if (lower === "tvseries" || lower === "series") return "Series";
+
+  return normalized
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export function normalizeMovie(raw: Record<string, unknown>, index: number): Movie {
   const genres = toStringList(pickFirst(raw.genres, raw.genre));
 
@@ -75,6 +93,7 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   return {
     id,
     title,
+    contentType: normalizeContentType(raw.type),
     year,
     genres,
     posterUrl: (pickFirst(raw.poster, raw.poster_url, raw.image_url, raw.image) as string | null) || null,
