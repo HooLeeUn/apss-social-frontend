@@ -35,6 +35,7 @@ export default function MovieCard({ movie, variant = "compact" }: MovieCardProps
 
       <div className="p-4 space-y-2 flex-1">
         <h3 className={`font-semibold ${isLarge ? "text-lg" : "text-base"}`}>{movie.title}</h3>
+        <p className="text-sm text-gray-500">{movie.contentType}</p>
         <p className="text-sm text-gray-600">
           {movie.year} · {movie.genres.length > 0 ? movie.genres.join(", ") : "Sin género"}
         </p>
