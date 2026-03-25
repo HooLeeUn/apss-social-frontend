@@ -1,6 +1,16 @@
-import { getToken } from "./auth";
+import { clearToken, getToken } from "./auth";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = "ApiError";
+  }
+}
 
 function normalizeHeaders(h?: HeadersInit): Record<string, string> {
   if (!h) return {};
@@ -18,7 +28,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   };
 
   if (token) {
-    headers["Authorization"] = `Token ${token}`;
+    headers.Authorization = `Token ${token}`;
   }
 
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -28,7 +38,13 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `HTTP ${res.status}`);
+    const message = text || `HTTP ${res.status}`;
+
+    if (res.status === 401) {
+      clearToken();
+    }
+
+    throw new ApiError(res.status, message);
   }
 
   const contentType = res.headers.get("content-type") || "";

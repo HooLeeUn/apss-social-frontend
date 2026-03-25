@@ -16,10 +16,7 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
-export const WEEKLY_RECOMMENDATIONS_ENDPOINT =
-  process.env.NEXT_PUBLIC_WEEKLY_RECOMMENDATIONS_ENDPOINT || "/movies/recommendations/weekly/";
-export const PERSONALIZED_FEED_ENDPOINT =
-  process.env.NEXT_PUBLIC_PERSONALIZED_FEED_ENDPOINT || "/movies/feed/";
+export const MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_MOVIES_FEED_ENDPOINT || "/feed/movies/";
 export const GENRES_ENDPOINT = process.env.NEXT_PUBLIC_GENRES_ENDPOINT || "/movies/genres/";
 export const SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_SEARCH_ENDPOINT || "/movies/search/";
 
