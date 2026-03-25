@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "../../lib/api";
+import { ApiError, apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
@@ -11,10 +11,9 @@ import {
   filterMoviesByGenre,
   GENRES_ENDPOINT,
   Movie,
+  MOVIES_FEED_ENDPOINT,
   parseGenres,
   parseMovieList,
-  PERSONALIZED_FEED_ENDPOINT,
-  WEEKLY_RECOMMENDATIONS_ENDPOINT,
 } from "../../lib/movies";
 
 export default function FeedPage() {
@@ -31,23 +30,20 @@ export default function FeedPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) {
-      router.push("/");
+      router.replace("/login");
       return;
     }
 
     const loadFeed = async () => {
       try {
-        const [weeklyPayload, personalizedPayload, genresPayload] = await Promise.all([
-          apiFetch(WEEKLY_RECOMMENDATIONS_ENDPOINT),
-          apiFetch(PERSONALIZED_FEED_ENDPOINT),
+        const [feedPayload, genresPayload] = await Promise.all([
+          apiFetch(MOVIES_FEED_ENDPOINT),
           apiFetch(GENRES_ENDPOINT).catch(() => []),
         ]);
 
-        const normalizedWeekly = parseMovieList(weeklyPayload).slice(0, 8);
-        const normalizedPersonalized = parseMovieList(personalizedPayload);
-
-        setWeeklyMovies(normalizedWeekly);
-        setPersonalizedMovies(normalizedPersonalized);
+        const normalizedFeed = parseMovieList(feedPayload);
+        setWeeklyMovies(normalizedFeed.slice(0, 8));
+        setPersonalizedMovies(normalizedFeed.slice(8));
 
         const genresFromEndpoint = parseGenres(genresPayload);
 
@@ -56,12 +52,16 @@ export default function FeedPage() {
           return;
         }
 
-        const discoveredGenres = Array.from(
-          new Set([...normalizedWeekly, ...normalizedPersonalized].flatMap((movie) => movie.genres)),
-        );
+        const discoveredGenres = Array.from(new Set(normalizedFeed.flatMap((movie) => movie.genres)));
         setGenres(discoveredGenres);
       } catch (loadError) {
-        console.error(loadError);
+        console.error("Feed load error:", loadError);
+
+        if (loadError instanceof ApiError && loadError.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
         setError("No se pudo cargar el feed de películas.");
       } finally {
         setLoading(false);
