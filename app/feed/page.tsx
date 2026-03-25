@@ -1,114 +1,141 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
-import { useRouter } from "next/navigation";
-
-interface Author {
-  id: number;
-  username: string;
-  bio?: string;
-  avatar?: string | null;
-}
-
-interface Post {
-  id: number;
-  text: string;
-  image: string | null;
-  created_at: string;
-  avg_rating: number | null;
-  ratings_count: number;
-  comments_count: number;
-  my_rating: number | null;
-  author: string | Author;
-}
-
-interface PaginatedResponse<T> {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
-}
-
-function isPaginatedResponse<T>(value: unknown): value is PaginatedResponse<T> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "results" in value &&
-    Array.isArray((value as PaginatedResponse<T>).results)
-  );
-}
-
-function getAuthorName(author: Post["author"]): string {
-  if (typeof author === "string") return author;
-  if (author && typeof author === "object" && "username" in author) {
-    return String(author.username);
-  }
-  return "Autor desconocido";
-}
+import GenreChips from "../../components/GenreChips";
+import MovieCard from "../../components/MovieCard";
+import SearchBar from "../../components/SearchBar";
+import {
+  filterMoviesByGenre,
+  GENRES_ENDPOINT,
+  Movie,
+  parseGenres,
+  parseMovieList,
+  PERSONALIZED_FEED_ENDPOINT,
+  WEEKLY_RECOMMENDATIONS_ENDPOINT,
+} from "../../lib/movies";
 
 export default function FeedPage() {
   const router = useRouter();
-  const [posts, setPosts] = useState<Post[]>([]);
+
+  const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
+  const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
+  const [genres, setGenres] = useState<string[]>([]);
+
+  const [selectedGenre, setSelectedGenre] = useState("Todos");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const token = getToken();
-
-    if (process.env.NODE_ENV === "development") {
-      console.debug("[feed] token presente:", Boolean(token));
-    }
-    
     if (!token) {
       router.push("/");
       return;
     }
 
-    apiFetch("/feed/")
-      .then((data: unknown) => {
-        const normalizedPosts = isPaginatedResponse<Post>(data)
-          ? data.results
-          : Array.isArray(data)
-            ? data
-            : [];
+    const loadFeed = async () => {
+      try {
+        const [weeklyPayload, personalizedPayload, genresPayload] = await Promise.all([
+          apiFetch(WEEKLY_RECOMMENDATIONS_ENDPOINT),
+          apiFetch(PERSONALIZED_FEED_ENDPOINT),
+          apiFetch(GENRES_ENDPOINT).catch(() => []),
+        ]);
 
-        if (process.env.NODE_ENV === "development") {
-          console.debug("[feed] posts cargados:", normalizedPosts);
+        const normalizedWeekly = parseMovieList(weeklyPayload).slice(0, 8);
+        const normalizedPersonalized = parseMovieList(personalizedPayload);
+
+        setWeeklyMovies(normalizedWeekly);
+        setPersonalizedMovies(normalizedPersonalized);
+
+        const genresFromEndpoint = parseGenres(genresPayload);
+
+        if (genresFromEndpoint.length > 0) {
+          setGenres(genresFromEndpoint);
+          return;
         }
 
-        setPosts(normalizedPosts);
-      })
-      .catch((err) => {
-        console.error(err);
-        alert("Error cargando feed");
-      })
-      .finally(() => setLoading(false));
+        const discoveredGenres = Array.from(
+          new Set([...normalizedWeekly, ...normalizedPersonalized].flatMap((movie) => movie.genres)),
+        );
+        setGenres(discoveredGenres);
+      } catch (loadError) {
+        console.error(loadError);
+        setError("No se pudo cargar el feed de películas.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFeed();
   }, [router]);
 
-  if (loading) return <div className="p-6">Cargando...</div>;
+  const filteredWeekly = useMemo(
+    () => filterMoviesByGenre(weeklyMovies, selectedGenre),
+    [weeklyMovies, selectedGenre],
+  );
+  const filteredPersonalized = useMemo(
+    () => filterMoviesByGenre(personalizedMovies, selectedGenre),
+    [personalizedMovies, selectedGenre],
+  );
+
+  const highlightedWeekly = filteredWeekly.slice(0, 2);
+  const compactWeekly = filteredWeekly.slice(2, 8);
+
+  if (loading) {
+    return <div className="p-6">Cargando feed principal...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-red-600">{error}</div>;
+  }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Feed</h1>
+    <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-8">
+      <header className="space-y-4">
+        <h1 className="text-2xl font-bold">Feed principal</h1>
+        <SearchBar />
+        <GenreChips
+          genres={genres}
+          selectedGenre={selectedGenre}
+          onSelectGenre={(genre) => setSelectedGenre(genre)}
+        />
+      </header>
 
-      {posts.length === 0 ? (
-        <p>No hay posts aún.</p>
-      ) : (
-        posts.map((post) => (
-          <div key={post.id} className="border p-4 mb-3 rounded">
-            <div className="font-semibold">
-              {typeof post.author === "string" ? post.author : post.author.username}
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Recomendaciones de la semana</h2>
+        {filteredWeekly.length === 0 ? (
+          <p className="text-gray-600">No hay recomendaciones semanales disponibles.</p>
+        ) : (
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              {highlightedWeekly.map((movie) => (
+                <MovieCard key={movie.id} movie={movie} variant="large" />
+              ))}
             </div>
-            <div className="mt-1">{post.text}</div>
 
-            <div className="text-sm opacity-70 mt-2">
-              ⭐ {post.avg_rating !== null ? post.avg_rating.toFixed(1) : "-"} ·{" "}
-              {post.ratings_count} ratings · {post.comments_count} comments · mi rating:{" "}
-              {post.my_rating ?? "-"}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {compactWeekly.map((movie) => (
+                <MovieCard key={movie.id} movie={movie} />
+              ))}
             </div>
+          </>
+        )}
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Personalizado para ti</h2>
+        {filteredPersonalized.length === 0 ? (
+          <p className="text-gray-600">No hay películas personalizadas disponibles.</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredPersonalized.map((movie) => (
+              <MovieCard key={movie.id} movie={movie} />
+            ))}
           </div>
-        ))
-      )}
-    </div>
+        )}
+      </section>
+    </main>
   );
 }
