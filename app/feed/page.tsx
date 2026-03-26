@@ -7,6 +7,7 @@ import { getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
+import WeeklyRecommendationsSection from "../../components/WeeklyRecommendationsSection";
 import { FEED_GENRE_OPTIONS } from "../../lib/genres";
 import {
   Movie,
@@ -176,9 +177,6 @@ export default function FeedPage() {
     };
   }, [loadMorePersonalized, personalizedNext]);
 
-  const highlightedWeekly = weeklyMovies.slice(0, 2);
-  const compactWeekly = weeklyMovies.slice(2, 8);
-
   const toggleGenreSelection = (genre: string) => {
     setSelectedGenres((current) =>
       current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre],
@@ -186,57 +184,39 @@ export default function FeedPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Cargando feed principal...</div>;
+    return <div className="p-6 text-zinc-100">Cargando feed principal...</div>;
   }
 
   if (error) {
-    return <div className="p-6 text-red-600">{error}</div>;
+    return <div className="p-6 text-red-400">{error}</div>;
   }
 
   return (
-    <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-8">
-      <header className="space-y-4">
-        <h1 className="text-2xl font-bold">Feed principal</h1>
-        <SearchBar />
-      </header>
+    <main className="mx-auto min-h-screen max-w-7xl space-y-14 bg-black px-4 py-8 md:px-6">
+      <section className="space-y-5">
+        <SearchBar
+          className="mx-auto w-full max-w-2xl rounded-full border border-zinc-700 bg-zinc-900/80 p-1.5"
+          inputClassName="rounded-full border-zinc-600 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
+          buttonClassName="rounded-full bg-zinc-100 px-6 text-zinc-900 hover:bg-zinc-300"
+        />
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Recomendaciones de la semana</h2>
-        {weeklyMovies.length === 0 ? (
-          <p className="text-gray-600">No hay recomendaciones semanales disponibles.</p>
-        ) : (
-          <>
-            <div className="grid gap-4 md:grid-cols-2">
-              {highlightedWeekly.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} variant="large" />
-              ))}
-            </div>
+        <GenreChips
+          genres={FEED_GENRE_OPTIONS}
+          selectedGenres={selectedGenres}
+          onToggleGenre={toggleGenreSelection}
+          onClearSelection={() => setSelectedGenres([])}
+          showAllChip={selectedGenres.length > 0}
+          className="justify-center"
+          chipsContainerClassName="w-auto flex-initial justify-center overflow-visible"
+        />
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {compactWeekly.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} />
-              ))}
-            </div>
-          </>
-        )}
+        <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} />
       </section>
 
-      <section className="space-y-4">
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-700">Géneros</p>
-          <GenreChips
-            genres={FEED_GENRE_OPTIONS}
-            selectedGenres={selectedGenres}
-            onToggleGenre={toggleGenreSelection}
-            onClearSelection={() => setSelectedGenres([])}
-            showAllChip={selectedGenres.length > 0}
-            actionLabel="Ver"
-          />
-        </div>
-
-        <h2 className="text-xl font-semibold">Personalizado para ti</h2>
+      <section className="space-y-4 pb-8">
+        <h2 className="text-xl font-semibold text-zinc-100">Personalizado para ti</h2>
         {personalizedMovies.length === 0 ? (
-          <p className="text-gray-600">No hay películas personalizadas disponibles.</p>
+          <p className="text-zinc-400">No hay películas personalizadas disponibles.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {personalizedMovies.map((movie) => (
@@ -250,7 +230,7 @@ export default function FeedPage() {
               type="button"
               onClick={() => void loadMorePersonalized()}
               disabled={isLoadingMorePersonalized}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium disabled:opacity-50"
+              className="rounded-full border border-zinc-500 px-5 py-2 text-sm font-medium text-zinc-100 disabled:opacity-50"
             >
               {isLoadingMorePersonalized ? "Cargando..." : "Cargar más"}
             </button>
