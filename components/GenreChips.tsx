@@ -1,5 +1,5 @@
 interface GenreChipsProps {
-  genres: string[];
+  genres: readonly string[];
   selectedGenres: string[];
   onToggleGenre: (genre: string) => void;
   onClearSelection?: () => void;
