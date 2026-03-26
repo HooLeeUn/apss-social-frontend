@@ -1,0 +1,15 @@
+export const FEED_GENRE_OPTIONS = [
+  "Acción",
+  "Aventura",
+  "Animación",
+  "Comedia",
+  "Crimen",
+  "Documental",
+  "Drama",
+  "Fantasía",
+  "Historia",
+  "Misterio",
+  "Romance",
+  "Suspenso",
+  "Terror",
+] as const;

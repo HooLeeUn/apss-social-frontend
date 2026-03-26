@@ -1,21 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
+import { FEED_GENRE_OPTIONS } from "../../lib/genres";
 import {
-  filterMoviesByGenre,
-  GENRES_ENDPOINT,
   Movie,
   MOVIES_FEED_ENDPOINT,
-  parseGenres,
+  WEEKLY_MOVIES_FEED_ENDPOINT,
   parseMovieList,
   parseMoviePagination,
-  WEEKLY_MOVIES_FEED_ENDPOINT,
 } from "../../lib/movies";
 
 function normalizeNextEndpoint(nextUrl: string): string {
@@ -59,9 +57,8 @@ export default function FeedPage() {
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
   const [personalizedNext, setPersonalizedNext] = useState<string | null>(null);
   const [isLoadingMorePersonalized, setIsLoadingMorePersonalized] = useState(false);
-  const [genres, setGenres] = useState<string[]>([]);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
-  const [selectedGenre, setSelectedGenre] = useState("Todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
@@ -75,7 +72,7 @@ export default function FeedPage() {
 
     const loadFeed = async () => {
       try {
-        const [weeklyResult, personalizedResult, genresPayload] = await Promise.all([
+        const [weeklyResult, personalizedResult] = await Promise.all([
           apiFetch(WEEKLY_MOVIES_FEED_ENDPOINT).then(
             (payload) => ({ ok: true as const, payload }),
             (error) => ({ ok: false as const, error }),
@@ -84,7 +81,6 @@ export default function FeedPage() {
             (payload) => ({ ok: true as const, payload }),
             (error) => ({ ok: false as const, error }),
           ),
-          apiFetch(GENRES_ENDPOINT).catch(() => []),
         ]);
 
         if (!weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
@@ -124,18 +120,6 @@ export default function FeedPage() {
         setWeeklyMovies(normalizedWeekly);
         setPersonalizedMovies(normalizedPersonalized);
         setPersonalizedNext(personalizedPagination.next);
-
-        const genresFromEndpoint = parseGenres(genresPayload);
-
-        if (genresFromEndpoint.length > 0) {
-          setGenres(genresFromEndpoint);
-          return;
-        }
-
-        const discoveredGenres = Array.from(
-          new Set([...normalizedWeekly, ...normalizedPersonalized].flatMap((movie) => movie.genres)),
-        );
-        setGenres(discoveredGenres);
       } catch (loadError) {
         console.error("Feed load error:", loadError);
 
@@ -192,17 +176,14 @@ export default function FeedPage() {
     };
   }, [loadMorePersonalized, personalizedNext]);
 
-  const filteredWeekly = useMemo(
-    () => filterMoviesByGenre(weeklyMovies, selectedGenre),
-    [weeklyMovies, selectedGenre],
-  );
-  const filteredPersonalized = useMemo(
-    () => filterMoviesByGenre(personalizedMovies, selectedGenre),
-    [personalizedMovies, selectedGenre],
-  );
+  const highlightedWeekly = weeklyMovies.slice(0, 2);
+  const compactWeekly = weeklyMovies.slice(2, 8);
 
-  const highlightedWeekly = filteredWeekly.slice(0, 2);
-  const compactWeekly = filteredWeekly.slice(2, 8);
+  const toggleGenreSelection = (genre: string) => {
+    setSelectedGenres((current) =>
+      current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre],
+    );
+  };
 
   if (loading) {
     return <div className="p-6">Cargando feed principal...</div>;
@@ -217,16 +198,11 @@ export default function FeedPage() {
       <header className="space-y-4">
         <h1 className="text-2xl font-bold">Feed principal</h1>
         <SearchBar />
-        <GenreChips
-          genres={genres}
-          selectedGenre={selectedGenre}
-          onSelectGenre={(genre) => setSelectedGenre(genre)}
-        />
       </header>
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Recomendaciones de la semana</h2>
-        {filteredWeekly.length === 0 ? (
+        {weeklyMovies.length === 0 ? (
           <p className="text-gray-600">No hay recomendaciones semanales disponibles.</p>
         ) : (
           <>
@@ -246,12 +222,24 @@ export default function FeedPage() {
       </section>
 
       <section className="space-y-4">
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-gray-700">Géneros</p>
+          <GenreChips
+            genres={FEED_GENRE_OPTIONS}
+            selectedGenres={selectedGenres}
+            onToggleGenre={toggleGenreSelection}
+            onClearSelection={() => setSelectedGenres([])}
+            showAllChip={selectedGenres.length > 0}
+            actionLabel="Ver"
+          />
+        </div>
+
         <h2 className="text-xl font-semibold">Personalizado para ti</h2>
-        {filteredPersonalized.length === 0 ? (
+        {personalizedMovies.length === 0 ? (
           <p className="text-gray-600">No hay películas personalizadas disponibles.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredPersonalized.map((movie) => (
+            {personalizedMovies.map((movie) => (
               <MovieCard key={movie.id} movie={movie} />
             ))}
           </div>
