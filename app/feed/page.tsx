@@ -192,51 +192,53 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-7xl space-y-14 bg-black px-4 py-8 md:px-6">
-      <section className="space-y-5">
-        <SearchBar
-          className="mx-auto w-full max-w-2xl rounded-full border border-zinc-700 bg-zinc-900/80 p-1.5"
-          inputClassName="rounded-full border-zinc-600 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
-          buttonClassName="rounded-full bg-zinc-100 px-6 text-zinc-900 hover:bg-zinc-300"
-        />
+    <main className="min-h-screen bg-black">
+      <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
+        <section className="space-y-5">
+          <SearchBar
+            className="mx-auto w-full max-w-2xl rounded-full border border-zinc-700 bg-zinc-900/80 p-1.5"
+            inputClassName="rounded-full border-zinc-600 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
+            buttonClassName="rounded-full bg-zinc-100 px-6 text-zinc-900 hover:bg-zinc-300"
+          />
 
-        <GenreChips
-          genres={FEED_GENRE_OPTIONS}
-          selectedGenres={selectedGenres}
-          onToggleGenre={toggleGenreSelection}
-          onClearSelection={() => setSelectedGenres([])}
-          showAllChip={selectedGenres.length > 0}
-          className="justify-center"
-          chipsContainerClassName="w-auto flex-initial justify-center overflow-visible"
-        />
+          <GenreChips
+            genres={FEED_GENRE_OPTIONS}
+            selectedGenres={selectedGenres}
+            onToggleGenre={toggleGenreSelection}
+            onClearSelection={() => setSelectedGenres([])}
+            showAllChip={selectedGenres.length > 0}
+            className="justify-center"
+            chipsContainerClassName="w-auto flex-initial justify-center overflow-visible"
+          />
 
-        <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} />
-      </section>
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} />
+        </section>
 
-      <section className="space-y-4 pb-8">
-        <h2 className="text-xl font-semibold text-zinc-100">Personalizado para ti</h2>
-        {personalizedMovies.length === 0 ? (
-          <p className="text-zinc-400">No hay películas personalizadas disponibles.</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {personalizedMovies.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
-            ))}
-          </div>
-        )}
-        {personalizedNext ? (
-          <div ref={loadMoreTriggerRef} className="flex justify-center pt-2">
-            <button
-              type="button"
-              onClick={() => void loadMorePersonalized()}
-              disabled={isLoadingMorePersonalized}
-              className="rounded-full border border-zinc-500 px-5 py-2 text-sm font-medium text-zinc-100 disabled:opacity-50"
-            >
-              {isLoadingMorePersonalized ? "Cargando..." : "Cargar más"}
-            </button>
-          </div>
-        ) : null}
-      </section>
+        <section className="space-y-5 pb-8">
+          <h2 className="text-xl font-semibold text-zinc-100">Tu Cartelera</h2>
+          {personalizedMovies.length === 0 ? (
+            <p className="text-zinc-400">No hay películas personalizadas disponibles.</p>
+          ) : (
+            <div className="mx-auto w-full max-w-[860px] space-y-4 rounded-2xl bg-zinc-950/55 px-2 py-1 sm:px-4 sm:py-3">
+              {personalizedMovies.map((movie) => (
+                <MovieCard key={movie.id} movie={movie} variant="large" />
+              ))}
+            </div>
+          )}
+          {personalizedNext ? (
+            <div ref={loadMoreTriggerRef} className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => void loadMorePersonalized()}
+                disabled={isLoadingMorePersonalized}
+                className="rounded-full border border-zinc-500 px-5 py-2 text-sm font-medium text-zinc-100 disabled:opacity-50"
+              >
+                {isLoadingMorePersonalized ? "Cargando..." : "Cargar más"}
+              </button>
+            </div>
+          ) : null}
+        </section>
+      </div>
     </main>
   );
 }
