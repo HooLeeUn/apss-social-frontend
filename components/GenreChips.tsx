@@ -10,6 +10,8 @@ interface GenreChipsProps {
   showAllChip?: boolean;
   actionLabel?: string;
   onAction?: () => void;
+  className?: string;
+  chipsContainerClassName?: string;
 }
 
 interface NormalizedGenreChip {
@@ -27,6 +29,8 @@ export default function GenreChips({
   showAllChip = false,
   actionLabel,
   onAction,
+  className,
+  chipsContainerClassName,
 }: GenreChipsProps) {
   const normalizedGenres: NormalizedGenreChip[] = genres.map((genre) =>
     typeof genre === "string"
@@ -42,8 +46,8 @@ export default function GenreChips({
     : normalizedGenres.map((genre) => ({ ...genre, isAll: false }));
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
+    <div className={`flex items-center gap-2 ${className ?? ""}`.trim()}>
+      <div className={`flex flex-1 gap-2 overflow-x-auto pb-1 ${chipsContainerClassName ?? ""}`.trim()}>
         {chips.map((chip) => {
           const selected = !chip.isAll && selectedValues.includes(chip.value);
 
