@@ -196,8 +196,8 @@ export default function FeedPage() {
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <section className="space-y-5">
           <SearchBar
-            className="mx-auto w-full max-w-2xl rounded-full border border-zinc-700 bg-zinc-900/80 p-1.5"
-            inputClassName="rounded-full border-zinc-600 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
+            className="mx-auto w-full max-w-2xl rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
+            inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
             buttonClassName="rounded-full bg-zinc-100 px-6 text-zinc-900 hover:bg-zinc-300"
           />
 
@@ -209,20 +209,25 @@ export default function FeedPage() {
             showAllChip={selectedGenres.length > 0}
             className="justify-center"
             chipsContainerClassName="w-auto flex-initial justify-center overflow-visible"
+            chipClassName="border-2"
+            selectedChipClassName="border-white bg-zinc-950 text-zinc-100"
+            unselectedChipClassName="border-white/70 bg-zinc-900 text-zinc-200 hover:border-white"
           />
 
           <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} />
         </section>
 
-        <section className="space-y-5 pb-8">
-          <h2 className="text-xl font-semibold text-zinc-100">Tu Cartelera</h2>
+        <section className="space-y-5 bg-black pb-8">
+          <h2 className="pl-3 text-xl font-semibold text-zinc-100 md:pl-6">Tu Cartelera</h2>
           {personalizedMovies.length === 0 ? (
-            <p className="text-zinc-400">No hay películas personalizadas disponibles.</p>
+            <p className="pl-3 text-zinc-400 md:pl-6">No hay películas personalizadas disponibles.</p>
           ) : (
-            <div className="mx-auto w-full max-w-[860px] space-y-4 rounded-2xl bg-zinc-950/55 px-2 py-1 sm:px-4 sm:py-3">
+            <div className="mx-auto w-full max-w-[1040px] rounded-2xl bg-zinc-950/45 px-3 py-3 sm:px-5 sm:py-5">
+              <div className="grid gap-4 md:grid-cols-2">
               {personalizedMovies.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} variant="large" />
+                <MovieCard key={movie.id} movie={movie} variant="feed" />
               ))}
+              </div>
             </div>
           )}
           {personalizedNext ? (
@@ -231,7 +236,7 @@ export default function FeedPage() {
                 type="button"
                 onClick={() => void loadMorePersonalized()}
                 disabled={isLoadingMorePersonalized}
-                className="rounded-full border border-zinc-500 px-5 py-2 text-sm font-medium text-zinc-100 disabled:opacity-50"
+                className="rounded-full border-2 border-white/70 px-5 py-2 text-sm font-medium text-zinc-100 disabled:opacity-50"
               >
                 {isLoadingMorePersonalized ? "Cargando..." : "Cargar más"}
               </button>
