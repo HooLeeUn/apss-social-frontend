@@ -218,7 +218,9 @@ export default function FeedPage() {
         </section>
 
         <section className="space-y-5 bg-black pb-8">
-          <h2 className="pl-3 text-xl font-semibold text-zinc-100 md:pl-6">Tu Cartelera</h2>
+          <div className="mx-auto w-full max-w-[1040px] px-3 sm:px-5">
+            <h2 className="text-xl font-semibold text-zinc-100">Tu Cartelera</h2>
+          </div>
           {personalizedMovies.length === 0 ? (
             <p className="pl-3 text-zinc-400 md:pl-6">No hay películas personalizadas disponibles.</p>
           ) : (

@@ -9,7 +9,7 @@ export default function WeeklyMiniCard({ movie, fallbackLabel }: WeeklyMiniCardP
   const title = movie?.title ?? fallbackLabel;
 
   return (
-    <article className="overflow-hidden rounded-xl border-2 border-white/60 bg-zinc-950 text-zinc-100">
+    <article className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-white/60 bg-zinc-950 text-zinc-100">
       <div className="h-28 w-full bg-zinc-900">
         {movie?.posterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

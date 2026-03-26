@@ -17,7 +17,7 @@ export default function WeeklyHeroCard({ movie, fallbackLabel }: WeeklyHeroCardP
     : "Descubre lo más destacado de esta semana";
 
   return (
-    <article className="overflow-hidden rounded-2xl border-2 border-white/70 bg-zinc-950 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border-2 border-white/70 bg-zinc-950 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
       <div className="relative h-64 w-full bg-zinc-900 xl:h-72">
         {movie?.posterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
