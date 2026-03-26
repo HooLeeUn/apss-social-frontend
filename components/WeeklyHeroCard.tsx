@@ -17,8 +17,8 @@ export default function WeeklyHeroCard({ movie, fallbackLabel }: WeeklyHeroCardP
     : "Descubre lo más destacado de esta semana";
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-gray-800 bg-zinc-950 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
-      <div className="relative h-80 w-full bg-zinc-900">
+    <article className="overflow-hidden rounded-2xl border-2 border-white/70 bg-zinc-950 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
+      <div className="relative h-64 w-full bg-zinc-900 xl:h-72">
         {movie?.posterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={movie.posterUrl} alt={`Poster de ${title}`} className="h-full w-full object-cover opacity-85" />
@@ -31,7 +31,7 @@ export default function WeeklyHeroCard({ movie, fallbackLabel }: WeeklyHeroCardP
 
       <div className="space-y-2 p-4 text-zinc-100">
         <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Recomendación semanal</p>
-        <h3 className="text-xl font-semibold leading-tight">{title}</h3>
+        <h3 className="text-lg font-semibold leading-tight xl:text-xl">{title}</h3>
         <p className="text-sm text-zinc-300">{subtitle}</p>
         <p className="text-sm text-zinc-400">{yearAndGenres}</p>
         <p className="pt-1 text-sm text-zinc-300">⭐ {renderRating(movie?.displayRating)} · 👥 {renderRating(movie?.followingAvgRating)}</p>

@@ -2,7 +2,7 @@ import { Movie } from "../lib/movies";
 
 interface MovieCardProps {
   movie: Movie;
-  variant?: "large" | "compact";
+  variant?: "large" | "compact" | "feed";
 }
 
 function renderRating(value: number | null) {
@@ -11,35 +11,46 @@ function renderRating(value: number | null) {
 
 export default function MovieCard({ movie, variant = "compact" }: MovieCardProps) {
   const isLarge = variant === "large";
+  const isFeed = variant === "feed";
 
   return (
     <article
-      className={`rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm ${
+      className={`overflow-hidden rounded-xl border shadow-sm ${
+        isFeed
+          ? "border-2 border-white/70 bg-zinc-950 text-zinc-100"
+          : "border border-gray-200 bg-white"
+      } ${
         isLarge ? "md:flex" : ""
       }`}
     >
       <div
-        className={`bg-gray-200 flex-shrink-0 ${
-          isLarge ? "h-72 md:h-auto md:w-48" : "h-56"
+        className={`flex-shrink-0 ${
+          isFeed ? "h-52 bg-zinc-900" : "bg-gray-200"
+        } ${
+          isLarge ? "h-72 md:h-auto md:w-48" : isFeed ? "sm:h-56" : "h-56"
         }`}
       >
         {movie.posterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={movie.posterUrl} alt={`Poster de ${movie.title}`} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm px-3 text-center">
+          <div
+            className={`flex h-full w-full items-center justify-center px-3 text-center text-sm ${
+              isFeed ? "text-zinc-400" : "text-gray-500"
+            }`}
+          >
             Poster no disponible
           </div>
         )}
       </div>
 
-      <div className="p-4 space-y-2 flex-1">
+      <div className={`flex-1 space-y-2 p-4 ${isFeed ? "text-zinc-100" : ""}`}>
         <h3 className={`font-semibold ${isLarge ? "text-lg" : "text-base"}`}>{movie.title}</h3>
-        <p className="text-sm text-gray-500">{movie.contentType}</p>
-        <p className="text-sm text-gray-600">
+        <p className={`text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{movie.contentType}</p>
+        <p className={`text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
           {movie.year} · {movie.genres.length > 0 ? movie.genres.join(", ") : "Sin género"}
         </p>
-        <div className="text-sm text-gray-700 space-y-1">
+        <div className={`space-y-1 text-sm ${isFeed ? "text-zinc-300" : "text-gray-700"}`}>
           <p>⭐ Rating general: {renderRating(movie.displayRating)}</p>
           <p>🙋 Mi rating: {renderRating(movie.myRating)}</p>
           <p>👥 Following avg: {renderRating(movie.followingAvgRating)}</p>

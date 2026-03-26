@@ -12,6 +12,9 @@ interface GenreChipsProps {
   onAction?: () => void;
   className?: string;
   chipsContainerClassName?: string;
+  chipClassName?: string;
+  selectedChipClassName?: string;
+  unselectedChipClassName?: string;
 }
 
 interface NormalizedGenreChip {
@@ -31,6 +34,9 @@ export default function GenreChips({
   onAction,
   className,
   chipsContainerClassName,
+  chipClassName,
+  selectedChipClassName,
+  unselectedChipClassName,
 }: GenreChipsProps) {
   const normalizedGenres: NormalizedGenreChip[] = genres.map((genre) =>
     typeof genre === "string"
@@ -70,9 +76,9 @@ export default function GenreChips({
               }}
               className={`whitespace-nowrap rounded-full border px-3 py-1 text-sm transition-colors ${
                 selected
-                  ? "border-black bg-black text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-              }`}
+                  ? (selectedChipClassName ?? "border-black bg-black text-white")
+                  : (unselectedChipClassName ?? "border-gray-300 bg-white text-gray-700 hover:border-gray-400")
+              } ${chipClassName ?? ""}`.trim()}
             >
               {chip.label}
             </button>
