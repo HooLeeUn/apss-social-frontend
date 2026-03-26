@@ -1,41 +1,68 @@
+import type { GenreOption } from "../lib/genres";
+
 interface GenreChipsProps {
-  genres: readonly string[];
-  selectedGenres: string[];
-  onToggleGenre: (genre: string) => void;
+  genres: readonly (string | GenreOption)[];
+  selectedGenres?: string[];
+  onToggleGenre?: (genre: string) => void;
+  selectedGenre?: string;
+  onSelectGenre?: (genre: string) => void;
   onClearSelection?: () => void;
   showAllChip?: boolean;
   actionLabel?: string;
   onAction?: () => void;
 }
 
+interface NormalizedGenreChip {
+  label: string;
+  value: string;
+}
+
 export default function GenreChips({
   genres,
   selectedGenres,
   onToggleGenre,
+  selectedGenre,
+  onSelectGenre,
   onClearSelection,
   showAllChip = false,
   actionLabel,
   onAction,
 }: GenreChipsProps) {
-  const chips = showAllChip ? ["Todos", ...genres] : genres;
+  const normalizedGenres: NormalizedGenreChip[] = genres.map((genre) =>
+    typeof genre === "string"
+      ? { label: genre, value: genre }
+      : { label: genre.label, value: genre.value },
+  );
+
+  const selectedValues =
+    selectedGenres ?? (selectedGenre && selectedGenre !== "Todos" ? [selectedGenre] : []);
+
+  const chips = showAllChip
+    ? [{ label: "Todos", value: "Todos", isAll: true }, ...normalizedGenres.map((genre) => ({ ...genre, isAll: false }))]
+    : normalizedGenres.map((genre) => ({ ...genre, isAll: false }));
 
   return (
     <div className="flex items-center gap-2">
       <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
-        {chips.map((genre) => {
-          const selected = genre !== "Todos" && selectedGenres.includes(genre);
+        {chips.map((chip) => {
+          const selected = !chip.isAll && selectedValues.includes(chip.value);
 
           return (
             <button
-              key={genre}
+              key={chip.value}
               type="button"
               onClick={() => {
-                if (genre === "Todos") {
+                if (chip.isAll) {
                   onClearSelection?.();
                   return;
                 }
 
-                onToggleGenre(genre);
+                if (onToggleGenre) {
+                  onToggleGenre(chip.value);
+                  return;
+                }
+
+                onSelectGenre?.(chip.value);
               }}
               className={`whitespace-nowrap rounded-full border px-3 py-1 text-sm transition-colors ${
                 selected
@@ -43,7 +70,7 @@ export default function GenreChips({
                   : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
               }`}
             >
-              {genre}
+              {chip.label}
             </button>
           );
         })}
