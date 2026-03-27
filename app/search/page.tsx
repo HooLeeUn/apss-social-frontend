@@ -6,10 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
-import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
+import { ApiError, apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
 import { FEED_GENRE_OPTIONS } from "../../lib/genres";
-import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination, SEARCH_ENDPOINT } from "../../lib/movies";
+import { Movie, normalizeMovie, parseMoviePagination } from "../../lib/movies";
 
 function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
   const merged = [...existing];
@@ -90,20 +90,26 @@ export default function SearchPage() {
         let accumulatedMovies: Movie[] = [];
 
         while (currentPage <= targetPage) {
-          const payload =
-            currentPage === 1 || !nextPageEndpoint
-              ? await apiFetch(
-                  `${SEARCH_ENDPOINT}?${new URLSearchParams({
-                    q: query,
-                    page: String(currentPage),
-                    ...(genre ? { genre } : {}),
-                  }).toString()}`,
-                )
-              : await apiFetch(normalizeNextEndpoint(nextPageEndpoint, API_BASE_URL));
+          const endpoint = `/movies/?${new URLSearchParams({
+            search: query,
+            page: String(currentPage),
+            ...(genre ? { genre } : {}),
+          }).toString()}`;
 
-          const parsedMovies = parseMovieList(payload);
-          const pagination = parseMoviePagination(payload);
+          console.log("query:", query);
+          const data = await apiFetch(endpoint);
+          console.log("response:", data);
 
+          const rawResults =
+            typeof data === "object" && data !== null && "results" in data && Array.isArray(data.results)
+              ? data.results
+              : [];
+
+          const parsedMovies = rawResults
+            .filter((movie): movie is Record<string, unknown> => typeof movie === "object" && movie !== null)
+            .map((movie, index) => normalizeMovie(movie, index));
+
+          const pagination = parseMoviePagination(data);
           accumulatedMovies = mergeUniqueMovies(accumulatedMovies, parsedMovies);
           nextPageEndpoint = pagination.next;
 
