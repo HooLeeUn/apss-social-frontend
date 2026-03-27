@@ -22,10 +22,9 @@ export default function WeeklyMiniCard({ movie, fallbackLabel }: WeeklyMiniCardP
   const title = movie?.title ?? fallbackLabel;
   const genre = movie?.genres?.[0] ?? "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
+  const year = movie?.year?.trim();
+  const hasYear = Boolean(year && year !== "-");
   const topUserName = movie?.topUser?.name?.trim() || "Top user";
-
-  const hasFollowingRating = movie?.followingAvgRating !== null && movie?.followingAvgRating !== undefined;
-  const hasMyRating = movie?.myRating !== null && movie?.myRating !== undefined;
 
   return (
     <article className="relative h-full pl-4">
@@ -40,24 +39,25 @@ export default function WeeklyMiniCard({ movie, fallbackLabel }: WeeklyMiniCardP
 
       <div className="flex h-full overflow-hidden rounded-xl border border-white/25 bg-zinc-950 p-[2px] shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
         <div className="flex h-full w-full overflow-hidden rounded-[10px] border border-white/10 bg-zinc-900/90">
-          <div className="flex min-w-0 flex-1 flex-col justify-between p-2.5">
-            <div className="min-w-0 space-y-1">
-              <h4 className="line-clamp-1 text-sm font-semibold leading-tight text-zinc-50">{title}</h4>
+          <div className="flex min-w-0 flex-1 flex-col p-2.5 pt-2">
+            <div className="min-w-0">
+              <h4 className="line-clamp-2 min-h-[2.4rem] text-sm font-semibold leading-snug text-zinc-50">{title}</h4>
+            </div>
+
+            <div className="mt-2 space-y-1.5">
               <p className="line-clamp-1 text-[11px] text-zinc-400">
                 <span>{genre}</span>
                 <span className="mx-1.5 text-zinc-600">•</span>
                 <span>{type}</span>
+                <span className="mx-1.5 text-zinc-600">•</span>
+                <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
               </p>
-            </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-200">
-              <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">⭐ {renderRating(movie?.displayRating)}</span>
-              {hasFollowingRating && (
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-200">
+                <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">⭐ {renderRating(movie?.displayRating)}</span>
                 <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">👥 {renderRating(movie?.followingAvgRating)}</span>
-              )}
-              {hasMyRating && (
                 <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">🙋 {renderRating(movie?.myRating)}</span>
-              )}
+              </div>
             </div>
           </div>
 
