@@ -20,7 +20,8 @@ function getAvatarFallback(name?: string | null): string {
 
 export default function WeeklyMiniCard({ movie, fallbackLabel }: WeeklyMiniCardProps) {
   const title = movie?.title ?? fallbackLabel;
-  const genre = movie?.genres?.[0] ?? "Sin género";
+  const genres = movie?.genres?.filter(Boolean) ?? [];
+  const genre = genres.length ? genres.slice(0, 3).join(" • ") : "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
@@ -44,15 +45,17 @@ export default function WeeklyMiniCard({ movie, fallbackLabel }: WeeklyMiniCardP
               <h4 className="line-clamp-2 min-h-[2.4rem] text-sm font-semibold leading-snug text-zinc-50">{title}</h4>
             </div>
 
-            <div className="mt-2 space-y-1.5">
-              <p className="line-clamp-1 text-[11px] text-zinc-400">
+            <div className="mt-2 min-h-[2.7rem]">
+              <p className="line-clamp-2 text-[11px] leading-snug text-zinc-400">
                 <span>{genre}</span>
                 <span className="mx-1.5 text-zinc-600">•</span>
                 <span>{type}</span>
                 <span className="mx-1.5 text-zinc-600">•</span>
                 <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
               </p>
+            </div>
 
+            <div className="mt-auto pt-2">
               <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-200">
                 <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">⭐ {renderRating(movie?.displayRating)}</span>
                 <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">👥 {renderRating(movie?.followingAvgRating)}</span>
