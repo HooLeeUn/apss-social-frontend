@@ -1,3 +1,8 @@
+export interface MovieTopUser {
+  name: string | null;
+  avatarUrl: string | null;
+}
+
 export interface Movie {
   id: number | string;
   title: string;
@@ -8,6 +13,7 @@ export interface Movie {
   displayRating: number | null;
   myRating: number | null;
   followingAvgRating: number | null;
+  topUser: MovieTopUser | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -61,6 +67,45 @@ function toStringList(value: unknown): string[] {
   return [];
 }
 
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function toStringOrNull(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+function parseTopUser(raw: Record<string, unknown>): MovieTopUser | null {
+  const nestedTopUser = toRecord(pickFirst(raw.top_user, raw.topUser, raw.recommended_by));
+
+  const name = toStringOrNull(
+    pickFirst(
+      nestedTopUser?.name,
+      nestedTopUser?.username,
+      raw.top_user_name,
+      raw.topUserName,
+      raw.recommended_by_name,
+    ),
+  );
+
+  const avatarUrl = toStringOrNull(
+    pickFirst(
+      nestedTopUser?.avatar,
+      nestedTopUser?.avatar_url,
+      nestedTopUser?.profile_image,
+      raw.top_user_avatar,
+      raw.topUserAvatar,
+      raw.recommended_by_avatar,
+    ),
+  );
+
+  if (!name && !avatarUrl) return null;
+
+  return { name, avatarUrl };
+}
+
 function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
   for (const value of values) {
     if (value !== null && value !== undefined) return value;
@@ -106,6 +151,7 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     displayRating: toNumber(pickFirst(raw.display_rating, raw.general_rating, raw.avg_rating, raw.rating)),
     myRating: toNumber(raw.my_rating),
     followingAvgRating: toNumber(pickFirst(raw.following_avg_rating, raw.following_rating)),
+    topUser: parseTopUser(raw),
   };
 }
 
