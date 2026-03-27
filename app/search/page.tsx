@@ -9,7 +9,18 @@ import SearchBar from "../../components/SearchBar";
 import { ApiError, apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
 import { FEED_GENRE_OPTIONS } from "../../lib/genres";
-import { Movie, normalizeMovie, parseMoviePagination } from "../../lib/movies";
+import { Movie, normalizeMovie, PaginatedResponse, parseMoviePagination } from "../../lib/movies";
+
+type SearchMoviePayload = Record<string, unknown>;
+
+function hasSearchResults(payload: unknown): payload is PaginatedResponse<SearchMoviePayload> {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    "results" in payload &&
+    Array.isArray((payload as { results?: unknown }).results)
+  );
+}
 
 function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
   const merged = [...existing];
@@ -97,17 +108,14 @@ export default function SearchPage() {
           }).toString()}`;
 
           console.log("query:", query);
-          const data = await apiFetch(endpoint);
+          const data: unknown = await apiFetch(endpoint);
           console.log("response:", data);
 
-          const rawResults =
-            typeof data === "object" && data !== null && "results" in data && Array.isArray(data.results)
-              ? data.results
-              : [];
+          const rawResults: SearchMoviePayload[] = hasSearchResults(data) ? data.results : [];
 
           const parsedMovies = rawResults
-            .filter((movie): movie is Record<string, unknown> => typeof movie === "object" && movie !== null)
-            .map((movie, index) => normalizeMovie(movie, index));
+            .filter((movie: SearchMoviePayload): movie is SearchMoviePayload => typeof movie === "object" && movie !== null)
+            .map((movie: SearchMoviePayload, index: number) => normalizeMovie(movie, index));
 
           const pagination = parseMoviePagination(data);
           accumulatedMovies = mergeUniqueMovies(accumulatedMovies, parsedMovies);
