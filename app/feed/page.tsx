@@ -219,14 +219,14 @@ export default function FeedPage() {
         </section>
 
         <section className="space-y-5 bg-black pb-8">
-          <div className="mx-auto w-full max-w-[1040px] px-3 sm:px-5">
+          <div className="mx-auto w-full max-w-[920px] px-3 sm:px-4">
             <h2 className="text-xl font-semibold text-zinc-100">Tu Cartelera</h2>
           </div>
           {personalizedMovies.length === 0 ? (
             <p className="pl-3 text-zinc-400 md:pl-6">No hay películas personalizadas disponibles.</p>
           ) : (
-            <div className="mx-auto w-full max-w-[1040px] rounded-2xl bg-zinc-950/45 px-3 py-3 sm:px-5 sm:py-5">
-              <div className="grid gap-4 md:grid-cols-2">
+            <div className="mx-auto w-full max-w-[920px] rounded-2xl bg-zinc-950/45 px-3 py-3 sm:px-4 sm:py-4">
+              <div className="grid gap-3.5 md:grid-cols-2">
               {personalizedMovies.map((movie) => (
                 <MovieCard key={movie.id} movie={movie} variant="feed" />
               ))}
