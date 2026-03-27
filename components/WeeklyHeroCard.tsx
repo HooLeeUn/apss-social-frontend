@@ -22,6 +22,8 @@ export default function WeeklyHeroCard({ movie, fallbackLabel }: WeeklyHeroCardP
   const title = movie?.title ?? fallbackLabel;
   const genre = movie?.genres?.[0] ?? "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
+  const year = movie?.year?.trim();
+  const hasYear = Boolean(year && year !== "-");
   const topUserName = movie?.topUser?.name?.trim() || "Top user";
 
   return (
@@ -71,6 +73,8 @@ export default function WeeklyHeroCard({ movie, fallbackLabel }: WeeklyHeroCardP
             <span>{genre}</span>
             <span className="mx-2 text-zinc-600">•</span>
             <span>{type}</span>
+            <span className="mx-2 text-zinc-600">•</span>
+            <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
           </p>
 
           <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3 sm:gap-3">
