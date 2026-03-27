@@ -83,11 +83,11 @@ export default function WeeklyHeroCard({ movie, fallbackLabel }: WeeklyHeroCardP
               <p className="text-base font-semibold text-zinc-100">⭐ {renderRating(movie?.displayRating)}</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Following</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Seguidos</p>
               <p className="text-base font-semibold text-zinc-100">👥 {renderRating(movie?.followingAvgRating)}</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Mi rating</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Mi puntaje</p>
               <p className="text-base font-semibold text-zinc-100">🙋 {renderRating(movie?.myRating)}</p>
             </div>
           </div>
