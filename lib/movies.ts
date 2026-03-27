@@ -37,6 +37,25 @@ export const PERSONALIZED_MOVIES_FEED_ENDPOINT =
 export const GENRES_ENDPOINT = process.env.NEXT_PUBLIC_GENRES_ENDPOINT || "/movies/genres/";
 export const SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_SEARCH_ENDPOINT || "/movies/search/";
 
+export function normalizeNextEndpoint(nextUrl: string, apiBaseUrl: string): string {
+  if (nextUrl.startsWith("http://") || nextUrl.startsWith("https://")) {
+    const { pathname, search } = new URL(nextUrl);
+    const normalizedPath = pathname.startsWith("/api/") ? pathname.replace(/^\/api/, "") : pathname;
+    return `${normalizedPath}${search}`;
+  }
+
+  if (nextUrl.startsWith("/api/")) {
+    return nextUrl.replace(/^\/api/, "");
+  }
+
+  if (nextUrl.startsWith("/")) {
+    return nextUrl;
+  }
+
+  const basePath = new URL(apiBaseUrl).pathname.replace(/\/$/, "");
+  return `${basePath ? `${basePath}/` : "/"}${nextUrl}`;
+}
+
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() !== "") {
