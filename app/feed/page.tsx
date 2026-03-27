@@ -15,26 +15,8 @@ import {
   WEEKLY_MOVIES_FEED_ENDPOINT,
   parseMovieList,
   parseMoviePagination,
+  normalizeNextEndpoint,
 } from "../../lib/movies";
-
-function normalizeNextEndpoint(nextUrl: string): string {
-  if (nextUrl.startsWith("http://") || nextUrl.startsWith("https://")) {
-    const { pathname, search } = new URL(nextUrl);
-    const normalizedPath = pathname.startsWith("/api/") ? pathname.replace(/^\/api/, "") : pathname;
-    return `${normalizedPath}${search}`;
-  }
-
-  if (nextUrl.startsWith("/api/")) {
-    return nextUrl.replace(/^\/api/, "");
-  }
-
-  if (nextUrl.startsWith("/")) {
-    return nextUrl;
-  }
-
-  const basePath = new URL(API_BASE_URL).pathname.replace(/\/$/, "");
-  return `${basePath ? `${basePath}/` : "/"}${nextUrl}`;
-}
 
 function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
   const merged = [...existing];
@@ -143,7 +125,7 @@ export default function FeedPage() {
 
     try {
       setIsLoadingMorePersonalized(true);
-      const payload = await apiFetch(normalizeNextEndpoint(personalizedNext));
+      const payload = await apiFetch(normalizeNextEndpoint(personalizedNext, API_BASE_URL));
       const nextPageMovies = parseMovieList(payload);
       const pagination = parseMoviePagination(payload);
 
