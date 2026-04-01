@@ -13,7 +13,6 @@ import {
   Movie,
   MOVIES_FEED_ENDPOINT,
   WEEKLY_MOVIES_FEED_ENDPOINT,
-  WEEKLY_MOVIES_FEED_FALLBACK_ENDPOINTS,
   parseMovieList,
   parseMoviePagination,
   normalizeNextEndpoint,
@@ -56,34 +55,11 @@ export default function FeedPage() {
 
     const loadFeed = async () => {
       try {
-        const loadWeeklyWithFallbacks = async () => {
-          const weeklyEndpoints = [WEEKLY_MOVIES_FEED_ENDPOINT, ...WEEKLY_MOVIES_FEED_FALLBACK_ENDPOINTS];
-
-          for (let index = 0; index < weeklyEndpoints.length; index += 1) {
-            const endpoint = weeklyEndpoints[index];
-            try {
-              const payload = await apiFetch(endpoint);
-              console.log("[weekly-debug] Weekly endpoint success:", { endpoint, isOfficial: index === 0 });
-              return { ok: true as const, payload };
-            } catch (error) {
-              if (error instanceof ApiError && [404, 405].includes(error.status) && index < weeklyEndpoints.length - 1) {
-                console.log("[weekly-debug] Weekly endpoint fallback:", {
-                  attemptedEndpoint: endpoint,
-                  status: error.status,
-                  nextEndpoint: weeklyEndpoints[index + 1],
-                });
-                continue;
-              }
-              console.log("[weekly-debug] Weekly endpoint error:", { endpoint, error });
-              return { ok: false as const, error };
-            }
-          }
-
-          return { ok: false as const, error: new Error("No weekly endpoint available.") };
-        };
-
         const [weeklyResult, personalizedResult] = await Promise.all([
-          loadWeeklyWithFallbacks(),
+          apiFetch(WEEKLY_MOVIES_FEED_ENDPOINT).then(
+            (payload) => ({ ok: true as const, payload }),
+            (error) => ({ ok: false as const, error }),
+          ),
           apiFetch(MOVIES_FEED_ENDPOINT).then(
             (payload) => ({ ok: true as const, payload }),
             (error) => ({ ok: false as const, error }),
