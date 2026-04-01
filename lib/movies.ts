@@ -179,16 +179,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function parseMovieList(payload: unknown): Movie[] {
-  const source =
-    Array.isArray(payload)
-      ? payload
-      : isRecord(payload) && Array.isArray(payload.results)
-        ? payload.results
-        : isRecord(payload) && Array.isArray(payload.items)
-          ? payload.items
-          : isRecord(payload) && Array.isArray(payload.data)
-            ? payload.data
-            : [];
+  const source = (() => {
+    if (Array.isArray(payload)) return payload;
+    if (!isRecord(payload)) return [];
+
+    if (Array.isArray(payload.results)) return payload.results;
+    if (Array.isArray(payload.items)) return payload.items;
+    if (Array.isArray(payload.data)) return payload.data;
+    if (Array.isArray(payload.movies)) return payload.movies;
+    if (Array.isArray(payload.weekly)) return payload.weekly;
+    if (Array.isArray(payload.recommendations)) return payload.recommendations;
+
+    const nestedData = toRecord(payload.data);
+    if (nestedData) {
+      if (Array.isArray(nestedData.results)) return nestedData.results;
+      if (Array.isArray(nestedData.items)) return nestedData.items;
+      if (Array.isArray(nestedData.movies)) return nestedData.movies;
+      if (Array.isArray(nestedData.weekly)) return nestedData.weekly;
+      if (Array.isArray(nestedData.recommendations)) return nestedData.recommendations;
+    }
+
+    return [];
+  })();
 
   return source
     .filter((item): item is Record<string, unknown> => isRecord(item))

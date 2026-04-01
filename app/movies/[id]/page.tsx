@@ -15,6 +15,7 @@ import {
   DIRECTED_COMMENTS_ENDPOINT,
   Friend,
   FRIENDS_ENDPOINT,
+  MENTION_FRIENDS_ENDPOINT,
   parseComments,
   parseFriends,
   PUBLIC_COMMENTS_ENDPOINT,
@@ -34,6 +35,23 @@ function buildMovieIdQuery(movieId: string): string {
 
 function buildDirectedQuery(movieId: string, box: DirectedTab): string {
   return `?${new URLSearchParams({ movie_id: movieId, box }).toString()}`;
+}
+
+async function fetchMentionFriends(): Promise<unknown> {
+  const endpoints = [MENTION_FRIENDS_ENDPOINT, FRIENDS_ENDPOINT];
+
+  for (const endpoint of endpoints) {
+    try {
+      return await apiFetch(endpoint);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new ApiError(404, "No se encontró endpoint de amigos para menciones.");
 }
 
 function applyReactionToCollection(
@@ -126,7 +144,7 @@ export default function MovieDetailPage() {
       }
 
       const [friendsResult, publicResult, directedReceivedResult, directedSentResult] = await Promise.all([
-        apiFetch(FRIENDS_ENDPOINT).then(
+        fetchMentionFriends().then(
           (payload) => ({ ok: true as const, payload }),
           (error) => ({ ok: false as const, error }),
         ),
@@ -165,10 +183,10 @@ export default function MovieDetailPage() {
       }
 
       if (friendsResult.ok) {
-        console.log("[mentions-debug] Friends endpoint response:", friendsResult.payload);
         const normalizedFriends = parseFriends(friendsResult.payload);
-        console.log("[mentions-debug] Normalized friends list:", normalizedFriends);
         setFriends(normalizedFriends);
+      } else {
+        console.warn("Mentions friends load failed", friendsResult.error);
       }
 
       if (publicResult.ok) {

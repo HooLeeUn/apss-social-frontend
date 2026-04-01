@@ -21,6 +21,8 @@ export interface SocialComment {
 }
 
 export const FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
+export const MENTION_FRIENDS_ENDPOINT =
+  process.env.NEXT_PUBLIC_SOCIAL_MENTION_FRIENDS_ENDPOINT || "/social/mentions/friends/";
 export const PUBLIC_COMMENTS_ENDPOINT =
   process.env.NEXT_PUBLIC_SOCIAL_PUBLIC_COMMENTS_ENDPOINT || "/social/comments/public/";
 export const DIRECTED_COMMENTS_ENDPOINT =
@@ -72,15 +74,55 @@ function getFriendsSource(payload: unknown): unknown[] {
 
   if (Array.isArray(root.results)) return root.results;
   if (Array.isArray(root.items)) return root.items;
+  if (Array.isArray(root.friends)) return root.friends;
+  if (Array.isArray(root.friendships)) return root.friendships;
 
   const data = toRecord(root.data);
-  if (!data) return [];
+  if (data) {
+    if (Array.isArray(data.results)) return data.results;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.friends)) return data.friends;
+    if (Array.isArray(data.friendships)) return data.friendships;
+  }
 
-  if (Array.isArray(data.results)) return data.results;
-  if (Array.isArray(data.items)) return data.items;
-  if (Array.isArray(data.friends)) return data.friends;
+  const payloadRecord = toRecord(root.payload);
+  if (!payloadRecord) return [];
+  if (Array.isArray(payloadRecord.results)) return payloadRecord.results;
+  if (Array.isArray(payloadRecord.items)) return payloadRecord.items;
+  if (Array.isArray(payloadRecord.friends)) return payloadRecord.friends;
+  if (Array.isArray(payloadRecord.friendships)) return payloadRecord.friendships;
 
   return [];
+}
+
+function isAcceptedFriendship(friendship: Record<string, unknown>): boolean {
+  const status = toStringOrNull(pickFirst(friendship.status, friendship.friendship_status, friendship.state));
+  if (!status) return true;
+  return status.toLowerCase() === "accepted";
+}
+
+function normalizeIdentity(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized || null;
+}
+
+function inferCurrentIdentity(payload: unknown): { username: string | null; userId: string | null } {
+  const root = toRecord(payload);
+  if (!root) {
+    return { username: null, userId: null };
+  }
+
+  const currentUser = toRecord(pickFirst(root.current_user, root.me, root.user, root.authenticated_user));
+  const username = normalizeIdentity(
+    pickFirst(currentUser?.username, root.current_username, root.username, currentUser?.name, root.current_user_name),
+  );
+  const userIdRaw = pickFirst(currentUser?.id, root.current_user_id, root.user_id);
+
+  return {
+    username,
+    userId: userIdRaw !== null && userIdRaw !== undefined ? String(userIdRaw) : null,
+  };
 }
 
 function getFriendRecord(friendship: Record<string, unknown>): Record<string, unknown> {
@@ -100,20 +142,48 @@ function getFriendRecord(friendship: Record<string, unknown>): Record<string, un
 
 export function parseFriends(payload: unknown): Friend[] {
   const source = getFriendsSource(payload);
+  const currentIdentity = inferCurrentIdentity(payload);
+  const seen = new Set<string>();
 
   return source
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
+    .filter((friendship) => isAcceptedFriendship(friendship))
     .map((friendship, index) => {
-      const friend = getFriendRecord(friendship);
+      const requester = toRecord(friendship.requester) || toRecord(friendship.sender) || toRecord(friendship.from_user);
+      const addressee = toRecord(friendship.addressee) || toRecord(friendship.receiver) || toRecord(friendship.to_user);
+
+      const requesterUsername = normalizeIdentity(pickFirst(requester?.username, requester?.name));
+      const addresseeUsername = normalizeIdentity(pickFirst(addressee?.username, addressee?.name));
+      const requesterId = requester?.id !== undefined ? String(requester.id) : null;
+      const addresseeId = addressee?.id !== undefined ? String(addressee.id) : null;
+
+      let friend: Record<string, unknown> = getFriendRecord(friendship);
+
+      if (requester && addressee) {
+        const isRequesterCurrent =
+          (currentIdentity.username && requesterUsername === currentIdentity.username) ||
+          (currentIdentity.userId && requesterId === currentIdentity.userId);
+        const isAddresseeCurrent =
+          (currentIdentity.username && addresseeUsername === currentIdentity.username) ||
+          (currentIdentity.userId && addresseeId === currentIdentity.userId);
+
+        if (isRequesterCurrent && !isAddresseeCurrent) friend = addressee;
+        if (isAddresseeCurrent && !isRequesterCurrent) friend = requester;
+      }
+
       const username = String(pickFirst(friend.username, friend.name, friend.user_name, `amigo-${index + 1}`));
+      const normalizedUsername = username.trim().toLowerCase();
+      if (!normalizedUsername || seen.has(normalizedUsername)) return null;
+      seen.add(normalizedUsername);
+
       return {
         id: pickFirst(friend.id, friend.user_id, friendship.id, username) as number | string,
         username,
         avatarUrl: toStringOrNull(pickFirst(friend.avatar, friend.avatar_url, friend.profile_image, friend.photo_url)),
       };
     })
-    .filter((friend) => friend.username.trim().length > 0);
+    .filter((friend): friend is Friend => Boolean(friend));
 }
 
 function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" | "directed"): SocialComment {
