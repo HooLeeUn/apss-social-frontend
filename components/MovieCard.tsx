@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Movie } from "../lib/movies";
+import RatingPopover from "./RatingPopover";
 
 interface MovieCardProps {
   movie: Movie;
   variant?: "large" | "compact" | "feed";
   linkToDetail?: boolean;
+  onRated?: (movieId: Movie["id"], score: number) => void;
 }
 
 function renderRating(value: number | null) {
@@ -19,7 +21,7 @@ function formatContentType(contentType: string) {
   return contentType;
 }
 
-export default function MovieCard({ movie, variant = "compact", linkToDetail = true }: MovieCardProps) {
+export default function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
   const typeYearLine = [formatContentType(movie.contentType), movie.year && movie.year !== "-" ? movie.year : null]
@@ -93,10 +95,18 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
           </div>
           <div className={isFeed ? "flex items-center gap-1 text-sm font-semibold" : ""}>
             {isFeed ? (
-              <>
-                <span aria-hidden="true">🙋</span>
-                <span aria-label="Mi puntaje">{renderRating(movie.myRating)}</span>
-              </>
+              onRated ? (
+                <RatingPopover
+                  movieId={movie.id}
+                  currentRating={movie.myRating}
+                  onRated={(score) => onRated(movie.id, score)}
+                />
+              ) : (
+                <>
+                  <span aria-hidden="true">🙋</span>
+                  <span aria-label="Mi puntaje">{renderRating(movie.myRating)}</span>
+                </>
+              )
             ) : (
               <>
                 <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>Mi puntaje</p>
