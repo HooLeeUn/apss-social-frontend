@@ -4,9 +4,10 @@ import WeeklyMiniCard from "./WeeklyMiniCard";
 
 interface WeeklyRecommendationsSectionProps {
   weeklyMovies: Movie[];
+  onRated?: (movieId: Movie["id"], score: number) => void;
 }
 
-export default function WeeklyRecommendationsSection({ weeklyMovies }: WeeklyRecommendationsSectionProps) {
+export default function WeeklyRecommendationsSection({ weeklyMovies, onRated }: WeeklyRecommendationsSectionProps) {
   const heroMovies = [weeklyMovies[0], weeklyMovies[1]];
   const miniMovies = Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]);
 
@@ -17,10 +18,10 @@ export default function WeeklyRecommendationsSection({ weeklyMovies }: WeeklyRec
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-stretch lg:gap-8">
         <div className="grid grid-cols-1 gap-4 lg:h-full lg:grid-cols-2 lg:auto-rows-fr">
           <div className="h-full">
-            <WeeklyHeroCard movie={heroMovies[0]} fallbackLabel="Recomendación destacada #1" />
+            <WeeklyHeroCard movie={heroMovies[0]} fallbackLabel="Recomendación destacada #1" onRated={onRated} />
           </div>
           <div className="h-full">
-            <WeeklyHeroCard movie={heroMovies[1]} fallbackLabel="Recomendación destacada #2" />
+            <WeeklyHeroCard movie={heroMovies[1]} fallbackLabel="Recomendación destacada #2" onRated={onRated} />
           </div>
         </div>
 
@@ -28,7 +29,7 @@ export default function WeeklyRecommendationsSection({ weeklyMovies }: WeeklyRec
           <div className="grid h-full grid-cols-2 gap-3 lg:grid-rows-3 lg:auto-rows-fr">
             {miniMovies.map((movie, index) => (
               <div key={movie?.id ?? `weekly-mini-${index}`} className="h-full">
-                <WeeklyMiniCard movie={movie} fallbackLabel={`Top #${index + 3}`} />
+                <WeeklyMiniCard movie={movie} fallbackLabel={`Top #${index + 3}`} onRated={onRated} />
               </div>
             ))}
           </div>

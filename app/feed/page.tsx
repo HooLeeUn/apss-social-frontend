@@ -165,6 +165,16 @@ export default function FeedPage() {
     );
   };
 
+  const updateWeeklyMovieRating = useCallback((movieId: Movie["id"], score: number) => {
+    setWeeklyMovies((current) =>
+      current.map((movie) => (String(movie.id) === String(movieId) ? { ...movie, myRating: score } : movie)),
+    );
+  }, []);
+
+  const handlePersonalizedRated = useCallback((movieId: Movie["id"]) => {
+    setPersonalizedMovies((current) => current.filter((movie) => String(movie.id) !== String(movieId)));
+  }, []);
+
   if (loading) {
     return <div className="p-6 text-zinc-100">Cargando feed principal...</div>;
   }
@@ -197,7 +207,7 @@ export default function FeedPage() {
             unselectedChipClassName="border-white/70 bg-zinc-900 text-zinc-200 hover:border-white"
           />
 
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} />
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} onRated={updateWeeklyMovieRating} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">
@@ -210,7 +220,13 @@ export default function FeedPage() {
             <div className="mx-auto w-full max-w-[860px] rounded-2xl bg-zinc-950/45 px-3 py-3 sm:px-4 sm:py-4">
               <div className="grid gap-3 md:grid-cols-2">
               {personalizedMovies.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} variant="feed" />
+                <MovieCard
+                  key={movie.id}
+                  movie={movie}
+                  variant="feed"
+                  linkToDetail={false}
+                  onRated={(movieId) => handlePersonalizedRated(movieId)}
+                />
               ))}
               </div>
             </div>

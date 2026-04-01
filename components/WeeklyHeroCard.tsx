@@ -1,8 +1,10 @@
 import { Movie } from "../lib/movies";
+import RatingPopover from "./RatingPopover";
 
 interface WeeklyHeroCardProps {
   movie?: Movie;
   fallbackLabel: string;
+  onRated?: (movieId: Movie["id"], score: number) => void;
 }
 
 function renderRating(value: number | null | undefined): string {
@@ -18,7 +20,7 @@ function getAvatarFallback(name?: string | null): string {
   return initials || "★";
 }
 
-export default function WeeklyHeroCard({ movie, fallbackLabel }: WeeklyHeroCardProps) {
+export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) {
   const title = movie?.title ?? fallbackLabel;
   const genre = movie?.genres?.[0] ?? "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
@@ -88,7 +90,13 @@ export default function WeeklyHeroCard({ movie, fallbackLabel }: WeeklyHeroCardP
             </div>
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Mi puntaje</p>
-              <p className="text-base font-semibold text-zinc-100">🙋 {renderRating(movie?.myRating)}</p>
+              <div className="mt-1">
+                {movie && onRated ? (
+                  <RatingPopover movieId={movie.id} currentRating={movie.myRating} onRated={(score) => onRated(movie.id, score)} />
+                ) : (
+                  <p className="text-base font-semibold text-zinc-100">🙋 {renderRating(movie?.myRating)}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

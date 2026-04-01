@@ -1,8 +1,10 @@
 import { Movie } from "../lib/movies";
+import RatingPopover from "./RatingPopover";
 
 interface WeeklyMiniCardProps {
   movie?: Movie;
   fallbackLabel: string;
+  onRated?: (movieId: Movie["id"], score: number) => void;
 }
 
 function renderRating(value: number | null | undefined): string {
@@ -18,7 +20,7 @@ function getAvatarFallback(name?: string | null): string {
   return initials || "★";
 }
 
-export default function WeeklyMiniCard({ movie, fallbackLabel }: WeeklyMiniCardProps) {
+export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) {
   const title = movie?.title ?? fallbackLabel;
   const genres = movie?.genres?.filter(Boolean) ?? [];
   const genre = genres.length ? genres.slice(0, 3).join(" • ") : "Sin género";
@@ -60,7 +62,11 @@ export default function WeeklyMiniCard({ movie, fallbackLabel }: WeeklyMiniCardP
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-200">
                   <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">⭐ {renderRating(movie?.displayRating)}</span>
                   <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">👥 {renderRating(movie?.followingAvgRating)}</span>
-                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">🙋 {renderRating(movie?.myRating)}</span>
+                  {movie && onRated ? (
+                    <RatingPopover movieId={movie.id} currentRating={movie.myRating} onRated={(score) => onRated(movie.id, score)} />
+                  ) : (
+                    <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">🙋 {renderRating(movie?.myRating)}</span>
+                  )}
                 </div>
               </div>
             </div>
