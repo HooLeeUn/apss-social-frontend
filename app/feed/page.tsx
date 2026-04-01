@@ -94,7 +94,7 @@ export default function FeedPage() {
           throw personalizedResult.error;
         }
 
-        const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload) : [];
+        const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload, { debugWeekly: true }) : [];
         const normalizedPersonalized = personalizedResult.ok ? parseMovieList(personalizedResult.payload) : [];
         const personalizedPagination = personalizedResult.ok
           ? parseMoviePagination(personalizedResult.payload)

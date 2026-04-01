@@ -29,6 +29,10 @@ export interface MoviePaginationMeta {
   previous: string | null;
 }
 
+interface ParseMovieListOptions {
+  debugWeekly?: boolean;
+}
+
 export const MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_MOVIES_FEED_ENDPOINT || "/feed/movies/";
 export const WEEKLY_MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_ENDPOINT || "/movies/weekly/";
 export const PERSONALIZED_MOVIES_FEED_ENDPOINT =
@@ -162,23 +166,44 @@ function normalizeContentType(value: unknown): string {
 }
 
 export function normalizeMovie(raw: Record<string, unknown>, index: number): Movie {
-  const genres = toStringList(pickFirst(raw.genres, raw.genre));
+  const nestedMovie = toRecord(raw.movie);
+  const genres = toStringList(pickFirst(raw.genre, nestedMovie?.genre, raw.genres, nestedMovie?.genres));
 
   const title = String(
-    pickFirst(raw.title_spanish, raw.title_english, raw.title, raw.name, "Sin título"),
+    pickFirst(
+      raw.title_english,
+      raw.title_spanish,
+      raw.title,
+      nestedMovie?.title_english,
+      nestedMovie?.title_spanish,
+      nestedMovie?.title,
+      raw.name,
+      nestedMovie?.name,
+      "Sin título",
+    ),
   );
-  const id = pickFirst(raw.id, raw.movie_id, `${title}-${index + 1}`) as number | string;
+  const id = pickFirst(raw.id, raw.movie_id, nestedMovie?.id, `${title}-${index + 1}`) as number | string;
 
-  const yearValue = pickFirst(raw.year, raw.release_year, raw.release_date);
+  const yearValue = pickFirst(raw.release_year, raw.year, nestedMovie?.release_year, nestedMovie?.year, raw.release_date);
   const year = typeof yearValue === "string" ? yearValue.slice(0, 4) : String(yearValue ?? "-");
+  const contentType = pickFirst(raw.type, nestedMovie?.type);
 
   return {
     id,
     title,
-    contentType: normalizeContentType(raw.type),
+    contentType: normalizeContentType(contentType),
     year,
     genres,
-    posterUrl: (pickFirst(raw.poster, raw.poster_url, raw.image_url, raw.image) as string | null) || null,
+    posterUrl:
+      (pickFirst(
+        raw.image,
+        raw.poster,
+        raw.poster_url,
+        nestedMovie?.image,
+        nestedMovie?.poster,
+        nestedMovie?.poster_url,
+        raw.image_url,
+      ) as string | null) || null,
     displayRating: toNumber(pickFirst(raw.display_rating, raw.general_rating, raw.avg_rating, raw.rating)),
     myRating: toNumber(raw.my_rating),
     followingAvgRating: toNumber(pickFirst(raw.following_avg_rating, raw.following_rating)),
@@ -190,7 +215,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-export function parseMovieList(payload: unknown): Movie[] {
+export function parseMovieList(payload: unknown, options: ParseMovieListOptions = {}): Movie[] {
+  if (options.debugWeekly) {
+    console.log("[weekly] payload recibido:", payload);
+  }
+
   const source =
     Array.isArray(payload)
       ? payload
@@ -204,7 +233,13 @@ export function parseMovieList(payload: unknown): Movie[] {
 
   return source
     .filter((item): item is Record<string, unknown> => isRecord(item))
-    .map((item, index) => normalizeMovie(item, index));
+    .map((item, index) => {
+      const normalized = normalizeMovie(item, index);
+      if (options.debugWeekly) {
+        console.log("[weekly] item normalizado:", normalized);
+      }
+      return normalized;
+    });
 }
 
 export function parseMoviePagination(payload: unknown): MoviePaginationMeta {
