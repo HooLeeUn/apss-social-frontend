@@ -30,14 +30,7 @@ export interface MoviePaginationMeta {
 }
 
 export const MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_MOVIES_FEED_ENDPOINT || "/feed/movies/";
-export const WEEKLY_MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_ENDPOINT || "/feed/weekly/";
-export const WEEKLY_MOVIES_FEED_FALLBACK_ENDPOINTS = (
-  process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_FALLBACK_ENDPOINTS || "/movies/weekly/"
-)
-  .split(",")
-  .map((endpoint) => endpoint.trim())
-  .filter(Boolean)
-  .filter((endpoint) => endpoint !== WEEKLY_MOVIES_FEED_ENDPOINT);
+export const WEEKLY_MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_ENDPOINT || "/movies/weekly/";
 export const PERSONALIZED_MOVIES_FEED_ENDPOINT =
   process.env.NEXT_PUBLIC_PERSONALIZED_MOVIES_FEED_ENDPOINT || "/feed/personalized/";
 export const MOVIE_DETAIL_ENDPOINT_TEMPLATE =
