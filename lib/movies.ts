@@ -102,6 +102,38 @@ function toStringList(value: unknown): string[] {
   return [];
 }
 
+function toGenreList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return toStringList(value);
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return normalized ? [normalized] : [];
+  }
+
+  return [];
+}
+
+function resolveGenres(raw: Record<string, unknown>, nestedMovie: Record<string, unknown> | null): string[] {
+  const candidates = [raw.genre, nestedMovie?.genre, raw.genres, nestedMovie?.genres];
+  let bestGenres: string[] = [];
+  let bestScore = 0;
+
+  for (const candidate of candidates) {
+    const parsedGenres = toGenreList(candidate);
+    if (!parsedGenres.length) continue;
+
+    const score = parsedGenres.join(", ").length;
+    if (score > bestScore) {
+      bestGenres = parsedGenres;
+      bestScore = score;
+    }
+  }
+
+  return bestGenres;
+}
+
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
@@ -167,7 +199,7 @@ function normalizeContentType(value: unknown): string {
 
 export function normalizeMovie(raw: Record<string, unknown>, index: number): Movie {
   const nestedMovie = toRecord(raw.movie);
-  const genres = toStringList(pickFirst(raw.genre, nestedMovie?.genre, raw.genres, nestedMovie?.genres));
+  const genres = resolveGenres(raw, nestedMovie);
 
   const title = String(
     pickFirst(
