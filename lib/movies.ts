@@ -30,12 +30,31 @@ export interface MoviePaginationMeta {
 }
 
 export const MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_MOVIES_FEED_ENDPOINT || "/feed/movies/";
-export const WEEKLY_MOVIES_FEED_ENDPOINT =
-  process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_ENDPOINT || "/feed/weekly/";
+export const WEEKLY_MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_ENDPOINT || "/feed/weekly/";
+export const WEEKLY_MOVIES_FEED_FALLBACK_ENDPOINTS = (
+  process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_FALLBACK_ENDPOINTS || "/movies/weekly/"
+)
+  .split(",")
+  .map((endpoint) => endpoint.trim())
+  .filter(Boolean)
+  .filter((endpoint) => endpoint !== WEEKLY_MOVIES_FEED_ENDPOINT);
 export const PERSONALIZED_MOVIES_FEED_ENDPOINT =
   process.env.NEXT_PUBLIC_PERSONALIZED_MOVIES_FEED_ENDPOINT || "/feed/personalized/";
+export const MOVIE_DETAIL_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_MOVIE_DETAIL_ENDPOINT_TEMPLATE || "/movies/{id}/";
+export const MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES = (
+  process.env.NEXT_PUBLIC_MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES || "/movies/details/{id}/"
+)
+  .split(",")
+  .map((endpoint) => endpoint.trim())
+  .filter(Boolean)
+  .filter((endpoint) => endpoint !== MOVIE_DETAIL_ENDPOINT_TEMPLATE);
 export const GENRES_ENDPOINT = process.env.NEXT_PUBLIC_GENRES_ENDPOINT || "/movies/genres/";
 export const SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_SEARCH_ENDPOINT || "/movies/search/";
+
+export function buildMovieDetailEndpoint(movieId: string, template: string = MOVIE_DETAIL_ENDPOINT_TEMPLATE): string {
+  return template.replace("{id}", encodeURIComponent(movieId));
+}
 
 export function normalizeNextEndpoint(nextUrl: string, apiBaseUrl: string): string {
   if (nextUrl.startsWith("http://") || nextUrl.startsWith("https://")) {

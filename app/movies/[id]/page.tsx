@@ -8,13 +8,20 @@ import CommentsList from "../../../components/social/CommentsList";
 import MovieCard from "../../../components/MovieCard";
 import { apiFetch, ApiError } from "../../../lib/api";
 import { getToken } from "../../../lib/auth";
-import { Movie, normalizeMovie } from "../../../lib/movies";
+import {
+  buildMovieDetailEndpoint,
+  MOVIE_DETAIL_ENDPOINT_TEMPLATE,
+  MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES,
+  Movie,
+  normalizeMovie,
+} from "../../../lib/movies";
 import {
   buildReactionEndpoint,
   COMMENT_CREATE_ENDPOINT,
   DIRECTED_COMMENTS_ENDPOINT,
   Friend,
   FRIENDS_ENDPOINT,
+  FRIENDS_FALLBACK_ENDPOINTS,
   parseComments,
   parseFriends,
   PUBLIC_COMMENTS_ENDPOINT,
@@ -34,6 +41,37 @@ function buildMovieIdQuery(movieId: string): string {
 
 function buildDirectedQuery(movieId: string, box: DirectedTab): string {
   return `?${new URLSearchParams({ movie_id: movieId, box }).toString()}`;
+}
+
+async function fetchWithFallbacks<T>(
+  endpoints: string[],
+  logTag: "[mentions-debug]" | "[movie-detail-debug]",
+): Promise<{ payload: T; endpoint: string; usedFallback: boolean }> {
+  let lastError: unknown = null;
+
+  for (let index = 0; index < endpoints.length; index += 1) {
+    const endpoint = endpoints[index];
+    try {
+      const payload = (await apiFetch(endpoint)) as T;
+      console.log(logTag, "Endpoint success:", { endpoint, isOfficial: index === 0 });
+      return { payload, endpoint, usedFallback: index > 0 };
+    } catch (error) {
+      lastError = error;
+      if (error instanceof ApiError && [404, 405].includes(error.status) && index < endpoints.length - 1) {
+        console.log(logTag, "Endpoint fallback:", {
+          attemptedEndpoint: endpoint,
+          status: error.status,
+          nextEndpoint: endpoints[index + 1],
+        });
+        continue;
+      }
+
+      console.log(logTag, "Endpoint error:", { endpoint, error });
+      throw error;
+    }
+  }
+
+  throw lastError ?? new Error("No endpoint available.");
 }
 
 function applyReactionToCollection(
@@ -106,7 +144,11 @@ export default function MovieDetailPage() {
       setDirectedError("");
 
       try {
-        const moviePayload = await apiFetch(`/movies/${encodeURIComponent(movieId)}/`);
+        const movieEndpoints = [
+          buildMovieDetailEndpoint(movieId, MOVIE_DETAIL_ENDPOINT_TEMPLATE),
+          ...MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES.map((template) => buildMovieDetailEndpoint(movieId, template)),
+        ];
+        const { payload: moviePayload } = await fetchWithFallbacks<unknown>(movieEndpoints, "[movie-detail-debug]");
         const rawMovie = toRecord(moviePayload);
 
         if (!rawMovie) {
@@ -126,8 +168,8 @@ export default function MovieDetailPage() {
       }
 
       const [friendsResult, publicResult, directedReceivedResult, directedSentResult] = await Promise.all([
-        apiFetch(FRIENDS_ENDPOINT).then(
-          (payload) => ({ ok: true as const, payload }),
+        fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
+          ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
           (error) => ({ ok: false as const, error }),
         ),
         apiFetch(`${PUBLIC_COMMENTS_ENDPOINT}${buildMovieIdQuery(movieId)}`).then(
@@ -165,7 +207,11 @@ export default function MovieDetailPage() {
       }
 
       if (friendsResult.ok) {
-        console.log("[mentions-debug] Friends endpoint response:", friendsResult.payload);
+        console.log("[mentions-debug] Friends payload:", {
+          endpoint: friendsResult.endpoint,
+          usedFallback: friendsResult.usedFallback,
+          payload: friendsResult.payload,
+        });
         const normalizedFriends = parseFriends(friendsResult.payload);
         console.log("[mentions-debug] Normalized friends list:", normalizedFriends);
         setFriends(normalizedFriends);

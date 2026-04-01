@@ -21,6 +21,11 @@ export interface SocialComment {
 }
 
 export const FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
+export const FRIENDS_FALLBACK_ENDPOINTS = (process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_FALLBACK_ENDPOINTS || "/friends/")
+  .split(",")
+  .map((endpoint) => endpoint.trim())
+  .filter(Boolean)
+  .filter((endpoint) => endpoint !== FRIENDS_ENDPOINT);
 export const PUBLIC_COMMENTS_ENDPOINT =
   process.env.NEXT_PUBLIC_SOCIAL_PUBLIC_COMMENTS_ENDPOINT || "/social/comments/public/";
 export const DIRECTED_COMMENTS_ENDPOINT =
