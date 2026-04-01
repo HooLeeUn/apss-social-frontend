@@ -165,7 +165,10 @@ export default function MovieDetailPage() {
       }
 
       if (friendsResult.ok) {
-        setFriends(parseFriends(friendsResult.payload));
+        console.log("[mentions-debug] Friends endpoint response:", friendsResult.payload);
+        const normalizedFriends = parseFriends(friendsResult.payload);
+        console.log("[mentions-debug] Normalized friends list:", normalizedFriends);
+        setFriends(normalizedFriends);
       }
 
       if (publicResult.ok) {

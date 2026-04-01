@@ -64,25 +64,53 @@ function normalizeReaction(value: unknown): ReactionType {
   return null;
 }
 
+function getFriendsSource(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+
+  const root = toRecord(payload);
+  if (!root) return [];
+
+  if (Array.isArray(root.results)) return root.results;
+  if (Array.isArray(root.items)) return root.items;
+
+  const data = toRecord(root.data);
+  if (!data) return [];
+
+  if (Array.isArray(data.results)) return data.results;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.friends)) return data.friends;
+
+  return [];
+}
+
+function getFriendRecord(friendship: Record<string, unknown>): Record<string, unknown> {
+  const candidate =
+    toRecord(pickFirst(friendship.friend, friendship.other_user, friendship.user, friendship.profile)) ||
+    toRecord(friendship.receiver) ||
+    toRecord(friendship.sender) ||
+    toRecord(friendship.requester) ||
+    toRecord(friendship.addressee) ||
+    toRecord(friendship.from_user) ||
+    toRecord(friendship.to_user);
+
+  if (candidate) return candidate;
+
+  return friendship;
+}
+
 export function parseFriends(payload: unknown): Friend[] {
-  const source =
-    Array.isArray(payload)
-      ? payload
-      : toRecord(payload) && Array.isArray(payload.results)
-        ? payload.results
-        : toRecord(payload) && Array.isArray(payload.items)
-          ? payload.items
-          : [];
+  const source = getFriendsSource(payload);
 
   return source
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
-    .map((friend, index) => {
+    .map((friendship, index) => {
+      const friend = getFriendRecord(friendship);
       const username = String(pickFirst(friend.username, friend.name, friend.user_name, `amigo-${index + 1}`));
       return {
-        id: pickFirst(friend.id, friend.user_id, username) as number | string,
+        id: pickFirst(friend.id, friend.user_id, friendship.id, username) as number | string,
         username,
-        avatarUrl: toStringOrNull(pickFirst(friend.avatar, friend.avatar_url, friend.profile_image)),
+        avatarUrl: toStringOrNull(pickFirst(friend.avatar, friend.avatar_url, friend.profile_image, friend.photo_url)),
       };
     })
     .filter((friend) => friend.username.trim().length > 0);

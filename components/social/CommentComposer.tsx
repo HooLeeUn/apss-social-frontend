@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyboardEvent, useMemo, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Friend } from "../../lib/social";
 import MentionAutocomplete from "./MentionAutocomplete";
 
@@ -39,13 +39,18 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
 
   const suggestions = useMemo(() => {
     if (mentionQuery === null) return [];
-    const normalized = mentionQuery.trim().toLowerCase();
+    const normalized = mentionQuery.trim().replace(/^@+/, "").toLowerCase();
 
     return friends.filter((friend) => {
       if (!normalized) return true;
-      return friend.username.toLowerCase().startsWith(normalized);
+      return friend.username.toLowerCase().includes(normalized);
     });
   }, [friends, mentionQuery]);
+
+  useEffect(() => {
+    if (mentionQuery === null) return;
+    console.log("[mentions-debug] Mention search term:", mentionQuery);
+  }, [mentionQuery]);
 
   const updateMentionState = (nextText: string, caretIndex: number) => {
     if (selectedMention) {
