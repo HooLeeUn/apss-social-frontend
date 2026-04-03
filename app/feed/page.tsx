@@ -224,7 +224,6 @@ export default function FeedPage() {
                   key={movie.id}
                   movie={movie}
                   variant="feed"
-                  linkToDetail={false}
                   onRated={(movieId) => handlePersonalizedRated(movieId)}
                 />
               ))}

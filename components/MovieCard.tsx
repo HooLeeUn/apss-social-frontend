@@ -39,7 +39,14 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
 
   const navigateToDetail = () => {
     if (!canNavigateFromCard) return;
+    console.debug(`[feed-card-debug] navigate to ${detailHref}`);
     router.push(detailHref);
+  };
+
+  const handleCardClick = () => {
+    if (!canNavigateFromCard) return;
+    console.debug("[feed-card-debug] click card", { movieId: movie.id });
+    navigateToDetail();
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -55,7 +62,7 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
       className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
       } ${isLarge || isFeed ? "flex" : ""} ${canNavigateFromCard ? "cursor-pointer" : ""}`}
-      onClick={navigateToDetail}
+      onClick={handleCardClick}
       onKeyDown={handleKeyDown}
       role={canNavigateFromCard ? "link" : undefined}
       tabIndex={canNavigateFromCard ? 0 : undefined}

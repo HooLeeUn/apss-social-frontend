@@ -116,6 +116,7 @@ export default function RatingPopover({ movieId, currentRating, onRated, classNa
         onClick={(event) => {
           event.stopPropagation();
           event.preventDefault();
+          console.debug("[feed-card-debug] rating click blocked navigation", { movieId });
           if (isSaving) return;
           setIsOpen((value) => !value);
           setError("");
