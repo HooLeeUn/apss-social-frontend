@@ -37,7 +37,7 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
 
   const navigateToDetail = () => {
     if (!detailHref) return;
-    console.debug(`[weekly-card-debug] navigate to ${detailHref}`);
+    console.debug("[movie-id-debug] navigating to /movies/{id}", { movieId: String(movie.id), detailHref });
     router.push(detailHref);
   };
 
