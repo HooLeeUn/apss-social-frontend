@@ -148,7 +148,9 @@ export default function MovieDetailPage() {
           buildMovieDetailEndpoint(movieId, MOVIE_DETAIL_ENDPOINT_TEMPLATE),
           ...MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES.map((template) => buildMovieDetailEndpoint(movieId, template)),
         ];
+        console.log("[movie-detail-debug] detail request", { movieId, endpoints: movieEndpoints });
         const { payload: moviePayload } = await fetchWithFallbacks<unknown>(movieEndpoints, "[movie-detail-debug]");
+        console.log("[movie-detail-debug] detail response", moviePayload);
         const rawMovie = toRecord(moviePayload);
 
         if (!rawMovie) {
@@ -172,18 +174,48 @@ export default function MovieDetailPage() {
           ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
           (error) => ({ ok: false as const, error }),
         ),
-        apiFetch(`${PUBLIC_COMMENTS_ENDPOINT}${buildMovieIdQuery(movieId)}`).then(
-          (payload) => ({ ok: true as const, payload }),
-          (error) => ({ ok: false as const, error }),
-        ),
-        apiFetch(`${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "received")}`).then(
-          (payload) => ({ ok: true as const, payload }),
-          (error) => ({ ok: false as const, error }),
-        ),
-        apiFetch(`${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "sent")}`).then(
-          (payload) => ({ ok: true as const, payload }),
-          (error) => ({ ok: false as const, error }),
-        ),
+        (() => {
+          const endpoint = `${PUBLIC_COMMENTS_ENDPOINT}${buildMovieIdQuery(movieId)}`;
+          console.log("[movie-detail-debug] comments request", { endpoint });
+          return apiFetch(endpoint).then(
+            (payload) => {
+              console.log("[movie-detail-debug] comments response", payload);
+              return { ok: true as const, payload };
+            },
+            (error) => {
+              console.error("[movie-detail-debug] comments error", error);
+              return { ok: false as const, error };
+            },
+          );
+        })(),
+        (() => {
+          const endpoint = `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "received")}`;
+          console.log("[movie-detail-debug] recommendations request", { endpoint, box: "received" });
+          return apiFetch(endpoint).then(
+            (payload) => {
+              console.log("[movie-detail-debug] recommendations response", { box: "received", payload });
+              return { ok: true as const, payload };
+            },
+            (error) => {
+              console.error("[movie-detail-debug] recommendations error", { box: "received", error });
+              return { ok: false as const, error };
+            },
+          );
+        })(),
+        (() => {
+          const endpoint = `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "sent")}`;
+          console.log("[movie-detail-debug] recommendations request", { endpoint, box: "sent" });
+          return apiFetch(endpoint).then(
+            (payload) => {
+              console.log("[movie-detail-debug] recommendations response", { box: "sent", payload });
+              return { ok: true as const, payload };
+            },
+            (error) => {
+              console.error("[movie-detail-debug] recommendations error", { box: "sent", error });
+              return { ok: false as const, error };
+            },
+          );
+        })(),
       ]);
 
       if (!friendsResult.ok && friendsResult.error instanceof ApiError && friendsResult.error.status === 401) {
@@ -254,6 +286,10 @@ export default function MovieDetailPage() {
         text,
         ...(mentionUsername ? { mentioned_username: mentionUsername } : {}),
       };
+      console.log("[movie-detail-debug] submit payload", {
+        endpoint: COMMENT_CREATE_ENDPOINT,
+        payload,
+      });
 
       const response = await apiFetch(COMMENT_CREATE_ENDPOINT, {
         method: "POST",
@@ -271,7 +307,7 @@ export default function MovieDetailPage() {
         }
       }
     } catch (error) {
-      console.error("Comment submit error", error);
+      console.error("[movie-detail-debug] submit error", error);
       setComposerError("No pudimos enviar tu comentario. Intenta nuevamente.");
     } finally {
       setIsSubmitting(false);

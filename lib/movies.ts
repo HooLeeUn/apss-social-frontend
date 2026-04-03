@@ -214,7 +214,7 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
       "Sin título",
     ),
   );
-  const id = pickFirst(raw.id, raw.movie_id, nestedMovie?.id, `${title}-${index + 1}`) as number | string;
+  const id = pickFirst(raw.movie_id, nestedMovie?.id, raw.id, `${title}-${index + 1}`) as number | string;
 
   const yearValue = pickFirst(raw.release_year, raw.year, nestedMovie?.release_year, nestedMovie?.year, raw.release_date);
   const year = typeof yearValue === "string" ? yearValue.slice(0, 4) : String(yearValue ?? "-");
