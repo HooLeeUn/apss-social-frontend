@@ -1,3 +1,7 @@
+"use client";
+
+import { KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Movie } from "../lib/movies";
 import RatingPopover from "./RatingPopover";
 
@@ -21,6 +25,7 @@ function getAvatarFallback(name?: string | null): string {
 }
 
 export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) {
+  const router = useRouter();
   const title = movie?.title ?? fallbackLabel;
   const genres = movie?.genres?.filter(Boolean) ?? [];
   const genre = genres.length ? genres.slice(0, 3).join(" • ") : "Sin género";
@@ -28,9 +33,38 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
   const topUserName = movie?.topUser?.name?.trim() || "Top user";
+  const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
+
+  const navigateToDetail = () => {
+    if (!detailHref) return;
+    console.debug(`[weekly-card-debug] navigate to ${detailHref}`);
+    router.push(detailHref);
+  };
+
+  const handleCardClick = () => {
+    if (!detailHref) return;
+    console.debug("[weekly-card-debug] click card", { movieId: movie.id, type: "mini" });
+    navigateToDetail();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!detailHref) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      console.debug("[weekly-card-debug] click card", { movieId: movie.id, type: "mini", via: "keyboard" });
+      navigateToDetail();
+    }
+  };
 
   return (
-    <article className="relative h-full pl-4">
+    <article
+      className={`relative h-full pl-4 ${detailHref ? "cursor-pointer" : ""}`}
+      onClick={handleCardClick}
+      onKeyDown={handleKeyDown}
+      role={detailHref ? "link" : undefined}
+      tabIndex={detailHref ? 0 : undefined}
+      aria-label={detailHref ? `Ver detalle y comentarios de ${title}` : undefined}
+    >
       <div className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]">
         {movie?.topUser?.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -63,7 +97,12 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
                   <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">⭐ {renderRating(movie?.displayRating)}</span>
                   <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">👥 {renderRating(movie?.followingAvgRating)}</span>
                   {movie && onRated ? (
-                    <RatingPopover movieId={movie.id} currentRating={movie.myRating} onRated={(score) => onRated(movie.id, score)} />
+                    <RatingPopover
+                      movieId={movie.id}
+                      currentRating={movie.myRating}
+                      onRated={(score) => onRated(movie.id, score)}
+                      debugNamespace="weekly-card-debug"
+                    />
                   ) : (
                     <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">🙋 {renderRating(movie?.myRating)}</span>
                   )}
