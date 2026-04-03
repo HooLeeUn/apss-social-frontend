@@ -1,3 +1,7 @@
+"use client";
+
+import { KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Movie } from "../lib/movies";
 import RatingPopover from "./RatingPopover";
 
@@ -21,15 +25,47 @@ function getAvatarFallback(name?: string | null): string {
 }
 
 export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) {
+  const router = useRouter();
   const title = movie?.title ?? fallbackLabel;
   const genre = movie?.genres?.[0] ?? "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
   const topUserName = movie?.topUser?.name?.trim() || "Top user";
+  const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
+
+  const navigateToDetail = () => {
+    if (!detailHref) return;
+    console.debug(`[weekly-card-debug] navigate to ${detailHref}`);
+    router.push(detailHref);
+  };
+
+  const handleCardClick = () => {
+    if (!detailHref) return;
+    console.debug("[weekly-card-debug] click card", { movieId: movie.id, type: "hero" });
+    navigateToDetail();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!detailHref) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      console.debug("[weekly-card-debug] click card", { movieId: movie.id, type: "hero", via: "keyboard" });
+      navigateToDetail();
+    }
+  };
 
   return (
-    <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
+    <article
+      className={`relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)] ${
+        detailHref ? "cursor-pointer" : ""
+      }`}
+      onClick={handleCardClick}
+      onKeyDown={handleKeyDown}
+      role={detailHref ? "link" : undefined}
+      tabIndex={detailHref ? 0 : undefined}
+      aria-label={detailHref ? `Ver detalle y comentarios de ${title}` : undefined}
+    >
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
         <div className="mx-auto w-full max-w-[280px] px-4 pt-4 sm:max-w-[300px]">
           <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900">
@@ -92,7 +128,12 @@ export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: Weekly
               <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Mi puntaje</p>
               <div className="mt-1">
                 {movie && onRated ? (
-                  <RatingPopover movieId={movie.id} currentRating={movie.myRating} onRated={(score) => onRated(movie.id, score)} />
+                  <RatingPopover
+                    movieId={movie.id}
+                    currentRating={movie.myRating}
+                    onRated={(score) => onRated(movie.id, score)}
+                    debugNamespace="weekly-card-debug"
+                  />
                 ) : (
                   <p className="text-base font-semibold text-zinc-100">🙋 {renderRating(movie?.myRating)}</p>
                 )}

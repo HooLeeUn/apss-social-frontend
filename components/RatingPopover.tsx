@@ -9,12 +9,19 @@ interface RatingPopoverProps {
   currentRating: number | null;
   onRated: (score: number) => void;
   className?: string;
+  debugNamespace?: string;
 }
 
 const RATING_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 const POPOVER_WIDTH = 260;
 
-export default function RatingPopover({ movieId, currentRating, onRated, className = "" }: RatingPopoverProps) {
+export default function RatingPopover({
+  movieId,
+  currentRating,
+  onRated,
+  className = "",
+  debugNamespace = "feed-card-debug",
+}: RatingPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hoveredScore, setHoveredScore] = useState<number | null>(null);
@@ -116,7 +123,7 @@ export default function RatingPopover({ movieId, currentRating, onRated, classNa
         onClick={(event) => {
           event.stopPropagation();
           event.preventDefault();
-          console.debug("[feed-card-debug] rating click blocked navigation", { movieId });
+          console.debug(`[${debugNamespace}] rating click blocked navigation`, { movieId });
           if (isSaving) return;
           setIsOpen((value) => !value);
           setError("");
