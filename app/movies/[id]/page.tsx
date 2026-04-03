@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import CommentComposer from "../../../components/social/CommentComposer";
 import CommentsList from "../../../components/social/CommentsList";
 import MovieCard from "../../../components/MovieCard";
-import { apiFetch, ApiError } from "../../../lib/api";
+import { apiFetch, ApiError, API_BASE_URL } from "../../../lib/api";
 import { getToken } from "../../../lib/auth";
 import {
   buildMovieDetailEndpoint,
@@ -39,8 +39,64 @@ function buildMovieIdQuery(movieId: string): string {
   return `?${new URLSearchParams({ movie_id: movieId }).toString()}`;
 }
 
+function buildMovieQuery(movieId: string): string {
+  return `?${new URLSearchParams({ movie: movieId }).toString()}`;
+}
+
 function buildDirectedQuery(movieId: string, box: DirectedTab): string {
   return `?${new URLSearchParams({ movie_id: movieId, box }).toString()}`;
+}
+
+function buildDirectedQueryMovie(movieId: string, box: DirectedTab): string {
+  return `?${new URLSearchParams({ movie: movieId, box }).toString()}`;
+}
+
+function joinApiUrl(endpoint: string): string {
+  return `${API_BASE_URL}${endpoint}`;
+}
+
+async function debugApiRequest(endpoint: string, options: RequestInit = {}) {
+  const token = getToken();
+  const method = options.method || "GET";
+  const headers = new Headers(options.headers || {});
+
+  if (!headers.has("Content-Type") && method !== "GET") {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Token ${token}`);
+  }
+
+  const url = joinApiUrl(endpoint);
+  const response = await fetch(url, {
+    ...options,
+    method,
+    headers,
+  });
+
+  const rawText = await response.text();
+  let parsedBody: unknown = rawText;
+
+  if (rawText) {
+    try {
+      parsedBody = JSON.parse(rawText);
+    } catch {
+      parsedBody = rawText;
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, rawText || `HTTP ${response.status}`);
+  }
+
+  return {
+    endpoint,
+    url,
+    method,
+    status: response.status,
+    body: parsedBody,
+  };
 }
 
 async function fetchWithFallbacks<T>(
@@ -148,7 +204,51 @@ export default function MovieDetailPage() {
           buildMovieDetailEndpoint(movieId, MOVIE_DETAIL_ENDPOINT_TEMPLATE),
           ...MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES.map((template) => buildMovieDetailEndpoint(movieId, template)),
         ];
-        const { payload: moviePayload } = await fetchWithFallbacks<unknown>(movieEndpoints, "[movie-detail-debug]");
+
+        let moviePayload: unknown = null;
+        let movieLoaded = false;
+
+        for (let index = 0; index < movieEndpoints.length; index += 1) {
+          const endpoint = movieEndpoints[index];
+
+          console.log("[movie-detail-debug] detail request", {
+            url: joinApiUrl(endpoint),
+            method: "GET",
+            endpoint,
+            isOfficial: index === 0,
+          });
+
+          try {
+            const response = await debugApiRequest(endpoint);
+            console.log("[movie-detail-debug] detail response", {
+              url: response.url,
+              method: response.method,
+              status: response.status,
+              endpoint,
+            });
+            moviePayload = response.body;
+            movieLoaded = true;
+            break;
+          } catch (error) {
+            const status = error instanceof ApiError ? error.status : null;
+            console.log("[movie-detail-debug] detail response", {
+              url: joinApiUrl(endpoint),
+              method: "GET",
+              status,
+              endpoint,
+              body: error instanceof Error ? error.message : String(error),
+            });
+
+            if (!(error instanceof ApiError) || ![404, 405].includes(error.status) || index >= movieEndpoints.length - 1) {
+              throw error;
+            }
+          }
+        }
+
+        if (!movieLoaded) {
+          throw new Error("No se pudo cargar detalle con endpoints disponibles");
+        }
+
         const rawMovie = toRecord(moviePayload);
 
         if (!rawMovie) {
@@ -167,23 +267,125 @@ export default function MovieDetailPage() {
         setMovieLoading(false);
       }
 
+      const publicEndpoints = [
+        `${PUBLIC_COMMENTS_ENDPOINT}${buildMovieIdQuery(movieId)}`,
+        `${PUBLIC_COMMENTS_ENDPOINT}${buildMovieQuery(movieId)}`,
+      ];
+
+      const directedReceivedEndpoints = [
+        `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "received")}`,
+        `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQueryMovie(movieId, "received")}`,
+      ];
+
+      const directedSentEndpoints = [
+        `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "sent")}`,
+        `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQueryMovie(movieId, "sent")}`,
+      ];
+
       const [friendsResult, publicResult, directedReceivedResult, directedSentResult] = await Promise.all([
         fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
           ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
           (error) => ({ ok: false as const, error }),
         ),
-        apiFetch(`${PUBLIC_COMMENTS_ENDPOINT}${buildMovieIdQuery(movieId)}`).then(
-          (payload) => ({ ok: true as const, payload }),
-          (error) => ({ ok: false as const, error }),
-        ),
-        apiFetch(`${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "received")}`).then(
-          (payload) => ({ ok: true as const, payload }),
-          (error) => ({ ok: false as const, error }),
-        ),
-        apiFetch(`${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "sent")}`).then(
-          (payload) => ({ ok: true as const, payload }),
-          (error) => ({ ok: false as const, error }),
-        ),
+        (async () => {
+          let lastError: unknown = null;
+          for (const endpoint of publicEndpoints) {
+            console.log("[movie-detail-debug] public comments request", {
+              url: joinApiUrl(endpoint),
+              method: "GET",
+              endpoint,
+            });
+
+            try {
+              const response = await debugApiRequest(endpoint);
+              console.log("[movie-detail-debug] public comments response", {
+                url: response.url,
+                method: response.method,
+                status: response.status,
+                endpoint,
+              });
+              return { ok: true as const, payload: response.body, endpoint };
+            } catch (error) {
+              lastError = error;
+              console.log("[movie-detail-debug] public comments response", {
+                url: joinApiUrl(endpoint),
+                method: "GET",
+                status: error instanceof ApiError ? error.status : null,
+                endpoint,
+                body: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+          return { ok: false as const, error: lastError };
+        })(),
+        (async () => {
+          let lastError: unknown = null;
+          for (const endpoint of directedReceivedEndpoints) {
+            console.log("[movie-detail-debug] directed comments request", {
+              url: joinApiUrl(endpoint),
+              method: "GET",
+              endpoint,
+              box: "received",
+            });
+
+            try {
+              const response = await debugApiRequest(endpoint);
+              console.log("[movie-detail-debug] directed comments response", {
+                url: response.url,
+                method: response.method,
+                status: response.status,
+                endpoint,
+                box: "received",
+              });
+              return { ok: true as const, payload: response.body, endpoint };
+            } catch (error) {
+              lastError = error;
+              console.log("[movie-detail-debug] directed comments response", {
+                url: joinApiUrl(endpoint),
+                method: "GET",
+                status: error instanceof ApiError ? error.status : null,
+                endpoint,
+                box: "received",
+                body: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+          return { ok: false as const, error: lastError };
+        })(),
+        (async () => {
+          let lastError: unknown = null;
+          for (const endpoint of directedSentEndpoints) {
+            console.log("[movie-detail-debug] directed comments request", {
+              url: joinApiUrl(endpoint),
+              method: "GET",
+              endpoint,
+              box: "sent",
+            });
+
+            try {
+              const response = await debugApiRequest(endpoint);
+              console.log("[movie-detail-debug] directed comments response", {
+                url: response.url,
+                method: response.method,
+                status: response.status,
+                endpoint,
+                box: "sent",
+              });
+              return { ok: true as const, payload: response.body, endpoint };
+            } catch (error) {
+              lastError = error;
+              console.log("[movie-detail-debug] directed comments response", {
+                url: joinApiUrl(endpoint),
+                method: "GET",
+                status: error instanceof ApiError ? error.status : null,
+                endpoint,
+                box: "sent",
+                body: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+          return { ok: false as const, error: lastError };
+        })(),
       ]);
 
       if (!friendsResult.ok && friendsResult.error instanceof ApiError && friendsResult.error.status === 401) {
@@ -249,16 +451,71 @@ export default function MovieDetailPage() {
     setComposerError("");
 
     try {
-      const payload = {
-        movie_id: movieId,
-        text,
-        ...(mentionUsername ? { mentioned_username: mentionUsername } : {}),
-      };
+      const payloadCandidates = [
+        {
+          movie: movieId,
+          text,
+          ...(mentionUsername ? { mentioned_username: mentionUsername } : {}),
+        },
+        {
+          movie_id: movieId,
+          text,
+          ...(mentionUsername ? { mentioned_username: mentionUsername } : {}),
+        },
+        {
+          movie: movieId,
+          text,
+          ...(mentionUsername ? { recipient_username: mentionUsername } : {}),
+        },
+      ];
 
-      const response = await apiFetch(COMMENT_CREATE_ENDPOINT, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      let response: unknown = null;
+      let submitSuccess = false;
+      let lastError: unknown = null;
+
+      for (const payload of payloadCandidates) {
+        console.log("[movie-detail-debug] submit request", {
+          url: joinApiUrl(COMMENT_CREATE_ENDPOINT),
+          endpoint: COMMENT_CREATE_ENDPOINT,
+          method: "POST",
+          payload,
+        });
+
+        try {
+          const submitResponse = await debugApiRequest(COMMENT_CREATE_ENDPOINT, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+
+          console.log("[movie-detail-debug] submit response", {
+            url: submitResponse.url,
+            endpoint: COMMENT_CREATE_ENDPOINT,
+            method: submitResponse.method,
+            status: submitResponse.status,
+          });
+
+          response = submitResponse.body;
+          submitSuccess = true;
+          break;
+        } catch (error) {
+          lastError = error;
+          console.log("[movie-detail-debug] submit response", {
+            url: joinApiUrl(COMMENT_CREATE_ENDPOINT),
+            endpoint: COMMENT_CREATE_ENDPOINT,
+            method: "POST",
+            status: error instanceof ApiError ? error.status : null,
+            body: error instanceof Error ? error.message : String(error),
+          });
+
+          if (!(error instanceof ApiError) || ![400, 404, 405].includes(error.status)) {
+            throw error;
+          }
+        }
+      }
+
+      if (!submitSuccess) {
+        throw lastError ?? new Error("No se pudo enviar comentario con payloads disponibles");
+      }
 
       const parsedComment = parseComments([response], mentionUsername ? "directed" : "public")[0];
 
