@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { KeyboardEvent } from "react";
 import { Movie } from "../lib/movies";
 import RatingPopover from "./RatingPopover";
 
@@ -22,21 +26,43 @@ function formatContentType(contentType: string) {
 }
 
 export default function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }: MovieCardProps) {
+  const router = useRouter();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
+  const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
   const typeYearLine = [formatContentType(movie.contentType), movie.year && movie.year !== "-" ? movie.year : null]
     .filter(Boolean)
     .join(" · ");
   const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : "Sin género";
 
+  const canNavigateFromCard = isFeed && linkToDetail;
+
+  const navigateToDetail = () => {
+    if (!canNavigateFromCard) return;
+    router.push(detailHref);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!canNavigateFromCard) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      navigateToDetail();
+    }
+  };
+
   const cardContent = (
     <article
       className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
-      } ${isLarge || isFeed ? "flex" : ""}`}
+      } ${isLarge || isFeed ? "flex" : ""} ${canNavigateFromCard ? "cursor-pointer" : ""}`}
+      onClick={navigateToDetail}
+      onKeyDown={handleKeyDown}
+      role={canNavigateFromCard ? "link" : undefined}
+      tabIndex={canNavigateFromCard ? 0 : undefined}
+      aria-label={canNavigateFromCard ? `Ver detalle y comentarios de ${movie.title}` : undefined}
     >
       <div
-        className={`flex-shrink-0 ${isFeed ? "h-[164px] w-[108px] bg-zinc-900 sm:h-[172px] sm:w-[114px]" : "bg-gray-200"} ${
+        className={`group relative flex-shrink-0 ${isFeed ? "h-[164px] w-[108px] bg-zinc-900 sm:h-[172px] sm:w-[114px]" : "bg-gray-200"} ${
           isLarge ? "h-72 md:h-auto md:w-48" : isFeed ? "" : "h-56"
         }`}
       >
@@ -52,6 +78,14 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
             Poster no disponible
           </div>
         )}
+
+        {canNavigateFromCard ? (
+          <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/65 via-black/20 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+            <span className="rounded-full border border-white/35 bg-black/40 px-2 py-1 text-[11px] font-medium text-zinc-100">
+              Ver comentarios
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
@@ -119,12 +153,12 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
     </article>
   );
 
-  if (!linkToDetail) {
+  if (!linkToDetail || isFeed) {
     return cardContent;
   }
 
   return (
-    <Link href={`/movies/${encodeURIComponent(String(movie.id))}`} className="block">
+    <Link href={detailHref} className="block">
       {cardContent}
     </Link>
   );
