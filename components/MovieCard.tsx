@@ -39,7 +39,7 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
 
   const navigateToDetail = () => {
     if (!canNavigateFromCard) return;
-    console.debug(`[feed-card-debug] navigate to ${detailHref}`);
+    console.debug("[movie-id-debug] navigating to /movies/{id}", { movieId: String(movie.id), detailHref });
     router.push(detailHref);
   };
 
