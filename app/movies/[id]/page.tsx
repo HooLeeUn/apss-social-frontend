@@ -16,15 +16,14 @@ import {
   normalizeMovie,
 } from "../../../lib/movies";
 import {
+  buildMovieDirectedCommentsEndpoint,
+  buildMoviePublicCommentsEndpoint,
   buildReactionEndpoint,
-  COMMENT_CREATE_ENDPOINT,
-  DIRECTED_COMMENTS_ENDPOINT,
   Friend,
   FRIENDS_ENDPOINT,
   FRIENDS_FALLBACK_ENDPOINTS,
   parseComments,
   parseFriends,
-  PUBLIC_COMMENTS_ENDPOINT,
   ReactionType,
   SocialComment,
 } from "../../../lib/social";
@@ -33,22 +32,6 @@ type DirectedTab = "received" | "sent";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
-}
-
-function buildMovieIdQuery(movieId: string): string {
-  return `?${new URLSearchParams({ movie_id: movieId }).toString()}`;
-}
-
-function buildMovieQuery(movieId: string): string {
-  return `?${new URLSearchParams({ movie: movieId }).toString()}`;
-}
-
-function buildDirectedQuery(movieId: string, box: DirectedTab): string {
-  return `?${new URLSearchParams({ movie_id: movieId, box }).toString()}`;
-}
-
-function buildDirectedQueryMovie(movieId: string, box: DirectedTab): string {
-  return `?${new URLSearchParams({ movie: movieId, box }).toString()}`;
 }
 
 function joinApiUrl(endpoint: string): string {
@@ -154,6 +137,20 @@ function applyReactionToCollection(
       dislikesCount,
     };
   });
+}
+
+function splitDirectedComments(payload: unknown): { received: SocialComment[]; sent: SocialComment[] } {
+  const root = toRecord(payload);
+  if (root) {
+    const received = parseComments(root.received, "directed");
+    const sent = parseComments(root.sent, "directed");
+    if (received.length > 0 || sent.length > 0) {
+      return { received, sent };
+    }
+  }
+
+  const shared = parseComments(payload, "directed");
+  return { received: shared, sent: shared };
 }
 
 export default function MovieDetailPage() {
@@ -267,124 +264,51 @@ export default function MovieDetailPage() {
         setMovieLoading(false);
       }
 
-      const publicEndpoints = [
-        `${PUBLIC_COMMENTS_ENDPOINT}${buildMovieIdQuery(movieId)}`,
-        `${PUBLIC_COMMENTS_ENDPOINT}${buildMovieQuery(movieId)}`,
-      ];
+      const publicEndpoint = buildMoviePublicCommentsEndpoint(movieId);
+      const directedEndpoint = buildMovieDirectedCommentsEndpoint(movieId);
 
-      const directedReceivedEndpoints = [
-        `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "received")}`,
-        `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQueryMovie(movieId, "received")}`,
-      ];
-
-      const directedSentEndpoints = [
-        `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "sent")}`,
-        `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQueryMovie(movieId, "sent")}`,
-      ];
-
-      const [friendsResult, publicResult, directedReceivedResult, directedSentResult] = await Promise.all([
+      const [friendsResult, publicResult, directedResult] = await Promise.all([
         fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
           ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
           (error) => ({ ok: false as const, error }),
         ),
         (async () => {
-          let lastError: unknown = null;
-          for (const endpoint of publicEndpoints) {
-            console.log("[movie-detail-debug] public comments request", {
-              url: joinApiUrl(endpoint),
-              method: "GET",
-              endpoint,
-            });
+          console.log("[movie-comments-debug] public GET", {
+            url: joinApiUrl(publicEndpoint),
+            method: "GET",
+            endpoint: publicEndpoint,
+          });
 
-            try {
-              const response = await debugApiRequest(endpoint);
-              console.log("[movie-detail-debug] public comments response", {
-                url: response.url,
-                method: response.method,
-                status: response.status,
-                endpoint,
-              });
-              return { ok: true as const, payload: response.body, endpoint };
-            } catch (error) {
-              lastError = error;
-              console.log("[movie-detail-debug] public comments response", {
-                url: joinApiUrl(endpoint),
-                method: "GET",
-                status: error instanceof ApiError ? error.status : null,
-                endpoint,
-                body: error instanceof Error ? error.message : String(error),
-              });
-            }
+          try {
+            const response = await debugApiRequest(publicEndpoint);
+            return { ok: true as const, payload: response.body, endpoint: publicEndpoint };
+          } catch (error) {
+            console.log("[movie-comments-debug] public GET error", {
+              endpoint: publicEndpoint,
+              status: error instanceof ApiError ? error.status : null,
+              body: error instanceof Error ? error.message : String(error),
+            });
+            return { ok: false as const, error };
           }
-          return { ok: false as const, error: lastError };
         })(),
         (async () => {
-          let lastError: unknown = null;
-          for (const endpoint of directedReceivedEndpoints) {
-            console.log("[movie-detail-debug] directed comments request", {
-              url: joinApiUrl(endpoint),
-              method: "GET",
-              endpoint,
-              box: "received",
-            });
+          console.log("[movie-comments-debug] directed GET", {
+            url: joinApiUrl(directedEndpoint),
+            method: "GET",
+            endpoint: directedEndpoint,
+          });
 
-            try {
-              const response = await debugApiRequest(endpoint);
-              console.log("[movie-detail-debug] directed comments response", {
-                url: response.url,
-                method: response.method,
-                status: response.status,
-                endpoint,
-                box: "received",
-              });
-              return { ok: true as const, payload: response.body, endpoint };
-            } catch (error) {
-              lastError = error;
-              console.log("[movie-detail-debug] directed comments response", {
-                url: joinApiUrl(endpoint),
-                method: "GET",
-                status: error instanceof ApiError ? error.status : null,
-                endpoint,
-                box: "received",
-                body: error instanceof Error ? error.message : String(error),
-              });
-            }
-          }
-          return { ok: false as const, error: lastError };
-        })(),
-        (async () => {
-          let lastError: unknown = null;
-          for (const endpoint of directedSentEndpoints) {
-            console.log("[movie-detail-debug] directed comments request", {
-              url: joinApiUrl(endpoint),
-              method: "GET",
-              endpoint,
-              box: "sent",
+          try {
+            const response = await debugApiRequest(directedEndpoint);
+            return { ok: true as const, payload: response.body, endpoint: directedEndpoint };
+          } catch (error) {
+            console.log("[movie-comments-debug] directed GET error", {
+              endpoint: directedEndpoint,
+              status: error instanceof ApiError ? error.status : null,
+              body: error instanceof Error ? error.message : String(error),
             });
-
-            try {
-              const response = await debugApiRequest(endpoint);
-              console.log("[movie-detail-debug] directed comments response", {
-                url: response.url,
-                method: response.method,
-                status: response.status,
-                endpoint,
-                box: "sent",
-              });
-              return { ok: true as const, payload: response.body, endpoint };
-            } catch (error) {
-              lastError = error;
-              console.log("[movie-detail-debug] directed comments response", {
-                url: joinApiUrl(endpoint),
-                method: "GET",
-                status: error instanceof ApiError ? error.status : null,
-                endpoint,
-                box: "sent",
-                body: error instanceof Error ? error.message : String(error),
-              });
-            }
+            return { ok: false as const, error };
           }
-          return { ok: false as const, error: lastError };
         })(),
       ]);
 
@@ -398,12 +322,7 @@ export default function MovieDetailPage() {
         return;
       }
 
-      if (!directedReceivedResult.ok && directedReceivedResult.error instanceof ApiError && directedReceivedResult.error.status === 401) {
-        router.replace("/login");
-        return;
-      }
-
-      if (!directedSentResult.ok && directedSentResult.error instanceof ApiError && directedSentResult.error.status === 401) {
+      if (!directedResult.ok && directedResult.error instanceof ApiError && directedResult.error.status === 401) {
         router.replace("/login");
         return;
       }
@@ -425,9 +344,10 @@ export default function MovieDetailPage() {
         setPublicError("No pudimos cargar los comentarios públicos.");
       }
 
-      if (directedReceivedResult.ok && directedSentResult.ok) {
-        setDirectedReceived(parseComments(directedReceivedResult.payload, "directed"));
-        setDirectedSent(parseComments(directedSentResult.payload, "directed"));
+      if (directedResult.ok) {
+        const directedComments = splitDirectedComments(directedResult.payload);
+        setDirectedReceived(directedComments.received);
+        setDirectedSent(directedComments.sent);
       } else {
         setDirectedError("No pudimos cargar las recomendaciones dirigidas.");
       }
@@ -451,71 +371,27 @@ export default function MovieDetailPage() {
     setComposerError("");
 
     try {
-      const payloadCandidates = [
-        {
-          movie: movieId,
-          text,
-          ...(mentionUsername ? { mentioned_username: mentionUsername } : {}),
-        },
-        {
-          movie_id: movieId,
-          text,
-          ...(mentionUsername ? { mentioned_username: mentionUsername } : {}),
-        },
-        {
-          movie: movieId,
-          text,
-          ...(mentionUsername ? { recipient_username: mentionUsername } : {}),
-        },
-      ];
+      const endpoint = mentionUsername ? buildMovieDirectedCommentsEndpoint(movieId) : buildMoviePublicCommentsEndpoint(movieId);
+      const payload = mentionUsername ? { body: text, mentioned_username: mentionUsername } : { body: text };
 
-      let response: unknown = null;
-      let submitSuccess = false;
-      let lastError: unknown = null;
+      console.log(mentionUsername ? "[movie-comments-debug] directed POST payload/response" : "[movie-comments-debug] public POST payload/response", {
+        endpoint,
+        url: joinApiUrl(endpoint),
+        method: "POST",
+        payload,
+      });
 
-      for (const payload of payloadCandidates) {
-        console.log("[movie-detail-debug] submit request", {
-          url: joinApiUrl(COMMENT_CREATE_ENDPOINT),
-          endpoint: COMMENT_CREATE_ENDPOINT,
-          method: "POST",
-          payload,
-        });
+      const submitResponse = await debugApiRequest(endpoint, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
-        try {
-          const submitResponse = await debugApiRequest(COMMENT_CREATE_ENDPOINT, {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
-
-          console.log("[movie-detail-debug] submit response", {
-            url: submitResponse.url,
-            endpoint: COMMENT_CREATE_ENDPOINT,
-            method: submitResponse.method,
-            status: submitResponse.status,
-          });
-
-          response = submitResponse.body;
-          submitSuccess = true;
-          break;
-        } catch (error) {
-          lastError = error;
-          console.log("[movie-detail-debug] submit response", {
-            url: joinApiUrl(COMMENT_CREATE_ENDPOINT),
-            endpoint: COMMENT_CREATE_ENDPOINT,
-            method: "POST",
-            status: error instanceof ApiError ? error.status : null,
-            body: error instanceof Error ? error.message : String(error),
-          });
-
-          if (!(error instanceof ApiError) || ![400, 404, 405].includes(error.status)) {
-            throw error;
-          }
-        }
-      }
-
-      if (!submitSuccess) {
-        throw lastError ?? new Error("No se pudo enviar comentario con payloads disponibles");
-      }
+      const response = submitResponse.body;
+      console.log(mentionUsername ? "[movie-comments-debug] directed POST payload/response" : "[movie-comments-debug] public POST payload/response", {
+        endpoint,
+        status: submitResponse.status,
+        response,
+      });
 
       const parsedComment = parseComments([response], mentionUsername ? "directed" : "public")[0];
 

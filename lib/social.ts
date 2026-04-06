@@ -26,11 +26,10 @@ export const FRIENDS_FALLBACK_ENDPOINTS = (process.env.NEXT_PUBLIC_SOCIAL_FRIEND
   .map((endpoint) => endpoint.trim())
   .filter(Boolean)
   .filter((endpoint) => endpoint !== FRIENDS_ENDPOINT);
-export const PUBLIC_COMMENTS_ENDPOINT =
-  process.env.NEXT_PUBLIC_SOCIAL_PUBLIC_COMMENTS_ENDPOINT || "/social/comments/public/";
-export const DIRECTED_COMMENTS_ENDPOINT =
-  process.env.NEXT_PUBLIC_SOCIAL_DIRECTED_COMMENTS_ENDPOINT || "/social/comments/directed/";
-export const COMMENT_CREATE_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_COMMENT_CREATE_ENDPOINT || "/social/comments/";
+export const MOVIE_PUBLIC_COMMENTS_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_MOVIE_PUBLIC_COMMENTS_ENDPOINT_TEMPLATE || "/api/movies/{id}/comments/";
+export const MOVIE_DIRECTED_COMMENTS_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_MOVIE_DIRECTED_COMMENTS_ENDPOINT_TEMPLATE || "/api/movies/{id}/comments/directed/";
 export const COMMENT_REACTION_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_SOCIAL_COMMENT_REACTION_ENDPOINT_TEMPLATE || "/social/comments/{id}/reactions/";
 
@@ -138,7 +137,7 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
   return {
     id: (pickFirst(raw.id, raw.comment_id, raw.uuid) || `comment-${Math.random().toString(36).slice(2, 10)}`) as number | string,
     movieId: (pickFirst(raw.movie, raw.movie_id) as number | string | null | undefined) ?? null,
-    text: String(pickFirst(raw.text, raw.comment, raw.content, "")),
+    text: String(pickFirst(raw.body, raw.text, raw.comment, raw.content, "")),
     createdAt: toStringOrNull(pickFirst(raw.created_at, raw.createdAt, raw.date, raw.timestamp)),
     authorName,
     authorAvatar: toStringOrNull(pickFirst(nestedAuthor?.avatar, nestedAuthor?.avatar_url, raw.author_avatar)),
@@ -170,6 +169,14 @@ export function parseComments(payload: unknown, fallbackType: "public" | "direct
 
 export function buildReactionEndpoint(commentId: number | string): string {
   return COMMENT_REACTION_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(commentId)));
+}
+
+export function buildMoviePublicCommentsEndpoint(movieId: number | string): string {
+  return MOVIE_PUBLIC_COMMENTS_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(movieId)));
+}
+
+export function buildMovieDirectedCommentsEndpoint(movieId: number | string): string {
+  return MOVIE_DIRECTED_COMMENTS_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(movieId)));
 }
 
 export function formatSocialDate(date: string | null): string {
