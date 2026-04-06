@@ -138,7 +138,7 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
   return {
     id: (pickFirst(raw.id, raw.comment_id, raw.uuid) || `comment-${Math.random().toString(36).slice(2, 10)}`) as number | string,
     movieId: (pickFirst(raw.movie, raw.movie_id) as number | string | null | undefined) ?? null,
-    text: String(pickFirst(raw.text, raw.comment, raw.content, "")),
+    text: String(pickFirst(raw.body, raw.text, raw.comment, raw.content, "")),
     createdAt: toStringOrNull(pickFirst(raw.created_at, raw.createdAt, raw.date, raw.timestamp)),
     authorName,
     authorAvatar: toStringOrNull(pickFirst(nestedAuthor?.avatar, nestedAuthor?.avatar_url, raw.author_avatar)),
@@ -151,16 +151,24 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 }
 
 export function parseComments(payload: unknown, fallbackType: "public" | "directed"): SocialComment[] {
-  const source =
-    Array.isArray(payload)
-      ? payload
-      : toRecord(payload) && Array.isArray(payload.results)
-        ? payload.results
-        : toRecord(payload) && Array.isArray(payload.items)
-          ? payload.items
-          : toRecord(payload) && Array.isArray(payload.data)
-            ? payload.data
-            : [];
+  const root = toRecord(payload);
+  const rootData = toRecord(root?.data);
+
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray(root?.results)
+      ? root.results
+      : Array.isArray(root?.items)
+        ? root.items
+        : Array.isArray(root?.data)
+          ? root.data
+          : Array.isArray(rootData?.results)
+            ? rootData.results
+            : Array.isArray(rootData?.items)
+              ? rootData.items
+              : Array.isArray(rootData?.comments)
+                ? rootData.comments
+                : [];
 
   return source
     .map((entry) => toRecord(entry))
