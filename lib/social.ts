@@ -151,16 +151,26 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 }
 
 export function parseComments(payload: unknown, fallbackType: "public" | "directed"): SocialComment[] {
-  const source =
-    Array.isArray(payload)
-      ? payload
-      : toRecord(payload) && Array.isArray(payload.results)
-        ? payload.results
-        : toRecord(payload) && Array.isArray(payload.items)
-          ? payload.items
-          : toRecord(payload) && Array.isArray(payload.data)
-            ? payload.data
-            : [];
+  const root = toRecord(payload);
+  const nestedData = toRecord(root?.data);
+
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray(root?.results)
+      ? root.results
+      : Array.isArray(root?.items)
+        ? root.items
+        : Array.isArray(root?.comments)
+          ? root.comments
+          : Array.isArray(root?.data)
+            ? root.data
+            : Array.isArray(nestedData?.results)
+              ? nestedData.results
+              : Array.isArray(nestedData?.items)
+                ? nestedData.items
+                : Array.isArray(nestedData?.comments)
+                  ? nestedData.comments
+                  : [];
 
   return source
     .map((entry) => toRecord(entry))
