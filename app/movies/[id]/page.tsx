@@ -17,7 +17,6 @@ import {
 } from "../../../lib/movies";
 import {
   buildReactionEndpoint,
-  COMMENT_CREATE_ENDPOINT,
   DIRECTED_COMMENTS_ENDPOINT,
   Friend,
   FRIENDS_ENDPOINT,
@@ -53,6 +52,14 @@ function buildDirectedQueryMovie(movieId: string, box: DirectedTab): string {
 
 function joinApiUrl(endpoint: string): string {
   return `${API_BASE_URL}${endpoint}`;
+}
+
+function buildMoviePublicSubmitEndpoint(movieId: string): string {
+  return `/movies/${encodeURIComponent(movieId)}/comments/`;
+}
+
+function buildMovieDirectedSubmitEndpoint(movieId: string): string {
+  return `/movies/${encodeURIComponent(movieId)}/comments/directed/`;
 }
 
 async function debugApiRequest(endpoint: string, options: RequestInit = {}) {
@@ -451,83 +458,77 @@ export default function MovieDetailPage() {
     setComposerError("");
 
     try {
-      const payloadCandidates = [
-        {
-          movie: movieId,
-          text,
-          ...(mentionUsername ? { mentioned_username: mentionUsername } : {}),
-        },
-        {
-          movie_id: movieId,
-          text,
-          ...(mentionUsername ? { mentioned_username: mentionUsername } : {}),
-        },
-        {
-          movie: movieId,
-          text,
-          ...(mentionUsername ? { recipient_username: mentionUsername } : {}),
-        },
-      ];
+      const mode = mentionUsername ? "directed" : "public";
+      const endpoint = mentionUsername ? buildMovieDirectedSubmitEndpoint(movieId) : buildMoviePublicSubmitEndpoint(movieId);
+      const payload = mentionUsername ? { body: text, mentioned_username: mentionUsername } : { body: text };
 
-      let response: unknown = null;
-      let submitSuccess = false;
-      let lastError: unknown = null;
+      console.log("[movie-comments-debug] submit mode:", mode);
+      console.log("[movie-comments-debug] submit url:", joinApiUrl(endpoint));
+      console.log("[movie-comments-debug] submit payload:", payload);
 
-      for (const payload of payloadCandidates) {
-        console.log("[movie-detail-debug] submit request", {
-          url: joinApiUrl(COMMENT_CREATE_ENDPOINT),
-          endpoint: COMMENT_CREATE_ENDPOINT,
-          method: "POST",
-          payload,
-        });
+      const submitResponse = await debugApiRequest(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-        try {
-          const submitResponse = await debugApiRequest(COMMENT_CREATE_ENDPOINT, {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
+      console.log("[movie-comments-debug] submit response status:", submitResponse.status);
+      const parsedSubmittedComment = parseComments([submitResponse.body], mode)[0];
 
-          console.log("[movie-detail-debug] submit response", {
-            url: submitResponse.url,
-            endpoint: COMMENT_CREATE_ENDPOINT,
-            method: submitResponse.method,
-            status: submitResponse.status,
-          });
+      if (mode === "directed") {
+        const directedSentEndpoints = [
+          `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQuery(movieId, "sent")}`,
+          `${DIRECTED_COMMENTS_ENDPOINT}${buildDirectedQueryMovie(movieId, "sent")}`,
+        ];
+        let refreshedDirectedSent = false;
 
-          response = submitResponse.body;
-          submitSuccess = true;
-          break;
-        } catch (error) {
-          lastError = error;
-          console.log("[movie-detail-debug] submit response", {
-            url: joinApiUrl(COMMENT_CREATE_ENDPOINT),
-            endpoint: COMMENT_CREATE_ENDPOINT,
-            method: "POST",
-            status: error instanceof ApiError ? error.status : null,
-            body: error instanceof Error ? error.message : String(error),
-          });
-
-          if (!(error instanceof ApiError) || ![400, 404, 405].includes(error.status)) {
-            throw error;
+        for (const directedEndpoint of directedSentEndpoints) {
+          try {
+            const refreshed = await debugApiRequest(directedEndpoint);
+            setDirectedSent(parseComments(refreshed.body, "directed"));
+            setDirectedTab("sent");
+            refreshedDirectedSent = true;
+            break;
+          } catch (refreshError) {
+            if (!(refreshError instanceof ApiError) || ![404, 405].includes(refreshError.status)) {
+              throw refreshError;
+            }
           }
         }
-      }
 
-      if (!submitSuccess) {
-        throw lastError ?? new Error("No se pudo enviar comentario con payloads disponibles");
-      }
-
-      const parsedComment = parseComments([response], mentionUsername ? "directed" : "public")[0];
-
-      if (parsedComment) {
-        if (mentionUsername) {
-          setDirectedSent((current) => [parsedComment, ...current]);
+        if (!refreshedDirectedSent && parsedSubmittedComment) {
+          setDirectedSent((current) => [parsedSubmittedComment, ...current]);
           setDirectedTab("sent");
-        } else {
-          setPublicComments((current) => [parsedComment, ...current]);
+        }
+      } else {
+        const publicEndpoints = [
+          `${PUBLIC_COMMENTS_ENDPOINT}${buildMovieIdQuery(movieId)}`,
+          `${PUBLIC_COMMENTS_ENDPOINT}${buildMovieQuery(movieId)}`,
+        ];
+        let refreshedPublic = false;
+
+        for (const publicEndpoint of publicEndpoints) {
+          try {
+            const refreshed = await debugApiRequest(publicEndpoint);
+            setPublicComments(parseComments(refreshed.body, "public"));
+            refreshedPublic = true;
+            break;
+          } catch (refreshError) {
+            if (!(refreshError instanceof ApiError) || ![404, 405].includes(refreshError.status)) {
+              throw refreshError;
+            }
+          }
+        }
+
+        if (!refreshedPublic && parsedSubmittedComment) {
+          setPublicComments((current) => [parsedSubmittedComment, ...current]);
         }
       }
     } catch (error) {
+      if (error instanceof ApiError) {
+        console.log("[movie-comments-debug] submit response status:", error.status);
+        console.log("[movie-comments-debug] submit response body on error:", error.message);
+      }
       console.error("Comment submit error", error);
       setComposerError("No pudimos enviar tu comentario. Intenta nuevamente.");
     } finally {
