@@ -7,7 +7,7 @@ import { API_BASE_URL } from "../lib/api";
 import AuthShell from "../components/auth/AuthShell";
 
 const inputBaseClassName =
-  "w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-500/35";
+  "w-full rounded-xl border border-zinc-700/85 bg-zinc-900/90 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500/90 outline-none transition duration-200 hover:border-zinc-500/90 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-400/35";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -52,9 +52,9 @@ export default function LoginPage() {
       footerLinkText="Regístrate"
       footerHref="/signup"
     >
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="space-y-2">
-          <label htmlFor="login-username" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="login-username" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
             Username
           </label>
           <input
@@ -67,7 +67,7 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="login-password" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="login-password" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
             Password
           </label>
           <input
@@ -82,7 +82,7 @@ export default function LoginPage() {
 
         <button
           onClick={handleLogin}
-          className="mt-2 w-full rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+          className="mt-1 w-full rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 shadow-[0_8px_28px_rgba(255,255,255,0.08)] transition duration-200 hover:bg-white hover:shadow-[0_12px_34px_rgba(255,255,255,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.995]"
         >
           Entrar
         </button>

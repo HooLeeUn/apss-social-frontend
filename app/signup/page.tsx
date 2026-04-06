@@ -14,8 +14,8 @@ interface RegisterResponse {
 }
 
 const inputBaseClassName =
-  "w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-500/35";
-const errorClassName = "text-sm text-red-300";
+  "w-full rounded-xl border border-zinc-700/85 bg-zinc-900/90 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500/90 outline-none transition duration-200 hover:border-zinc-500/90 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-400/35";
+const errorClassName = "text-sm text-red-300/95";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -128,9 +128,9 @@ export default function SignupPage() {
       footerLinkText="Inicia sesión"
       footerHref="/login"
     >
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <div className="space-y-2">
-          <label htmlFor="signup-username" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="signup-username" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
             Username
           </label>
           <input
@@ -144,7 +144,7 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="signup-email" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="signup-email" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
             Email
           </label>
           <input
@@ -159,7 +159,7 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="signup-password" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="signup-password" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
             Password
           </label>
           <input
@@ -174,7 +174,10 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="signup-password-confirmation" className="text-sm font-medium text-zinc-200">
+          <label
+            htmlFor="signup-password-confirmation"
+            className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200"
+          >
             Confirmar password
           </label>
           <input
@@ -193,7 +196,7 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-2 w-full rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-65"
+          className="mt-1 w-full rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 shadow-[0_8px_28px_rgba(255,255,255,0.08)] transition duration-200 hover:bg-white hover:shadow-[0_12px_34px_rgba(255,255,255,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.995] disabled:cursor-not-allowed disabled:opacity-65 disabled:shadow-none"
         >
           {loading ? "Creando cuenta..." : "Registrarme"}
         </button>
