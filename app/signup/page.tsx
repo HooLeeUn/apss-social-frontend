@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { setToken } from "../../lib/auth";
 import { API_BASE_URL } from "../../lib/api";
+import AuthShell from "../../components/auth/AuthShell";
 
 type FieldName = "username" | "email" | "password" | "password_confirmation" | "non_field_errors";
 type FieldErrors = Partial<Record<FieldName, string>>;
@@ -12,6 +12,10 @@ type FieldErrors = Partial<Record<FieldName, string>>;
 interface RegisterResponse {
   token?: string;
 }
+
+const inputBaseClassName =
+  "w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-500/35";
+const errorClassName = "text-sm text-red-300";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -117,68 +121,83 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="bg-white p-6 rounded shadow-md w-80">
-        <h1 className="text-xl font-bold mb-4">Registro</h1>
-
-        <form onSubmit={handleSubmit} noValidate>
+    <AuthShell
+      title="Crea tu cuenta"
+      description="Regístrate para personalizar tu feed, puntuar películas y participar en conversaciones con otros cinéfilos."
+      footerText="¿Ya tienes cuenta?"
+      footerLinkText="Inicia sesión"
+      footerHref="/login"
+    >
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="signup-username" className="text-sm font-medium text-zinc-200">
+            Username
+          </label>
           <input
-            className="w-full mb-1 p-2 border rounded"
-            placeholder="Username"
+            id="signup-username"
+            className={inputBaseClassName}
+            placeholder="Mínimo 8 caracteres"
             value={form.username}
             onChange={(e) => handleChange("username", e.target.value)}
           />
-          {errors.username && <p className="text-red-600 text-sm mb-2">{errors.username}</p>}
+          {errors.username && <p className={errorClassName}>{errors.username}</p>}
+        </div>
 
+        <div className="space-y-2">
+          <label htmlFor="signup-email" className="text-sm font-medium text-zinc-200">
+            Email
+          </label>
           <input
+            id="signup-email"
             type="email"
-            className="w-full mb-1 p-2 border rounded"
-            placeholder="Email"
+            className={inputBaseClassName}
+            placeholder="tu@email.com"
             value={form.email}
             onChange={(e) => handleChange("email", e.target.value)}
           />
-          {errors.email && <p className="text-red-600 text-sm mb-2">{errors.email}</p>}
+          {errors.email && <p className={errorClassName}>{errors.email}</p>}
+        </div>
 
+        <div className="space-y-2">
+          <label htmlFor="signup-password" className="text-sm font-medium text-zinc-200">
+            Password
+          </label>
           <input
+            id="signup-password"
             type="password"
-            className="w-full mb-1 p-2 border rounded"
-            placeholder="Password"
+            className={inputBaseClassName}
+            placeholder="Crea una contraseña segura"
             value={form.password}
             onChange={(e) => handleChange("password", e.target.value)}
           />
-          {errors.password && <p className="text-red-600 text-sm mb-2">{errors.password}</p>}
+          {errors.password && <p className={errorClassName}>{errors.password}</p>}
+        </div>
 
+        <div className="space-y-2">
+          <label htmlFor="signup-password-confirmation" className="text-sm font-medium text-zinc-200">
+            Confirmar password
+          </label>
           <input
+            id="signup-password-confirmation"
             type="password"
-            className="w-full mb-1 p-2 border rounded"
-            placeholder="Confirm Password"
+            className={inputBaseClassName}
+            placeholder="Repite tu contraseña"
             value={form.password_confirmation}
             onChange={(e) => handleChange("password_confirmation", e.target.value)}
           />
-          {errors.password_confirmation && (
-            <p className="text-red-600 text-sm mb-2">{errors.password_confirmation}</p>
-          )}
+          {errors.password_confirmation && <p className={errorClassName}>{errors.password_confirmation}</p>}
+        </div>
 
-          {errors.non_field_errors && (
-            <p className="text-red-600 text-sm mb-3">{errors.non_field_errors}</p>
-          )}
+        {errors.non_field_errors && <p className={errorClassName}>{errors.non_field_errors}</p>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-500 text-white p-2 rounded disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {loading ? "Creando cuenta..." : "Registrarme"}
-          </button>
-        </form>
-
-        <p className="text-sm mt-4 text-center">
-          ¿Ya tienes cuenta?{" "}
-          <Link href="/login" className="text-blue-600 hover:underline">
-            Inicia sesión
-          </Link>
-        </p>
-      </div>
-    </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-2 w-full rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-65"
+        >
+          {loading ? "Creando cuenta..." : "Registrarme"}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

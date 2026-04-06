@@ -1,10 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setToken } from "../lib/auth";
 import { API_BASE_URL } from "../lib/api";
+import AuthShell from "../components/auth/AuthShell";
+
+const inputBaseClassName =
+  "w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-500/35";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -42,39 +45,48 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="bg-white p-6 rounded shadow-md w-80">
-        <h1 className="text-xl font-bold mb-4">Login</h1>
+    <AuthShell
+      title="Bienvenido de nuevo"
+      description="Inicia sesión para seguir descubriendo y compartiendo recomendaciones de películas con tu comunidad."
+      footerText="¿No tienes cuenta?"
+      footerLinkText="Regístrate"
+      footerHref="/signup"
+    >
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="login-username" className="text-sm font-medium text-zinc-200">
+            Username
+          </label>
+          <input
+            id="login-username"
+            className={inputBaseClassName}
+            placeholder="Ingresa tu username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
 
-        <input
-          className="w-full mb-3 p-2 border rounded"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-
-        <input
-          type="password"
-          className="w-full mb-3 p-2 border rounded"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="space-y-2">
+          <label htmlFor="login-password" className="text-sm font-medium text-zinc-200">
+            Password
+          </label>
+          <input
+            id="login-password"
+            type="password"
+            className={inputBaseClassName}
+            placeholder="Ingresa tu password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
         <button
           onClick={handleLogin}
-          className="w-full bg-blue-500 text-white p-2 rounded"
+          className="mt-2 w-full rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
         >
           Entrar
         </button>
-
-        <p className="text-sm mt-4 text-center">
-          ¿No tienes cuenta?{" "}
-          <Link href="/signup" className="text-blue-600 hover:underline">
-            Regístrate
-          </Link>
-        </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
