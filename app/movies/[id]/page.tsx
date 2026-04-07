@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import CommentComposer from "../../../components/social/CommentComposer";
 import CommentsList from "../../../components/social/CommentsList";
@@ -216,6 +216,56 @@ export default function MovieDetailPage() {
 
   const [directedTab, setDirectedTab] = useState<DirectedTab>("received");
 
+  const fetchMovieDetail = useCallback(async () => {
+    if (!movieId) return null;
+
+    const movieEndpoints = [
+      buildMovieDetailEndpoint(movieId, MOVIE_DETAIL_ENDPOINT_TEMPLATE),
+      ...MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES.map((template) => buildMovieDetailEndpoint(movieId, template)),
+    ];
+
+    for (let index = 0; index < movieEndpoints.length; index += 1) {
+      const endpoint = movieEndpoints[index];
+
+      console.log("[movie-detail-debug] detail request", {
+        url: joinApiUrl(endpoint),
+        method: "GET",
+        endpoint,
+        isOfficial: index === 0,
+      });
+
+      try {
+        const response = await debugApiRequest(endpoint);
+        console.log("[movie-detail-debug] detail response", {
+          url: response.url,
+          method: response.method,
+          status: response.status,
+          endpoint,
+        });
+
+        const rawMovie = toRecord(response.body);
+        if (!rawMovie) return null;
+
+        return normalizeMovie(rawMovie, 0);
+      } catch (error) {
+        const status = error instanceof ApiError ? error.status : null;
+        console.log("[movie-detail-debug] detail response", {
+          url: joinApiUrl(endpoint),
+          method: "GET",
+          status,
+          endpoint,
+          body: error instanceof Error ? error.message : String(error),
+        });
+
+        if (!(error instanceof ApiError) || ![404, 405].includes(error.status) || index >= movieEndpoints.length - 1) {
+          throw error;
+        }
+      }
+    }
+
+    throw new Error("No se pudo cargar detalle con endpoints disponibles");
+  }, [movieId]);
+
   useEffect(() => {
     const token = getToken();
     if (!token) {
@@ -234,61 +284,12 @@ export default function MovieDetailPage() {
       setDirectedError("");
 
       try {
-        const movieEndpoints = [
-          buildMovieDetailEndpoint(movieId, MOVIE_DETAIL_ENDPOINT_TEMPLATE),
-          ...MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES.map((template) => buildMovieDetailEndpoint(movieId, template)),
-        ];
+        const normalizedMovie = await fetchMovieDetail();
 
-        let moviePayload: unknown = null;
-        let movieLoaded = false;
-
-        for (let index = 0; index < movieEndpoints.length; index += 1) {
-          const endpoint = movieEndpoints[index];
-
-          console.log("[movie-detail-debug] detail request", {
-            url: joinApiUrl(endpoint),
-            method: "GET",
-            endpoint,
-            isOfficial: index === 0,
-          });
-
-          try {
-            const response = await debugApiRequest(endpoint);
-            console.log("[movie-detail-debug] detail response", {
-              url: response.url,
-              method: response.method,
-              status: response.status,
-              endpoint,
-            });
-            moviePayload = response.body;
-            movieLoaded = true;
-            break;
-          } catch (error) {
-            const status = error instanceof ApiError ? error.status : null;
-            console.log("[movie-detail-debug] detail response", {
-              url: joinApiUrl(endpoint),
-              method: "GET",
-              status,
-              endpoint,
-              body: error instanceof Error ? error.message : String(error),
-            });
-
-            if (!(error instanceof ApiError) || ![404, 405].includes(error.status) || index >= movieEndpoints.length - 1) {
-              throw error;
-            }
-          }
-        }
-
-        if (!movieLoaded) {
-          throw new Error("No se pudo cargar detalle con endpoints disponibles");
-        }
-
-        const rawMovie = toRecord(moviePayload);
-
-        if (!rawMovie) {
+        if (!normalizedMovie) {
           setMovieError("No se pudo interpretar la película seleccionada.");
         } else {
-          setMovie(normalizeMovie(rawMovie, 0));
+          setMovie(normalizedMovie);
         }
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
@@ -384,7 +385,25 @@ export default function MovieDetailPage() {
     };
 
     void loadData();
-  }, [movieId, router]);
+  }, [fetchMovieDetail, movieId, router]);
+
+  const handleMovieRated = useCallback(
+    async (_movieId: Movie["id"], score: number) => {
+      try {
+        const refreshedMovie = await fetchMovieDetail();
+        if (refreshedMovie) {
+          setMovie(refreshedMovie);
+          setMovieError("");
+          return;
+        }
+      } catch (error) {
+        console.error("Movie refresh after rating failed:", error);
+      }
+
+      setMovie((current) => (current ? { ...current, myRating: score } : current));
+    },
+    [fetchMovieDetail],
+  );
 
   const displayedDirectedComments = useMemo(
     () => (directedTab === "received" ? directedReceived : directedSent),
@@ -536,7 +555,9 @@ export default function MovieDetailPage() {
         {!movieLoading && movieError ? (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">{movieError}</div>
         ) : null}
-        {!movieLoading && !movieError && movie ? <MovieCard movie={movie} variant="feed" linkToDetail={false} /> : null}
+        {!movieLoading && !movieError && movie ? (
+          <MovieCard movie={movie} variant="feed" linkToDetail={false} onRated={handleMovieRated} />
+        ) : null}
 
         <CommentComposer friends={friends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} />
 

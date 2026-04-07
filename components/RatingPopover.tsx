@@ -7,7 +7,7 @@ import { ApiError, apiFetch } from "../lib/api";
 interface RatingPopoverProps {
   movieId: number | string;
   currentRating: number | null;
-  onRated: (score: number) => void;
+  onRated: (score: number, payload: unknown) => void | Promise<void>;
   className?: string;
 }
 
@@ -92,11 +92,11 @@ export default function RatingPopover({
     try {
       setIsSaving(true);
       setError("");
-      await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/rating/`, {
+      const response = await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/rating/`, {
         method: "PUT",
         body: JSON.stringify({ score }),
       });
-      onRated(score);
+      await onRated(score, response);
       setSelectedFlash(score);
       setIsOpen(false);
       setHoveredScore(null);
