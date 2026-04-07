@@ -96,7 +96,7 @@ export default function FeedPage() {
           throw personalizedResult.error;
         }
 
-        const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload, { debugWeekly: true }) : [];
+        const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload) : [];
         const normalizedPersonalized = personalizedResult.ok ? parseMovieList(personalizedResult.payload) : [];
         const personalizedPagination = personalizedResult.ok
           ? parseMoviePagination(personalizedResult.payload)
@@ -192,7 +192,8 @@ export default function FeedPage() {
     );
   }, []);
 
-  const handlePersonalizedRated = useCallback((movieId: Movie["id"]) => {
+  const handlePersonalizedRated = useCallback((movieId: Movie["id"], _score: number) => {
+    void _score;
     setPersonalizedMovies((current) => current.filter((movie) => String(movie.id) !== String(movieId)));
   }, []);
 
@@ -249,7 +250,7 @@ export default function FeedPage() {
                   key={movie.id}
                   movie={movie}
                   variant="feed"
-                  onRated={(movieId) => handlePersonalizedRated(movieId)}
+                  onRated={handlePersonalizedRated}
                 />
               ))}
               </div>

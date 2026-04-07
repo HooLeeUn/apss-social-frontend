@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyboardEvent } from "react";
+import { KeyboardEvent, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Movie } from "../lib/movies";
 import RatingPopover from "./RatingPopover";
@@ -24,7 +24,7 @@ function getAvatarFallback(name?: string | null): string {
   return initials || "★";
 }
 
-export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) {
+function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) {
   const router = useRouter();
   const title = movie?.title ?? fallbackLabel;
   const genres = movie?.genres?.filter(Boolean) ?? [];
@@ -37,13 +37,11 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
 
   const navigateToDetail = () => {
     if (!detailHref) return;
-    console.debug("[movie-id-debug] navigating to /movies/{id}", { movieId: String(movie.id), detailHref });
     router.push(detailHref);
   };
 
   const handleCardClick = () => {
     if (!detailHref) return;
-    console.debug("[weekly-card-debug] click card", { movieId: movie.id, type: "mini" });
     navigateToDetail();
   };
 
@@ -51,7 +49,6 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
     if (!detailHref) return;
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      console.debug("[weekly-card-debug] click card", { movieId: movie.id, type: "mini", via: "keyboard" });
       navigateToDetail();
     }
   };
@@ -68,7 +65,13 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
       <div className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]">
         {movie?.topUser?.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={movie.topUser.avatarUrl} alt={`Top user: ${topUserName}`} className="h-full w-full object-cover" />
+          <img
+            src={movie.topUser.avatarUrl}
+            alt={`Top user: ${topUserName}`}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <span>{getAvatarFallback(movie?.topUser?.name)}</span>
         )}
@@ -101,7 +104,6 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
                       movieId={movie.id}
                       currentRating={movie.myRating}
                       onRated={(score) => onRated(movie.id, score)}
-                      debugNamespace="weekly-card-debug"
                     />
                   ) : (
                     <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">🙋 {renderRating(movie?.myRating)}</span>
@@ -115,7 +117,13 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
             <div className="h-full w-full">
               {movie?.posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={movie.posterUrl} alt={`Poster de ${title}`} className="h-full w-full object-cover" />
+                <img
+                  src={movie.posterUrl}
+                  alt={`Poster de ${title}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-2 text-center text-[10px] text-zinc-400">
                   Sin poster
@@ -128,3 +136,5 @@ export default function WeeklyMiniCard({ movie, fallbackLabel, onRated }: Weekly
     </article>
   );
 }
+
+export default memo(WeeklyMiniCard);
