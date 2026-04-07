@@ -10,7 +10,7 @@ interface MovieCardProps {
   movie: Movie;
   variant?: "large" | "compact" | "feed";
   linkToDetail?: boolean;
-  onRated?: (movieId: Movie["id"], score: number, payload: unknown) => void | Promise<void>;
+  onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
 function renderRating(value: number | null) {

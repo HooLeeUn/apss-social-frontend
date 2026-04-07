@@ -254,14 +254,14 @@ export default function FeedPage() {
     [selectedGenres],
   );
 
-  const updateWeeklyMovieRating = useCallback((movieId: Movie["id"], score: number, _payload: unknown) => {
+  const updateWeeklyMovieRating = useCallback((movieId: Movie["id"], score: number, _payload?: unknown) => {
     void _payload;
     setWeeklyMovies((current) =>
       current.map((movie) => (String(movie.id) === String(movieId) ? { ...movie, myRating: score } : movie)),
     );
   }, []);
 
-  const handlePersonalizedRated = useCallback((movieId: Movie["id"], _score: number, _payload: unknown) => {
+  const handlePersonalizedRated = useCallback((movieId: Movie["id"], _score: number, _payload?: unknown) => {
     void _score;
     void _payload;
     setPersonalizedMovies((current) => current.filter((movie) => String(movie.id) !== String(movieId)));
