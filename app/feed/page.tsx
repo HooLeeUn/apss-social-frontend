@@ -207,8 +207,7 @@ export default function FeedPage() {
   return (
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
-        <section className="space-y-5">
-          <div className="sticky top-0 z-30 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0">
+        <div className="sticky top-0 z-40 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0">
           <SearchBar
             className="mx-auto w-full max-w-2xl gap-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
             inputClassName="rounded-l-full rounded-r-none border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
@@ -230,8 +229,9 @@ export default function FeedPage() {
             disabledChipClassName="border-zinc-700 bg-zinc-900/80 text-zinc-500"
             isGenreDisabled={shouldDisableGenreChip}
           />
-          </div>
+        </div>
 
+        <section className="space-y-5">
           <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} onRated={updateWeeklyMovieRating} />
         </section>
 
