@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
@@ -8,7 +8,7 @@ import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
 import WeeklyRecommendationsSection from "../../components/WeeklyRecommendationsSection";
-import { FEED_GENRE_OPTIONS } from "../../lib/genres";
+import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import {
   Movie,
   MOVIES_FEED_ENDPOINT,
@@ -32,6 +32,8 @@ function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
 
   return merged;
 }
+
+const MAX_SELECTED_GENRES = 3;
 
 export default function FeedPage() {
   const router = useRouter();
@@ -160,10 +162,29 @@ export default function FeedPage() {
   }, [loadMorePersonalized, personalizedNext]);
 
   const toggleGenreSelection = (genre: string) => {
-    setSelectedGenres((current) =>
-      current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre],
-    );
+    setSelectedGenres((current) => {
+      if (current.includes(genre)) {
+        return current.filter((item) => item !== genre);
+      }
+
+      if (current.length >= MAX_SELECTED_GENRES) {
+        return current;
+      }
+
+      return [...current, genre];
+    });
   };
+
+  const filteredPersonalizedMovies = useMemo(
+    () =>
+      personalizedMovies.filter((movie) => movieMatchesSelectedGenres(movie.genres, selectedGenres)),
+    [personalizedMovies, selectedGenres],
+  );
+
+  const shouldDisableGenreChip = useCallback(
+    (genre: string) => selectedGenres.length >= MAX_SELECTED_GENRES && !selectedGenres.includes(genre),
+    [selectedGenres],
+  );
 
   const updateWeeklyMovieRating = useCallback((movieId: Movie["id"], score: number) => {
     setWeeklyMovies((current) =>
@@ -187,6 +208,7 @@ export default function FeedPage() {
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <section className="space-y-5">
+          <div className="sticky top-0 z-30 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0">
           <SearchBar
             className="mx-auto w-full max-w-2xl gap-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
             inputClassName="rounded-l-full rounded-r-none border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
@@ -203,9 +225,12 @@ export default function FeedPage() {
             className="justify-center"
             chipsContainerClassName="w-auto flex-initial justify-center overflow-visible"
             chipClassName="border-2"
-            selectedChipClassName="border-white bg-zinc-950 text-zinc-100"
+            selectedChipClassName="border-blue-300/90 bg-gradient-to-b from-blue-300/25 to-blue-600/40 text-blue-50 shadow-[0_4px_14px_rgba(56,189,248,0.35)]"
             unselectedChipClassName="border-white/70 bg-zinc-900 text-zinc-200 hover:border-white"
+            disabledChipClassName="border-zinc-700 bg-zinc-900/80 text-zinc-500"
+            isGenreDisabled={shouldDisableGenreChip}
           />
+          </div>
 
           <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} onRated={updateWeeklyMovieRating} />
         </section>
@@ -214,12 +239,12 @@ export default function FeedPage() {
           <div className="mx-auto w-full max-w-[860px] px-3 sm:px-4">
             <h2 className="text-xl font-semibold text-zinc-100">Tu Cartelera</h2>
           </div>
-          {personalizedMovies.length === 0 ? (
+          {filteredPersonalizedMovies.length === 0 ? (
             <p className="pl-3 text-zinc-400 md:pl-6">No hay películas personalizadas disponibles.</p>
           ) : (
             <div className="mx-auto w-full max-w-[860px] rounded-2xl bg-zinc-950/45 px-3 py-3 sm:px-4 sm:py-4">
               <div className="grid gap-3 md:grid-cols-2">
-              {personalizedMovies.map((movie) => (
+              {filteredPersonalizedMovies.map((movie) => (
                 <MovieCard
                   key={movie.id}
                   movie={movie}

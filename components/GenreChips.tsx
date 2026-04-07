@@ -15,6 +15,8 @@ interface GenreChipsProps {
   chipClassName?: string;
   selectedChipClassName?: string;
   unselectedChipClassName?: string;
+  disabledChipClassName?: string;
+  isGenreDisabled?: (genre: string) => boolean;
 }
 
 interface NormalizedGenreChip {
@@ -37,6 +39,8 @@ export default function GenreChips({
   chipClassName,
   selectedChipClassName,
   unselectedChipClassName,
+  disabledChipClassName,
+  isGenreDisabled,
 }: GenreChipsProps) {
   const normalizedGenres: NormalizedGenreChip[] = genres.map((genre) =>
     typeof genre === "string"
@@ -56,11 +60,13 @@ export default function GenreChips({
       <div className={`flex flex-1 gap-2 overflow-x-auto pb-1 ${chipsContainerClassName ?? ""}`.trim()}>
         {chips.map((chip) => {
           const selected = !chip.isAll && selectedValues.includes(chip.value);
+          const disabled = !chip.isAll && !selected && (isGenreDisabled?.(chip.value) ?? false);
 
           return (
             <button
               key={chip.value}
               type="button"
+              disabled={disabled}
               onClick={() => {
                 if (chip.isAll) {
                   onClearSelection?.();
@@ -77,8 +83,10 @@ export default function GenreChips({
               className={`whitespace-nowrap rounded-full border px-3 py-1 text-sm transition-colors ${
                 selected
                   ? (selectedChipClassName ?? "border-black bg-black text-white")
+                  : disabled
+                    ? (disabledChipClassName ?? "border-gray-300 bg-gray-100 text-gray-400")
                   : (unselectedChipClassName ?? "border-gray-300 bg-white text-gray-700 hover:border-gray-400")
-              } ${chipClassName ?? ""}`.trim()}
+              } ${chipClassName ?? ""} ${disabled ? "cursor-not-allowed opacity-70" : ""}`.trim()}
             >
               {chip.label}
             </button>
