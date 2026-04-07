@@ -8,7 +8,7 @@ import RatingPopover from "./RatingPopover";
 interface WeeklyHeroCardProps {
   movie?: Movie;
   fallbackLabel: string;
-  onRated?: (movieId: Movie["id"], score: number) => void;
+  onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
 function renderRating(value: number | null | undefined): string {
@@ -132,7 +132,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
                   <RatingPopover
                     movieId={movie.id}
                     currentRating={movie.myRating}
-                    onRated={(score) => onRated(movie.id, score)}
+                    onRated={(score, payload) => onRated(movie.id, score, payload)}
                   />
                 ) : (
                   <p className="text-base font-semibold text-zinc-100">🙋 {renderRating(movie?.myRating)}</p>

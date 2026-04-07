@@ -10,7 +10,7 @@ interface MovieCardProps {
   movie: Movie;
   variant?: "large" | "compact" | "feed";
   linkToDetail?: boolean;
-  onRated?: (movieId: Movie["id"], score: number) => void;
+  onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
 function renderRating(value: number | null) {
@@ -144,7 +144,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
                 <RatingPopover
                   movieId={movie.id}
                   currentRating={movie.myRating}
-                  onRated={(score) => onRated(movie.id, score)}
+                  onRated={(score, payload) => onRated(movie.id, score, payload)}
                 />
               ) : (
                 <>
