@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
@@ -8,7 +8,7 @@ import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
 import WeeklyRecommendationsSection from "../../components/WeeklyRecommendationsSection";
-import { FEED_GENRE_OPTIONS } from "../../lib/genres";
+import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import {
   Movie,
   MOVIES_FEED_ENDPOINT,
@@ -47,20 +47,24 @@ function buildPersonalizedFeedEndpoint(selectedGenres: string[]): string {
 }
 
 function withActiveGenreFilters(endpoint: string, selectedGenres: string[]): string {
-  if (!selectedGenres.length) return endpoint;
-
   const [path, queryString = ""] = endpoint.split("?");
   const params = new URLSearchParams(queryString);
-  const hasGenreParams = params.has("genres");
 
-  if (!hasGenreParams) {
-    selectedGenres.forEach((genre) => {
-      params.append("genres", genre);
-    });
-  }
+  params.delete("genres");
+  selectedGenres.forEach((genre) => {
+    params.append("genres", genre);
+  });
 
   const nextQueryString = params.toString();
   return nextQueryString ? `${path}?${nextQueryString}` : path;
+}
+
+function buildGenresQueryKey(selectedGenres: string[]): string {
+  return [...selectedGenres].sort().join("|");
+}
+
+function filterBySelectedGenres(movies: Movie[], selectedGenres: string[]): Movie[] {
+  return movies.filter((movie) => movieMatchesSelectedGenres(movie.genres, selectedGenres));
 }
 
 export default function FeedPage() {
@@ -77,6 +81,9 @@ export default function FeedPage() {
   const [error, setError] = useState("");
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
   const personalizedRequestIdRef = useRef(0);
+  const personalizedQueryKeyRef = useRef("");
+  const personalizedAbortControllerRef = useRef<AbortController | null>(null);
+  const personalizedLoadMoreAbortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -126,8 +133,16 @@ export default function FeedPage() {
 
   const fetchPersonalizedMovies = useCallback(
     async (genres: string[]) => {
+      personalizedAbortControllerRef.current?.abort();
+      personalizedLoadMoreAbortControllerRef.current?.abort();
+
+      const abortController = new AbortController();
+      personalizedAbortControllerRef.current = abortController;
+
       const requestId = personalizedRequestIdRef.current + 1;
       personalizedRequestIdRef.current = requestId;
+      const queryKey = buildGenresQueryKey(genres);
+      personalizedQueryKeyRef.current = queryKey;
 
       setIsLoadingPersonalized(true);
       setIsLoadingMorePersonalized(false);
@@ -135,15 +150,16 @@ export default function FeedPage() {
       setPersonalizedNext(null);
 
       try {
-        const payload = await apiFetch(buildPersonalizedFeedEndpoint(genres));
-        if (personalizedRequestIdRef.current !== requestId) return;
+        const payload = await apiFetch(buildPersonalizedFeedEndpoint(genres), { signal: abortController.signal });
+        if (personalizedRequestIdRef.current !== requestId || personalizedQueryKeyRef.current !== queryKey) return;
 
-        const nextMovies = parseMovieList(payload);
+        const nextMovies = filterBySelectedGenres(parseMovieList(payload), genres);
         const pagination = parseMoviePagination(payload);
 
         setPersonalizedMovies(nextMovies);
         setPersonalizedNext(pagination.next);
       } catch (loadPersonalizedError) {
+        if ((loadPersonalizedError as Error).name === "AbortError") return;
         console.error("Filtered personalized load error:", loadPersonalizedError);
 
         if (loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
@@ -151,11 +167,11 @@ export default function FeedPage() {
           return;
         }
 
-        if (personalizedRequestIdRef.current !== requestId) return;
+        if (personalizedRequestIdRef.current !== requestId || personalizedQueryKeyRef.current !== queryKey) return;
         setPersonalizedMovies([]);
         setPersonalizedNext(null);
       } finally {
-        if (personalizedRequestIdRef.current === requestId) {
+        if (personalizedRequestIdRef.current === requestId && personalizedQueryKeyRef.current === queryKey) {
           setIsLoadingPersonalized(false);
         }
       }
@@ -170,21 +186,31 @@ export default function FeedPage() {
 
   const loadMorePersonalized = useCallback(async () => {
     if (!personalizedNext || isLoadingMorePersonalized) return;
+    const queryKey = buildGenresQueryKey(selectedGenres);
+    const requestId = personalizedRequestIdRef.current;
+    const abortController = new AbortController();
+    personalizedLoadMoreAbortControllerRef.current?.abort();
+    personalizedLoadMoreAbortControllerRef.current = abortController;
 
     try {
       setIsLoadingMorePersonalized(true);
       const normalizedNextEndpoint = normalizeNextEndpoint(personalizedNext, API_BASE_URL);
       const endpointWithFilters = withActiveGenreFilters(normalizedNextEndpoint, selectedGenres);
-      const payload = await apiFetch(endpointWithFilters);
-      const nextPageMovies = parseMovieList(payload);
+      const payload = await apiFetch(endpointWithFilters, { signal: abortController.signal });
+      if (requestId !== personalizedRequestIdRef.current || queryKey !== personalizedQueryKeyRef.current) return;
+
+      const nextPageMovies = filterBySelectedGenres(parseMovieList(payload), selectedGenres);
       const pagination = parseMoviePagination(payload);
 
       setPersonalizedMovies((current) => mergeUniqueMovies(current, nextPageMovies));
       setPersonalizedNext(pagination.next);
     } catch (loadMoreError) {
+      if ((loadMoreError as Error).name === "AbortError") return;
       console.error("Personalized pagination load error:", loadMoreError);
     } finally {
-      setIsLoadingMorePersonalized(false);
+      if (requestId === personalizedRequestIdRef.current && queryKey === personalizedQueryKeyRef.current) {
+        setIsLoadingMorePersonalized(false);
+      }
     }
   }, [isLoadingMorePersonalized, personalizedNext, selectedGenres]);
 
@@ -239,6 +265,19 @@ export default function FeedPage() {
     setPersonalizedMovies((current) => current.filter((movie) => String(movie.id) !== String(movieId)));
   }, []);
 
+  const visiblePersonalizedMovies = useMemo(
+    () => filterBySelectedGenres(personalizedMovies, selectedGenres),
+    [personalizedMovies, selectedGenres],
+  );
+
+  useEffect(
+    () => () => {
+      personalizedAbortControllerRef.current?.abort();
+      personalizedLoadMoreAbortControllerRef.current?.abort();
+    },
+    [],
+  );
+
   if (loading) {
     return <div className="p-6 text-zinc-100">Cargando feed principal...</div>;
   }
@@ -284,12 +323,12 @@ export default function FeedPage() {
           </div>
           {isLoadingPersonalized ? (
             <p className="pl-3 text-zinc-400 md:pl-6">Cargando...</p>
-          ) : personalizedMovies.length === 0 ? (
+          ) : visiblePersonalizedMovies.length === 0 ? (
             <p className="pl-3 text-zinc-400 md:pl-6">No hay películas personalizadas disponibles.</p>
           ) : (
             <div className="mx-auto w-full max-w-[860px] rounded-2xl bg-zinc-950/45 px-3 py-3 sm:px-4 sm:py-4">
               <div className="grid gap-3 md:grid-cols-2">
-              {personalizedMovies.map((movie) => (
+              {visiblePersonalizedMovies.map((movie) => (
                 <MovieCard
                   key={movie.id}
                   movie={movie}
