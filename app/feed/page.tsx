@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { getToken } from "../../lib/auth";
@@ -8,7 +8,7 @@ import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
 import WeeklyRecommendationsSection from "../../components/WeeklyRecommendationsSection";
-import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
+import { FEED_GENRE_OPTIONS } from "../../lib/genres";
 import {
   Movie,
   MOVIES_FEED_ENDPOINT,
@@ -35,18 +35,48 @@ function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
 
 const MAX_SELECTED_GENRES = 3;
 
+function buildPersonalizedFeedEndpoint(selectedGenres: string[]): string {
+  const params = new URLSearchParams();
+
+  selectedGenres.forEach((genre) => {
+    params.append("genres", genre);
+  });
+
+  const queryString = params.toString();
+  return queryString ? `${MOVIES_FEED_ENDPOINT}?${queryString}` : MOVIES_FEED_ENDPOINT;
+}
+
+function withActiveGenreFilters(endpoint: string, selectedGenres: string[]): string {
+  if (!selectedGenres.length) return endpoint;
+
+  const [path, queryString = ""] = endpoint.split("?");
+  const params = new URLSearchParams(queryString);
+  const hasGenreParams = params.has("genres");
+
+  if (!hasGenreParams) {
+    selectedGenres.forEach((genre) => {
+      params.append("genres", genre);
+    });
+  }
+
+  const nextQueryString = params.toString();
+  return nextQueryString ? `${path}?${nextQueryString}` : path;
+}
+
 export default function FeedPage() {
   const router = useRouter();
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
   const [personalizedNext, setPersonalizedNext] = useState<string | null>(null);
+  const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false);
   const [isLoadingMorePersonalized, setIsLoadingMorePersonalized] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
+  const personalizedRequestIdRef = useRef(0);
 
   useEffect(() => {
     const token = getToken();
@@ -57,27 +87,12 @@ export default function FeedPage() {
 
     const loadFeed = async () => {
       try {
-        const [weeklyResult, personalizedResult] = await Promise.all([
-          apiFetch(WEEKLY_MOVIES_FEED_ENDPOINT).then(
-            (payload) => ({ ok: true as const, payload }),
-            (error) => ({ ok: false as const, error }),
-          ),
-          apiFetch(MOVIES_FEED_ENDPOINT).then(
-            (payload) => ({ ok: true as const, payload }),
-            (error) => ({ ok: false as const, error }),
-          ),
-        ]);
+        const weeklyResult = await apiFetch(WEEKLY_MOVIES_FEED_ENDPOINT).then(
+          (payload) => ({ ok: true as const, payload }),
+          (error) => ({ ok: false as const, error }),
+        );
 
         if (!weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
-          router.replace("/login");
-          return;
-        }
-
-        if (
-          !personalizedResult.ok &&
-          personalizedResult.error instanceof ApiError &&
-          personalizedResult.error.status === 401
-        ) {
           router.replace("/login");
           return;
         }
@@ -89,22 +104,9 @@ export default function FeedPage() {
           throw weeklyResult.error;
         }
 
-        if (
-          !personalizedResult.ok &&
-          !(personalizedResult.error instanceof ApiError && [404, 405].includes(personalizedResult.error.status))
-        ) {
-          throw personalizedResult.error;
-        }
-
         const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload) : [];
-        const normalizedPersonalized = personalizedResult.ok ? parseMovieList(personalizedResult.payload) : [];
-        const personalizedPagination = personalizedResult.ok
-          ? parseMoviePagination(personalizedResult.payload)
-          : { next: null };
 
         setWeeklyMovies(normalizedWeekly);
-        setPersonalizedMovies(normalizedPersonalized);
-        setPersonalizedNext(personalizedPagination.next);
       } catch (loadError) {
         console.error("Feed load error:", loadError);
 
@@ -122,12 +124,58 @@ export default function FeedPage() {
     loadFeed();
   }, [router]);
 
+  const fetchPersonalizedMovies = useCallback(
+    async (genres: string[]) => {
+      const requestId = personalizedRequestIdRef.current + 1;
+      personalizedRequestIdRef.current = requestId;
+
+      setIsLoadingPersonalized(true);
+      setIsLoadingMorePersonalized(false);
+      setPersonalizedMovies([]);
+      setPersonalizedNext(null);
+
+      try {
+        const payload = await apiFetch(buildPersonalizedFeedEndpoint(genres));
+        if (personalizedRequestIdRef.current !== requestId) return;
+
+        const nextMovies = parseMovieList(payload);
+        const pagination = parseMoviePagination(payload);
+
+        setPersonalizedMovies(nextMovies);
+        setPersonalizedNext(pagination.next);
+      } catch (loadPersonalizedError) {
+        console.error("Filtered personalized load error:", loadPersonalizedError);
+
+        if (loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        if (personalizedRequestIdRef.current !== requestId) return;
+        setPersonalizedMovies([]);
+        setPersonalizedNext(null);
+      } finally {
+        if (personalizedRequestIdRef.current === requestId) {
+          setIsLoadingPersonalized(false);
+        }
+      }
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    if (loading) return;
+    void fetchPersonalizedMovies(selectedGenres);
+  }, [fetchPersonalizedMovies, loading, selectedGenres]);
+
   const loadMorePersonalized = useCallback(async () => {
     if (!personalizedNext || isLoadingMorePersonalized) return;
 
     try {
       setIsLoadingMorePersonalized(true);
-      const payload = await apiFetch(normalizeNextEndpoint(personalizedNext, API_BASE_URL));
+      const normalizedNextEndpoint = normalizeNextEndpoint(personalizedNext, API_BASE_URL);
+      const endpointWithFilters = withActiveGenreFilters(normalizedNextEndpoint, selectedGenres);
+      const payload = await apiFetch(endpointWithFilters);
       const nextPageMovies = parseMovieList(payload);
       const pagination = parseMoviePagination(payload);
 
@@ -138,7 +186,7 @@ export default function FeedPage() {
     } finally {
       setIsLoadingMorePersonalized(false);
     }
-  }, [isLoadingMorePersonalized, personalizedNext]);
+  }, [isLoadingMorePersonalized, personalizedNext, selectedGenres]);
 
   useEffect(() => {
     const node = loadMoreTriggerRef.current;
@@ -174,12 +222,6 @@ export default function FeedPage() {
       return [...current, genre];
     });
   };
-
-  const filteredPersonalizedMovies = useMemo(
-    () =>
-      personalizedMovies.filter((movie) => movieMatchesSelectedGenres(movie.genres, selectedGenres)),
-    [personalizedMovies, selectedGenres],
-  );
 
   const shouldDisableGenreChip = useCallback(
     (genre: string) => selectedGenres.length >= MAX_SELECTED_GENRES && !selectedGenres.includes(genre),
@@ -240,12 +282,14 @@ export default function FeedPage() {
           <div className="mx-auto w-full max-w-[860px] px-3 sm:px-4">
             <h2 className="text-xl font-semibold text-zinc-100">Tu Cartelera</h2>
           </div>
-          {filteredPersonalizedMovies.length === 0 ? (
+          {isLoadingPersonalized ? (
+            <p className="pl-3 text-zinc-400 md:pl-6">Cargando...</p>
+          ) : personalizedMovies.length === 0 ? (
             <p className="pl-3 text-zinc-400 md:pl-6">No hay películas personalizadas disponibles.</p>
           ) : (
             <div className="mx-auto w-full max-w-[860px] rounded-2xl bg-zinc-950/45 px-3 py-3 sm:px-4 sm:py-4">
               <div className="grid gap-3 md:grid-cols-2">
-              {filteredPersonalizedMovies.map((movie) => (
+              {personalizedMovies.map((movie) => (
                 <MovieCard
                   key={movie.id}
                   movie={movie}
