@@ -388,7 +388,8 @@ export default function MovieDetailPage() {
   }, [fetchMovieDetail, movieId, router]);
 
   const handleMovieRated = useCallback(
-    async (_movieId: Movie["id"], score: number) => {
+    async (_movieId: Movie["id"], score: number, _payload?: unknown) => {
+      void _payload;
       try {
         const refreshedMovie = await fetchMovieDetail();
         if (refreshedMovie) {

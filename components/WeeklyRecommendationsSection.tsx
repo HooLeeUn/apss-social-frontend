@@ -5,7 +5,7 @@ import WeeklyMiniCard from "./WeeklyMiniCard";
 
 interface WeeklyRecommendationsSectionProps {
   weeklyMovies: Movie[];
-  onRated?: (movieId: Movie["id"], score: number) => void;
+  onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
 function WeeklyRecommendationsSection({ weeklyMovies, onRated }: WeeklyRecommendationsSectionProps) {

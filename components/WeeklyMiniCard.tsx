@@ -8,7 +8,7 @@ import RatingPopover from "./RatingPopover";
 interface WeeklyMiniCardProps {
   movie?: Movie;
   fallbackLabel: string;
-  onRated?: (movieId: Movie["id"], score: number) => void;
+  onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
 function renderRating(value: number | null | undefined): string {
@@ -103,7 +103,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
                     <RatingPopover
                       movieId={movie.id}
                       currentRating={movie.myRating}
-                      onRated={(score) => onRated(movie.id, score)}
+                      onRated={(score, payload) => onRated(movie.id, score, payload)}
                     />
                   ) : (
                     <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">🙋 {renderRating(movie?.myRating)}</span>
