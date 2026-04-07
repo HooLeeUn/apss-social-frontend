@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KeyboardEvent } from "react";
+import { KeyboardEvent, memo } from "react";
 import { Movie } from "../lib/movies";
 import RatingPopover from "./RatingPopover";
 
@@ -25,7 +25,7 @@ function formatContentType(contentType: string) {
   return contentType;
 }
 
-export default function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }: MovieCardProps) {
+function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }: MovieCardProps) {
   const router = useRouter();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -39,13 +39,11 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
 
   const navigateToDetail = () => {
     if (!canNavigateFromCard) return;
-    console.debug("[movie-id-debug] navigating to /movies/{id}", { movieId: String(movie.id), detailHref });
     router.push(detailHref);
   };
 
   const handleCardClick = () => {
     if (!canNavigateFromCard) return;
-    console.debug("[feed-card-debug] click card", { movieId: movie.id });
     navigateToDetail();
   };
 
@@ -75,7 +73,13 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
       >
         {movie.posterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={movie.posterUrl} alt={`Poster de ${movie.title}`} className="h-full w-full object-cover" />
+          <img
+            src={movie.posterUrl}
+            alt={`Poster de ${movie.title}`}
+            className="h-full w-full object-cover"
+            loading={isFeed ? "lazy" : "eager"}
+            decoding="async"
+          />
         ) : (
           <div
             className={`flex h-full w-full items-center justify-center px-3 text-center text-sm ${
@@ -170,3 +174,5 @@ export default function MovieCard({ movie, variant = "compact", linkToDetail = t
     </Link>
   );
 }
+
+export default memo(MovieCard);

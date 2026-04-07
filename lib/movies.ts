@@ -29,10 +29,6 @@ export interface MoviePaginationMeta {
   previous: string | null;
 }
 
-interface ParseMovieListOptions {
-  debugWeekly?: boolean;
-}
-
 export const MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_MOVIES_FEED_ENDPOINT || "/feed/movies/";
 export const WEEKLY_MOVIES_FEED_ENDPOINT = process.env.NEXT_PUBLIC_WEEKLY_MOVIES_FEED_ENDPOINT || "/movies/weekly/";
 export const PERSONALIZED_MOVIES_FEED_ENDPOINT =
@@ -214,14 +210,7 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
       "Sin título",
     ),
   );
-  const rawIdCandidates = {
-    movie_id: raw.movie_id ?? null,
-    movie_nested_id: nestedMovie?.id ?? null,
-    id: raw.id ?? null,
-  };
-  console.debug("[movie-id-debug] raw item ids", rawIdCandidates);
   const id = pickFirst(raw.movie_id, nestedMovie?.id, raw.id, `${title}-${index + 1}`) as number | string;
-  console.debug("[movie-id-debug] normalized movie id", { id: String(id), title });
 
   const yearValue = pickFirst(raw.release_year, raw.year, nestedMovie?.release_year, nestedMovie?.year, raw.release_date);
   const year = typeof yearValue === "string" ? yearValue.slice(0, 4) : String(yearValue ?? "-");
@@ -254,11 +243,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-export function parseMovieList(payload: unknown, options: ParseMovieListOptions = {}): Movie[] {
-  if (options.debugWeekly) {
-    console.log("[weekly] payload recibido:", payload);
-  }
-
+export function parseMovieList(payload: unknown): Movie[] {
   const source =
     Array.isArray(payload)
       ? payload
@@ -272,13 +257,7 @@ export function parseMovieList(payload: unknown, options: ParseMovieListOptions 
 
   return source
     .filter((item): item is Record<string, unknown> => isRecord(item))
-    .map((item, index) => {
-      const normalized = normalizeMovie(item, index);
-      if (options.debugWeekly) {
-        console.log("[weekly] item normalizado:", normalized);
-      }
-      return normalized;
-    });
+    .map((item, index) => normalizeMovie(item, index));
 }
 
 export function parseMoviePagination(payload: unknown): MoviePaginationMeta {

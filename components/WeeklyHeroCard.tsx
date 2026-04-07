@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyboardEvent } from "react";
+import { KeyboardEvent, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Movie } from "../lib/movies";
 import RatingPopover from "./RatingPopover";
@@ -24,7 +24,7 @@ function getAvatarFallback(name?: string | null): string {
   return initials || "★";
 }
 
-export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) {
+function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) {
   const router = useRouter();
   const title = movie?.title ?? fallbackLabel;
   const genre = movie?.genres?.[0] ?? "Sin género";
@@ -36,13 +36,11 @@ export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: Weekly
 
   const navigateToDetail = () => {
     if (!detailHref) return;
-    console.debug("[movie-id-debug] navigating to /movies/{id}", { movieId: String(movie.id), detailHref });
     router.push(detailHref);
   };
 
   const handleCardClick = () => {
     if (!detailHref) return;
-    console.debug("[weekly-card-debug] click card", { movieId: movie.id, type: "hero" });
     navigateToDetail();
   };
 
@@ -50,7 +48,6 @@ export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: Weekly
     if (!detailHref) return;
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      console.debug("[weekly-card-debug] click card", { movieId: movie.id, type: "hero", via: "keyboard" });
       navigateToDetail();
     }
   };
@@ -75,6 +72,8 @@ export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: Weekly
                 src={movie.posterUrl}
                 alt={`Poster de ${title}`}
                 className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-6 text-center text-sm text-zinc-300">
@@ -92,6 +91,8 @@ export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: Weekly
                     src={movie.topUser.avatarUrl}
                     alt={`Top user: ${topUserName}`}
                     className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <span>{getAvatarFallback(movie?.topUser?.name)}</span>
@@ -132,7 +133,6 @@ export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: Weekly
                     movieId={movie.id}
                     currentRating={movie.myRating}
                     onRated={(score) => onRated(movie.id, score)}
-                    debugNamespace="weekly-card-debug"
                   />
                 ) : (
                   <p className="text-base font-semibold text-zinc-100">🙋 {renderRating(movie?.myRating)}</p>
@@ -145,3 +145,5 @@ export default function WeeklyHeroCard({ movie, fallbackLabel, onRated }: Weekly
     </article>
   );
 }
+
+export default memo(WeeklyHeroCard);

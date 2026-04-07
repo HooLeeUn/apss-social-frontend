@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { Movie } from "../lib/movies";
 import WeeklyHeroCard from "./WeeklyHeroCard";
 import WeeklyMiniCard from "./WeeklyMiniCard";
@@ -7,9 +8,9 @@ interface WeeklyRecommendationsSectionProps {
   onRated?: (movieId: Movie["id"], score: number) => void;
 }
 
-export default function WeeklyRecommendationsSection({ weeklyMovies, onRated }: WeeklyRecommendationsSectionProps) {
-  const heroMovies = [weeklyMovies[0], weeklyMovies[1]];
-  const miniMovies = Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]);
+function WeeklyRecommendationsSection({ weeklyMovies, onRated }: WeeklyRecommendationsSectionProps) {
+  const heroMovies = useMemo(() => [weeklyMovies[0], weeklyMovies[1]], [weeklyMovies]);
+  const miniMovies = useMemo(() => Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]), [weeklyMovies]);
 
   return (
     <section className="space-y-6 pt-4">
@@ -38,3 +39,5 @@ export default function WeeklyRecommendationsSection({ weeklyMovies, onRated }: 
     </section>
   );
 }
+
+export default memo(WeeklyRecommendationsSection);
