@@ -1,6 +1,9 @@
+import { useEffect, useRef } from "react";
+
 interface DirectorBoardMenuProps {
   isOpen: boolean;
   onToggle: () => void;
+  onClose: () => void;
   onCloseSession?: () => void;
 }
 
@@ -32,9 +35,46 @@ function DirectorBoardToggle({ isOpen, onClick }: DirectorBoardToggleProps) {
   );
 }
 
-export default function DirectorBoardMenu({ isOpen, onToggle, onCloseSession }: DirectorBoardMenuProps) {
+export default function DirectorBoardMenu({ isOpen, onToggle, onClose, onCloseSession }: DirectorBoardMenuProps) {
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target || menuRef.current?.contains(target)) return;
+      onClose();
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen, onClose]);
+
+  const handleMenuOptionClick = () => {
+    onClose();
+  };
+
+  const handleCloseSessionClick = () => {
+    onClose();
+    onCloseSession?.();
+  };
+
   return (
-    <div className="relative w-full max-w-[220px]">
+    <div ref={menuRef} className="relative w-full max-w-[220px]">
       <DirectorBoardToggle isOpen={isOpen} onClick={onToggle} />
 
       <div
@@ -45,24 +85,36 @@ export default function DirectorBoardMenu({ isOpen, onToggle, onCloseSession }: 
       >
         <ul className="divide-y divide-white/10">
           <li>
-            <button type="button" className="w-full px-4 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5">
+            <button
+              type="button"
+              onClick={handleMenuOptionClick}
+              className="w-full px-4 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
+            >
               Datos Personales
             </button>
           </li>
           <li>
-            <button type="button" className="w-full px-4 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5">
+            <button
+              type="button"
+              onClick={handleMenuOptionClick}
+              className="w-full px-4 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
+            >
               Políticas y Términos
             </button>
           </li>
           <li>
-            <button type="button" className="w-full px-4 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5">
+            <button
+              type="button"
+              onClick={handleMenuOptionClick}
+              className="w-full px-4 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
+            >
               Privacidad y Seguridad
             </button>
           </li>
           <li>
             <button
               type="button"
-              onClick={onCloseSession}
+              onClick={handleCloseSessionClick}
               className="w-full px-4 py-3 text-left text-sm text-red-300 transition-colors hover:bg-red-500/10"
             >
               Cerrar Sesión

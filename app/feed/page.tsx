@@ -265,6 +265,10 @@ export default function FeedPage() {
     setIsDirectorBoardOpen((current) => !current);
   }, []);
 
+  const handleDirectorBoardClose = useCallback(() => {
+    setIsDirectorBoardOpen(false);
+  }, []);
+
   const handleLogout = useCallback(() => {
     clearToken();
     router.replace("/login");
@@ -314,6 +318,7 @@ export default function FeedPage() {
               <DirectorBoardMenu
                 isOpen={isDirectorBoardOpen}
                 onToggle={handleDirectorBoardToggle}
+                onClose={handleDirectorBoardClose}
                 onCloseSession={handleLogout}
               />
             </div>
