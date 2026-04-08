@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
-import { getToken } from "../../lib/auth";
+import { clearToken, getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
 import MovieCard from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
 import WeeklyRecommendationsSection from "../../components/WeeklyRecommendationsSection";
+import DirectorBoardMenu from "../../components/DirectorBoardMenu";
+import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholderButton";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import {
   Movie,
@@ -76,6 +78,7 @@ export default function FeedPage() {
   const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false);
   const [isLoadingMorePersonalized, setIsLoadingMorePersonalized] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [isDirectorBoardOpen, setIsDirectorBoardOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -254,6 +257,23 @@ export default function FeedPage() {
     [selectedGenres],
   );
 
+  const handleProfilePlaceholderClick = useCallback(() => {
+    setIsDirectorBoardOpen((current) => !current);
+  }, []);
+
+  const handleDirectorBoardToggle = useCallback(() => {
+    setIsDirectorBoardOpen((current) => !current);
+  }, []);
+
+  const handleDirectorBoardClose = useCallback(() => {
+    setIsDirectorBoardOpen(false);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    clearToken();
+    router.replace("/login");
+  }, [router]);
+
   const updateWeeklyMovieRating = useCallback((movieId: Movie["id"], score: number, _payload?: unknown) => {
     void _payload;
     setWeeklyMovies((current) =>
@@ -292,6 +312,18 @@ export default function FeedPage() {
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="sticky top-0 z-40 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0">
+          <div className="flex justify-end pr-1">
+            <div className="relative flex flex-col items-end gap-2">
+              <UserProfilePlaceholderButton onClick={handleProfilePlaceholderClick} />
+              <DirectorBoardMenu
+                isOpen={isDirectorBoardOpen}
+                onToggle={handleDirectorBoardToggle}
+                onClose={handleDirectorBoardClose}
+                onCloseSession={handleLogout}
+              />
+            </div>
+          </div>
+
           <SearchBar
             className="mx-auto w-full max-w-2xl gap-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
             inputClassName="rounded-l-full rounded-r-none border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
@@ -313,6 +345,8 @@ export default function FeedPage() {
             disabledChipClassName="border-zinc-700 bg-zinc-900/80 text-zinc-500"
             isGenreDisabled={shouldDisableGenreChip}
           />
+
+          <p className="text-center text-xs text-zinc-500">*Escoge hasta 3 géneros</p>
         </div>
 
         <section className="space-y-5">
