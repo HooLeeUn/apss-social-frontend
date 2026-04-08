@@ -23,13 +23,12 @@ function DirectorBoardToggle({ isOpen, onClick }: DirectorBoardToggleProps) {
       className="group relative w-full max-w-[220px] rounded-xl border border-white/20 bg-zinc-950/95 p-2 text-left shadow-[0_10px_28px_rgba(0,0,0,0.4)] transition-all duration-300 hover:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
     >
       <span
-        className={`block h-7 w-full origin-top rounded-lg border border-white/15 bg-[repeating-linear-gradient(135deg,rgba(24,24,27,0.95)_0px,rgba(24,24,27,0.95)_16px,rgba(212,212,216,0.9)_16px,rgba(212,212,216,0.9)_24px)] shadow-[0_6px_14px_rgba(0,0,0,0.35)] transition-transform duration-300 ${
-          isOpen ? "translate-y-1" : "translate-y-0"
+        className={`block h-7 w-full origin-left rounded-lg border border-white/15 bg-[repeating-linear-gradient(135deg,rgba(24,24,27,0.95)_0px,rgba(24,24,27,0.95)_16px,rgba(212,212,216,0.9)_16px,rgba(212,212,216,0.9)_24px)] shadow-[0_6px_14px_rgba(0,0,0,0.35)] transition-transform duration-500 ease-out ${
+          isOpen ? "-rotate-[3deg] translate-y-[1px]" : "rotate-0 translate-y-0"
         }`}
       />
-      <span className="mt-2 flex items-center justify-between px-1 text-xs tracking-[0.24em] text-zinc-300/90">
-        DIRECTOR
-        <span className={`text-[11px] transition-transform duration-300 ${isOpen ? "rotate-180" : "rotate-0"}`}>⌄</span>
+      <span className="mt-2 block px-1 text-center text-xs tracking-[0.24em] text-zinc-300/90">
+        MENU
       </span>
     </button>
   );
