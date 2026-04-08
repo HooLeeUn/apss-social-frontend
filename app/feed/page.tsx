@@ -310,7 +310,7 @@ export default function FeedPage() {
         <div className="sticky top-0 z-40 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0 relative">
           <div className="pointer-events-none absolute right-0 top-5 z-50 pr-1 md:right-4 md:top-6">
             <div className="pointer-events-auto relative flex w-[198px] flex-col items-center">
-              <UserProfilePlaceholderButton />
+              <UserProfilePlaceholderButton onClick={() => router.push("/profile-feed")} />
               <div className="mt-3">
                 <DirectorBoardMenu
                   isOpen={isDirectorBoardOpen}
