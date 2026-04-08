@@ -257,10 +257,6 @@ export default function FeedPage() {
     [selectedGenres],
   );
 
-  const handleProfilePlaceholderClick = useCallback(() => {
-    setIsDirectorBoardOpen((current) => !current);
-  }, []);
-
   const handleDirectorBoardToggle = useCallback(() => {
     setIsDirectorBoardOpen((current) => !current);
   }, []);
@@ -313,8 +309,8 @@ export default function FeedPage() {
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="sticky top-0 z-40 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0">
           <div className="flex justify-end pr-1">
-            <div className="relative flex flex-col items-end gap-2">
-              <UserProfilePlaceholderButton onClick={handleProfilePlaceholderClick} />
+            <div className="relative mr-2 mt-2 flex flex-col items-center gap-3">
+              <UserProfilePlaceholderButton />
               <DirectorBoardMenu
                 isOpen={isDirectorBoardOpen}
                 onToggle={handleDirectorBoardToggle}
