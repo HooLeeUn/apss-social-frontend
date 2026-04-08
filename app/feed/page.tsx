@@ -308,8 +308,8 @@ export default function FeedPage() {
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="sticky top-0 z-40 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0 relative">
-          <div className="pointer-events-none absolute right-5 top-5 z-50 md:right-10 md:top-6">
-            <div className="pointer-events-auto relative flex flex-col items-center">
+          <div className="pointer-events-none absolute right-7 top-5 z-50 md:right-14 md:top-6">
+            <div className="pointer-events-auto relative flex w-[272px] flex-col items-center">
               <UserProfilePlaceholderButton />
               <div className="mt-3">
                 <DirectorBoardMenu

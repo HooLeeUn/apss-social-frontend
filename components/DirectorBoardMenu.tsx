@@ -20,7 +20,7 @@ function DirectorBoardToggle({ isOpen, onClick }: DirectorBoardToggleProps) {
       aria-expanded={isOpen}
       aria-controls="director-board-panel"
       aria-label="Abrir menú de perfil"
-      className="group relative w-full max-w-[236px] rounded-2xl border border-white/20 bg-zinc-950/95 p-2 text-left shadow-[0_10px_28px_rgba(0,0,0,0.4)] transition-all duration-300 hover:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
+      className="group relative w-full max-w-[272px] rounded-2xl border border-white/20 bg-zinc-950/95 p-2 text-left shadow-[0_10px_28px_rgba(0,0,0,0.4)] transition-all duration-300 hover:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
     >
       <span
         className={`block h-7 w-full origin-[10%_15%] rounded-xl border border-white/20 bg-[repeating-linear-gradient(135deg,rgba(24,24,27,0.95)_0px,rgba(24,24,27,0.95)_14px,rgba(212,212,216,0.9)_14px,rgba(212,212,216,0.9)_22px)] shadow-[0_8px_16px_rgba(0,0,0,0.35)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
@@ -73,12 +73,12 @@ export default function DirectorBoardMenu({ isOpen, onToggle, onClose, onCloseSe
   };
 
   return (
-    <div ref={menuRef} className="relative w-full max-w-[236px]">
+    <div ref={menuRef} className="relative w-full max-w-[272px]">
       <DirectorBoardToggle isOpen={isOpen} onClick={onToggle} />
 
       <div
         id="director-board-panel"
-        className={`absolute right-0 top-full z-50 mt-2 w-[228px] max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-[0_12px_30px_rgba(0,0,0,0.42)] transition-all duration-300 ${
+        className={`absolute left-1/2 top-full z-50 mt-2 w-[258px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-[0_12px_30px_rgba(0,0,0,0.42)] transition-all duration-300 ${
           isOpen ? "pointer-events-auto max-h-80 translate-y-0 opacity-100" : "pointer-events-none max-h-0 -translate-y-2 opacity-0"
         }`}
       >
