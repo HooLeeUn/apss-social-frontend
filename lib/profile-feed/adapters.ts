@@ -1,30 +1,21 @@
 import { ApiError, apiFetch } from "../api";
 import { normalizeMovie, parseMovieList } from "../movies";
-import { favoriteMoviesMock, followingMock, friendsMock, socialActivityMock } from "./mocks";
+import { favoriteMoviesMock, followingMock, friendsMock } from "./mocks";
 import {
   FavoriteMovie,
   PaginatedSocialActivity,
+  ProfileFeedActivityResponseItem,
   SocialActivityItem,
   SocialTab,
   SocialUser,
   FavoriteMovieSearchResult,
 } from "./types";
 
-const PAGE_SIZE_DEFAULT = 6;
 const PROFILE_FAVORITES_ENDPOINT = "/profile/favorites/";
+const PROFILE_FEED_ACTIVITY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_FEED_ACTIVITY_ENDPOINT || "/profile-feed/activity/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => b.followersCount - a.followersCount);
-}
-
-function sortActivityByFollowersAndRecency(items: SocialActivityItem[]): SocialActivityItem[] {
-  return [...items].sort((a, b) => {
-    if (b.user.followersCount !== a.user.followersCount) {
-      return b.user.followersCount - a.user.followersCount;
-    }
-
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
 }
 
 function withArtificialDelay<T>(payload: T, delayMs = 240): Promise<T> {
@@ -120,6 +111,79 @@ function parseFavorites(payload: unknown): FavoriteMovie[] {
     .map((item) => extractMovieInfo(item));
 }
 
+function toStringOrNull(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+function getDisplayMovieTitle(movie: ProfileFeedActivityResponseItem["movie"]): string {
+  return toStringOrNull(movie.title_spanish) || toStringOrNull(movie.title_english) || "Sin título";
+}
+
+function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
+  const payload = toRecord(item.payload) ?? {};
+  const score = toNumberOrNull(payload.score);
+  const commentText = toStringOrNull(pickFirst(payload.content, payload.text));
+  const likedCommentSnippet = toStringOrNull(payload.comment_excerpt);
+  const likedCommentAuthor = toRecord(payload.comment_author);
+  const likedCommentAuthorUsername = toStringOrNull(likedCommentAuthor?.username);
+
+  return {
+    id: item.id,
+    user: {
+      id: String(item.actor.id),
+      username: item.actor.username,
+      avatarUrl: item.actor.avatar,
+      followersCount: 0,
+    },
+    userDisplayName: toStringOrNull(item.actor.display_name),
+    movieTitle: getDisplayMovieTitle(item.movie),
+    movieYear: item.movie.release_year,
+    movieId: item.movie.id,
+    moviePosterUrl: item.movie.image,
+    createdAt: item.created_at,
+    interactionType:
+      item.activity_type === "rating" ? "rating" : item.activity_type === "public_comment" ? "comment" : "like",
+    ratingValue: score ?? undefined,
+    commentText: commentText ?? undefined,
+    likedCommentSnippet: likedCommentSnippet ?? undefined,
+    likedCommentAuthorUsername: likedCommentAuthorUsername ?? undefined,
+  };
+}
+
+function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
+  const root = toRecord(payload);
+  const results = Array.isArray(root?.results) ? root.results : [];
+
+  return {
+    items: results
+      .map((item) => toRecord(item))
+      .filter((item): item is Record<string, unknown> => Boolean(item))
+      .map((item) => toActivityItem(item as unknown as ProfileFeedActivityResponseItem)),
+    next: typeof root?.next === "string" ? root.next : null,
+  };
+}
+
+function buildActivityScopeEndpoint(scope: SocialTab): string {
+  const params = new URLSearchParams({ scope });
+  return `${PROFILE_FEED_ACTIVITY_ENDPOINT}?${params.toString()}`;
+}
+
+function normalizeActivityNextEndpoint(next: string): string {
+  if (next.startsWith("http://") || next.startsWith("https://")) {
+    const { pathname, search } = new URL(next);
+    const normalizedPath = pathname.startsWith("/api/") ? pathname.replace(/^\/api/, "") : pathname;
+    return `${normalizedPath}${search}`;
+  }
+
+  if (next.startsWith("/api/")) {
+    return next.replace(/^\/api/, "");
+  }
+
+  return next;
+}
+
 export async function getFavoriteMovies(): Promise<FavoriteMovie[]> {
   try {
     const payload = await apiFetch(PROFILE_FAVORITES_ENDPOINT);
@@ -196,16 +260,15 @@ export async function getTopFollowing(limit = 5): Promise<SocialUser[]> {
 
 export async function getSocialActivity(
   tab: SocialTab,
-  page = 1,
-  pageSize = PAGE_SIZE_DEFAULT,
+  nextEndpoint: string | null = null,
+  signal?: AbortSignal,
 ): Promise<PaginatedSocialActivity> {
-  const sorted = sortActivityByFollowersAndRecency(socialActivityMock.filter((item) => item.tab === tab));
-  const start = (page - 1) * pageSize;
-  const end = start + pageSize;
-  const items = sorted.slice(start, end);
+  const endpoint = nextEndpoint || buildActivityScopeEndpoint(tab);
+  const payload = await apiFetch(endpoint, { signal });
+  const parsed = parseSocialActivity(payload);
 
-  return withArtificialDelay({
-    items,
-    nextPage: end < sorted.length ? page + 1 : null,
-  });
+  return {
+    items: parsed.items,
+    next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+  };
 }
