@@ -15,7 +15,7 @@ export default function SocialActivityTabsBlock() {
   const { items, loading, loadingMore, hasMore, sentinelRef } = useInfiniteSocialActivity(activeTab);
 
   return (
-    <section className="rounded-3xl border border-white/15 bg-zinc-950/50 pb-5">
+    <section className="ml-auto w-full max-w-[1100px] rounded-3xl border border-white/15 bg-zinc-950/50 pb-5">
       <header className="sticky top-4 z-30 rounded-t-3xl border-b border-white/10 bg-black/90 px-4 py-3 backdrop-blur-md">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => {

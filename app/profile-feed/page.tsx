@@ -33,20 +33,21 @@ export default function ProfileFeedPage() {
     <main className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 md:px-8">
         <section className="rounded-3xl border border-white/10 bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
-          <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-white/15 bg-zinc-900/70 px-4 py-3 text-sm uppercase tracking-[0.2em] text-zinc-300">
-                MiAppSocialMovies
-              </div>
+          <div className="grid items-stretch gap-6 lg:grid-cols-2">
+            <div className="flex">
               <Link
                 href="/feed"
-                className="inline-flex rounded-full border border-white/20 bg-zinc-900/70 px-4 py-2 text-xs text-zinc-300 transition hover:border-white/40 hover:text-zinc-100"
+                className="group relative flex min-h-[220px] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 px-6 py-8 text-center shadow-[0_20px_40px_rgba(0,0,0,0.35)] transition hover:border-blue-200/70 hover:shadow-[0_20px_45px_rgba(37,99,235,0.18)]"
               >
-                Volver al feed
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75 transition group-hover:opacity-100" />
+                <div className="relative">
+                  <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500">Volver a feed</p>
+                  <p className="mt-3 text-xl font-semibold uppercase tracking-[0.2em] text-zinc-100">MiAppSocialMovies</p>
+                </div>
               </Link>
             </div>
 
-            <div className="space-y-4">
+            <div className="flex min-h-[220px] flex-col justify-center space-y-4">
               <p className="text-center text-lg font-semibold text-zinc-100">Mis Películas Favoritas</p>
               <div className="grid gap-2">
                 <div className="h-[1px] bg-white/10" />
