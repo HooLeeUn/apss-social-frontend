@@ -32,41 +32,39 @@ interface CompactRatingItemProps {
 function CompactRatingItem({ icon, label, value, emphasize = false }: CompactRatingItemProps) {
   return (
     <div
-      className={`inline-flex min-w-0 items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium ${
-        emphasize ? "border-blue-300/40 bg-blue-900/20 text-blue-100" : "border-white/10 bg-zinc-900/80 text-zinc-300"
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-sm font-semibold ${
+        emphasize ? "border-blue-300/40 bg-blue-900/20 text-blue-100" : "border-white/10 bg-zinc-900/70 text-zinc-200"
       }`}
+      aria-label={label}
     >
       <span aria-hidden="true">{icon}</span>
-      <span className="truncate" aria-label={label}>
-        {formatRating(value)}
-      </span>
+      <span>{formatRating(value)}</span>
     </div>
   );
 }
 
 function FavoriteMovieItem({ movie, slot, onOpenSearch }: FavoriteMovieItemProps) {
   const firstLetter = (movie?.titleSpanish || movie?.titleEnglish || movie?.title)?.charAt(0)?.toUpperCase() ?? "—";
+  const displayTitle = movie?.titleSpanish || movie?.titleEnglish || movie?.title || "";
+  const titleClassName = displayTitle.length > 30 ? "text-base lg:text-[17px]" : "text-[17px] lg:text-lg";
 
   return (
     <article className="group relative isolate overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5 py-5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(9%_0%,100%_0%,91%_100%,0%_100%)]">
       <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-blue-300/10 opacity-80" />
-      <div className="relative flex min-h-[148px] items-start gap-4 pr-12">
+      <div className="relative grid min-h-[148px] grid-cols-[auto,minmax(0,1fr),auto] items-start gap-4">
         <div className="flex h-24 w-16 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
           {movie ? <span className="text-lg">{firstLetter}</span> : <span className="text-zinc-600">VACÍO</span>}
         </div>
 
-        <div className="flex min-h-[148px] min-w-0 flex-1 flex-col justify-between">
+        <div className="flex min-h-[148px] min-w-0 flex-1 flex-col justify-between gap-y-3 py-0.5">
           {movie ? (
             <>
-              <div className="space-y-2">
-                <h3 className="truncate text-[17px] font-semibold text-zinc-100 lg:text-lg">
-                  {movie.titleSpanish || movie.titleEnglish || movie.title}
-                </h3>
-                <p className="truncate pr-2 text-sm text-zinc-400">
-                  {movie.year} · {movie.genre} · {movie.type}
-                </p>
+              <div className="space-y-1.5 pr-1">
+                <h3 className={`line-clamp-2 leading-tight font-semibold text-zinc-100 ${titleClassName}`}>{displayTitle}</h3>
+                <p className="text-sm leading-tight text-zinc-400">{movie.year}</p>
+                <p className="line-clamp-2 text-sm leading-tight text-zinc-300">{movie.genre}</p>
               </div>
-              <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+              <div className="mt-auto flex items-center justify-between gap-4 pb-0.5">
                 <CompactRatingItem icon="⭐" label="Puntaje general" value={movie.generalRating} />
                 <CompactRatingItem icon="👥" label="Puntaje de seguidos" value={movie.followingRating} />
                 <CompactRatingItem icon="🙋" label="Mi puntaje" value={movie.myRating} emphasize />
@@ -84,7 +82,7 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch }: FavoriteMovieItemProps
           type="button"
           onClick={() => onOpenSearch(slot)}
           aria-label={`Asignar película favorita al slot ${slot}`}
-          className="absolute right-0 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/60 bg-zinc-900 text-blue-200 shadow-[0_8px_18px_rgba(56,189,248,0.22)] transition hover:border-blue-200 hover:text-blue-100"
+          className="z-10 inline-flex h-11 w-11 items-center justify-center self-start rounded-full border border-blue-300/60 bg-zinc-900 text-blue-200 shadow-[0_8px_18px_rgba(56,189,248,0.22)] transition hover:border-blue-200 hover:text-blue-100"
         >
           <span className="text-xl leading-none">+</span>
         </button>
