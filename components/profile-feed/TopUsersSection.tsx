@@ -41,7 +41,7 @@ function Block({ title, users }: { title: string; users: SocialUser[] }) {
 
 export default function TopUsersSection({ friends, following }: TopUsersSectionProps) {
   return (
-    <section className="mx-auto grid w-full max-w-[1120px] gap-4 xl:grid-cols-2">
+    <section className="mx-auto grid w-full max-w-4xl gap-4 xl:grid-cols-2">
       <Block title="Seguidos" users={following} />
       <Block title="Amigos" users={friends} />
     </section>
