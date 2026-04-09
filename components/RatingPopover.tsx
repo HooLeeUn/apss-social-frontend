@@ -8,7 +8,13 @@ interface RatingPopoverProps {
   movieId: number | string;
   currentRating: number | null;
   onRated: (score: number, payload: unknown) => void | Promise<void>;
+  onOptimisticRate?: (score: number) => void;
+  onRateError?: () => void;
+  submitRatingRequest?: (score: number) => Promise<unknown>;
   className?: string;
+  icon?: string;
+  nullLabel?: string;
+  ariaLabel?: string;
 }
 
 const RATING_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
@@ -18,7 +24,13 @@ export default function RatingPopover({
   movieId,
   currentRating,
   onRated,
+  onOptimisticRate,
+  onRateError,
+  submitRatingRequest,
   className = "",
+  icon = "🙋",
+  nullLabel = "Mi puntaje",
+  ariaLabel = "Mi puntaje",
 }: RatingPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -88,20 +100,24 @@ export default function RatingPopover({
 
   const submitRating = async (score: number) => {
     if (isSaving) return;
+    onOptimisticRate?.(score);
 
     try {
       setIsSaving(true);
       setError("");
-      const response = await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/rating/`, {
-        method: "PUT",
-        body: JSON.stringify({ score }),
-      });
+      const response = submitRatingRequest
+        ? await submitRatingRequest(score)
+        : await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/rating/`, {
+            method: "PUT",
+            body: JSON.stringify({ score }),
+          });
       await onRated(score, response);
       setSelectedFlash(score);
       setIsOpen(false);
       setHoveredScore(null);
       window.setTimeout(() => setSelectedFlash(null), 220);
     } catch (submitError) {
+      onRateError?.();
       console.error("Rating submit error:", submitError);
       if (submitError instanceof ApiError) {
         setError("No se pudo guardar tu puntaje.");
@@ -129,11 +145,11 @@ export default function RatingPopover({
         className={`inline-flex items-center gap-1 rounded-md border border-white/10 bg-zinc-900/80 px-2 py-1 text-sm font-semibold text-zinc-100 transition-all hover:border-white/35 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
           selectedFlash !== null ? "scale-[1.02] ring-1 ring-emerald-400/70" : ""
         }`}
-        aria-label="Mi puntaje"
+        aria-label={ariaLabel}
         aria-expanded={isOpen}
       >
-        <span aria-hidden="true">🙋</span>
-        <span>{currentRating !== null ? currentRating.toFixed(1) : "Mi puntaje"}</span>
+        <span aria-hidden="true">{icon}</span>
+        <span>{currentRating !== null ? currentRating.toFixed(1) : nullLabel}</span>
         {isSaving ? <span className="text-[11px] text-zinc-400">Guardando...</span> : null}
       </button>
 

@@ -146,6 +146,13 @@ export async function removeFavoriteMovie(slot: number): Promise<void> {
   });
 }
 
+export async function rateFavoriteMovie(movieId: string | number, score: number): Promise<unknown> {
+  return apiFetch(`/movies/${encodeURIComponent(String(movieId))}/rating/`, {
+    method: "PUT",
+    body: JSON.stringify({ score }),
+  });
+}
+
 export async function searchFavoriteMovieCandidates(query: string): Promise<FavoriteMovieSearchResult[]> {
   const endpoint = `/movies/?${new URLSearchParams({ search: query.trim(), page: "1" }).toString()}`;
   const payload = await apiFetch(endpoint);
