@@ -1,14 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { ApiError } from "../../lib/api";
-import { getFavoriteMovies, searchFavoriteMovieCandidates, setFavoriteMovie } from "../../lib/profile-feed/adapters";
+import RatingPopover from "../RatingPopover";
+import { getFavoriteMovies, rateFavoriteMovie, searchFavoriteMovieCandidates, setFavoriteMovie } from "../../lib/profile-feed/adapters";
 import { FavoriteMovie, FavoriteMovieSearchResult } from "../../lib/profile-feed/types";
 
 interface FavoriteMovieItemProps {
   movie?: FavoriteMovie;
   slot: number;
   onOpenSearch: (slot: number) => void;
+  onUpdateMovieRating: (movieId: string, score: number | null) => void;
 }
 
 interface FavoriteSearchModalProps {
@@ -43,10 +45,28 @@ function CompactRatingItem({ icon, label, value, emphasize = false }: CompactRat
   );
 }
 
-function FavoriteMovieItem({ movie, slot, onOpenSearch }: FavoriteMovieItemProps) {
+function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
   const firstLetter = (movie?.titleSpanish || movie?.titleEnglish || movie?.title)?.charAt(0)?.toUpperCase() ?? "—";
   const displayTitle = movie?.titleSpanish || movie?.titleEnglish || movie?.title || "";
   const titleClassName = displayTitle.length > 30 ? "text-base lg:text-[17px]" : "text-[17px] lg:text-lg";
+  const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
+
+  const handleOptimisticRate = (score: number) => {
+    if (!movie) return;
+    lastCommittedRatingRef.current = movie.myRating;
+    onUpdateMovieRating(movie.id, score);
+  };
+
+  const handleRateError = () => {
+    if (!movie) return;
+    onUpdateMovieRating(movie.id, lastCommittedRatingRef.current);
+  };
+
+  const handleRated = (score: number) => {
+    if (!movie) return;
+    lastCommittedRatingRef.current = score;
+    onUpdateMovieRating(movie.id, score);
+  };
 
   return (
     <div className="group relative isolate overflow-visible">
@@ -69,7 +89,18 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch }: FavoriteMovieItemProps
                 <div className="mt-auto flex items-center justify-between gap-2 pb-0.5">
                   <CompactRatingItem icon="⭐" label="Puntaje general" value={movie.generalRating} />
                   <CompactRatingItem icon="👥" label="Puntaje de seguidos" value={movie.followingRating} />
-                  <CompactRatingItem icon="🙋" label="Mi puntaje" value={movie.myRating} emphasize />
+                  <RatingPopover
+                    movieId={movie.id}
+                    currentRating={movie.myRating}
+                    onOptimisticRate={handleOptimisticRate}
+                    onRateError={handleRateError}
+                    onRated={(score) => handleRated(score)}
+                    submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
+                    icon="🧑"
+                    nullLabel="—"
+                    ariaLabel="Mi puntaje"
+                    className="shrink-0"
+                  />
                 </div>
               </>
             ) : (
@@ -273,6 +304,12 @@ export default function FavoriteMoviesBlock() {
 
   const slots = [1, 2, 3].map((slot) => favorites.find((movie) => movie.slot === slot));
 
+  const handleUpdateMovieRating = (movieId: string, score: number | null) => {
+    setFavorites((current) =>
+      current.map((favorite) => (String(favorite.id) === String(movieId) ? { ...favorite, myRating: score } : favorite)),
+    );
+  };
+
   return (
     <section className="rounded-3xl border border-white/15 bg-zinc-950/65 p-6 shadow-[0_24px_45px_rgba(0,0,0,0.38)]">
       {loading ? <p className="text-sm text-zinc-400">Cargando favoritas...</p> : null}
@@ -280,7 +317,13 @@ export default function FavoriteMoviesBlock() {
 
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {slots.map((movie, index) => (
-          <FavoriteMovieItem key={movie?.id ?? `placeholder-${index}`} slot={index + 1} movie={movie} onOpenSearch={setActiveSlot} />
+          <FavoriteMovieItem
+            key={movie?.id ?? `placeholder-${index}`}
+            slot={index + 1}
+            movie={movie}
+            onOpenSearch={setActiveSlot}
+            onUpdateMovieRating={handleUpdateMovieRating}
+          />
         ))}
       </div>
 
