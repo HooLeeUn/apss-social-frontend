@@ -4,9 +4,28 @@ export type InteractionType = "rating" | "comment" | "like";
 
 export interface FavoriteMovie {
   id: string;
+  slot: number;
   title: string;
-  year: number;
+  titleSpanish?: string | null;
+  titleEnglish?: string | null;
+  year: string;
+  genre: string;
+  type: string;
   posterUrl?: string | null;
+  generalRating: number | null;
+  followingRating: number | null;
+  myRating: number | null;
+}
+
+export interface FavoriteMovieSearchResult {
+  id: string;
+  title: string;
+  year: string;
+  genre: string;
+  type: string;
+  generalRating: number | null;
+  followingRating: number | null;
+  myRating: number | null;
 }
 
 export interface SocialUser {

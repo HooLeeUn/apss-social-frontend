@@ -5,23 +5,17 @@ import { useEffect, useState } from "react";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
 import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivityTabsBlock";
 import TopUsersSection from "../../components/profile-feed/TopUsersSection";
-import { getFavoriteMovies, getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
-import { FavoriteMovie, SocialUser } from "../../lib/profile-feed/types";
+import { getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
+import { SocialUser } from "../../lib/profile-feed/types";
 
 export default function ProfileFeedPage() {
-  const [favorites, setFavorites] = useState<FavoriteMovie[]>([]);
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
 
   useEffect(() => {
     const load = async () => {
-      const [favMovies, topFriends, topFollowing] = await Promise.all([
-        getFavoriteMovies(),
-        getTopFriends(),
-        getTopFollowing(),
-      ]);
+      const [topFriends, topFollowing] = await Promise.all([getTopFriends(), getTopFollowing()]);
 
-      setFavorites(favMovies);
       setFriends(topFriends);
       setFollowing(topFollowing);
     };
@@ -49,7 +43,7 @@ export default function ProfileFeedPage() {
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
               <p className="text-center text-lg font-semibold text-zinc-100 md:text-left">Mis Películas Favoritas</p>
-              <FavoriteMoviesBlock movies={favorites} />
+              <FavoriteMoviesBlock />
             </div>
           </div>
         </section>
