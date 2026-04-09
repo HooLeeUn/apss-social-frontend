@@ -49,51 +49,53 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch }: FavoriteMovieItemProps
   const titleClassName = displayTitle.length > 30 ? "text-base lg:text-[17px]" : "text-[17px] lg:text-lg";
 
   return (
-    <article className="group relative isolate overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5 py-3.5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(9%_0%,100%_0%,91%_100%,0%_100%)]">
-      <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-blue-300/10 opacity-80" />
-      <div className="relative flex min-h-[118px] min-w-0 pr-10">
-        <div className="flex min-w-0 flex-1 flex-col justify-between gap-y-2 py-0.5">
-          {movie ? (
-            <>
-              <h3 className={`line-clamp-2 leading-tight font-semibold text-zinc-100 ${titleClassName}`}>{displayTitle}</h3>
-              <div className="flex items-center gap-3">
+    <div className="group relative isolate overflow-visible">
+      <article className="relative overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5 py-3.5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(9%_0%,100%_0%,91%_100%,0%_100%)]">
+        <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-blue-300/10 opacity-80" />
+        <div className="relative flex min-h-[118px] min-w-0 pr-10">
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-y-2 py-0.5">
+            {movie ? (
+              <>
+                <h3 className={`line-clamp-2 leading-tight font-semibold text-zinc-100 ${titleClassName}`}>{displayTitle}</h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
+                    <span className="text-lg">{firstLetter}</span>
+                  </div>
+                  <div className="flex min-w-0 flex-col justify-center gap-1 pr-1">
+                    <p className="text-sm leading-tight text-zinc-300">{movie.year}</p>
+                    <p className="text-sm leading-tight text-zinc-300">{movie.genre}</p>
+                  </div>
+                </div>
+                <div className="mt-auto flex items-center justify-between gap-2 pb-0.5">
+                  <CompactRatingItem icon="⭐" label="Puntaje general" value={movie.generalRating} />
+                  <CompactRatingItem icon="👥" label="Puntaje de seguidos" value={movie.followingRating} />
+                  <CompactRatingItem icon="🙋" label="Mi puntaje" value={movie.myRating} emphasize />
+                </div>
+              </>
+            ) : (
+              <>
                 <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
-                  <span className="text-lg">{firstLetter}</span>
+                  <span className="text-zinc-600">VACÍO</span>
                 </div>
-                <div className="flex min-w-0 flex-col justify-center gap-1 pr-1">
-                  <p className="text-sm leading-tight text-zinc-300">{movie.year}</p>
-                  <p className="text-sm leading-tight text-zinc-300">{movie.genre}</p>
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Favorita {slot}</p>
+                  <p className="text-sm text-zinc-500">Selecciona una película para este espacio.</p>
                 </div>
-              </div>
-              <div className="mt-auto flex items-center justify-between gap-2 pb-0.5">
-                <CompactRatingItem icon="⭐" label="Puntaje general" value={movie.generalRating} />
-                <CompactRatingItem icon="👥" label="Puntaje de seguidos" value={movie.followingRating} />
-                <CompactRatingItem icon="🙋" label="Mi puntaje" value={movie.myRating} emphasize />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
-                <span className="text-zinc-600">VACÍO</span>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Favorita {slot}</p>
-                <p className="text-sm text-zinc-500">Selecciona una película para este espacio.</p>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
+      </article>
 
-        <button
-          type="button"
-          onClick={() => onOpenSearch(slot)}
-          aria-label={`Asignar película favorita al slot ${slot}`}
-          className="absolute right-[-10px] top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/60 bg-zinc-900 text-blue-200 shadow-[0_8px_18px_rgba(56,189,248,0.22)] transition hover:border-blue-200 hover:text-blue-100"
-        >
-          <span className="text-xl leading-none">+</span>
-        </button>
-      </div>
-    </article>
+      <button
+        type="button"
+        onClick={() => onOpenSearch(slot)}
+        aria-label={`Asignar película favorita al slot ${slot}`}
+        className="absolute right-0 top-1/2 z-10 inline-flex h-11 w-11 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/60 bg-zinc-900 text-blue-200 shadow-[0_8px_18px_rgba(56,189,248,0.22)] transition hover:border-blue-200 hover:text-blue-100"
+      >
+        <span className="text-xl leading-none">+</span>
+      </button>
+    </div>
   );
 }
 
