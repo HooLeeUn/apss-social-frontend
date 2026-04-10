@@ -75,8 +75,8 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
   const movieYear = item.movieYear ? `(${item.movieYear})` : "";
   const activity = getActivityText(item);
-  const movieType = item.movieType || "No disponible";
-  const movieGenre = item.movieGenre || "No disponible";
+  const movieType = item.movieType || "-";
+  const movieGenre = item.movieGenre || "-";
 
   return (
     <article className="rounded-2xl border border-white/15 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.32)]">

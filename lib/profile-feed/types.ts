@@ -77,13 +77,9 @@ export interface ProfileFeedActivityMovie {
   release_year: number | null;
   image: string | null;
   type?: string | null;
-  content_type?: string | null;
   genre?: string | null;
-  genres?: string[] | string | null;
   display_rating?: number | string | null;
-  general_rating?: number | string | null;
   following_avg_rating?: number | string | null;
-  following_rating?: number | string | null;
   my_rating?: number | string | null;
 }
 
