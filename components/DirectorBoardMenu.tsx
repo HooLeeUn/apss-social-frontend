@@ -5,6 +5,7 @@ interface DirectorBoardMenuProps {
   onToggle: () => void;
   onClose: () => void;
   onCloseSession?: () => void;
+  onPrivacySecurityClick?: () => void;
 }
 
 interface DirectorBoardToggleProps {
@@ -34,7 +35,13 @@ function DirectorBoardToggle({ isOpen, onClick }: DirectorBoardToggleProps) {
   );
 }
 
-export default function DirectorBoardMenu({ isOpen, onToggle, onClose, onCloseSession }: DirectorBoardMenuProps) {
+export default function DirectorBoardMenu({
+  isOpen,
+  onToggle,
+  onClose,
+  onCloseSession,
+  onPrivacySecurityClick,
+}: DirectorBoardMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -65,6 +72,11 @@ export default function DirectorBoardMenu({ isOpen, onToggle, onClose, onCloseSe
 
   const handleMenuOptionClick = () => {
     onClose();
+  };
+
+  const handlePrivacySecurityClick = () => {
+    onClose();
+    onPrivacySecurityClick?.();
   };
 
   const handleCloseSessionClick = () => {
@@ -104,7 +116,7 @@ export default function DirectorBoardMenu({ isOpen, onToggle, onClose, onCloseSe
           <li>
             <button
               type="button"
-              onClick={handleMenuOptionClick}
+              onClick={handlePrivacySecurityClick}
               className="w-full px-3 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
             >
               Privacidad y Seguridad
