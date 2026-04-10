@@ -51,31 +51,32 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: F
           <div className="flex min-w-0 flex-1 flex-col justify-between">
             {movie ? (
               <>
-                <h3 className="truncate text-sm font-semibold leading-tight text-zinc-100">{displayTitle}</h3>
-                <div className="flex items-center gap-3">
+                <div className="grid min-w-0 grid-cols-[56px_minmax(0,1fr)] items-center gap-3">
                   <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
                     <span className="text-lg">{firstLetter}</span>
                   </div>
-                  <div className="flex min-w-0 flex-col justify-center gap-1 pr-1">
-                    <p className="text-sm leading-tight text-zinc-300">{movie.year}</p>
-                    <p className="text-sm leading-tight text-zinc-300">{movie.genre}</p>
+                  <div className="min-w-0">
+                    <h3 className="truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">{displayTitle}</h3>
+                    <div className="mt-1 flex min-w-0 flex-col justify-center gap-0.5 pr-1">
+                      <p className="truncate text-sm leading-tight text-zinc-300">{movie.year}</p>
+                      <p className="truncate text-sm leading-tight text-zinc-300">{movie.genre}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="mt-auto flex items-end justify-between gap-2 pb-0.5">
-                  <div className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200" aria-label="General">
+                <div className="mt-auto flex items-end justify-between gap-1.5 pb-0.5">
+                  <div className="inline-flex h-10 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200" aria-label="General">
                     <span aria-hidden="true">⭐</span>
                     <span>{formatAverageRating(movie.generalRating)}</span>
                   </div>
-                  <div className="inline-flex rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1" aria-label="Seguidos">
-                    <div className="flex flex-col leading-tight text-zinc-200">
-                      <span className="text-sm">👥 {formatFollowingRating(movie.followingRating)}</span>
+                  <div className="inline-flex h-10 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1" aria-label="Seguidos">
+                    <div className="flex flex-col justify-center leading-tight text-zinc-200">
+                      <span className="whitespace-nowrap text-sm font-semibold">👥 {formatFollowingRating(movie.followingRating)}</span>
                       {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
-                        <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</span>
+                        <span className="text-[9px] font-normal text-zinc-500/90">{formatFollowingRatingsCount(movie.followingRatingsCount)}</span>
                       ) : null}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</span>
+                  <div className="ml-1">
                     <RatingPopover
                       movieId={movie.id}
                       currentRating={movie.myRating}
