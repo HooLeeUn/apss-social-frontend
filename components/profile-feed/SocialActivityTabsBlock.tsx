@@ -5,14 +5,34 @@ import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity
 import { SocialTab } from "../../lib/profile-feed/types";
 import SocialActivityCard from "./SocialActivityCard";
 
-const tabs: Array<{ value: SocialTab; label: string }> = [
-  { value: "following", label: "Seguidos" },
-  { value: "friends", label: "Amigos" },
+const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
+  { value: "following", label: "Seguidos", emptyCopy: "Aún no hay actividad de usuarios seguidos." },
+  { value: "friends", label: "Amigos", emptyCopy: "Aún no hay actividad de amigos." },
 ];
+
+function SocialActivitySkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={`skeleton-${index}`} className="animate-pulse rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
+          <div className="flex items-start gap-3">
+            <div className="h-11 w-11 rounded-full bg-zinc-800" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-36 rounded bg-zinc-800" />
+              <div className="h-3 w-full rounded bg-zinc-900" />
+              <div className="h-3 w-2/3 rounded bg-zinc-900" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function SocialActivityTabsBlock() {
   const [activeTab, setActiveTab] = useState<SocialTab>("following");
-  const { items, loading, loadingMore, hasMore, sentinelRef } = useInfiniteSocialActivity(activeTab);
+  const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activeTab);
+  const activeTabMeta = tabs.find((tab) => tab.value === activeTab) || tabs[0];
 
   return (
     <section className="ml-auto w-full max-w-[1100px] rounded-3xl border border-white/15 bg-zinc-950/50 pb-5">
@@ -39,9 +59,22 @@ export default function SocialActivityTabsBlock() {
       </header>
 
       <div className="space-y-3 px-4 pt-4">
-        {loading ? <p className="text-sm text-zinc-400">Cargando actividad...</p> : null}
+        {loading ? <SocialActivitySkeleton /> : null}
 
-        {!loading && items.length === 0 ? <p className="text-sm text-zinc-500">Aún no hay actividad para esta pestaña.</p> : null}
+        {!loading && error ? (
+          <div className="rounded-2xl border border-red-300/30 bg-red-950/30 px-4 py-3 text-sm text-red-100">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={reload}
+              className="mt-2 rounded-full border border-red-200/40 bg-red-900/40 px-3 py-1 text-xs font-medium transition hover:bg-red-900/60"
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : null}
+
+        {!loading && !error && items.length === 0 ? <p className="text-sm text-zinc-500">{activeTabMeta.emptyCopy}</p> : null}
 
         {items.map((item) => (
           <SocialActivityCard key={item.id} item={item} />
