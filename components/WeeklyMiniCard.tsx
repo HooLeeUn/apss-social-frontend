@@ -3,16 +3,13 @@
 import { KeyboardEvent, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Movie } from "../lib/movies";
+import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
 import RatingPopover from "./RatingPopover";
 
 interface WeeklyMiniCardProps {
   movie?: Movie;
   fallbackLabel: string;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
-}
-
-function renderRating(value: number | null | undefined): string {
-  return value !== null && value !== undefined ? value.toFixed(1) : "-";
 }
 
 function getAvatarFallback(name?: string | null): string {
@@ -97,16 +94,18 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
 
               <div className="pt-2">
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-200">
-                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">⭐ {renderRating(movie?.displayRating)}</span>
-                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">👥 {renderRating(movie?.followingAvgRating)}</span>
+                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">⭐ {formatAverageRating(movie?.displayRating)}</span>
+                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">👥 {formatFollowingRating(movie?.followingAvgRating, movie?.followingRatingsCount)}</span>
                   {movie && onRated ? (
                     <RatingPopover
                       movieId={movie.id}
                       currentRating={movie.myRating}
                       onRated={(score, payload) => onRated(movie.id, score, payload)}
+                      nullLabel="—"
+                      ariaLabel="Mi calificación"
                     />
                   ) : (
-                    <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">🙋 {renderRating(movie?.myRating)}</span>
+                    <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">🙋 {formatMyRating(movie?.myRating)}</span>
                   )}
                 </div>
               </div>

@@ -13,6 +13,7 @@ export interface Movie {
   displayRating: number | null;
   myRating: number | null;
   followingAvgRating: number | null;
+  followingRatingsCount: number;
   topUser: MovieTopUser | null;
 }
 
@@ -75,6 +76,15 @@ function toNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+
+function toNonNegativeInteger(value: unknown): number {
+  const numeric = toNumber(value);
+  if (numeric === null) return 0;
+
+  const normalized = Math.round(numeric);
+  return normalized > 0 ? normalized : 0;
 }
 
 function toStringList(value: unknown): string[] {
@@ -235,6 +245,15 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     displayRating: toNumber(pickFirst(raw.display_rating, raw.general_rating, raw.avg_rating, raw.rating)),
     myRating: toNumber(raw.my_rating),
     followingAvgRating: toNumber(pickFirst(raw.following_avg_rating, raw.following_rating)),
+    followingRatingsCount: toNonNegativeInteger(
+      pickFirst(
+        raw.following_ratings_count,
+        nestedMovie?.following_ratings_count,
+        raw.following_rating_count,
+        nestedMovie?.following_rating_count,
+        raw.following_count,
+      ),
+    ),
     topUser: parseTopUser(raw),
   };
 }
