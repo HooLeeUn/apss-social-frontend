@@ -130,17 +130,11 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const likedCommentAuthor = toRecord(payload.comment_author);
   const likedCommentAuthorUsername = toStringOrNull(likedCommentAuthor?.username);
 
-  const movieType = toStringOrNull(pickFirst(movie.type, movie.content_type, movie.contentType));
-  const movieGenreCandidate = pickFirst(movie.genre, movie.genres);
-  const movieGenre =
-    Array.isArray(movieGenreCandidate) && movieGenreCandidate.length > 0
-      ? movieGenreCandidate.map((genre) => toStringOrNull(genre)).filter((genre): genre is string => Boolean(genre)).join(", ") || undefined
-      : toStringOrNull(movieGenreCandidate) || undefined;
-  const generalRating = toNumberOrNull(
-    pickFirst(movie.display_rating, movie.general_rating, movie.rating, payload.display_rating, payload.general_rating, payload.rating),
-  );
+  const movieType = toStringOrNull(movie.type);
+  const movieGenre = toStringOrNull(movie.genre) || undefined;
+  const generalRating = toNumberOrNull(movie.display_rating);
   const followingRating = toNumberOrNull(pickFirst(movie.following_avg_rating, movie.following_rating));
-  const myRating = toNumberOrNull(movie.my_rating) ?? score;
+  const myRating = toNumberOrNull(movie.my_rating);
 
   return {
     id: item.id,
