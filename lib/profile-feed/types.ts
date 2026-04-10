@@ -1,8 +1,8 @@
 export type SocialTab = "following" | "friends";
 
-export type InteractionType = "rating" | "comment" | "like";
+export type InteractionType = "rating" | "comment" | "like" | "dislike";
 
-export type SocialActivityType = "rating" | "public_comment" | "public_comment_like";
+export type SocialActivityType = "rating" | "public_comment" | "public_comment_like" | "public_comment_dislike";
 
 export interface FavoriteMovie {
   id: string;
