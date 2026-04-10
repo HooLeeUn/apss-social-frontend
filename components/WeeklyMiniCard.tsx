@@ -103,7 +103,6 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
                       ) : null}
                     </span>
                   </span>
-                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5 text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-400">MI CALIF.</span>
                   {movie && onRated ? (
                     <RatingPopover
                       movieId={movie.id}
