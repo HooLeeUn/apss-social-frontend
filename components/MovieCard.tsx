@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { KeyboardEvent, memo } from "react";
 import { Movie } from "../lib/movies";
+import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
 import RatingPopover from "./RatingPopover";
 
 interface MovieCardProps {
@@ -11,10 +12,6 @@ interface MovieCardProps {
   variant?: "large" | "compact" | "feed";
   linkToDetail?: boolean;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
-}
-
-function renderRating(value: number | null) {
-  return value !== null ? value.toFixed(1) : "-";
 }
 
 function formatContentType(contentType: string) {
@@ -116,12 +113,12 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
             {isFeed ? (
               <>
                 <span aria-hidden="true">⭐</span>
-                <span aria-label="Puntaje general">{renderRating(movie.displayRating)}</span>
+                <span aria-label="Calificación general">{formatAverageRating(movie.displayRating)}</span>
               </>
             ) : (
               <>
                 <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>General</p>
-                <p className="text-sm font-semibold">{renderRating(movie.displayRating)}</p>
+                <p className="text-sm font-semibold">{formatAverageRating(movie.displayRating)}</p>
               </>
             )}
           </div>
@@ -129,12 +126,14 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
             {isFeed ? (
               <>
                 <span aria-hidden="true">👥</span>
-                <span aria-label="Puntaje de seguidos">{renderRating(movie.followingAvgRating)}</span>
+                <span aria-label="Calificación de seguidos">
+                  {formatFollowingRating(movie.followingAvgRating, movie.followingRatingsCount)}
+                </span>
               </>
             ) : (
               <>
                 <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>Seguidos</p>
-                <p className="text-sm font-semibold">{renderRating(movie.followingAvgRating)}</p>
+                <p className="text-sm font-semibold">{formatFollowingRating(movie.followingAvgRating, movie.followingRatingsCount)}</p>
               </>
             )}
           </div>
@@ -145,17 +144,19 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
                   movieId={movie.id}
                   currentRating={movie.myRating}
                   onRated={(score, payload) => onRated(movie.id, score, payload)}
+                  nullLabel="—"
+                  ariaLabel="Mi calificación"
                 />
               ) : (
                 <>
                   <span aria-hidden="true">🙋</span>
-                  <span aria-label="Mi puntaje">{renderRating(movie.myRating)}</span>
+                  <span aria-label="Mi calificación">{formatMyRating(movie.myRating)}</span>
                 </>
               )
             ) : (
               <>
-                <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>Mi puntaje</p>
-                <p className="text-sm font-semibold">{renderRating(movie.myRating)}</p>
+                <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>Mi calificación</p>
+                <p className="text-sm font-semibold">{formatMyRating(movie.myRating)}</p>
               </>
             )}
           </div>

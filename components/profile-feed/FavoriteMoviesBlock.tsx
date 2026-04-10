@@ -5,6 +5,7 @@ import { ApiError } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
 import { getFavoriteMovies, rateFavoriteMovie, searchFavoriteMovieCandidates, setFavoriteMovie } from "../../lib/profile-feed/adapters";
 import { FavoriteMovie, FavoriteMovieSearchResult } from "../../lib/profile-feed/types";
+import { formatAverageRating, formatFollowingRating } from "../../lib/rating-format";
 
 interface FavoriteMovieItemProps {
   movie?: FavoriteMovie;
@@ -20,14 +21,10 @@ interface FavoriteSearchModalProps {
   onSaved: () => Promise<void>;
 }
 
-function formatRating(value: number | null): string {
-  return value === null ? "—" : `${value.toFixed(1)}`;
-}
-
 interface CompactRatingItemProps {
   icon: string;
   label: string;
-  value: number | null;
+  value: string;
   emphasize?: boolean;
 }
 
@@ -40,7 +37,7 @@ function CompactRatingItem({ icon, label, value, emphasize = false }: CompactRat
       aria-label={label}
     >
       <span aria-hidden="true">{icon}</span>
-      <span>{formatRating(value)}</span>
+      <span>{value}</span>
     </div>
   );
 }
@@ -87,8 +84,12 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: F
                   </div>
                 </div>
                 <div className="mt-auto flex items-center justify-between gap-2 pb-0.5">
-                  <CompactRatingItem icon="⭐" label="Puntaje general" value={movie.generalRating} />
-                  <CompactRatingItem icon="👥" label="Puntaje de seguidos" value={movie.followingRating} />
+                  <CompactRatingItem icon="⭐" label="General" value={formatAverageRating(movie.generalRating)} />
+                  <CompactRatingItem
+                    icon="👥"
+                    label="Seguidos"
+                    value={formatFollowingRating(movie.followingRating, movie.followingRatingsCount)}
+                  />
                   <RatingPopover
                     movieId={movie.id}
                     currentRating={movie.myRating}
@@ -98,7 +99,7 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: F
                     submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
                     icon="🧑"
                     nullLabel="—"
-                    ariaLabel="Mi puntaje"
+                    ariaLabel="Mi calificación"
                     className="shrink-0"
                   />
                 </div>

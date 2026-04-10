@@ -16,6 +16,7 @@ export interface FavoriteMovie {
   posterUrl?: string | null;
   generalRating: number | null;
   followingRating: number | null;
+  followingRatingsCount: number;
   myRating: number | null;
 }
 
@@ -27,6 +28,7 @@ export interface FavoriteMovieSearchResult {
   type: string;
   generalRating: number | null;
   followingRating: number | null;
+  followingRatingsCount: number;
   myRating: number | null;
 }
 
@@ -49,6 +51,7 @@ export interface SocialActivityItem {
   movieGenre?: string;
   generalRating?: number;
   followingRating?: number;
+  followingRatingsCount?: number;
   myRating?: number;
   createdAt: string;
   interactionType: InteractionType;
@@ -80,6 +83,7 @@ export interface ProfileFeedActivityMovie {
   genre?: string | null;
   display_rating?: number | string | null;
   following_avg_rating?: number | string | null;
+  following_ratings_count?: number | string | null;
   my_rating?: number | string | null;
 }
 

@@ -3,16 +3,13 @@
 import { KeyboardEvent, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Movie } from "../lib/movies";
+import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
 import RatingPopover from "./RatingPopover";
 
 interface WeeklyHeroCardProps {
   movie?: Movie;
   fallbackLabel: string;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
-}
-
-function renderRating(value: number | null | undefined): string {
-  return value !== null && value !== undefined ? value.toFixed(1) : "-";
 }
 
 function getAvatarFallback(name?: string | null): string {
@@ -119,23 +116,25 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
           <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3 sm:gap-3">
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">General</p>
-              <p className="text-base font-semibold text-zinc-100">⭐ {renderRating(movie?.displayRating)}</p>
+              <p className="text-base font-semibold text-zinc-100">⭐ {formatAverageRating(movie?.displayRating)}</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Seguidos</p>
-              <p className="text-base font-semibold text-zinc-100">👥 {renderRating(movie?.followingAvgRating)}</p>
+              <p className="text-base font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating, movie?.followingRatingsCount)}</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Mi puntaje</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Mi calificación</p>
               <div className="mt-1">
                 {movie && onRated ? (
                   <RatingPopover
                     movieId={movie.id}
                     currentRating={movie.myRating}
                     onRated={(score, payload) => onRated(movie.id, score, payload)}
+                    nullLabel="—"
+                    ariaLabel="Mi calificación"
                   />
                 ) : (
-                  <p className="text-base font-semibold text-zinc-100">🙋 {renderRating(movie?.myRating)}</p>
+                  <p className="text-base font-semibold text-zinc-100">🙋 {formatMyRating(movie?.myRating)}</p>
                 )}
               </div>
             </div>

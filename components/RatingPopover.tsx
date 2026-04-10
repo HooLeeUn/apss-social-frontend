@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, apiFetch } from "../lib/api";
+import { formatMyRating } from "../lib/rating-format";
 
 interface RatingPopoverProps {
   movieId: number | string;
@@ -29,8 +30,8 @@ export default function RatingPopover({
   submitRatingRequest,
   className = "",
   icon = "🙋",
-  nullLabel = "Mi puntaje",
-  ariaLabel = "Mi puntaje",
+  nullLabel = "Mi calificación",
+  ariaLabel = "Mi calificación",
 }: RatingPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -47,7 +48,7 @@ export default function RatingPopover({
 
   const displayScore = useMemo(() => {
     if (previewScore === null || Number.isNaN(previewScore)) return "-";
-    return Number(previewScore).toFixed(1);
+    return formatMyRating(Number(previewScore));
   }, [previewScore]);
 
   useEffect(() => {
@@ -149,7 +150,7 @@ export default function RatingPopover({
         aria-expanded={isOpen}
       >
         <span aria-hidden="true">{icon}</span>
-        <span>{currentRating !== null ? currentRating.toFixed(1) : nullLabel}</span>
+        <span>{currentRating !== null ? formatMyRating(currentRating) : nullLabel}</span>
         {isSaving ? <span className="text-[11px] text-zinc-400">Guardando...</span> : null}
       </button>
 

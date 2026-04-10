@@ -38,6 +38,14 @@ function toNumberOrNull(value: unknown): number | null {
   return null;
 }
 
+function toNonNegativeInteger(value: unknown): number {
+  const numeric = toNumberOrNull(value);
+  if (numeric === null) return 0;
+
+  const normalized = Math.round(numeric);
+  return normalized > 0 ? normalized : 0;
+}
+
 function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
   for (const value of values) {
     if (value !== null && value !== undefined) return value;
@@ -91,6 +99,9 @@ function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
     followingRating: toNumberOrNull(
       pickFirst(nestedMovie.following_avg_rating, nestedMovie.following_rating, rawFavorite.following_rating),
     ),
+    followingRatingsCount: toNonNegativeInteger(
+      pickFirst(nestedMovie.following_ratings_count, nestedMovie.following_rating_count, rawFavorite.following_ratings_count),
+    ),
     myRating: toNumberOrNull(pickFirst(nestedMovie.my_rating, rawFavorite.my_rating)),
   };
 }
@@ -134,6 +145,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const movieGenre = toStringOrNull(movie.genre) || undefined;
   const generalRating = toNumberOrNull(movie.display_rating);
   const followingRating = toNumberOrNull(pickFirst(movie.following_avg_rating, movie.following_rating));
+  const followingRatingsCount = toNonNegativeInteger(pickFirst(movie.following_ratings_count, movie.following_rating_count));
   const myRating = toNumberOrNull(movie.my_rating);
 
   return {
@@ -153,6 +165,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     movieGenre,
     generalRating: generalRating ?? undefined,
     followingRating: followingRating ?? undefined,
+    followingRatingsCount: followingRatingsCount > 0 ? followingRatingsCount : undefined,
     myRating: myRating ?? undefined,
     createdAt: item.created_at,
     interactionType:
@@ -250,6 +263,7 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
         genre: movie.genres,
         display_rating: movie.displayRating,
         following_avg_rating: movie.followingAvgRating,
+        following_ratings_count: movie.followingRatingsCount,
         my_rating: movie.myRating,
       },
       index,
@@ -263,6 +277,7 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
       type: normalized.contentType,
       generalRating: normalized.displayRating,
       followingRating: normalized.followingAvgRating,
+      followingRatingsCount: normalized.followingRatingsCount,
       myRating: normalized.myRating,
     };
   });

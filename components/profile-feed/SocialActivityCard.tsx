@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SocialActivityItem } from "../../lib/profile-feed/types";
+import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
 
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
@@ -29,21 +30,11 @@ function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
 }
 
-function formatRatingOverTen(value?: number): string {
-  if (value === undefined || Number.isNaN(value)) return "-";
-  return `${value.toFixed(1)}/10`;
-}
-
-function formatIndividualRating(value?: number): string {
-  if (value === undefined || Number.isNaN(value)) return "-";
-  return Math.round(value).toString();
-}
-
 function getActivityText(item: SocialActivityItem): { label: string; detail?: string; subDetail?: string; tone?: "like" | "dislike" } {
   if (item.interactionType === "rating") {
     return {
       label: "calificó",
-      detail: item.ratingValue !== undefined ? formatRatingOverTen(item.ratingValue) : "Sin score",
+      detail: item.ratingValue !== undefined ? `${formatAverageRating(item.ratingValue)}/10` : "Sin score",
     };
   }
 
@@ -152,21 +143,21 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
                 <dt className="text-zinc-500">General</dt>
                 <dd className="flex items-center gap-1 font-medium text-zinc-200">
                   <span aria-hidden="true">⭐</span>
-                  <span>{formatRatingOverTen(item.generalRating)}</span>
+                  <span>{formatAverageRating(item.generalRating)}</span>
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-zinc-500">Seguidos</dt>
                 <dd className="flex items-center gap-1 font-medium text-zinc-200">
                   <span aria-hidden="true">👥</span>
-                  <span>{formatRatingOverTen(item.followingRating)}</span>
+                  <span>{formatFollowingRating(item.followingRating, item.followingRatingsCount)}</span>
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-zinc-500">Mi calificación</dt>
                 <dd className="flex items-center gap-1 font-medium text-zinc-100">
                   <span aria-hidden="true">🙋</span>
-                  <span>{formatIndividualRating(item.myRating)}</span>
+                  <span>{formatMyRating(item.myRating)}</span>
                 </dd>
               </div>
             </dl>
