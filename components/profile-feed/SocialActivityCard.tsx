@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SocialActivityItem } from "../../lib/profile-feed/types";
-import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
+import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../../lib/rating-format";
 
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
@@ -148,13 +148,15 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-zinc-500">Seguidos</dt>
-                <dd className="flex items-center gap-1 font-medium text-zinc-200">
-                  <span aria-hidden="true">👥</span>
-                  <span>{formatFollowingRating(item.followingRating, item.followingRatingsCount)}</span>
+                <dd className="flex flex-col items-end leading-tight font-medium text-zinc-200">
+                  <span>👥 {formatFollowingRating(item.followingRating)}</span>
+                  {formatFollowingRatingsCount(item.followingRatingsCount) ? (
+                    <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(item.followingRatingsCount)}</span>
+                  ) : null}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-zinc-500">Mi calificación</dt>
+                <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</dt>
                 <dd className="flex items-center gap-1 font-medium text-zinc-100">
                   <span aria-hidden="true">🙋</span>
                   <span>{formatMyRating(item.myRating)}</span>

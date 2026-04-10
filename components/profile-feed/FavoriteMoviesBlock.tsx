@@ -5,7 +5,7 @@ import { ApiError } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
 import { getFavoriteMovies, rateFavoriteMovie, searchFavoriteMovieCandidates, setFavoriteMovie } from "../../lib/profile-feed/adapters";
 import { FavoriteMovie, FavoriteMovieSearchResult } from "../../lib/profile-feed/types";
-import { formatAverageRating, formatFollowingRating } from "../../lib/rating-format";
+import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount } from "../../lib/rating-format";
 
 interface FavoriteMovieItemProps {
   movie?: FavoriteMovie;
@@ -21,31 +21,9 @@ interface FavoriteSearchModalProps {
   onSaved: () => Promise<void>;
 }
 
-interface CompactRatingItemProps {
-  icon: string;
-  label: string;
-  value: string;
-  emphasize?: boolean;
-}
-
-function CompactRatingItem({ icon, label, value, emphasize = false }: CompactRatingItemProps) {
-  return (
-    <div
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-sm font-semibold ${
-        emphasize ? "border-blue-300/40 bg-blue-900/20 text-blue-100" : "border-white/10 bg-zinc-900/70 text-zinc-200"
-      }`}
-      aria-label={label}
-    >
-      <span aria-hidden="true">{icon}</span>
-      <span>{value}</span>
-    </div>
-  );
-}
-
 function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
   const firstLetter = (movie?.titleSpanish || movie?.titleEnglish || movie?.title)?.charAt(0)?.toUpperCase() ?? "—";
   const displayTitle = movie?.titleSpanish || movie?.titleEnglish || movie?.title || "";
-  const titleClassName = displayTitle.length > 30 ? "text-base lg:text-[17px]" : "text-[17px] lg:text-lg";
   const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
 
   const handleOptimisticRate = (score: number) => {
@@ -66,14 +44,14 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: F
   };
 
   return (
-    <div className="group relative isolate overflow-visible">
-      <article className="relative overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5 py-3.5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(9%_0%,100%_0%,91%_100%,0%_100%)]">
+    <div className="group relative isolate h-[180px] overflow-visible">
+      <article className="relative h-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5 py-3.5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(9%_0%,100%_0%,91%_100%,0%_100%)]">
         <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-blue-300/10 opacity-80" />
-        <div className="relative flex min-h-[118px] min-w-0 pr-10">
-          <div className="flex min-w-0 flex-1 flex-col justify-between gap-y-2 py-0.5">
+        <div className="relative flex h-full min-w-0 pr-10">
+          <div className="flex min-w-0 flex-1 flex-col justify-between">
             {movie ? (
               <>
-                <h3 className={`line-clamp-2 leading-tight font-semibold text-zinc-100 ${titleClassName}`}>{displayTitle}</h3>
+                <h3 className="truncate text-sm font-semibold leading-tight text-zinc-100">{displayTitle}</h3>
                 <div className="flex items-center gap-3">
                   <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
                     <span className="text-lg">{firstLetter}</span>
@@ -83,25 +61,34 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: F
                     <p className="text-sm leading-tight text-zinc-300">{movie.genre}</p>
                   </div>
                 </div>
-                <div className="mt-auto flex items-center justify-between gap-2 pb-0.5">
-                  <CompactRatingItem icon="⭐" label="General" value={formatAverageRating(movie.generalRating)} />
-                  <CompactRatingItem
-                    icon="👥"
-                    label="Seguidos"
-                    value={formatFollowingRating(movie.followingRating, movie.followingRatingsCount)}
-                  />
-                  <RatingPopover
-                    movieId={movie.id}
-                    currentRating={movie.myRating}
-                    onOptimisticRate={handleOptimisticRate}
-                    onRateError={handleRateError}
-                    onRated={(score) => handleRated(score)}
-                    submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
-                    icon="🧑"
-                    nullLabel="—"
-                    ariaLabel="Mi calificación"
-                    className="shrink-0"
-                  />
+                <div className="mt-auto flex items-end justify-between gap-2 pb-0.5">
+                  <div className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200" aria-label="General">
+                    <span aria-hidden="true">⭐</span>
+                    <span>{formatAverageRating(movie.generalRating)}</span>
+                  </div>
+                  <div className="inline-flex rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1" aria-label="Seguidos">
+                    <div className="flex flex-col leading-tight text-zinc-200">
+                      <span className="text-sm">👥 {formatFollowingRating(movie.followingRating)}</span>
+                      {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
+                        <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</span>
+                    <RatingPopover
+                      movieId={movie.id}
+                      currentRating={movie.myRating}
+                      onOptimisticRate={handleOptimisticRate}
+                      onRateError={handleRateError}
+                      onRated={(score) => handleRated(score)}
+                      submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
+                      icon="🧑"
+                      nullLabel="—"
+                      ariaLabel="Mi calificación"
+                      className="shrink-0"
+                    />
+                  </div>
                 </div>
               </>
             ) : (

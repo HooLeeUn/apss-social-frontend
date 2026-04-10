@@ -3,7 +3,7 @@
 import { KeyboardEvent, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Movie } from "../lib/movies";
-import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
+import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import RatingPopover from "./RatingPopover";
 
 interface WeeklyMiniCardProps {
@@ -93,9 +93,17 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
               </div>
 
               <div className="pt-2">
-                <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-200">
+                <div className="flex flex-wrap items-start gap-1.5 text-[10px] text-zinc-200">
                   <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">⭐ {formatAverageRating(movie?.displayRating)}</span>
-                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">👥 {formatFollowingRating(movie?.followingAvgRating, movie?.followingRatingsCount)}</span>
+                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5">
+                    <span className="flex flex-col leading-tight">
+                      <span>👥 {formatFollowingRating(movie?.followingAvgRating)}</span>
+                      {formatFollowingRatingsCount(movie?.followingRatingsCount) ? (
+                        <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie?.followingRatingsCount)}</span>
+                      ) : null}
+                    </span>
+                  </span>
+                  <span className="rounded-md border border-white/10 bg-zinc-950/80 px-1.5 py-0.5 text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-400">MI CALIF.</span>
                   {movie && onRated ? (
                     <RatingPopover
                       movieId={movie.id}

@@ -17,12 +17,12 @@ export function formatMyRating(value: number | null | undefined): string {
   return Math.round(normalized).toString();
 }
 
-export function formatFollowingRating(value: number | null | undefined, count: number | null | undefined): string {
-  const average = formatAverageRating(value);
-  if (average === EMPTY_RATING_SYMBOL) return EMPTY_RATING_SYMBOL;
+export function formatFollowingRating(value: number | null | undefined): string {
+  return formatAverageRating(value);
+}
 
-  const normalizedCount = typeof count === "number" && Number.isFinite(count) ? count : 0;
-  if (normalizedCount <= 0) return average;
-
-  return `${average} · ${normalizedCount} calif.`;
+export function formatFollowingRatingsCount(count: number | null | undefined): string | null {
+  const normalizedCount = typeof count === "number" && Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  if (normalizedCount <= 0) return null;
+  return `${normalizedCount} calif.`;
 }
