@@ -160,7 +160,13 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     myRating: myRating ?? undefined,
     createdAt: item.created_at,
     interactionType:
-      item.activity_type === "rating" ? "rating" : item.activity_type === "public_comment" ? "comment" : "like",
+      item.activity_type === "rating"
+        ? "rating"
+        : item.activity_type === "public_comment"
+          ? "comment"
+          : item.activity_type === "public_comment_dislike"
+            ? "dislike"
+            : "like",
     ratingValue: score ?? undefined,
     commentText: commentText ?? undefined,
     likedCommentSnippet: likedCommentSnippet ?? undefined,

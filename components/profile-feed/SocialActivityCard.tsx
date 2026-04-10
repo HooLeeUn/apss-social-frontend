@@ -29,11 +29,16 @@ function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
 }
 
-function getActivityText(item: SocialActivityItem): { label: string; detail?: string; subDetail?: string } {
+function formatRatingOverTen(value?: number): string {
+  if (value === undefined || Number.isNaN(value)) return "-";
+  return `${value.toFixed(1)}/10`;
+}
+
+function getActivityText(item: SocialActivityItem): { label: string; detail?: string; subDetail?: string; tone?: "like" | "dislike" } {
   if (item.interactionType === "rating") {
     return {
       label: "calificó",
-      detail: item.ratingValue !== undefined ? `${item.ratingValue}/10` : "Sin score",
+      detail: item.ratingValue !== undefined ? formatRatingOverTen(item.ratingValue) : "Sin score",
     };
   }
 
@@ -44,15 +49,21 @@ function getActivityText(item: SocialActivityItem): { label: string; detail?: st
     };
   }
 
+  if (item.interactionType === "dislike") {
+    return {
+      label: "le dio dislike a un comentario en",
+      detail: item.likedCommentSnippet || "Sin extracto de comentario",
+      subDetail: item.likedCommentAuthorUsername ? `comentario de @${item.likedCommentAuthorUsername}` : undefined,
+      tone: "dislike",
+    };
+  }
+
   return {
     label: "le dio like a un comentario en",
     detail: item.likedCommentSnippet || "Sin extracto de comentario",
     subDetail: item.likedCommentAuthorUsername ? `comentario de @${item.likedCommentAuthorUsername}` : undefined,
+    tone: "like",
   };
-}
-
-function formatScore(value?: number): string {
-  return value !== undefined ? `${value}/10` : "-";
 }
 
 export default function SocialActivityCard({ item }: { item: SocialActivityItem }) {
@@ -62,36 +73,36 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
 
   return (
     <article className="rounded-2xl border border-white/15 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.32)]">
-      <div className="flex flex-wrap items-start gap-4 lg:flex-nowrap lg:gap-5">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
-            {item.user.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-            ) : (
-              getAvatarFallback(item.user.username)
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-zinc-100">@{item.user.username}</p>
-            <p className="mt-1 text-sm text-zinc-300">
-              <span className="font-medium text-zinc-200">{activity.label}</span>{" "}
-              <Link href={movieHref} className="font-semibold text-blue-200 transition hover:text-blue-100">
-                {item.movieTitle}
-              </Link>{" "}
-              <span className="text-zinc-500">{movieYear}</span>
-            </p>
-            <p className="mt-1 line-clamp-3 text-sm text-zinc-400">{activity.detail}</p>
-            {activity.subDetail ? <p className="mt-1 text-xs text-zinc-500">{activity.subDetail}</p> : null}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_76px_216px] lg:gap-5">
+        <div className="min-w-0">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
+              {item.user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+              ) : (
+                getAvatarFallback(item.user.username)
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-zinc-100">@{item.user.username}</p>
+              <p className="mt-1 text-sm text-zinc-300">
+                <span className="font-medium text-zinc-200">{activity.label}</span>{" "}
+                <Link href={movieHref} className="font-semibold text-blue-200 transition hover:text-blue-100">
+                  {item.movieTitle}
+                </Link>{" "}
+                <span className="text-zinc-500">{movieYear}</span>
+              </p>
+              <p className="mt-1 line-clamp-3 text-sm text-zinc-400">{activity.detail}</p>
+              {activity.subDetail ? (
+                <p className={`mt-1 text-xs ${activity.tone === "dislike" ? "text-rose-300/80" : "text-zinc-500"}`}>{activity.subDetail}</p>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <Link
-          href={movieHref}
-          className="order-2 mx-1 flex shrink-0 items-start transition hover:opacity-90 lg:order-none lg:mx-0"
-          aria-label={`Ver ${item.movieTitle}`}
-        >
-          <div className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-zinc-900/75 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+        <Link href={movieHref} className="mx-auto flex w-fit shrink-0 items-start transition hover:opacity-90" aria-label={`Ver ${item.movieTitle}`}>
+          <div className="flex h-24 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-zinc-900/75 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
             {item.moviePosterUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -107,33 +118,45 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
           </div>
         </Link>
 
-        <div className="order-3 min-w-[170px] shrink-0 rounded-xl border border-white/10 bg-zinc-900/55 p-3 lg:order-none lg:w-[190px]">
+        <div className="min-w-0 lg:justify-self-end lg:w-[216px]">
           <div className="mb-2 flex justify-end">
             <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
               {formatRelativeDate(item.createdAt)}
             </span>
           </div>
+
           <dl className="space-y-1.5 text-xs">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-zinc-500">Tipo</dt>
-              <dd className="text-right text-zinc-200">{item.movieType || "-"}</dd>
+              <dd className="truncate text-right text-zinc-200">{item.movieType || "-"}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-zinc-500">Género</dt>
-              <dd className="text-right text-zinc-200">{item.movieGenre || "-"}</dd>
+              <dd className="truncate text-right text-zinc-200">{item.movieGenre || "-"}</dd>
             </div>
-            <div className="h-px bg-white/10" />
+
+            <div className="my-2 h-px bg-white/10" />
+
             <div className="flex items-center justify-between gap-3">
               <dt className="text-zinc-500">General</dt>
-              <dd className="font-medium text-zinc-200">{formatScore(item.generalRating)}</dd>
+              <dd className="flex items-center gap-1 font-medium text-zinc-200">
+                <span aria-hidden="true">⭐</span>
+                <span>{formatRatingOverTen(item.generalRating)}</span>
+              </dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-zinc-500">Seguidos</dt>
-              <dd className="font-medium text-zinc-200">{formatScore(item.followingRating)}</dd>
+              <dd className="flex items-center gap-1 font-medium text-zinc-200">
+                <span aria-hidden="true">👥</span>
+                <span>{formatRatingOverTen(item.followingRating)}</span>
+              </dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-zinc-500">Mi calificación</dt>
-              <dd className="font-medium text-zinc-100">{formatScore(item.myRating)}</dd>
+              <dd className="flex items-center gap-1 font-medium text-zinc-100">
+                <span aria-hidden="true">🙋</span>
+                <span>{formatRatingOverTen(item.myRating)}</span>
+              </dd>
             </div>
           </dl>
         </div>
