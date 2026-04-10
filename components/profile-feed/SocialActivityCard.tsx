@@ -34,6 +34,11 @@ function formatRatingOverTen(value?: number): string {
   return `${value.toFixed(1)}/10`;
 }
 
+function formatIndividualRating(value?: number): string {
+  if (value === undefined || Number.isNaN(value)) return "-";
+  return Math.round(value).toString();
+}
+
 function getActivityText(item: SocialActivityItem): { label: string; detail?: string; subDetail?: string; tone?: "like" | "dislike" } {
   if (item.interactionType === "rating") {
     return {
@@ -70,10 +75,12 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
   const movieYear = item.movieYear ? `(${item.movieYear})` : "";
   const activity = getActivityText(item);
+  const movieType = item.movieType || "No disponible";
+  const movieGenre = item.movieGenre || "No disponible";
 
   return (
     <article className="rounded-2xl border border-white/15 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.32)]">
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_76px_216px] lg:gap-5">
+      <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1.2fr)_96px_minmax(260px,0.95fr)] lg:gap-6">
         <div className="min-w-0">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
@@ -85,7 +92,12 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-zinc-100">@{item.user.username}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-zinc-100">@{item.user.username}</p>
+                <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
+                  {formatRelativeDate(item.createdAt)}
+                </span>
+              </div>
               <p className="mt-1 text-sm text-zinc-300">
                 <span className="font-medium text-zinc-200">{activity.label}</span>{" "}
                 <Link href={movieHref} className="font-semibold text-blue-200 transition hover:text-blue-100">
@@ -101,8 +113,12 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
           </div>
         </div>
 
-        <Link href={movieHref} className="mx-auto flex w-fit shrink-0 items-start transition hover:opacity-90" aria-label={`Ver ${item.movieTitle}`}>
-          <div className="flex h-24 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-zinc-900/75 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+        <Link
+          href={movieHref}
+          className="mx-auto flex w-fit shrink-0 items-center justify-center self-center transition hover:opacity-90 lg:justify-self-center"
+          aria-label={`Ver ${item.movieTitle}`}
+        >
+          <div className="flex h-28 w-[84px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-zinc-900/75 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
             {item.moviePosterUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -118,47 +134,43 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
           </div>
         </Link>
 
-        <div className="min-w-0 lg:justify-self-end lg:w-[216px]">
-          <div className="mb-2 flex justify-end">
-            <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
-              {formatRelativeDate(item.createdAt)}
-            </span>
+        <div className="min-w-0 lg:w-full">
+          <div className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2">
+            <dl className="space-y-2">
+              <div>
+                <dt className="inline text-zinc-500">Tipo:</dt>{" "}
+                <dd className="inline text-zinc-200">{movieType}</dd>
+              </div>
+              <div>
+                <dt className="inline text-zinc-500">Género:</dt>{" "}
+                <dd className="inline text-zinc-200">{movieGenre}</dd>
+              </div>
+            </dl>
+
+            <dl className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-zinc-500">General</dt>
+                <dd className="flex items-center gap-1 font-medium text-zinc-200">
+                  <span aria-hidden="true">⭐</span>
+                  <span>{formatRatingOverTen(item.generalRating)}</span>
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-zinc-500">Seguidos</dt>
+                <dd className="flex items-center gap-1 font-medium text-zinc-200">
+                  <span aria-hidden="true">👥</span>
+                  <span>{formatRatingOverTen(item.followingRating)}</span>
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-zinc-500">Mi calificación</dt>
+                <dd className="flex items-center gap-1 font-medium text-zinc-100">
+                  <span aria-hidden="true">🙋</span>
+                  <span>{formatIndividualRating(item.myRating)}</span>
+                </dd>
+              </div>
+            </dl>
           </div>
-
-          <dl className="space-y-1.5 text-xs">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">Tipo</dt>
-              <dd className="truncate text-right text-zinc-200">{item.movieType || "-"}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">Género</dt>
-              <dd className="truncate text-right text-zinc-200">{item.movieGenre || "-"}</dd>
-            </div>
-
-            <div className="my-2 h-px bg-white/10" />
-
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">General</dt>
-              <dd className="flex items-center gap-1 font-medium text-zinc-200">
-                <span aria-hidden="true">⭐</span>
-                <span>{formatRatingOverTen(item.generalRating)}</span>
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">Seguidos</dt>
-              <dd className="flex items-center gap-1 font-medium text-zinc-200">
-                <span aria-hidden="true">👥</span>
-                <span>{formatRatingOverTen(item.followingRating)}</span>
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">Mi calificación</dt>
-              <dd className="flex items-center gap-1 font-medium text-zinc-100">
-                <span aria-hidden="true">🙋</span>
-                <span>{formatRatingOverTen(item.myRating)}</span>
-              </dd>
-            </div>
-          </dl>
         </div>
       </div>
     </article>
