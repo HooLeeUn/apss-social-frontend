@@ -118,7 +118,7 @@ function toStringOrNull(value: unknown): string | null {
 }
 
 function getDisplayMovieTitle(movie: ProfileFeedActivityResponseItem["movie"]): string {
-  return toStringOrNull(movie.title_spanish) || toStringOrNull(movie.title_english) || "Sin título";
+  return toStringOrNull(movie.title_spanish) || toStringOrNull(movie.title_english) || toStringOrNull((movie as Record<string, unknown>).title) || "Sin título";
 }
 
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
@@ -130,15 +130,15 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const likedCommentAuthor = toRecord(payload.comment_author);
   const likedCommentAuthorUsername = toStringOrNull(likedCommentAuthor?.username);
 
-  const movieType = toStringOrNull(pickFirst(movie.type, movie.content_type));
+  const movieType = toStringOrNull(pickFirst(movie.type, movie.content_type, movie.contentType));
   const movieGenreCandidate = pickFirst(movie.genre, movie.genres);
   const movieGenre =
     Array.isArray(movieGenreCandidate) && movieGenreCandidate.length > 0
-      ? toStringOrNull(movieGenreCandidate[0]) || undefined
+      ? movieGenreCandidate.map((genre) => toStringOrNull(genre)).filter((genre): genre is string => Boolean(genre)).slice(0, 2).join(" · ") || undefined
       : toStringOrNull(movieGenreCandidate) || undefined;
   const generalRating = toNumberOrNull(pickFirst(movie.display_rating, movie.general_rating));
   const followingRating = toNumberOrNull(pickFirst(movie.following_avg_rating, movie.following_rating));
-  const myRating = toNumberOrNull(movie.my_rating);
+  const myRating = toNumberOrNull(movie.my_rating) ?? score;
 
   return {
     id: item.id,
@@ -152,7 +152,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     movieTitle: getDisplayMovieTitle(item.movie),
     movieYear: item.movie.release_year,
     movieId: item.movie.id,
-    moviePosterUrl: item.movie.image,
+    moviePosterUrl: (pickFirst(movie.image, movie.poster, movie.poster_url, movie.image_url) as string | null) ?? null,
     movieType: movieType ?? undefined,
     movieGenre,
     generalRating: generalRating ?? undefined,
