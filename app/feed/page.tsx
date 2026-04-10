@@ -317,6 +317,7 @@ export default function FeedPage() {
                   onToggle={handleDirectorBoardToggle}
                   onClose={handleDirectorBoardClose}
                   onCloseSession={handleLogout}
+                  onPrivacySecurityClick={() => router.push("/privacy-security")}
                 />
               </div>
             </div>
