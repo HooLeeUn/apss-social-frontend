@@ -45,6 +45,11 @@ export interface SocialActivityItem {
   movieYear: number | null;
   movieId: number | string;
   moviePosterUrl: string | null;
+  movieType?: string;
+  movieGenre?: string;
+  generalRating?: number;
+  followingRating?: number;
+  myRating?: number;
   createdAt: string;
   interactionType: InteractionType;
   ratingValue?: number;
@@ -71,6 +76,15 @@ export interface ProfileFeedActivityMovie {
   title_spanish: string | null;
   release_year: number | null;
   image: string | null;
+  type?: string | null;
+  content_type?: string | null;
+  genre?: string | null;
+  genres?: string[] | string | null;
+  display_rating?: number | string | null;
+  general_rating?: number | string | null;
+  following_avg_rating?: number | string | null;
+  following_rating?: number | string | null;
+  my_rating?: number | string | null;
 }
 
 export interface RatingActivityPayload {
