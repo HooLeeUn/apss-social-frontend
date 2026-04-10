@@ -34,6 +34,11 @@ function formatRatingOverTen(value?: number): string {
   return `${value.toFixed(1)}/10`;
 }
 
+function formatIndividualRating(value?: number): string {
+  if (value === undefined || Number.isNaN(value)) return "-";
+  return Math.round(value).toString();
+}
+
 function getActivityText(item: SocialActivityItem): { label: string; detail?: string; subDetail?: string; tone?: "like" | "dislike" } {
   if (item.interactionType === "rating") {
     return {
@@ -132,13 +137,13 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
         <div className="min-w-0 lg:w-full">
           <div className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2">
             <dl className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-zinc-500">Tipo</dt>
-                <dd className="truncate text-right text-zinc-200">{movieType}</dd>
+              <div>
+                <dt className="inline text-zinc-500">Tipo:</dt>{" "}
+                <dd className="inline text-zinc-200">{movieType}</dd>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-zinc-500">Género</dt>
-                <dd className="truncate text-right text-zinc-200">{movieGenre}</dd>
+              <div>
+                <dt className="inline text-zinc-500">Género:</dt>{" "}
+                <dd className="inline text-zinc-200">{movieGenre}</dd>
               </div>
             </dl>
 
@@ -161,7 +166,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
                 <dt className="text-zinc-500">Mi calificación</dt>
                 <dd className="flex items-center gap-1 font-medium text-zinc-100">
                   <span aria-hidden="true">🙋</span>
-                  <span>{formatRatingOverTen(item.myRating)}</span>
+                  <span>{formatIndividualRating(item.myRating)}</span>
                 </dd>
               </div>
             </dl>

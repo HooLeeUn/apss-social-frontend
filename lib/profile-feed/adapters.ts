@@ -134,9 +134,11 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const movieGenreCandidate = pickFirst(movie.genre, movie.genres);
   const movieGenre =
     Array.isArray(movieGenreCandidate) && movieGenreCandidate.length > 0
-      ? movieGenreCandidate.map((genre) => toStringOrNull(genre)).filter((genre): genre is string => Boolean(genre)).slice(0, 2).join(" · ") || undefined
+      ? movieGenreCandidate.map((genre) => toStringOrNull(genre)).filter((genre): genre is string => Boolean(genre)).join(", ") || undefined
       : toStringOrNull(movieGenreCandidate) || undefined;
-  const generalRating = toNumberOrNull(pickFirst(movie.display_rating, movie.general_rating));
+  const generalRating = toNumberOrNull(
+    pickFirst(movie.display_rating, movie.general_rating, movie.rating, payload.display_rating, payload.general_rating, payload.rating),
+  );
   const followingRating = toNumberOrNull(pickFirst(movie.following_avg_rating, movie.following_rating));
   const myRating = toNumberOrNull(movie.my_rating) ?? score;
 
