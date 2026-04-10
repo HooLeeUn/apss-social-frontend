@@ -3,7 +3,7 @@
 import { KeyboardEvent, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Movie } from "../lib/movies";
-import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
+import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import RatingPopover from "./RatingPopover";
 
 interface WeeklyHeroCardProps {
@@ -115,15 +115,18 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
 
           <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3 sm:gap-3">
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">General</p>
+              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">General</p>
               <p className="text-base font-semibold text-zinc-100">⭐ {formatAverageRating(movie?.displayRating)}</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Seguidos</p>
-              <p className="text-base font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating, movie?.followingRatingsCount)}</p>
+              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">Seguidos</p>
+              <p className="text-base font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating)}</p>
+              {formatFollowingRatingsCount(movie?.followingRatingsCount) ? (
+                <p className="text-[10px] text-zinc-500">{formatFollowingRatingsCount(movie?.followingRatingsCount)}</p>
+              ) : null}
             </div>
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Mi calificación</p>
+              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</p>
               <div className="mt-1">
                 {movie && onRated ? (
                   <RatingPopover

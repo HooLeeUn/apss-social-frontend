@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { KeyboardEvent, memo } from "react";
 import { Movie } from "../lib/movies";
-import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
+import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import RatingPopover from "./RatingPopover";
 
 interface MovieCardProps {
@@ -124,16 +124,19 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
           </div>
           <div className={isFeed ? "flex items-center gap-1 text-sm font-semibold" : ""}>
             {isFeed ? (
-              <>
-                <span aria-hidden="true">👥</span>
-                <span aria-label="Calificación de seguidos">
-                  {formatFollowingRating(movie.followingAvgRating, movie.followingRatingsCount)}
-                </span>
-              </>
+              <div className="flex flex-col leading-tight">
+                <span className="font-semibold" aria-label="Calificación de seguidos">👥 {formatFollowingRating(movie.followingAvgRating)}</span>
+                {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
+                  <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</span>
+                ) : null}
+              </div>
             ) : (
               <>
                 <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>Seguidos</p>
-                <p className="text-sm font-semibold">{formatFollowingRating(movie.followingAvgRating, movie.followingRatingsCount)}</p>
+                <p className="text-sm font-semibold">{formatFollowingRating(movie.followingAvgRating)}</p>
+                {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
+                  <p className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</p>
+                ) : null}
               </>
             )}
           </div>
@@ -155,7 +158,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
               )
             ) : (
               <>
-                <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>Mi calificación</p>
+                <p className={`text-[11px] uppercase tracking-wide whitespace-nowrap ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>MI CALIF.</p>
                 <p className="text-sm font-semibold">{formatMyRating(movie.myRating)}</p>
               </>
             )}
