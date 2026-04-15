@@ -67,7 +67,8 @@ export default function PrivacySecurityPage() {
   }, [router]);
 
   const blockedIds = useMemo(() => new Set(blockedUsers.map((user) => String(user.id))), [blockedUsers]);
-  const hasSearchQuery = searchQuery.trim().length > 0;
+  const normalizeSearchQuery = (value: string) => value.trim().replace(/^@\s*/, "").trim();
+  const hasSearchQuery = normalizeSearchQuery(searchQuery).length > 0;
   const visibleSearchResults = useMemo(
     () =>
       searchResults.filter(
@@ -108,8 +109,8 @@ export default function PrivacySecurityPage() {
   };
 
   const handleSearchUsers = async () => {
-    const trimmedQuery = searchQuery.trim();
-    if (!trimmedQuery) {
+    const normalizedQuery = normalizeSearchQuery(searchQuery);
+    if (!normalizedQuery) {
       setHasSearched(false);
       setSearchResults([]);
       setDismissedSearchResultIds(new Set());
@@ -122,7 +123,7 @@ export default function PrivacySecurityPage() {
     setSearchingUsers(true);
 
     try {
-      const results = await searchUsersToRestrict(trimmedQuery);
+      const results = await searchUsersToRestrict(normalizedQuery);
       const uniqueResults = results.filter((user, index, current) => {
         const userId = String(user.id);
         return current.findIndex((entry) => String(entry.id) === userId) === index;
@@ -201,7 +202,7 @@ export default function PrivacySecurityPage() {
             <p className="text-xs uppercase tracking-[0.25em] text-blue-200/85">Condiciones de privacidad</p>
             <span
               aria-hidden
-              className="h-3 w-20 rounded-full border border-blue-200/30 bg-[repeating-linear-gradient(-55deg,rgba(191,219,254,0.38)_0px,rgba(191,219,254,0.38)_4px,transparent_4px,transparent_9px)] opacity-85"
+              className="h-3 w-full max-w-[26rem] rounded-full border border-blue-200/30 bg-[repeating-linear-gradient(-55deg,rgba(191,219,254,0.38)_0px,rgba(191,219,254,0.38)_4px,transparent_4px,transparent_9px)] opacity-85"
             />
           </div>
           <ul className="space-y-2 text-sm leading-6 text-zinc-200 md:text-[0.95rem]">
@@ -264,7 +265,7 @@ export default function PrivacySecurityPage() {
                 const nextValue = event.target.value;
                 setSearchQuery(nextValue);
 
-                if (!nextValue.trim()) {
+                if (!normalizeSearchQuery(nextValue)) {
                   setHasSearched(false);
                   setSearchResults([]);
                   setDismissedSearchResultIds(new Set());
