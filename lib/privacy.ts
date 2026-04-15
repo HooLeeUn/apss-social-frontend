@@ -9,7 +9,7 @@ export interface BlockedUser {
 
 const PROFILE_PRIVACY_ENDPOINT = "/profile/privacy/";
 const BLOCKED_USERS_ENDPOINT = "/profile/privacy/blocked-users/";
-const USER_SEARCH_ENDPOINT = "/users/search/";
+const USER_RESTRICT_SEARCH_ENDPOINT = "/users/search/";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -106,6 +106,8 @@ export async function searchUsersToRestrict(query: string): Promise<BlockedUser[
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const payload = await apiFetch(`${USER_SEARCH_ENDPOINT}?${new URLSearchParams({ q: trimmed }).toString()}`);
+  const payload = await apiFetch(
+    `${USER_RESTRICT_SEARCH_ENDPOINT}?${new URLSearchParams({ search: trimmed }).toString()}`,
+  );
   return parseBlockedUsers(payload);
 }
