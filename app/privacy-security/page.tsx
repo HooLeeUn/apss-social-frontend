@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "../../lib/api";
@@ -36,9 +35,12 @@ export default function PrivacySecurityPage() {
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [blockedUsersLoading, setBlockedUsersLoading] = useState(true);
   const [blockedUsersMessage, setBlockedUsersMessage] = useState("");
+  const [searchMessage, setSearchMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchingUsers, setSearchingUsers] = useState(false);
   const [searchResults, setSearchResults] = useState<BlockedUser[]>([]);
+  const [dismissedSearchResultIds, setDismissedSearchResultIds] = useState<Set<string>>(new Set());
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -65,6 +67,19 @@ export default function PrivacySecurityPage() {
   }, [router]);
 
   const blockedIds = useMemo(() => new Set(blockedUsers.map((user) => String(user.id))), [blockedUsers]);
+  const hasSearchQuery = searchQuery.trim().length > 0;
+  const visibleSearchResults = useMemo(
+    () =>
+      searchResults.filter(
+        (user) => !blockedIds.has(String(user.id)) && !dismissedSearchResultIds.has(String(user.id)),
+      ),
+    [blockedIds, dismissedSearchResultIds, searchResults],
+  );
+
+  const refreshBlockedUsers = async () => {
+    const refreshed = await getBlockedUsers();
+    setBlockedUsers(refreshed);
+  };
 
   const executeVisibilityUpdate = async (nextVisibility: ProfileVisibility) => {
     setSavingVisibility(true);
@@ -93,29 +108,35 @@ export default function PrivacySecurityPage() {
   };
 
   const handleSearchUsers = async () => {
-    if (!searchQuery.trim()) {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      setHasSearched(false);
       setSearchResults([]);
-      setBlockedUsersMessage("Escribe un nombre para buscar usuarios.");
+      setDismissedSearchResultIds(new Set());
+      setSearchMessage("");
       return;
     }
 
-    setBlockedUsersMessage("");
+    setHasSearched(true);
+    setSearchMessage("");
     setSearchingUsers(true);
 
     try {
-      const results = await searchUsersToRestrict(searchQuery);
+      const results = await searchUsersToRestrict(trimmedQuery);
       const uniqueResults = results.filter((user, index, current) => {
         const userId = String(user.id);
         return current.findIndex((entry) => String(entry.id) === userId) === index;
       });
 
       setSearchResults(uniqueResults);
+      setDismissedSearchResultIds(new Set());
 
       if (uniqueResults.length === 0) {
-        setBlockedUsersMessage("No encontramos usuarios para esa búsqueda.");
+        setSearchMessage("Sin resultados");
       }
     } catch {
-      setBlockedUsersMessage("No se pudo completar la búsqueda de usuarios.");
+      setSearchResults([]);
+      setSearchMessage("No se pudo completar la búsqueda de usuarios.");
     } finally {
       setSearchingUsers(false);
     }
@@ -130,17 +151,31 @@ export default function PrivacySecurityPage() {
 
     try {
       await blockUser(user.id);
-      setBlockedUsers((current) => [...current, user]);
+      await refreshBlockedUsers();
+      setSearchResults((current) => current.filter((entry) => String(entry.id) !== String(user.id)));
+      setDismissedSearchResultIds((current) => {
+        const next = new Set(current);
+        next.delete(String(user.id));
+        return next;
+      });
       setBlockedUsersMessage(`${user.username} fue restringido correctamente.`);
     } catch {
       setBlockedUsersMessage("No se pudo restringir ese usuario.");
     }
   };
 
+  const handleCancelSearchResult = (userId: number | string) => {
+    setDismissedSearchResultIds((current) => {
+      const next = new Set(current);
+      next.add(String(userId));
+      return next;
+    });
+  };
+
   const handleUnblockUser = async (user: BlockedUser) => {
     try {
       await unblockUser(user.id);
-      setBlockedUsers((current) => current.filter((entry) => String(entry.id) !== String(user.id)));
+      await refreshBlockedUsers();
       setBlockedUsersMessage(`Se quitó la restricción para ${user.username}.`);
     } catch {
       setBlockedUsersMessage("No se pudo quitar la restricción en este momento.");
@@ -158,17 +193,17 @@ export default function PrivacySecurityPage() {
           >
             Volver
           </button>
-          <Link
-            href="/feed"
-            className="rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-zinc-100 transition hover:border-white"
-          >
-            Ir al feed
-          </Link>
-                    <h1 className="text-xl font-semibold tracking-wide text-zinc-100 md:text-2xl">Privacidad y Seguridad</h1>
+          <h1 className="text-xl font-semibold tracking-wide text-zinc-100 md:text-2xl">Privacidad y Seguridad</h1>
         </header>
 
         <section className="rounded-3xl border border-blue-300/20 bg-gradient-to-b from-zinc-900/90 via-zinc-950/95 to-black p-5 shadow-[0_20px_45px_rgba(0,0,0,0.42)]">
-          <p className="mb-3 text-xs uppercase tracking-[0.25em] text-blue-200/85">Reglas de privacidad</p>
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <p className="text-xs uppercase tracking-[0.25em] text-blue-200/85">Condiciones de privacidad</p>
+            <span
+              aria-hidden
+              className="h-3 w-20 rounded-full border border-blue-200/30 bg-[repeating-linear-gradient(-55deg,rgba(191,219,254,0.38)_0px,rgba(191,219,254,0.38)_4px,transparent_4px,transparent_9px)] opacity-85"
+            />
+          </div>
           <ul className="space-y-2 text-sm leading-6 text-zinc-200 md:text-[0.95rem]">
             {privacyDisclaimer.map((item) => (
               <li key={item} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
@@ -225,7 +260,23 @@ export default function PrivacySecurityPage() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setSearchQuery(nextValue);
+
+                if (!nextValue.trim()) {
+                  setHasSearched(false);
+                  setSearchResults([]);
+                  setDismissedSearchResultIds(new Set());
+                  setSearchMessage("");
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handleSearchUsers();
+                }
+              }}
               placeholder="Buscar usuario por nombre"
               className="w-full rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-300/70"
             />
@@ -239,32 +290,43 @@ export default function PrivacySecurityPage() {
             </button>
           </div>
 
-          <div className="mt-4 space-y-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Resultados</p>
-            {searchResults.length === 0 ? (
-              <p className="text-sm text-zinc-500">Sin resultados recientes.</p>
-            ) : (
-              <ul className="space-y-2">
-                {searchResults.map((user) => {
-                  const disabled = blockedIds.has(String(user.id));
-
-                  return (
-                    <li key={String(user.id)} className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-2">
+          {hasSearchQuery ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Resultados</p>
+              {visibleSearchResults.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  {searchingUsers ? "Buscando usuarios..." : hasSearched ? searchMessage || "Sin resultados" : ""}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {visibleSearchResults.map((user) => (
+                    <li
+                      key={String(user.id)}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-2"
+                    >
                       <span className="text-sm text-zinc-200">@{user.username}</span>
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => void handleBlockUser(user)}
-                        className="rounded-full border border-red-300/50 px-3 py-1 text-xs font-medium text-red-200 transition hover:border-red-200 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {disabled ? "Restringido" : "Restringir"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleBlockUser(user)}
+                          className="rounded-full border border-red-300/50 px-3 py-1 text-xs font-medium text-red-200 transition hover:border-red-200"
+                        >
+                          Agregar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCancelSearchResult(user.id)}
+                          className="rounded-full border border-white/30 px-3 py-1 text-xs font-medium text-zinc-100 transition hover:border-white"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
 
           <div className="mt-5 space-y-2">
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Usuarios restringidos</p>
