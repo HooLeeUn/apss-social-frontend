@@ -104,10 +104,11 @@ export async function unblockUser(userId: number | string): Promise<void> {
 
 export async function searchUsersToRestrict(query: string): Promise<BlockedUser[]> {
   const trimmed = query.trim();
-  if (!trimmed) return [];
+  const normalizedQuery = trimmed.startsWith("@") ? `@${trimmed.slice(1).trim()}` : trimmed;
+  if (!normalizedQuery || normalizedQuery === "@") return [];
 
   const payload = await apiFetch(
-    `${USER_RESTRICT_SEARCH_ENDPOINT}?${new URLSearchParams({ search: trimmed }).toString()}`,
+    `${USER_RESTRICT_SEARCH_ENDPOINT}?${new URLSearchParams({ q: normalizedQuery }).toString()}`,
   );
   return parseBlockedUsers(payload);
 }

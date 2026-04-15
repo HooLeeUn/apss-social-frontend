@@ -67,7 +67,14 @@ export default function PrivacySecurityPage() {
   }, [router]);
 
   const blockedIds = useMemo(() => new Set(blockedUsers.map((user) => String(user.id))), [blockedUsers]);
-  const normalizeSearchQuery = (value: string) => value.trim().replace(/^@\s*/, "").trim();
+  const normalizeSearchQuery = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    if (!trimmed.startsWith("@")) return trimmed;
+
+    const usernamePart = trimmed.slice(1).trim();
+    return usernamePart ? `@${usernamePart}` : "";
+  };
   const hasSearchQuery = normalizeSearchQuery(searchQuery).length > 0;
   const visibleSearchResults = useMemo(
     () =>
@@ -198,11 +205,11 @@ export default function PrivacySecurityPage() {
         </header>
 
         <section className="rounded-3xl border border-blue-300/20 bg-gradient-to-b from-zinc-900/90 via-zinc-950/95 to-black p-5 shadow-[0_20px_45px_rgba(0,0,0,0.42)]">
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <p className="text-xs uppercase tracking-[0.25em] text-blue-200/85">Condiciones de privacidad</p>
+          <div className="mb-3 flex items-center gap-2">
+            <p className="shrink-0 text-xs uppercase tracking-[0.25em] text-blue-200/85">Condiciones de privacidad</p>
             <span
               aria-hidden
-              className="h-3 w-full max-w-[26rem] rounded-full border border-blue-200/30 bg-[repeating-linear-gradient(-55deg,rgba(191,219,254,0.38)_0px,rgba(191,219,254,0.38)_4px,transparent_4px,transparent_9px)] opacity-85"
+              className="h-7 min-h-[1.75rem] flex-1 rounded-xl border border-blue-200/30 bg-[repeating-linear-gradient(-55deg,rgba(191,219,254,0.42)_0px,rgba(191,219,254,0.42)_6px,transparent_6px,transparent_12px)] opacity-90"
             />
           </div>
           <ul className="space-y-2 text-sm leading-6 text-zinc-200 md:text-[0.95rem]">
