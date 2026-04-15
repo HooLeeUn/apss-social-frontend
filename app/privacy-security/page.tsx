@@ -205,12 +205,8 @@ export default function PrivacySecurityPage() {
         </header>
 
         <section className="rounded-3xl border border-blue-300/20 bg-gradient-to-b from-zinc-900/90 via-zinc-950/95 to-black p-5 shadow-[0_20px_45px_rgba(0,0,0,0.42)]">
-          <div className="mb-3 flex items-center gap-2">
-            <p className="shrink-0 text-xs uppercase tracking-[0.25em] text-blue-200/85">Condiciones de privacidad</p>
-            <span
-              aria-hidden
-              className="h-7 min-h-[1.75rem] flex-1 rounded-xl border border-blue-200/30 bg-[repeating-linear-gradient(-55deg,rgba(191,219,254,0.42)_0px,rgba(191,219,254,0.42)_6px,transparent_6px,transparent_12px)] opacity-90"
-            />
+          <div className="mb-3">
+            <p className="text-xs uppercase tracking-[0.25em] text-blue-200/85">Condiciones de privacidad</p>
           </div>
           <ul className="space-y-2 text-sm leading-6 text-zinc-200 md:text-[0.95rem]">
             {privacyDisclaimer.map((item) => (
