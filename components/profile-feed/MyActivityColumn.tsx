@@ -140,7 +140,7 @@ export default function MyActivityColumn() {
       <h2 className="text-base font-semibold text-zinc-100">Mi actividad</h2>
 
       <div
-        className="mt-3 h-[425px] overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:rgba(161,161,170,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-500/60 [&::-webkit-scrollbar-track]:bg-transparent"
+        className="activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
         onScroll={handleScroll}
       >
         {loading ? <MyActivitySkeleton /> : null}
