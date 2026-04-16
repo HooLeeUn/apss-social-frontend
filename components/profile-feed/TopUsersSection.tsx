@@ -27,7 +27,7 @@ function UserRow({ user }: { user: SocialUser }) {
       )}
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-zinc-100">{title}</p>
-        {user.followersCount !== null && user.followersCount !== undefined ? (
+        {user.followersCount !== null ? (
           <p className="text-xs text-zinc-400">Lo siguen {user.followersCount} usuarios</p>
         ) : null}
       </div>
