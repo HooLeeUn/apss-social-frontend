@@ -22,7 +22,7 @@ const PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE =
 const PROFILE_FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
-  return [...users].sort((a, b) => b.followersCount - a.followersCount);
+  return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
 }
 
 function withArtificialDelay<T>(payload: T, delayMs = 240): Promise<T> {
@@ -140,7 +140,12 @@ function toStringOrNull(value: unknown): string | null {
 }
 
 function getDisplayMovieTitle(movie: ProfileFeedActivityResponseItem["movie"]): string {
-  return toStringOrNull(movie.title_spanish) || toStringOrNull(movie.title_english) || toStringOrNull((movie as Record<string, unknown>).title) || "Sin título";
+  return (
+    toStringOrNull(movie.title_spanish) ||
+    toStringOrNull(movie.title_english) ||
+    toStringOrNull((movie as Record<string, unknown>).title) ||
+    "Título"
+  );
 }
 
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
@@ -219,6 +224,8 @@ function resolveScope(scope: SocialActivityScope): string {
 }
 
 function buildActivityScopeEndpoint(scope: SocialActivityScope): string {
+  if (scope === "me") return PROFILE_FEED_ACTIVITY_ENDPOINT;
+
   const params = new URLSearchParams({ scope: resolveScope(scope) });
   return `${PROFILE_FEED_ACTIVITY_ENDPOINT}?${params.toString()}`;
 }
@@ -315,7 +322,7 @@ export async function getTopFriends(limit = 5): Promise<SocialUser[]> {
           id: String(friend.id),
           username: friend.username,
           avatarUrl: friend.avatarUrl,
-          followersCount: 0,
+          followersCount: null,
         }));
 
   return sortUsersByFollowersDesc(friends).slice(0, limit);
@@ -364,13 +371,16 @@ function parseSocialUsers(payload: unknown): SocialUser[] {
     .map((entry, index) => {
       const user = extractCandidateUser(entry);
       const username = safeTrim(pickFirst(user.username, user.name, user.user_name)) || `usuario-${index + 1}`;
+      const displayName = safeTrim(pickFirst(user.display_name, user.displayName, entry.display_name));
+      const followersCount = toNumberOrNull(
+        pickFirst(user.followers_count, user.followersCount, user.follower_count, entry.followers_count, entry.followersCount),
+      );
       return {
         id: String(pickFirst(user.id, user.user_id, entry.id, username)),
         username,
+        displayName,
         avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)),
-        followersCount: toNonNegativeInteger(
-          pickFirst(user.followers_count, user.followersCount, user.follower_count, entry.followers_count, entry.followersCount),
-        ),
+        followersCount: followersCount === null ? null : toNonNegativeInteger(followersCount),
       };
     })
     .filter((user) => user.username.trim().length > 0);
