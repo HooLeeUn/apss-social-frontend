@@ -139,13 +139,13 @@ function toStringOrNull(value: unknown): string | null {
   return safeTrim(value);
 }
 
+function getMovieFallbackTitle(movie: ProfileFeedActivityResponseItem["movie"]): string | null {
+  if (!("title" in movie)) return null;
+  return toStringOrNull(movie.title);
+}
+
 function getDisplayMovieTitle(movie: ProfileFeedActivityResponseItem["movie"]): string {
-  return (
-    toStringOrNull(movie.title_spanish) ||
-    toStringOrNull(movie.title_english) ||
-    toStringOrNull((movie as Record<string, unknown>).title) ||
-    "Título"
-  );
+  return toStringOrNull(movie.title_spanish) || toStringOrNull(movie.title_english) || getMovieFallbackTitle(movie) || "Título";
 }
 
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
@@ -450,7 +450,7 @@ function parseFollowingUsers(payload: unknown): SocialUser[] {
   return getCollection(payload)
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
-    .map((entry, index) => {
+    .map((entry, index): SocialUser | null => {
       const user =
         toRecord(entry.following) ||
         toRecord(entry.followed) ||
@@ -469,12 +469,16 @@ function parseFollowingUsers(payload: unknown): SocialUser[] {
       return {
         id: String(pickFirst(user.id, user.user_id, entry.id, `following-${index + 1}`)),
         username,
-        displayName: safeTrim(pickFirst(user.display_name, user.displayName)),
-        avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)),
+        displayName: safeTrim(pickFirst(user.display_name, user.displayName)) ?? null,
+        avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)) ?? null,
         followersCount: followersCount === null ? null : toNonNegativeInteger(followersCount),
       };
     })
-    .filter((user): user is SocialUser => Boolean(user));
+    .filter(isNonNullSocialUser);
+}
+
+function isNonNullSocialUser(user: SocialUser | null): user is SocialUser {
+  return user !== null;
 }
 
 function buildUserFollowingEndpoint(username: string): string {
