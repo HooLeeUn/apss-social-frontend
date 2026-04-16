@@ -12,29 +12,43 @@ import { SocialUser } from "../../lib/profile-feed/types";
 export default function ProfileFeedPage() {
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [usersError, setUsersError] = useState<string | null>(null);
+  const [loadingFriends, setLoadingFriends] = useState(true);
+  const [loadingFollowing, setLoadingFollowing] = useState(true);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
+  const [followingError, setFollowingError] = useState<string | null>(null);
 
-  const loadTopUsers = useCallback(async () => {
-    setLoadingUsers(true);
-    setUsersError(null);
+  const loadFollowing = useCallback(async () => {
+    setLoadingFollowing(true);
+    setFollowingError(null);
     try {
-      const [topFriends, topFollowing] = await Promise.all([getTopFriends(), getTopFollowing()]);
-
-      setFriends(topFriends);
-      setFollowing(topFollowing);
+      const topFollowing = await getTopFollowing();
+      setFollowing(topFollowing.slice(0, 5));
     } catch {
-      setUsersError("No se pudieron cargar tus seguidos y amigos.");
-      setFriends([]);
       setFollowing([]);
+      setFollowingError("No se pudieron cargar tus seguidos.");
     } finally {
-      setLoadingUsers(false);
+      setLoadingFollowing(false);
+    }
+  }, []);
+
+  const loadFriends = useCallback(async () => {
+    setLoadingFriends(true);
+    setFriendsError(null);
+    try {
+      const topFriends = await getTopFriends();
+      setFriends(topFriends.slice(0, 5));
+    } catch {
+      setFriends([]);
+      setFriendsError("No se pudieron cargar tus amigos.");
+    } finally {
+      setLoadingFriends(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadTopUsers();
-  }, [loadTopUsers]);
+    void loadFollowing();
+    void loadFriends();
+  }, [loadFollowing, loadFriends]);
 
   return (
     <main className="min-h-screen bg-black text-zinc-100">
@@ -63,7 +77,16 @@ export default function ProfileFeedPage() {
 
         <section className="w-full">
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(280px,340px)_minmax(80px,1fr)]">
-            <TopUsersSection friends={friends} following={following} loading={loadingUsers} error={usersError} onRetry={() => void loadTopUsers()} />
+            <TopUsersSection
+              friends={friends}
+              following={following}
+              loadingFriends={loadingFriends}
+              loadingFollowing={loadingFollowing}
+              friendsError={friendsError}
+              followingError={followingError}
+              onRetryFriends={() => void loadFriends()}
+              onRetryFollowing={() => void loadFollowing()}
+            />
             <MyActivityColumn />
             <div className="hidden xl:block" aria-hidden="true" />
           </div>

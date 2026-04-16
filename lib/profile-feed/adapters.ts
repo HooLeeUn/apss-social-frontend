@@ -1,6 +1,5 @@
 import { ApiError, apiFetch } from "../api";
 import { normalizeMovie, parseMovieList } from "../movies";
-import { parseFriends } from "../social";
 import { favoriteMoviesMock } from "./mocks";
 import {
   FavoriteMovie,
@@ -312,25 +311,15 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
   });
 }
 
-export async function getTopFriends(limit = 5): Promise<SocialUser[]> {
+export async function getTopFriends(): Promise<SocialUser[]> {
   const payload = await apiFetch(PROFILE_FRIENDS_ENDPOINT);
-  const parsedFromUsers = parseSocialUsers(payload);
-  const friends =
-    parsedFromUsers.length > 0
-      ? parsedFromUsers
-      : parseFriends(payload).map((friend) => ({
-          id: String(friend.id),
-          username: friend.username,
-          avatarUrl: friend.avatarUrl,
-          followersCount: null,
-        }));
-
-  return sortUsersByFollowersDesc(friends).slice(0, limit);
+  const friends = parseSocialUsers(payload, { onlyAcceptedFriendships: true });
+  return sortUsersByFollowersDesc(friends);
 }
 
-export async function getTopFollowing(limit = 5): Promise<SocialUser[]> {
+export async function getTopFollowing(): Promise<SocialUser[]> {
   const results = await tryFollowingEndpoints();
-  return sortUsersByFollowersDesc(results).slice(0, limit);
+  return sortUsersByFollowersDesc(results);
 }
 
 function getCollection(payload: unknown): unknown[] {
@@ -340,15 +329,6 @@ function getCollection(payload: unknown): unknown[] {
   if (!root) return [];
 
   if (Array.isArray(root.results)) return root.results;
-  if (Array.isArray(root.items)) return root.items;
-  if (Array.isArray(root.following)) return root.following;
-  if (Array.isArray(root.users)) return root.users;
-
-  const data = toRecord(root.data);
-  if (!data) return [];
-  if (Array.isArray(data.results)) return data.results;
-  if (Array.isArray(data.items)) return data.items;
-  if (Array.isArray(data.following)) return data.following;
 
   return [];
 }
@@ -364,10 +344,11 @@ function extractCandidateUser(rawItem: Record<string, unknown>): Record<string, 
   );
 }
 
-function parseSocialUsers(payload: unknown): SocialUser[] {
+function parseSocialUsers(payload: unknown, options?: { onlyAcceptedFriendships?: boolean }): SocialUser[] {
   return getCollection(payload)
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
+    .filter((entry) => !options?.onlyAcceptedFriendships || isAcceptedFriendship(entry))
     .map((entry, index) => {
       const user = extractCandidateUser(entry);
       const username = safeTrim(pickFirst(user.username, user.name, user.user_name)) || `usuario-${index + 1}`;
@@ -384,6 +365,12 @@ function parseSocialUsers(payload: unknown): SocialUser[] {
       };
     })
     .filter((user) => user.username.trim().length > 0);
+}
+
+function isAcceptedFriendship(entry: Record<string, unknown>): boolean {
+  const status = safeTrim(pickFirst(entry.status, entry.friendship_status, entry.request_status, entry.state))?.toLowerCase();
+  if (!status) return true;
+  return ["accepted", "accept", "friends", "friend"].includes(status);
 }
 
 function buildUserFollowingEndpoint(username: string): string {
