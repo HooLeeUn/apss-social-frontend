@@ -6,13 +6,14 @@ import {
   PaginatedSocialActivity,
   ProfileFeedActivityResponseItem,
   SocialActivityItem,
-  SocialTab,
+  SocialActivityScope,
   SocialUser,
   FavoriteMovieSearchResult,
 } from "./types";
 
 const PROFILE_FAVORITES_ENDPOINT = "/profile/favorites/";
 const PROFILE_FEED_ACTIVITY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_FEED_ACTIVITY_ENDPOINT || "/profile-feed/activity/";
+const PROFILE_FEED_MY_ACTIVITY_SCOPE = process.env.NEXT_PUBLIC_PROFILE_FEED_MY_ACTIVITY_SCOPE || "me";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => b.followersCount - a.followersCount);
@@ -196,8 +197,13 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
   };
 }
 
-function buildActivityScopeEndpoint(scope: SocialTab): string {
-  const params = new URLSearchParams({ scope });
+function resolveScope(scope: SocialActivityScope): string {
+  if (scope === "me") return PROFILE_FEED_MY_ACTIVITY_SCOPE;
+  return scope;
+}
+
+function buildActivityScopeEndpoint(scope: SocialActivityScope): string {
+  const params = new URLSearchParams({ scope: resolveScope(scope) });
   return `${PROFILE_FEED_ACTIVITY_ENDPOINT}?${params.toString()}`;
 }
 
@@ -292,12 +298,23 @@ export async function getTopFollowing(limit = 5): Promise<SocialUser[]> {
 }
 
 export async function getSocialActivity(
-  tab: SocialTab,
+  tab: SocialActivityScope,
   nextEndpoint: string | null = null,
   signal?: AbortSignal,
 ): Promise<PaginatedSocialActivity> {
   const endpoint = nextEndpoint || buildActivityScopeEndpoint(tab);
-  const payload = await apiFetch(endpoint, { signal });
+  let payload: unknown;
+
+  try {
+    payload = await apiFetch(endpoint, { signal });
+  } catch (error) {
+    const myActivityScope = resolveScope(tab);
+    const isMyActivity = myActivityScope === PROFILE_FEED_MY_ACTIVITY_SCOPE;
+    if (isMyActivity && error instanceof ApiError && [400, 404, 422].includes(error.status)) {
+      return { items: [], next: null };
+    }
+    throw error;
+  }
   const parsed = parseSocialActivity(payload);
 
   return {
