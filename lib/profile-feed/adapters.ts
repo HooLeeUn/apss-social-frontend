@@ -1,5 +1,6 @@
 import { ApiError, apiFetch } from "../api";
 import { normalizeMovie, parseMovieList } from "../movies";
+import { parseFriends } from "../social";
 import { favoriteMoviesMock } from "./mocks";
 import {
   FavoriteMovie,
@@ -313,7 +314,7 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
 
 export async function getTopFriends(): Promise<SocialUser[]> {
   const payload = await apiFetch(PROFILE_FRIENDS_ENDPOINT);
-  const friends = parseSocialUsers(payload, { onlyAcceptedFriendships: true });
+  const friends = parseAcceptedFriends(payload);
   return sortUsersByFollowersDesc(friends);
 }
 
@@ -329,6 +330,17 @@ function getCollection(payload: unknown): unknown[] {
   if (!root) return [];
 
   if (Array.isArray(root.results)) return root.results;
+  if (Array.isArray(root.items)) return root.items;
+  if (Array.isArray(root.following)) return root.following;
+  if (Array.isArray(root.users)) return root.users;
+
+  const data = toRecord(root.data);
+  if (!data) return [];
+  if (Array.isArray(data.results)) return data.results;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.following)) return data.following;
+  if (Array.isArray(data.users)) return data.users;
+  if (Array.isArray(data.friends)) return data.friends;
 
   return [];
 }
@@ -367,10 +379,102 @@ function parseSocialUsers(payload: unknown, options?: { onlyAcceptedFriendships?
     .filter((user) => user.username.trim().length > 0);
 }
 
+function getAcceptedFriendships(payload: unknown): Record<string, unknown>[] {
+  return getCollection(payload)
+    .map((item) => toRecord(item))
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .filter((entry) => isAcceptedFriendship(entry));
+}
+
+function extractFriendCandidateUser(friendship: Record<string, unknown>): Record<string, unknown> {
+  return (
+    toRecord(friendship.friend) ||
+    toRecord(friendship.other_user) ||
+    toRecord(friendship.receiver) ||
+    toRecord(friendship.sender) ||
+    toRecord(friendship.requester) ||
+    toRecord(friendship.addressee) ||
+    toRecord(friendship.from_user) ||
+    toRecord(friendship.to_user) ||
+    toRecord(friendship.user) ||
+    toRecord(friendship.profile) ||
+    friendship
+  );
+}
+
+function parseAcceptedFriends(payload: unknown): SocialUser[] {
+  const acceptedFriendships = getAcceptedFriendships(payload);
+  const normalized = parseFriends({ results: acceptedFriendships });
+
+  const byUsername = new Map<string, Record<string, unknown>>();
+  const byId = new Map<string, Record<string, unknown>>();
+
+  acceptedFriendships.forEach((friendship) => {
+    const user = extractFriendCandidateUser(friendship);
+    const username = safeTrim(pickFirst(user.username, user.name, user.user_name));
+    if (username) byUsername.set(username.toLowerCase(), user);
+
+    const id = pickFirst(user.id, user.user_id, friendship.id);
+    if (id !== null && id !== undefined) byId.set(String(id), user);
+  });
+
+  return normalized
+    .map((friend) => {
+      const matched =
+        byUsername.get(friend.username.toLowerCase()) ||
+        byId.get(String(friend.id)) ||
+        null;
+      const followersCount = toNumberOrNull(
+        pickFirst(matched?.followers_count, matched?.followersCount, matched?.follower_count),
+      );
+      const displayName = safeTrim(pickFirst(matched?.display_name, matched?.displayName));
+
+      return {
+        id: String(friend.id),
+        username: friend.username,
+        displayName,
+        avatarUrl: friend.avatarUrl,
+        followersCount: followersCount === null ? null : toNonNegativeInteger(followersCount),
+      };
+    })
+    .filter((friend) => friend.username.trim().length > 0);
+}
+
 function isAcceptedFriendship(entry: Record<string, unknown>): boolean {
   const status = safeTrim(pickFirst(entry.status, entry.friendship_status, entry.request_status, entry.state))?.toLowerCase();
   if (!status) return true;
   return ["accepted", "accept", "friends", "friend"].includes(status);
+}
+
+function parseFollowingUsers(payload: unknown): SocialUser[] {
+  return getCollection(payload)
+    .map((item) => toRecord(item))
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .map((entry, index) => {
+      const user =
+        toRecord(entry.following) ||
+        toRecord(entry.followed) ||
+        toRecord(entry.followed_user) ||
+        toRecord(entry.target_user) ||
+        toRecord(entry.user) ||
+        entry;
+
+      const username = safeTrim(user.username);
+      if (!username) return null;
+
+      const followersCount = toNumberOrNull(
+        pickFirst(user.followers_count, user.followersCount, user.follower_count, entry.followers_count, entry.followersCount),
+      );
+
+      return {
+        id: String(pickFirst(user.id, user.user_id, entry.id, `following-${index + 1}`)),
+        username,
+        displayName: safeTrim(pickFirst(user.display_name, user.displayName)),
+        avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)),
+        followersCount: followersCount === null ? null : toNonNegativeInteger(followersCount),
+      };
+    })
+    .filter((user): user is SocialUser => Boolean(user));
 }
 
 function buildUserFollowingEndpoint(username: string): string {
@@ -386,7 +490,8 @@ async function getMyUsername(): Promise<string | null> {
 async function tryFollowingEndpoints(): Promise<SocialUser[]> {
   try {
     const payload = await apiFetch(PROFILE_ME_FOLLOWING_ENDPOINT);
-    return parseSocialUsers(payload);
+    const parsed = parseFollowingUsers(payload);
+    return parsed.length > 0 ? parsed : parseSocialUsers(payload);
   } catch (error) {
     if (!(error instanceof ApiError) || ![404, 405, 422].includes(error.status)) throw error;
   }
@@ -395,7 +500,8 @@ async function tryFollowingEndpoints(): Promise<SocialUser[]> {
     const username = await getMyUsername();
     if (!username) return [];
     const payload = await apiFetch(buildUserFollowingEndpoint(username));
-    return parseSocialUsers(payload);
+    const parsed = parseFollowingUsers(payload);
+    return parsed.length > 0 ? parsed : parseSocialUsers(payload);
   } catch (error) {
     if (error instanceof ApiError && [404, 405, 422].includes(error.status)) return [];
     throw error;
