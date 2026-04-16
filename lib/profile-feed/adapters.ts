@@ -454,6 +454,18 @@ function parseFollowingUsers(payload: unknown): SocialUser[] {
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
     .map((entry, index): SocialUser | null => {
+      const directUsername = safeTrim(entry.username);
+      if (directUsername) {
+        const directFollowersCountValue = toNumberOrNull(pickFirst(entry.followers_count, entry.followersCount));
+        return {
+          id: String(pickFirst(entry.id, entry.user_id, `following-${index + 1}`)),
+          username: directUsername,
+          displayName: safeTrim(pickFirst(entry.display_name, entry.displayName)) ?? null,
+          avatarUrl: safeTrim(pickFirst(entry.avatar_url, entry.avatar, entry.profile_image, entry.photo_url)) ?? null,
+          followersCount: directFollowersCountValue === null ? null : toNonNegativeInteger(directFollowersCountValue),
+        };
+      }
+
       const user =
         toRecord(entry.following) ||
         toRecord(entry.followed) ||
