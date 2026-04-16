@@ -31,26 +31,32 @@ function formatRelativeDate(iso: string): string {
 }
 
 function getActivityTitle(item: SocialActivityItem): string {
-  if (item.interactionType === "rating") return "Calificaste esta película";
-  if (item.interactionType === "comment") return "Comentaste públicamente";
-  if (item.interactionType === "dislike") return "No te gustó un comentario";
-  return "Te gustó un comentario";
+  if (item.interactionType === "rating") {
+    const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : "sin nota";
+    return `Calificaste con ${score} ${item.movieTitle}`;
+  }
+
+  if (item.interactionType === "comment") {
+    return `Comentaste ${item.movieTitle}`;
+  }
+
+  if (item.interactionType === "dislike") {
+    return `Diste dislike al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+  }
+
+  return `Diste like al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
 }
 
 function getActivityDetail(item: SocialActivityItem): string {
   if (item.interactionType === "rating") {
-    return item.ratingValue !== undefined ? `Tu nota: ${formatAverageRating(item.ratingValue)}/10` : "Sin puntuación";
+    return "Registraste una calificación en tu historial.";
   }
 
   if (item.interactionType === "comment") {
     return item.commentText || "Dejaste un comentario público.";
   }
 
-  if (item.likedCommentSnippet) {
-    return item.likedCommentSnippet;
-  }
-
-  return "Interacción en comentario público.";
+  return item.likedCommentSnippet || item.movieTitle;
 }
 
 function formatMetadata(item: SocialActivityItem): string {
@@ -79,7 +85,7 @@ function ActivityRow({ item }: { item: SocialActivityItem }) {
       </Link>
 
       <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-blue-200/85">{getActivityTitle(item)}</p>
+        <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item)}</p>
         <Link href={movieHref} className="mt-1 block truncate text-sm font-semibold text-zinc-100 transition hover:text-blue-100">
           {item.movieTitle}
         </Link>
@@ -150,7 +156,7 @@ export default function MyActivityColumn() {
           </div>
         ) : null}
 
-        {!loading && !error && items.length === 0 ? <p className="text-sm text-zinc-500">Todavía no registras actividad reciente.</p> : null}
+        {!loading && !error && items.length === 0 ? <p className="text-sm text-zinc-500">Aún no tienes actividad registrada.</p> : null}
 
         {!loading && !error ? items.map((item) => <ActivityRow key={item.id} item={item} />) : null}
 

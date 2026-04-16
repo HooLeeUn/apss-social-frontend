@@ -1,6 +1,7 @@
 import { ApiError, apiFetch } from "../api";
 import { normalizeMovie, parseMovieList } from "../movies";
-import { favoriteMoviesMock, followingMock, friendsMock } from "./mocks";
+import { parseFriends } from "../social";
+import { favoriteMoviesMock } from "./mocks";
 import {
   FavoriteMovie,
   PaginatedSocialActivity,
@@ -14,6 +15,11 @@ import {
 const PROFILE_FAVORITES_ENDPOINT = "/profile/favorites/";
 const PROFILE_FEED_ACTIVITY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_FEED_ACTIVITY_ENDPOINT || "/profile-feed/activity/";
 const PROFILE_FEED_MY_ACTIVITY_SCOPE = process.env.NEXT_PUBLIC_PROFILE_FEED_MY_ACTIVITY_SCOPE || "me";
+const PROFILE_ME_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_ENDPOINT || "/me/";
+const PROFILE_ME_FOLLOWING_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_FOLLOWING_ENDPOINT || "/users/me/following/";
+const PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE || "/users/{username}/following/";
+const PROFILE_FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => b.followersCount - a.followersCount);
@@ -53,6 +59,12 @@ function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
   }
 
   return null;
+}
+
+function safeTrim(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
@@ -124,9 +136,7 @@ function parseFavorites(payload: unknown): FavoriteMovie[] {
 }
 
 function toStringOrNull(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim();
-  return normalized || null;
+  return safeTrim(value);
 }
 
 function getDisplayMovieTitle(movie: ProfileFeedActivityResponseItem["movie"]): string {
@@ -187,12 +197,18 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
 function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
   const root = toRecord(payload);
   const results = Array.isArray(root?.results) ? root.results : [];
+  const mapped = results
+    .map((item) => toRecord(item))
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .map((item) => toActivityItem(item as unknown as ProfileFeedActivityResponseItem));
 
   return {
-    items: results
-      .map((item) => toRecord(item))
-      .filter((item): item is Record<string, unknown> => Boolean(item))
-      .map((item) => toActivityItem(item as unknown as ProfileFeedActivityResponseItem)),
+    items: mapped.sort((left, right) => {
+      const leftTs = new Date(left.createdAt).getTime();
+      const rightTs = new Date(right.createdAt).getTime();
+      if (Number.isNaN(leftTs) || Number.isNaN(rightTs)) return 0;
+      return rightTs - leftTs;
+    }),
     next: typeof root?.next === "string" ? root.next : null,
   };
 }
@@ -290,11 +306,103 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
 }
 
 export async function getTopFriends(limit = 5): Promise<SocialUser[]> {
-  return withArtificialDelay(sortUsersByFollowersDesc(friendsMock).slice(0, limit));
+  const payload = await apiFetch(PROFILE_FRIENDS_ENDPOINT);
+  const parsedFromUsers = parseSocialUsers(payload);
+  const friends =
+    parsedFromUsers.length > 0
+      ? parsedFromUsers
+      : parseFriends(payload).map((friend) => ({
+          id: String(friend.id),
+          username: friend.username,
+          avatarUrl: friend.avatarUrl,
+          followersCount: 0,
+        }));
+
+  return sortUsersByFollowersDesc(friends).slice(0, limit);
 }
 
 export async function getTopFollowing(limit = 5): Promise<SocialUser[]> {
-  return withArtificialDelay(sortUsersByFollowersDesc(followingMock).slice(0, limit));
+  const results = await tryFollowingEndpoints();
+  return sortUsersByFollowersDesc(results).slice(0, limit);
+}
+
+function getCollection(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+
+  const root = toRecord(payload);
+  if (!root) return [];
+
+  if (Array.isArray(root.results)) return root.results;
+  if (Array.isArray(root.items)) return root.items;
+  if (Array.isArray(root.following)) return root.following;
+  if (Array.isArray(root.users)) return root.users;
+
+  const data = toRecord(root.data);
+  if (!data) return [];
+  if (Array.isArray(data.results)) return data.results;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.following)) return data.following;
+
+  return [];
+}
+
+function extractCandidateUser(rawItem: Record<string, unknown>): Record<string, unknown> {
+  return (
+    toRecord(rawItem.following) ||
+    toRecord(rawItem.followed) ||
+    toRecord(rawItem.target_user) ||
+    toRecord(rawItem.user) ||
+    toRecord(rawItem.profile) ||
+    rawItem
+  );
+}
+
+function parseSocialUsers(payload: unknown): SocialUser[] {
+  return getCollection(payload)
+    .map((item) => toRecord(item))
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .map((entry, index) => {
+      const user = extractCandidateUser(entry);
+      const username = safeTrim(pickFirst(user.username, user.name, user.user_name)) || `usuario-${index + 1}`;
+      return {
+        id: String(pickFirst(user.id, user.user_id, entry.id, username)),
+        username,
+        avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)),
+        followersCount: toNonNegativeInteger(
+          pickFirst(user.followers_count, user.followersCount, user.follower_count, entry.followers_count, entry.followersCount),
+        ),
+      };
+    })
+    .filter((user) => user.username.trim().length > 0);
+}
+
+function buildUserFollowingEndpoint(username: string): string {
+  return PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
+}
+
+async function getMyUsername(): Promise<string | null> {
+  const payload = await apiFetch(PROFILE_ME_ENDPOINT);
+  const me = toRecord(payload);
+  return safeTrim(pickFirst(me?.username, me?.user_name, me?.name));
+}
+
+async function tryFollowingEndpoints(): Promise<SocialUser[]> {
+  try {
+    const payload = await apiFetch(PROFILE_ME_FOLLOWING_ENDPOINT);
+    return parseSocialUsers(payload);
+  } catch (error) {
+    if (!(error instanceof ApiError) || ![404, 405, 422].includes(error.status)) throw error;
+  }
+
+  try {
+    const username = await getMyUsername();
+    if (!username) return [];
+    const payload = await apiFetch(buildUserFollowingEndpoint(username));
+    return parseSocialUsers(payload);
+  } catch (error) {
+    if (error instanceof ApiError && [404, 405, 422].includes(error.status)) return [];
+    throw error;
+  }
 }
 
 export async function getSocialActivity(
