@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
 import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivityTabsBlock";
@@ -12,17 +12,29 @@ import { SocialUser } from "../../lib/profile-feed/types";
 export default function ProfileFeedPage() {
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
+  const loadTopUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    setUsersError(null);
+    try {
       const [topFriends, topFollowing] = await Promise.all([getTopFriends(), getTopFollowing()]);
 
       setFriends(topFriends);
       setFollowing(topFollowing);
-    };
-
-    void load();
+    } catch {
+      setUsersError("No se pudieron cargar tus seguidos y amigos.");
+      setFriends([]);
+      setFollowing([]);
+    } finally {
+      setLoadingUsers(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadTopUsers();
+  }, [loadTopUsers]);
 
   return (
     <main className="min-h-screen bg-black text-zinc-100">
@@ -51,7 +63,7 @@ export default function ProfileFeedPage() {
 
         <section className="w-full">
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(280px,340px)_minmax(80px,1fr)]">
-            <TopUsersSection friends={friends} following={following} />
+            <TopUsersSection friends={friends} following={following} loading={loadingUsers} error={usersError} onRetry={() => void loadTopUsers()} />
             <MyActivityColumn />
             <div className="hidden xl:block" aria-hidden="true" />
           </div>

@@ -36,8 +36,9 @@ export interface FavoriteMovieSearchResult {
 export interface SocialUser {
   id: string;
   username: string;
+  displayName?: string | null;
   avatarUrl?: string | null;
-  followersCount: number;
+  followersCount?: number | null;
 }
 
 export interface SocialActivityItem {
