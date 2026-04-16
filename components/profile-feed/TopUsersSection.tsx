@@ -65,7 +65,7 @@ function Block({
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Buscar"
           aria-label={`Buscar en ${title}`}
-          className="h-8 w-24 rounded-full border border-white/15 bg-zinc-900/75 px-3 text-xs text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
+          className="h-9 w-40 rounded-full border border-white/15 bg-zinc-900/75 px-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
         />
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -83,7 +83,7 @@ function Block({
         ) : null}
 
         {loading ? (
-          <div className="space-y-2.5 overflow-y-auto pr-1">
+          <div className="activity-scrollbar space-y-2.5 overflow-y-auto pr-1">
             {Array.from({ length: 4 }).map((_, index) => (
               <div key={`${title}-skeleton-${index}`} className="flex animate-pulse items-center gap-3 py-2.5">
                 <div className="h-9 w-9 rounded-full bg-zinc-800" />
@@ -102,7 +102,7 @@ function Block({
 
         {!loading && !error
           ? (
-              <div className="h-full overflow-y-auto pr-1">
+              <div className="activity-scrollbar h-full overflow-y-auto pr-1">
                 {users.map((user) => (
                   <UserRow key={`${title}-${user.id}`} user={user} />
                 ))}
