@@ -1,6 +1,5 @@
 import { ApiError, apiFetch } from "../api";
 import { normalizeMovie, parseMovieList } from "../movies";
-import { parseFriends } from "../social";
 import { favoriteMoviesMock } from "./mocks";
 import {
   FavoriteMovie,
@@ -139,6 +138,29 @@ function toStringOrNull(value: unknown): string | null {
   return safeTrim(value);
 }
 
+function resolveFollowersCount(candidate: Record<string, unknown>): number | null {
+  const stats = toRecord(candidate.stats);
+  const socialStats = toRecord(candidate.social_stats);
+  const profile = toRecord(candidate.profile);
+
+  const value = toNumberOrNull(
+    pickFirst(
+      candidate.followers_count,
+      candidate.followersCount,
+      candidate.follower_count,
+      candidate.followers,
+      stats?.followers_count,
+      stats?.followersCount,
+      socialStats?.followers_count,
+      socialStats?.followersCount,
+      profile?.followers_count,
+      profile?.followersCount,
+    ),
+  );
+
+  return value === null ? null : toNonNegativeInteger(value);
+}
+
 function getMovieFallbackTitle(movie: ProfileFeedActivityResponseItem["movie"]): string | null {
   if (!("title" in movie)) return null;
   return toStringOrNull(movie.title);
@@ -169,6 +191,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     user: {
       id: String(item.actor.id),
       username: item.actor.username,
+      displayName: toStringOrNull(item.actor.display_name),
       avatarUrl: item.actor.avatar,
       followersCount: 0,
     },
@@ -333,6 +356,7 @@ function getCollection(payload: unknown): unknown[] {
   if (Array.isArray(root.items)) return root.items;
   if (Array.isArray(root.following)) return root.following;
   if (Array.isArray(root.users)) return root.users;
+  if (Array.isArray(root.friends)) return root.friends;
 
   const data = toRecord(root.data);
   if (!data) return [];
@@ -365,15 +389,13 @@ function parseSocialUsers(payload: unknown, options?: { onlyAcceptedFriendships?
       const user = extractCandidateUser(entry);
       const username = safeTrim(pickFirst(user.username, user.name, user.user_name)) || `usuario-${index + 1}`;
       const displayName = safeTrim(pickFirst(user.display_name, user.displayName, entry.display_name));
-      const followersCount = toNumberOrNull(
-        pickFirst(user.followers_count, user.followersCount, user.follower_count, entry.followers_count, entry.followersCount),
-      );
+      const followersCount = resolveFollowersCount({ ...entry, ...user });
       return {
         id: String(pickFirst(user.id, user.user_id, entry.id, username)),
         username,
-        displayName,
-        avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)),
-        followersCount: followersCount === null ? null : toNonNegativeInteger(followersCount),
+        displayName: displayName ?? null,
+        avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)) ?? null,
+        followersCount,
       };
     })
     .filter((user) => user.username.trim().length > 0);
@@ -404,46 +426,27 @@ function extractFriendCandidateUser(friendship: Record<string, unknown>): Record
 
 function parseAcceptedFriends(payload: unknown): SocialUser[] {
   const acceptedFriendships = getAcceptedFriendships(payload);
-  const normalized = parseFriends({ results: acceptedFriendships });
-
-  const byUsername = new Map<string, Record<string, unknown>>();
-  const byId = new Map<string, Record<string, unknown>>();
-
-  acceptedFriendships.forEach((friendship) => {
-    const user = extractFriendCandidateUser(friendship);
-    const username = safeTrim(pickFirst(user.username, user.name, user.user_name));
-    if (username) byUsername.set(username.toLowerCase(), user);
-
-    const id = pickFirst(user.id, user.user_id, friendship.id);
-    if (id !== null && id !== undefined) byId.set(String(id), user);
-  });
-
-  return normalized
-    .map((friend) => {
-      const matched =
-        byUsername.get(friend.username.toLowerCase()) ||
-        byId.get(String(friend.id)) ||
-        null;
-      const followersCount = toNumberOrNull(
-        pickFirst(matched?.followers_count, matched?.followersCount, matched?.follower_count),
-      );
-      const displayName = safeTrim(pickFirst(matched?.display_name, matched?.displayName));
+  return acceptedFriendships
+    .map((friendship, index): SocialUser | null => {
+      const user = extractFriendCandidateUser(friendship);
+      const username = safeTrim(pickFirst(user.username, user.name, user.user_name));
+      if (!username) return null;
 
       return {
-        id: String(friend.id),
-        username: friend.username,
-        displayName,
-        avatarUrl: friend.avatarUrl,
-        followersCount: followersCount === null ? null : toNonNegativeInteger(followersCount),
+        id: String(pickFirst(user.id, user.user_id, friendship.id, `friend-${index + 1}`)),
+        username,
+        displayName: safeTrim(pickFirst(user.display_name, user.displayName, user.full_name)) ?? null,
+        avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)) ?? null,
+        followersCount: resolveFollowersCount({ ...friendship, ...user }),
       };
     })
-    .filter((friend) => friend.username.trim().length > 0);
+    .filter(isNonNullSocialUser);
 }
 
 function isAcceptedFriendship(entry: Record<string, unknown>): boolean {
   const status = safeTrim(pickFirst(entry.status, entry.friendship_status, entry.request_status, entry.state))?.toLowerCase();
   if (!status) return true;
-  return ["accepted", "accept", "friends", "friend"].includes(status);
+  return ["accepted", "accept", "friends", "friend", "active"].includes(status);
 }
 
 function parseFollowingUsers(payload: unknown): SocialUser[] {
@@ -462,16 +465,12 @@ function parseFollowingUsers(payload: unknown): SocialUser[] {
       const username = safeTrim(user.username);
       if (!username) return null;
 
-      const followersCount = toNumberOrNull(
-        pickFirst(user.followers_count, user.followersCount, user.follower_count, entry.followers_count, entry.followersCount),
-      );
-
       return {
         id: String(pickFirst(user.id, user.user_id, entry.id, `following-${index + 1}`)),
         username,
         displayName: safeTrim(pickFirst(user.display_name, user.displayName)) ?? null,
         avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)) ?? null,
-        followersCount: followersCount === null ? null : toNonNegativeInteger(followersCount),
+        followersCount: resolveFollowersCount({ ...entry, ...user }),
       };
     })
     .filter(isNonNullSocialUser);
