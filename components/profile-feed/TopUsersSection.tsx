@@ -1,4 +1,5 @@
 import { SocialUser } from "../../lib/profile-feed/types";
+import { useMemo, useState } from "react";
 
 interface TopUsersSectionProps {
   friends: SocialUser[];
@@ -38,6 +39,8 @@ function UserRow({ user }: { user: SocialUser }) {
 function Block({
   title,
   users,
+  query,
+  onQueryChange,
   loading,
   emptyCopy,
   error,
@@ -45,20 +48,27 @@ function Block({
 }: {
   title: string;
   users: SocialUser[];
+  query: string;
+  onQueryChange: (value: string) => void;
   loading: boolean;
   emptyCopy: string;
   error: string | null;
   onRetry: () => void;
 }) {
   return (
-    <section className="rounded-3xl border border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
-      <header className="mb-2.5 flex items-center justify-between">
+    <section className="flex h-[30rem] flex-col rounded-3xl border border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
+      <header className="mb-2.5 flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
-        <button type="button" className="text-sm text-zinc-300 transition hover:text-blue-200">
-          Todos
-        </button>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Buscar"
+          aria-label={`Buscar en ${title}`}
+          className="h-8 w-24 rounded-full border border-white/15 bg-zinc-900/75 px-3 text-xs text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
+        />
       </header>
-      <div>
+      <div className="min-h-0 flex-1 overflow-hidden">
         {!loading && error ? (
           <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
             <p>{error}</p>
@@ -73,7 +83,7 @@ function Block({
         ) : null}
 
         {loading ? (
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 overflow-y-auto pr-1">
             {Array.from({ length: 4 }).map((_, index) => (
               <div key={`${title}-skeleton-${index}`} className="flex animate-pulse items-center gap-3 py-2.5">
                 <div className="h-9 w-9 rounded-full bg-zinc-800" />
@@ -86,12 +96,18 @@ function Block({
           </div>
         ) : null}
 
-        {!loading && !error && users.length === 0 ? <p className="py-1 text-sm text-zinc-500">{emptyCopy}</p> : null}
+        {!loading && !error && users.length === 0 ? (
+          <p className="py-6 text-center text-sm text-zinc-500">{emptyCopy}</p>
+        ) : null}
 
         {!loading && !error
-          ? users.map((user) => (
-              <UserRow key={`${title}-${user.id}`} user={user} />
-            ))
+          ? (
+              <div className="h-full overflow-y-auto pr-1">
+                {users.map((user) => (
+                  <UserRow key={`${title}-${user.id}`} user={user} />
+                ))}
+              </div>
+            )
           : null}
       </div>
     </section>
@@ -108,21 +124,44 @@ export default function TopUsersSection({
   onRetryFriends,
   onRetryFollowing,
 }: TopUsersSectionProps) {
+  const [followingQuery, setFollowingQuery] = useState("");
+  const [friendsQuery, setFriendsQuery] = useState("");
+
+  const filterUsers = (users: SocialUser[], query: string) => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) {
+      return users;
+    }
+
+    return users.filter((user) => {
+      const username = user.username.toLocaleLowerCase();
+      const displayName = user.displayName?.toLocaleLowerCase() ?? "";
+      return username.includes(normalizedQuery) || displayName.includes(normalizedQuery);
+    });
+  };
+
+  const filteredFollowing = useMemo(() => filterUsers(following, followingQuery), [following, followingQuery]);
+  const filteredFriends = useMemo(() => filterUsers(friends, friendsQuery), [friends, friendsQuery]);
+
   return (
     <section className="grid w-full max-w-[640px] gap-3 sm:grid-cols-2 lg:max-w-[680px]">
       <Block
         title="Seguidos"
-        users={following}
+        users={filteredFollowing}
+        query={followingQuery}
+        onQueryChange={setFollowingQuery}
         loading={loadingFollowing}
-        emptyCopy="Aún no sigues a ningún usuario"
+        emptyCopy={followingQuery.trim() ? "Sin coincidencias en seguidos" : "Aún no sigues a ningún usuario"}
         error={followingError}
         onRetry={onRetryFollowing}
       />
       <Block
         title="Amigos"
-        users={friends}
+        users={filteredFriends}
+        query={friendsQuery}
+        onQueryChange={setFriendsQuery}
         loading={loadingFriends}
-        emptyCopy="Aún no tienes amigos agregados"
+        emptyCopy={friendsQuery.trim() ? "Sin coincidencias en amigos" : "Aún no tienes amigos agregados"}
         error={friendsError}
         onRetry={onRetryFriends}
       />
