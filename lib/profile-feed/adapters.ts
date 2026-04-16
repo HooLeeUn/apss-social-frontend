@@ -15,7 +15,8 @@ const PROFILE_FAVORITES_ENDPOINT = "/profile/favorites/";
 const PROFILE_FEED_ACTIVITY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_FEED_ACTIVITY_ENDPOINT || "/profile-feed/activity/";
 const PROFILE_FEED_MY_ACTIVITY_SCOPE = process.env.NEXT_PUBLIC_PROFILE_FEED_MY_ACTIVITY_SCOPE || "me";
 const PROFILE_ME_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_ENDPOINT || "/me/";
-const PROFILE_ME_FOLLOWING_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_FOLLOWING_ENDPOINT || "/users/me/following/";
+const PROFILE_ME_FOLLOWING_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_FOLLOWING_ENDPOINT || "/me/following/";
+const PROFILE_LEGACY_ME_FOLLOWING_ENDPOINT = "/users/me/following/";
 const PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE || "/users/{username}/following/";
 const PROFILE_FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
@@ -463,6 +464,11 @@ function buildUserFollowingEndpoint(username: string): string {
   return PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
 }
 
+function logFollowingDebug(label: string, value: unknown): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.info(label, value);
+}
+
 async function getMyUsername(): Promise<string | null> {
   const payload = await apiFetch(PROFILE_ME_ENDPOINT);
   const me = toRecord(payload);
@@ -470,9 +476,23 @@ async function getMyUsername(): Promise<string | null> {
 }
 
 async function tryFollowingEndpoints(): Promise<SocialUser[]> {
+  const fetchFollowingFromEndpoint = async (endpoint: string): Promise<SocialUser[]> => {
+    const payload = await apiFetch(endpoint);
+    const parsed = parseFollowingUsers(payload);
+    logFollowingDebug("FOLLOWING ENDPOINT USED:", endpoint);
+    logFollowingDebug("FOLLOWING RAW PAYLOAD:", payload);
+    logFollowingDebug("FOLLOWING PARSED USERS:", parsed);
+    return parsed;
+  };
+
   try {
-    const payload = await apiFetch(PROFILE_ME_FOLLOWING_ENDPOINT);
-    return parseFollowingUsers(payload);
+    return await fetchFollowingFromEndpoint(PROFILE_ME_FOLLOWING_ENDPOINT);
+  } catch (error) {
+    if (!(error instanceof ApiError) || ![404, 405, 422].includes(error.status)) throw error;
+  }
+
+  try {
+    return await fetchFollowingFromEndpoint(PROFILE_LEGACY_ME_FOLLOWING_ENDPOINT);
   } catch (error) {
     if (!(error instanceof ApiError) || ![404, 405, 422].includes(error.status)) throw error;
   }
@@ -480,8 +500,7 @@ async function tryFollowingEndpoints(): Promise<SocialUser[]> {
   try {
     const username = await getMyUsername();
     if (!username) return [];
-    const payload = await apiFetch(buildUserFollowingEndpoint(username));
-    return parseFollowingUsers(payload);
+    return await fetchFollowingFromEndpoint(buildUserFollowingEndpoint(username));
   } catch (error) {
     if (error instanceof ApiError && [404, 405, 422].includes(error.status)) return [];
     throw error;
