@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
+import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
 import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivityTabsBlock";
 import TopUsersSection from "../../components/profile-feed/TopUsersSection";
 import { getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
@@ -48,7 +49,13 @@ export default function ProfileFeedPage() {
           </div>
         </section>
 
-        <TopUsersSection friends={friends} following={following} />
+        <section className="w-full">
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(280px,340px)_minmax(80px,1fr)]">
+            <TopUsersSection friends={friends} following={following} />
+            <MyActivityColumn />
+            <div className="hidden xl:block" aria-hidden="true" />
+          </div>
+        </section>
 
         <SocialActivityTabsBlock />
       </div>
