@@ -369,38 +369,6 @@ function getCollection(payload: unknown): unknown[] {
   return [];
 }
 
-function extractCandidateUser(rawItem: Record<string, unknown>): Record<string, unknown> {
-  return (
-    toRecord(rawItem.following) ||
-    toRecord(rawItem.followed) ||
-    toRecord(rawItem.target_user) ||
-    toRecord(rawItem.user) ||
-    toRecord(rawItem.profile) ||
-    rawItem
-  );
-}
-
-function parseSocialUsers(payload: unknown, options?: { onlyAcceptedFriendships?: boolean }): SocialUser[] {
-  return getCollection(payload)
-    .map((item) => toRecord(item))
-    .filter((item): item is Record<string, unknown> => Boolean(item))
-    .filter((entry) => !options?.onlyAcceptedFriendships || isAcceptedFriendship(entry))
-    .map((entry, index) => {
-      const user = extractCandidateUser(entry);
-      const username = safeTrim(pickFirst(user.username, user.name, user.user_name)) || `usuario-${index + 1}`;
-      const displayName = safeTrim(pickFirst(user.display_name, user.displayName, entry.display_name));
-      const followersCount = resolveFollowersCount({ ...entry, ...user });
-      return {
-        id: String(pickFirst(user.id, user.user_id, entry.id, username)),
-        username,
-        displayName: displayName ?? null,
-        avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)) ?? null,
-        followersCount,
-      };
-    })
-    .filter((user) => user.username.trim().length > 0);
-}
-
 function getAcceptedFriendships(payload: unknown): Record<string, unknown>[] {
   return getCollection(payload)
     .map((item) => toRecord(item))
@@ -456,13 +424,12 @@ function parseFollowingUsers(payload: unknown): SocialUser[] {
     .map((entry, index): SocialUser | null => {
       const directUsername = safeTrim(entry.username);
       if (directUsername) {
-        const directFollowersCountValue = toNumberOrNull(pickFirst(entry.followers_count, entry.followersCount));
         return {
           id: String(pickFirst(entry.id, entry.user_id, `following-${index + 1}`)),
           username: directUsername,
           displayName: safeTrim(pickFirst(entry.display_name, entry.displayName)) ?? null,
           avatarUrl: safeTrim(pickFirst(entry.avatar_url, entry.avatar, entry.profile_image, entry.photo_url)) ?? null,
-          followersCount: directFollowersCountValue === null ? null : toNonNegativeInteger(directFollowersCountValue),
+          followersCount: resolveFollowersCount(entry),
         };
       }
 
@@ -505,8 +472,7 @@ async function getMyUsername(): Promise<string | null> {
 async function tryFollowingEndpoints(): Promise<SocialUser[]> {
   try {
     const payload = await apiFetch(PROFILE_ME_FOLLOWING_ENDPOINT);
-    const parsed = parseFollowingUsers(payload);
-    return parsed.length > 0 ? parsed : parseSocialUsers(payload);
+    return parseFollowingUsers(payload);
   } catch (error) {
     if (!(error instanceof ApiError) || ![404, 405, 422].includes(error.status)) throw error;
   }
@@ -515,8 +481,7 @@ async function tryFollowingEndpoints(): Promise<SocialUser[]> {
     const username = await getMyUsername();
     if (!username) return [];
     const payload = await apiFetch(buildUserFollowingEndpoint(username));
-    const parsed = parseFollowingUsers(payload);
-    return parsed.length > 0 ? parsed : parseSocialUsers(payload);
+    return parseFollowingUsers(payload);
   } catch (error) {
     if (error instanceof ApiError && [404, 405, 422].includes(error.status)) return [];
     throw error;

@@ -14,6 +14,7 @@ interface TopUsersSectionProps {
 function UserRow({ user }: { user: SocialUser }) {
   const initials = user.username.slice(0, 2).toUpperCase();
   const title = user.displayName || user.username;
+  console.log("FOLLOWING USER:", user);
 
   return (
     <article className="flex items-center gap-3 border-b border-white/5 py-2.5 last:border-b-0 last:pb-0 first:pt-0">
@@ -27,9 +28,7 @@ function UserRow({ user }: { user: SocialUser }) {
       )}
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-zinc-100">{title}</p>
-        {user.followersCount !== null ? (
-          <p className="text-xs text-zinc-400">Lo siguen {user.followersCount} usuarios</p>
-        ) : null}
+        <p className="text-xs text-zinc-400">Lo siguen {user.followersCount ?? 0} usuarios</p>
       </div>
     </article>
   );
