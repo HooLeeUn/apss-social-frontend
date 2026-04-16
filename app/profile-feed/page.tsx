@@ -22,7 +22,7 @@ export default function ProfileFeedPage() {
     setFollowingError(null);
     try {
       const topFollowing = await getTopFollowing();
-      setFollowing(topFollowing.slice(0, 5));
+      setFollowing(topFollowing);
     } catch {
       setFollowing([]);
       setFollowingError("No se pudieron cargar tus seguidos.");
@@ -36,7 +36,7 @@ export default function ProfileFeedPage() {
     setFriendsError(null);
     try {
       const topFriends = await getTopFriends();
-      setFriends(topFriends.slice(0, 5));
+      setFriends(topFriends);
     } catch {
       setFriends([]);
       setFriendsError("No se pudieron cargar tus amigos.");
