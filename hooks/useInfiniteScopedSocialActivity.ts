@@ -22,10 +22,31 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope): Use
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const nextRef = useRef<string | null>(null);
+  const loadingRef = useRef(false);
+  const loadingMoreRef = useRef(false);
+  const errorRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    nextRef.current = next;
+  }, [next]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    loadingMoreRef.current = loadingMore;
+  }, [loadingMore]);
+
+  useEffect(() => {
+    errorRef.current = error;
+  }, [error]);
 
   const loadPage = useCallback(
     async (mode: "reset" | "append") => {
-      if (mode === "append" && (!next || loading || loadingMore)) return;
+      const currentNext = nextRef.current;
+      if (mode === "append" && (!currentNext || loadingRef.current || loadingMoreRef.current || errorRef.current)) return;
 
       if (mode === "reset") {
         abortControllerRef.current?.abort();
@@ -38,14 +59,17 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope): Use
       requestIdRef.current = requestId;
 
       setError(null);
+      errorRef.current = null;
       if (mode === "reset") {
         setLoading(true);
+        loadingRef.current = true;
       } else {
         setLoadingMore(true);
+        loadingMoreRef.current = true;
       }
 
       try {
-        const response = await getSocialActivity(scope, mode === "append" ? next : null, abortController.signal);
+        const response = await getSocialActivity(scope, mode === "append" ? currentNext : null, abortController.signal);
         if (requestId !== requestIdRef.current) return;
 
         setItems((current) => {
@@ -56,22 +80,32 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope): Use
           return [...current, ...uniqueNewItems];
         });
         setNext(response.next);
+        nextRef.current = response.next;
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         if (requestId !== requestIdRef.current) return;
-        setError("No se pudo cargar tu actividad.");
+        const nextError = "No se pudo cargar tu actividad.";
+        setError(nextError);
+        errorRef.current = nextError;
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
           setLoadingMore(false);
+          loadingRef.current = false;
+          loadingMoreRef.current = false;
           abortControllerRef.current = null;
         }
       }
     },
-    [loading, loadingMore, next, scope],
+    [scope],
   );
 
   useEffect(() => {
+    setItems([]);
+    setNext(null);
+    nextRef.current = null;
+    setError(null);
+    errorRef.current = null;
     void loadPage("reset");
   }, [loadPage, scope]);
 
@@ -89,6 +123,9 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope): Use
   const reload = useCallback(() => {
     setItems([]);
     setNext(null);
+    nextRef.current = null;
+    setError(null);
+    errorRef.current = null;
     void loadPage("reset");
   }, [loadPage]);
 

@@ -10,6 +10,7 @@ interface TopUsersSectionProps {
 
 function UserRow({ user }: { user: SocialUser }) {
   const initials = user.username.slice(0, 2).toUpperCase();
+  const title = user.displayName || user.username;
 
   return (
     <article className="flex items-center gap-3 border-b border-white/5 py-2.5 last:border-b-0 last:pb-0 first:pt-0">
@@ -22,8 +23,10 @@ function UserRow({ user }: { user: SocialUser }) {
         </div>
       )}
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-zinc-100">{user.username}</p>
-        <p className="text-xs text-zinc-400">Lo siguen {user.followersCount} usuarios</p>
+        <p className="truncate text-sm font-medium text-zinc-100">{title}</p>
+        {user.followersCount !== null && user.followersCount !== undefined ? (
+          <p className="text-xs text-zinc-400">Lo siguen {user.followersCount} usuarios</p>
+        ) : null}
       </div>
     </article>
   );
@@ -80,8 +83,8 @@ export default function TopUsersSection({ friends, following, loading, error, on
           </button>
         </div>
       ) : null}
-      <Block title="Seguidos" users={following} loading={loading} emptyCopy="Aún no sigues a ningún usuario." />
-      <Block title="Amigos" users={friends} loading={loading} emptyCopy="Aún no tienes amigos agregados." />
+      <Block title="Seguidos" users={following} loading={loading} emptyCopy="Aún no sigues a ningún usuario" />
+      <Block title="Amigos" users={friends} loading={loading} emptyCopy="Aún no tienes amigos agregados" />
     </section>
   );
 }

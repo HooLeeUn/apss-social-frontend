@@ -31,13 +31,15 @@ function formatRelativeDate(iso: string): string {
 }
 
 function getActivityTitle(item: SocialActivityItem): string {
+  const safeMovieTitle = item.movieTitle || "título";
+
   if (item.interactionType === "rating") {
     const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : "sin nota";
-    return `Calificaste con ${score} ${item.movieTitle}`;
+    return `Calificaste con ${score} ${safeMovieTitle}`;
   }
 
   if (item.interactionType === "comment") {
-    return `Comentaste ${item.movieTitle}`;
+    return `Comentaste ${safeMovieTitle}`;
   }
 
   if (item.interactionType === "dislike") {
@@ -121,7 +123,7 @@ export default function MyActivityColumn() {
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
-      if (!hasMore || loading || loadingMore) return;
+      if (!hasMore || loading || loadingMore || error) return;
 
       const target = event.currentTarget;
       const remainingDistance = target.scrollHeight - target.scrollTop - target.clientHeight;
@@ -130,7 +132,7 @@ export default function MyActivityColumn() {
         void loadMore();
       }
     },
-    [hasMore, loadMore, loading, loadingMore],
+    [error, hasMore, loadMore, loading, loadingMore],
   );
 
   return (
