@@ -47,6 +47,8 @@ const genderOptions: Array<{ value: GenderIdentity; label: string }> = [
 const inputClassName =
   "w-full rounded-xl border border-zinc-700/85 bg-zinc-900/90 px-4 py-3 text-sm text-zinc-100 outline-none transition duration-200 hover:border-zinc-500/90 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-400/35";
 const labelClassName = "text-[0.8rem] font-semibold uppercase tracking-[0.1em] text-zinc-200";
+const fileTriggerClassName =
+  "inline-flex w-fit cursor-pointer items-center rounded-lg border border-zinc-500/70 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 transition duration-200 hover:border-zinc-300";
 const lockedBirthDateCopy = "La fecha de nacimiento ya fue confirmada y no puede modificarse.";
 const minorBirthDateError = `Debes tener al menos ${MINIMUM_AGE} años para registrarte.`;
 const birthDateConfirmationCopy = "Esta fecha no podrá modificarse después de crear la cuenta.";
@@ -426,12 +428,15 @@ export default function PersonalDataPage() {
               <label htmlFor="avatar-file" className={labelClassName}>
                 Subir o cambiar foto
               </label>
+              <label htmlFor="avatar-file" className={fileTriggerClassName}>
+                Elegir archivo
+              </label>
               <input
                 id="avatar-file"
                 type="file"
                 accept="image/*"
                 onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-zinc-200 file:mr-3 file:rounded-lg file:border file:border-zinc-500/70 file:bg-zinc-900 file:px-3 file:py-2 file:text-sm file:text-zinc-100 hover:file:border-zinc-300"
+                className="sr-only"
               />
               {avatarFile ? (
                 <p className="max-w-full truncate text-xs text-zinc-400">Archivo seleccionado: {avatarFile.name}</p>
