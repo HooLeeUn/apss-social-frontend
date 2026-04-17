@@ -307,7 +307,19 @@ export default function FavoriteMoviesBlock({
   const loadFavorites = useCallback(async () => {
     try {
       setError("");
-      const payload = readOnly && viewedUsername ? await getFavoriteMoviesByUsername(viewedUsername) : await getFavoriteMovies();
+      if (readOnly) {
+        if (!viewedUsername) {
+          setFavorites([]);
+          setError("No se pudo resolver el usuario del perfil.");
+          return;
+        }
+
+        const payload = await getFavoriteMoviesByUsername(viewedUsername);
+        setFavorites(payload);
+        return;
+      }
+
+      const payload = await getFavoriteMovies();
       setFavorites(payload);
     } catch {
       setError(readOnly ? "No se pudieron cargar sus favoritas." : "No se pudieron cargar tus favoritas.");
