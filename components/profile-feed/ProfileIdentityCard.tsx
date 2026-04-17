@@ -74,11 +74,13 @@ export default function ProfileIdentityCard({
       <div className="relative mt-auto flex flex-wrap items-center gap-2">
         {canShowGender ? (
           <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
-            Identidad: {formatGender(genderIdentity as string)}
+            {formatGender(genderIdentity as string)}
           </span>
         ) : null}
         {canShowAge ? (
-          <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">Edad: {age}</span>
+          <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
+            {age} Años
+          </span>
         ) : null}
       </div>
     </div>

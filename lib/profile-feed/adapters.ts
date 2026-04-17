@@ -441,6 +441,7 @@ export async function getMyProfile(): Promise<SocialUser | null> {
 
 export async function getUserProfileByUsername(username: string): Promise<SocialUser | null> {
   const attempts = [buildUserProfileEndpoint(username), buildPublicUserProfileEndpoint(username)];
+  let mergedProfile: SocialUser | null = null;
 
   for (const endpoint of attempts) {
     try {
@@ -455,7 +456,27 @@ export async function getUserProfileByUsername(username: string): Promise<Social
         record;
 
       const normalized = toSocialUser({ ...record, ...candidate }, `user-${username}`);
-      if (normalized) return normalized;
+      if (!normalized) continue;
+
+      if (!mergedProfile) {
+        mergedProfile = normalized;
+        continue;
+      }
+
+      mergedProfile = {
+        ...mergedProfile,
+        id: normalized.id || mergedProfile.id,
+        username: normalized.username || mergedProfile.username,
+        displayName: normalized.displayName ?? mergedProfile.displayName ?? null,
+        avatarUrl: normalized.avatarUrl ?? mergedProfile.avatarUrl ?? null,
+        followersCount: normalized.followersCount ?? mergedProfile.followersCount,
+        firstName: normalized.firstName ?? mergedProfile.firstName ?? null,
+        lastName: normalized.lastName ?? mergedProfile.lastName ?? null,
+        age: normalized.age ?? mergedProfile.age ?? null,
+        ageVisible: normalized.ageVisible ?? mergedProfile.ageVisible ?? null,
+        genderIdentity: normalized.genderIdentity ?? mergedProfile.genderIdentity ?? null,
+        genderIdentityVisible: normalized.genderIdentityVisible ?? mergedProfile.genderIdentityVisible ?? null,
+      };
     } catch (error) {
       if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
         continue;
@@ -464,7 +485,7 @@ export async function getUserProfileByUsername(username: string): Promise<Social
     }
   }
 
-  return null;
+  return mergedProfile;
 }
 
 export async function getFavoriteMoviesByUsername(username: string): Promise<FavoriteMovie[]> {
