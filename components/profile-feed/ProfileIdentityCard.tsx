@@ -39,8 +39,8 @@ export default function ProfileIdentityCard({
   appTitle = "MiAppSocialMovies",
 }: ProfileIdentityCardProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-  const canShowGender = genderIdentityVisible === true && Boolean(genderIdentity);
-  const canShowAge = ageVisible === true && typeof age === "number";
+  const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);
+  const canShowAge = ageVisible !== false && typeof age === "number" && Number.isFinite(age);
   const initials = (username || "U").slice(0, 2).toUpperCase();
 
   return (
