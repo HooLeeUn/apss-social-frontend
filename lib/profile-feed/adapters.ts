@@ -63,6 +63,20 @@ function toNonNegativeInteger(value: unknown): number {
   return normalized > 0 ? normalized : 0;
 }
 
+function toBooleanOrNull(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "si", "sí"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+  }
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  return null;
+}
+
 function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
   for (const value of values) {
     if (value !== null && value !== undefined) return value;
@@ -385,14 +399,44 @@ export async function getFavoriteMovies(): Promise<FavoriteMovie[]> {
 function toSocialUser(user: Record<string, unknown>, fallbackId: string): SocialUser | null {
   const username = safeTrim(pickFirst(user.username, user.user_name, user.name));
   if (!username) return null;
+  const profile = toRecord(user.profile);
+  const personalData = toRecord(user.personal_data);
 
   return {
     id: String(pickFirst(user.id, user.user_id, fallbackId)),
     username,
     displayName: safeTrim(pickFirst(user.display_name, user.displayName, user.full_name)),
-    avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)),
+    avatarUrl: safeTrim(
+      pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url, profile?.avatar, personalData?.avatar),
+    ),
     followersCount: resolveFollowersCount(user),
+    firstName: safeTrim(pickFirst(user.first_name, profile?.first_name, personalData?.first_name)),
+    lastName: safeTrim(pickFirst(user.last_name, profile?.last_name, personalData?.last_name)),
+    age: toNumberOrNull(pickFirst(user.age, profile?.age, personalData?.age)),
+    ageVisible: toBooleanOrNull(
+      pickFirst(user.birth_date_visible, user.age_visible, profile?.birth_date_visible, personalData?.birth_date_visible),
+    ),
+    genderIdentity: safeTrim(
+      pickFirst(user.gender_identity, user.gender, profile?.gender_identity, personalData?.gender_identity),
+    ),
+    genderIdentityVisible: toBooleanOrNull(
+      pickFirst(
+        user.gender_identity_visible,
+        user.gender_visible,
+        profile?.gender_identity_visible,
+        personalData?.gender_identity_visible,
+      ),
+    ),
   };
+}
+
+export async function getMyProfile(): Promise<SocialUser | null> {
+  const payload = await apiFetch(PROFILE_ME_ENDPOINT);
+  const record = toRecord(payload);
+  if (!record) return null;
+
+  const source = { ...record, ...(toRecord(record.user) || toRecord(record.profile) || toRecord(record.data) || {}) };
+  return toSocialUser(source, "me");
 }
 
 export async function getUserProfileByUsername(username: string): Promise<SocialUser | null> {
@@ -410,7 +454,7 @@ export async function getUserProfileByUsername(username: string): Promise<Social
         toRecord(record.data) ||
         record;
 
-      const normalized = toSocialUser(candidate, `user-${username}`);
+      const normalized = toSocialUser({ ...record, ...candidate }, `user-${username}`);
       if (normalized) return normalized;
     } catch (error) {
       if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
@@ -646,6 +690,12 @@ function parseAcceptedFriends(payload: unknown, requestedUsername?: string): Soc
         displayName: safeTrim(pickFirst(user.display_name, user.displayName, user.full_name)) ?? null,
         avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)) ?? null,
         followersCount: resolveFollowersCount({ ...friendship, ...user }),
+        firstName: safeTrim(user.first_name),
+        lastName: safeTrim(user.last_name),
+        age: toNumberOrNull(user.age),
+        ageVisible: toBooleanOrNull(pickFirst(user.birth_date_visible, user.age_visible)),
+        genderIdentity: safeTrim(pickFirst(user.gender_identity, user.gender)),
+        genderIdentityVisible: toBooleanOrNull(pickFirst(user.gender_identity_visible, user.gender_visible)),
       };
     })
     .filter(isNonNullSocialUser);
@@ -701,6 +751,12 @@ function parseFollowingUsers(payload: unknown): SocialUser[] {
           displayName: safeTrim(pickFirst(entry.display_name, entry.displayName)) ?? null,
           avatarUrl: safeTrim(pickFirst(entry.avatar_url, entry.avatar, entry.profile_image, entry.photo_url)) ?? null,
           followersCount: resolveFollowersCount(entry),
+          firstName: safeTrim(entry.first_name),
+          lastName: safeTrim(entry.last_name),
+          age: toNumberOrNull(entry.age),
+          ageVisible: toBooleanOrNull(pickFirst(entry.birth_date_visible, entry.age_visible)),
+          genderIdentity: safeTrim(pickFirst(entry.gender_identity, entry.gender)),
+          genderIdentityVisible: toBooleanOrNull(pickFirst(entry.gender_identity_visible, entry.gender_visible)),
         };
       }
 
@@ -721,6 +777,12 @@ function parseFollowingUsers(payload: unknown): SocialUser[] {
         displayName: safeTrim(pickFirst(user.display_name, user.displayName)) ?? null,
         avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)) ?? null,
         followersCount: resolveFollowersCount({ ...entry, ...user }),
+        firstName: safeTrim(user.first_name),
+        lastName: safeTrim(user.last_name),
+        age: toNumberOrNull(user.age),
+        ageVisible: toBooleanOrNull(pickFirst(user.birth_date_visible, user.age_visible)),
+        genderIdentity: safeTrim(pickFirst(user.gender_identity, user.gender)),
+        genderIdentityVisible: toBooleanOrNull(pickFirst(user.gender_identity_visible, user.gender_visible)),
       };
     })
     .filter(isNonNullSocialUser);
