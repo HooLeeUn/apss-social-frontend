@@ -303,18 +303,20 @@ export default function FavoriteMoviesBlock({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
+  const normalizedViewedUsername = viewedUsername?.trim() || "";
 
   const loadFavorites = useCallback(async () => {
     try {
+      setLoading(true);
       setError("");
       if (readOnly) {
-        if (!viewedUsername) {
+        if (!normalizedViewedUsername) {
           setFavorites([]);
           setError("No se pudo resolver el usuario del perfil.");
           return;
         }
 
-        const payload = await getFavoriteMoviesByUsername(viewedUsername);
+        const payload = await getFavoriteMoviesByUsername(normalizedViewedUsername);
         setFavorites(payload);
         return;
       }
@@ -327,7 +329,7 @@ export default function FavoriteMoviesBlock({
     } finally {
       setLoading(false);
     }
-  }, [readOnly, viewedUsername]);
+  }, [normalizedViewedUsername, readOnly]);
 
   useEffect(() => {
     void loadFavorites();

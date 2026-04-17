@@ -172,7 +172,8 @@ export default function UserProfileFeedPage() {
               onRetryFollowing={() => void loadFollowing()}
             />
             <MyActivityColumn
-              scope={routeUsername ? `user:${routeUsername}` : "user:unknown"}
+              isOwnProfile={false}
+              viewedUsername={routeUsername}
               title={`Actividad de ${profileTitleName}`}
               emptyCopy="Este usuario no tiene actividad social visible aún."
               errorCopy="No se pudo cargar la actividad de este usuario."

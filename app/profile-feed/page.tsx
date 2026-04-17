@@ -87,7 +87,7 @@ export default function ProfileFeedPage() {
               onRetryFriends={() => void loadFriends()}
               onRetryFollowing={() => void loadFollowing()}
             />
-            <MyActivityColumn />
+            <MyActivityColumn isOwnProfile />
             <div className="hidden xl:block" aria-hidden="true" />
           </div>
         </section>
