@@ -1,5 +1,5 @@
 export type SocialTab = "following" | "friends";
-export type SocialActivityScope = SocialTab | "me";
+export type SocialActivityScope = SocialTab | "me" | `user:${string}`;
 
 export type InteractionType = "rating" | "comment" | "like" | "dislike";
 

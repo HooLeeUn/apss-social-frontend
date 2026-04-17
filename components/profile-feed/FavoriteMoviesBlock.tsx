@@ -1,15 +1,23 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
-import { getFavoriteMovies, rateFavoriteMovie, searchFavoriteMovieCandidates, setFavoriteMovie } from "../../lib/profile-feed/adapters";
+import {
+  getFavoriteMovies,
+  getFavoriteMoviesByUsername,
+  rateFavoriteMovie,
+  searchFavoriteMovieCandidates,
+  setFavoriteMovie,
+} from "../../lib/profile-feed/adapters";
 import { FavoriteMovie, FavoriteMovieSearchResult } from "../../lib/profile-feed/types";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount } from "../../lib/rating-format";
 
 interface FavoriteMovieItemProps {
   movie?: FavoriteMovie;
   slot: number;
+  readOnly: boolean;
+  viewedUsername?: string;
   onOpenSearch: (slot: number) => void;
   onUpdateMovieRating: (movieId: string, score: number | null) => void;
 }
@@ -21,7 +29,13 @@ interface FavoriteSearchModalProps {
   onSaved: () => Promise<void>;
 }
 
-function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
+interface FavoriteMoviesBlockProps {
+  title?: string;
+  readOnly?: boolean;
+  viewedUsername?: string;
+}
+
+function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
   const firstLetter = (movie?.titleSpanish || movie?.titleEnglish || movie?.title)?.charAt(0)?.toUpperCase() ?? "—";
   const displayTitle = movie?.titleSpanish || movie?.titleEnglish || movie?.title || "";
   const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
@@ -77,18 +91,28 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: F
                     </div>
                   </div>
                   <div className="ml-1">
-                    <RatingPopover
-                      movieId={movie.id}
-                      currentRating={movie.myRating}
-                      onOptimisticRate={handleOptimisticRate}
-                      onRateError={handleRateError}
-                      onRated={(score) => handleRated(score)}
-                      submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
-                      icon="🧑"
-                      nullLabel="—"
-                      ariaLabel="Mi calificación"
-                      className="shrink-0"
-                    />
+                    {readOnly ? (
+                      <div
+                        className="inline-flex h-10 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200"
+                        aria-label={viewedUsername ? `Calificación visible de ${viewedUsername}` : "Calificación visible"}
+                      >
+                        <span aria-hidden="true">🧑</span>
+                        <span>{movie.myRating === null ? "—" : formatAverageRating(movie.myRating)}</span>
+                      </div>
+                    ) : (
+                      <RatingPopover
+                        movieId={movie.id}
+                        currentRating={movie.myRating}
+                        onOptimisticRate={handleOptimisticRate}
+                        onRateError={handleRateError}
+                        onRated={(score) => handleRated(score)}
+                        submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
+                        icon="🧑"
+                        nullLabel="—"
+                        ariaLabel="Mi calificación"
+                        className="shrink-0"
+                      />
+                    )}
                   </div>
                 </div>
               </>
@@ -107,14 +131,16 @@ function FavoriteMovieItem({ movie, slot, onOpenSearch, onUpdateMovieRating }: F
         </div>
       </article>
 
-      <button
-        type="button"
-        onClick={() => onOpenSearch(slot)}
-        aria-label={`Asignar película favorita al slot ${slot}`}
-        className="absolute right-0 top-1/2 z-10 inline-flex h-11 w-11 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/60 bg-zinc-900 text-blue-200 shadow-[0_8px_18px_rgba(56,189,248,0.22)] transition hover:border-blue-200 hover:text-blue-100"
-      >
-        <span className="text-xl leading-none">+</span>
-      </button>
+      {!readOnly ? (
+        <button
+          type="button"
+          onClick={() => onOpenSearch(slot)}
+          aria-label={`Asignar película favorita al slot ${slot}`}
+          className="absolute right-0 top-1/2 z-10 inline-flex h-11 w-11 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/60 bg-zinc-900 text-blue-200 shadow-[0_8px_18px_rgba(56,189,248,0.22)] transition hover:border-blue-200 hover:text-blue-100"
+        >
+          <span className="text-xl leading-none">+</span>
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -268,28 +294,32 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
   );
 }
 
-export default function FavoriteMoviesBlock() {
+export default function FavoriteMoviesBlock({
+  title,
+  readOnly = false,
+  viewedUsername,
+}: FavoriteMoviesBlockProps = {}) {
   const [favorites, setFavorites] = useState<FavoriteMovie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
 
-  const loadFavorites = async () => {
+  const loadFavorites = useCallback(async () => {
     try {
       setError("");
-      const payload = await getFavoriteMovies();
+      const payload = readOnly && viewedUsername ? await getFavoriteMoviesByUsername(viewedUsername) : await getFavoriteMovies();
       setFavorites(payload);
     } catch {
-      setError("No se pudieron cargar tus favoritas.");
+      setError(readOnly ? "No se pudieron cargar sus favoritas." : "No se pudieron cargar tus favoritas.");
       setFavorites([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [readOnly, viewedUsername]);
 
   useEffect(() => {
     void loadFavorites();
-  }, []);
+  }, [loadFavorites]);
 
   const slots = [1, 2, 3].map((slot) => favorites.find((movie) => movie.slot === slot));
 
@@ -301,6 +331,7 @@ export default function FavoriteMoviesBlock() {
 
   return (
     <section className="rounded-3xl border border-white/15 bg-zinc-950/65 p-6 shadow-[0_24px_45px_rgba(0,0,0,0.38)]">
+      {title ? <h2 className="mb-4 text-lg font-semibold text-zinc-100 md:text-left">{title}</h2> : null}
       {loading ? <p className="text-sm text-zinc-400">Cargando favoritas...</p> : null}
       {!loading && error ? <p className="mb-3 text-xs text-zinc-400">{error}</p> : null}
 
@@ -310,18 +341,22 @@ export default function FavoriteMoviesBlock() {
             key={movie?.id ?? `placeholder-${index}`}
             slot={index + 1}
             movie={movie}
+            readOnly={readOnly}
+            viewedUsername={viewedUsername}
             onOpenSearch={setActiveSlot}
             onUpdateMovieRating={handleUpdateMovieRating}
           />
         ))}
       </div>
 
-      <FavoriteSearchModal
-        slot={activeSlot ?? 1}
-        open={activeSlot !== null}
-        onClose={() => setActiveSlot(null)}
-        onSaved={loadFavorites}
-      />
+      {!readOnly ? (
+        <FavoriteSearchModal
+          slot={activeSlot ?? 1}
+          open={activeSlot !== null}
+          onClose={() => setActiveSlot(null)}
+          onSaved={loadFavorites}
+        />
+      ) : null}
     </section>
   );
 }

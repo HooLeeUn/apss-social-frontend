@@ -15,6 +15,11 @@ const PROFILE_FAVORITES_ENDPOINT = "/profile/favorites/";
 const PROFILE_FEED_ACTIVITY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_FEED_ACTIVITY_ENDPOINT || "/profile-feed/activity/";
 const PROFILE_FEED_MY_ACTIVITY_SCOPE = process.env.NEXT_PUBLIC_PROFILE_FEED_MY_ACTIVITY_SCOPE || "me";
 const PROFILE_ME_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_ENDPOINT || "/me/";
+const PROFILE_USER_ENDPOINT_TEMPLATE = process.env.NEXT_PUBLIC_PROFILE_USER_ENDPOINT_TEMPLATE || "/users/{username}/";
+const PROFILE_PUBLIC_USER_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_PROFILE_PUBLIC_USER_ENDPOINT_TEMPLATE || "/profile/{username}/";
+const PROFILE_USER_FAVORITES_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_PROFILE_USER_FAVORITES_ENDPOINT_TEMPLATE || "/users/{username}/favorites/";
 const PROFILE_ME_FOLLOWING_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_FOLLOWING_ENDPOINT || "/me/following/";
 const PROFILE_LEGACY_ME_FOLLOWING_ENDPOINT = "/users/me/following/";
 const PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE =
@@ -244,7 +249,22 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
 
 function resolveScope(scope: SocialActivityScope): string {
   if (scope === "me") return PROFILE_FEED_MY_ACTIVITY_SCOPE;
+  if (scope.startsWith("user:")) {
+    return scope.slice(5);
+  }
   return scope;
+}
+
+function buildUserProfileEndpoint(username: string): string {
+  return PROFILE_USER_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
+}
+
+function buildPublicUserProfileEndpoint(username: string): string {
+  return PROFILE_PUBLIC_USER_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
+}
+
+function buildUserFavoritesEndpoint(username: string): string {
+  return PROFILE_USER_FAVORITES_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
 }
 
 function buildActivityScopeEndpoint(scope: SocialActivityScope): string {
@@ -279,6 +299,68 @@ export async function getFavoriteMovies(): Promise<FavoriteMovie[]> {
 
     throw error;
   }
+}
+
+function toSocialUser(user: Record<string, unknown>, fallbackId: string): SocialUser | null {
+  const username = safeTrim(pickFirst(user.username, user.user_name, user.name));
+  if (!username) return null;
+
+  return {
+    id: String(pickFirst(user.id, user.user_id, fallbackId)),
+    username,
+    displayName: safeTrim(pickFirst(user.display_name, user.displayName, user.full_name)),
+    avatarUrl: safeTrim(pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url)),
+    followersCount: resolveFollowersCount(user),
+  };
+}
+
+export async function getUserProfileByUsername(username: string): Promise<SocialUser | null> {
+  const attempts = [buildUserProfileEndpoint(username), buildPublicUserProfileEndpoint(username)];
+
+  for (const endpoint of attempts) {
+    try {
+      const payload = await apiFetch(endpoint);
+      const record = toRecord(payload);
+      if (!record) continue;
+
+      const candidate =
+        toRecord(record.user) ||
+        toRecord(record.profile) ||
+        toRecord(record.data) ||
+        record;
+
+      const normalized = toSocialUser(candidate, `user-${username}`);
+      if (normalized) return normalized;
+    } catch (error) {
+      if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return null;
+}
+
+export async function getFavoriteMoviesByUsername(username: string): Promise<FavoriteMovie[]> {
+  const attempts = [
+    buildUserFavoritesEndpoint(username),
+    `${PROFILE_FAVORITES_ENDPOINT}?${new URLSearchParams({ username }).toString()}`,
+  ];
+
+  for (const endpoint of attempts) {
+    try {
+      const payload = await apiFetch(endpoint);
+      return parseFavorites(payload);
+    } catch (error) {
+      if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return [];
 }
 
 export async function setFavoriteMovie(slot: number, movieId: string | number): Promise<void> {
