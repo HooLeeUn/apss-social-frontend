@@ -6,7 +6,14 @@ import { setToken } from "../../lib/auth";
 import { API_BASE_URL } from "../../lib/api";
 import AuthShell from "../../components/auth/AuthShell";
 
-type FieldName = "username" | "email" | "password" | "password_confirmation" | "non_field_errors";
+type FieldName =
+  | "first_name"
+  | "last_name"
+  | "username"
+  | "email"
+  | "password"
+  | "password_confirmation"
+  | "non_field_errors";
 type FieldErrors = Partial<Record<FieldName, string>>;
 
 interface RegisterResponse {
@@ -20,6 +27,8 @@ const errorClassName = "text-sm text-red-300/95";
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
     username: "",
     email: "",
     password: "",
@@ -36,6 +45,14 @@ export default function SignupPage() {
   const validateForm = (): FieldErrors => {
     const nextErrors: FieldErrors = {};
 
+    if (!form.first_name.trim()) {
+      nextErrors.first_name = "El nombre es obligatorio.";
+    }
+
+    if (!form.last_name.trim()) {
+      nextErrors.last_name = "El apellido es obligatorio.";
+    }
+
     if (form.username.trim().length < 8) {
       nextErrors.username = "El username debe tener al menos 8 caracteres.";
     }
@@ -50,6 +67,8 @@ export default function SignupPage() {
   const mapBackendErrors = (payload: Record<string, unknown>): FieldErrors => {
     const backendErrors: FieldErrors = {};
     const fields: FieldName[] = [
+      "first_name",
+      "last_name",
       "username",
       "email",
       "password",
@@ -129,6 +148,34 @@ export default function SignupPage() {
       footerHref="/login"
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        <div className="space-y-2">
+          <label htmlFor="signup-first-name" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
+            Nombre
+          </label>
+          <input
+            id="signup-first-name"
+            className={inputBaseClassName}
+            placeholder="Tu nombre"
+            value={form.first_name}
+            onChange={(e) => handleChange("first_name", e.target.value)}
+          />
+          {errors.first_name && <p className={errorClassName}>{errors.first_name}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="signup-last-name" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
+            Apellido
+          </label>
+          <input
+            id="signup-last-name"
+            className={inputBaseClassName}
+            placeholder="Tu apellido"
+            value={form.last_name}
+            onChange={(e) => handleChange("last_name", e.target.value)}
+          />
+          {errors.last_name && <p className={errorClassName}>{errors.last_name}</p>}
+        </div>
+
         <div className="space-y-2">
           <label htmlFor="signup-username" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
             Username
