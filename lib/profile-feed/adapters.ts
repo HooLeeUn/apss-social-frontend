@@ -131,21 +131,48 @@ function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
 
 function parseFavorites(payload: unknown): FavoriteMovie[] {
   const asRecord = toRecord(payload);
-  const source = Array.isArray(payload)
-    ? payload
-    : Array.isArray(asRecord?.results)
-      ? asRecord.results
-      : Array.isArray(asRecord?.items)
-        ? asRecord.items
-        : Array.isArray(asRecord?.favorites)
-          ? asRecord.favorites
-          : Array.isArray(asRecord?.favorite_movies)
-            ? asRecord.favorite_movies
-            : Array.isArray(toRecord(asRecord?.data)?.favorites)
-              ? (toRecord(asRecord?.data)?.favorites as unknown[])
-              : Array.isArray(toRecord(asRecord?.data)?.favorite_movies)
-                ? (toRecord(asRecord?.data)?.favorite_movies as unknown[])
-        : [];
+  const dataRecord = toRecord(asRecord?.data);
+  const unwrapCollection = (value: unknown): unknown[] => {
+    if (Array.isArray(value)) return value;
+
+    const record = toRecord(value);
+    if (!record) return [];
+
+    const nested =
+      pickFirst(
+        record.results,
+        record.items,
+        record.favorites,
+        record.favorite_movies,
+        record.top_favorites,
+        record.top_movies,
+      ) ?? null;
+
+    if (Array.isArray(nested)) return nested;
+
+    const nestedRecord = toRecord(nested);
+    if (!nestedRecord) return [];
+
+    return Object.values(nestedRecord).filter((item) => toRecord(item));
+  };
+
+  const source = unwrapCollection(
+    pickFirst(
+      payload,
+      asRecord?.results,
+      asRecord?.items,
+      asRecord?.favorites,
+      asRecord?.favorite_movies,
+      asRecord?.top_favorites,
+      asRecord?.top_movies,
+      dataRecord?.results,
+      dataRecord?.items,
+      dataRecord?.favorites,
+      dataRecord?.favorite_movies,
+      dataRecord?.top_favorites,
+      dataRecord?.top_movies,
+    ),
+  );
 
   return source
     .map((item) => toRecord(item))
@@ -313,8 +340,7 @@ function filterUsernameScopedActivity(items: SocialActivityItem[], username: str
   const normalizedExpected = username.trim().toLocaleLowerCase();
   if (!normalizedExpected || items.length === 0) return items;
 
-  const filtered = items.filter((item) => item.user.username.toLocaleLowerCase() === normalizedExpected);
-  return filtered.length > 0 ? filtered : items;
+  return items.filter((item) => item.user.username.toLocaleLowerCase() === normalizedExpected);
 }
 
 function buildActivityScopeEndpoint(scope: SocialActivityScope): string {
@@ -626,6 +652,27 @@ function parseAcceptedFriends(payload: unknown, requestedUsername?: string): Soc
 }
 
 function isAcceptedFriendship(entry: Record<string, unknown>): boolean {
+  const hasFriendshipShape =
+    Boolean(
+      toRecord(entry.friend) ||
+      toRecord(entry.other_user) ||
+      toRecord(entry.receiver) ||
+      toRecord(entry.sender) ||
+      toRecord(entry.requester) ||
+      toRecord(entry.addressee) ||
+      toRecord(entry.from_user) ||
+      toRecord(entry.to_user) ||
+      toRecord(entry.user_1) ||
+      toRecord(entry.user_2) ||
+      toRecord(entry.user1) ||
+      toRecord(entry.user2),
+    ) ||
+    Boolean(
+      safeTrim(pickFirst(entry.friendship_status, entry.request_status, entry.friendship_id, entry.connection_id)),
+    );
+
+  if (!hasFriendshipShape) return true;
+
   const status = safeTrim(pickFirst(entry.status, entry.friendship_status, entry.request_status, entry.state))?.toLowerCase();
   if (!status) return true;
   return [
@@ -781,9 +828,10 @@ export async function getSocialActivity(
     throw error;
   }
   const parsed = parseSocialActivity(payload);
+  const items = usernameScope ? filterUsernameScopedActivity(parsed.items, usernameScope) : parsed.items;
 
   return {
-    items: parsed.items,
+    items,
     next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
   };
 }
