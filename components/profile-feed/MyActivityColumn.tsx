@@ -118,8 +118,20 @@ function MyActivitySkeleton() {
   );
 }
 
-export default function MyActivityColumn() {
-  const { items, loading, loadingMore, error, hasMore, loadMore, reload } = useInfiniteScopedSocialActivity("me");
+interface MyActivityColumnProps {
+  scope?: "me" | `user:${string}`;
+  title?: string;
+  emptyCopy?: string;
+  errorCopy?: string;
+}
+
+export default function MyActivityColumn({
+  scope = "me",
+  title = "Mi actividad",
+  emptyCopy = "Aún no tienes actividad registrada.",
+  errorCopy = "No se pudo cargar la actividad.",
+}: MyActivityColumnProps = {}) {
+  const { items, loading, loadingMore, error, hasMore, loadMore, reload } = useInfiniteScopedSocialActivity(scope);
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
@@ -137,7 +149,7 @@ export default function MyActivityColumn() {
 
   return (
     <section className="w-full min-w-0 max-w-[360px] xl:max-w-[340px]">
-      <h2 className="text-base font-semibold text-zinc-100">Mi actividad</h2>
+      <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
 
       <div
         className="activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
@@ -147,7 +159,7 @@ export default function MyActivityColumn() {
 
         {!loading && error ? (
           <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
-            <p>{error}</p>
+            <p>{error || errorCopy}</p>
             <button
               type="button"
               onClick={reload}
@@ -158,7 +170,7 @@ export default function MyActivityColumn() {
           </div>
         ) : null}
 
-        {!loading && !error && items.length === 0 ? <p className="text-sm text-zinc-500">Aún no tienes actividad registrada.</p> : null}
+        {!loading && !error && items.length === 0 ? <p className="text-sm text-zinc-500">{emptyCopy}</p> : null}
 
         {!loading && !error ? items.map((item) => <ActivityRow key={item.id} item={item} />) : null}
 

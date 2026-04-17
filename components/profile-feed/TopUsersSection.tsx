@@ -1,4 +1,5 @@
 import { SocialUser } from "../../lib/profile-feed/types";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 interface TopUsersSectionProps {
@@ -27,7 +28,12 @@ function UserRow({ user }: { user: SocialUser }) {
         </div>
       )}
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-zinc-100">{title}</p>
+        <Link
+          href={`/users/${encodeURIComponent(user.username)}`}
+          className="truncate text-sm font-medium text-zinc-100 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
+        >
+          {title}
+        </Link>
         {typeof user.followersCount === "number" ? (
           <p className="text-xs text-zinc-400">Lo siguen {user.followersCount} usuarios</p>
         ) : null}
