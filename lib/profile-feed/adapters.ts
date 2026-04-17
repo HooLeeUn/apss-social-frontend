@@ -137,6 +137,14 @@ function parseFavorites(payload: unknown): FavoriteMovie[] {
       ? asRecord.results
       : Array.isArray(asRecord?.items)
         ? asRecord.items
+        : Array.isArray(asRecord?.favorites)
+          ? asRecord.favorites
+          : Array.isArray(asRecord?.favorite_movies)
+            ? asRecord.favorite_movies
+            : Array.isArray(toRecord(asRecord?.data)?.favorites)
+              ? (toRecord(asRecord?.data)?.favorites as unknown[])
+              : Array.isArray(toRecord(asRecord?.data)?.favorite_movies)
+                ? (toRecord(asRecord?.data)?.favorite_movies as unknown[])
         : [];
 
   return source
@@ -235,7 +243,26 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
 
 function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
   const root = toRecord(payload);
-  const results = Array.isArray(root?.results) ? root.results : [];
+  const data = toRecord(root?.data);
+  const results = Array.isArray(payload)
+    ? payload
+    : Array.isArray(root?.results)
+      ? root.results
+      : Array.isArray(root?.items)
+        ? root.items
+        : Array.isArray(root?.activity)
+          ? root.activity
+          : Array.isArray(root?.activities)
+            ? root.activities
+            : Array.isArray(data?.results)
+              ? data.results
+              : Array.isArray(data?.items)
+                ? data.items
+                : Array.isArray(data?.activity)
+                  ? data.activity
+                  : Array.isArray(data?.activities)
+                    ? data.activities
+                    : [];
   const mapped = results
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
@@ -282,11 +309,12 @@ function buildUserActivityEndpoint(username: string): string {
   return PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
 }
 
-function isUsernameScopedActivity(items: SocialActivityItem[], username: string): boolean {
+function filterUsernameScopedActivity(items: SocialActivityItem[], username: string): SocialActivityItem[] {
   const normalizedExpected = username.trim().toLocaleLowerCase();
-  if (!normalizedExpected || items.length === 0) return true;
+  if (!normalizedExpected || items.length === 0) return items;
 
-  return items.every((item) => item.user.username.toLocaleLowerCase() === normalizedExpected);
+  const filtered = items.filter((item) => item.user.username.toLocaleLowerCase() === normalizedExpected);
+  return filtered.length > 0 ? filtered : items;
 }
 
 function buildActivityScopeEndpoint(scope: SocialActivityScope): string {
@@ -454,7 +482,7 @@ export async function getTopFriendsByUsername(username: string): Promise<SocialU
   for (const endpoint of attempts) {
     try {
       const payload = await apiFetch(endpoint);
-      const friends = parseAcceptedFriends(payload);
+      const friends = parseAcceptedFriends(payload, username);
       return sortUsersByFollowersDesc(friends);
     } catch (error) {
       if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
@@ -505,6 +533,8 @@ function getCollection(payload: unknown): unknown[] {
   if (Array.isArray(root.following)) return root.following;
   if (Array.isArray(root.users)) return root.users;
   if (Array.isArray(root.friends)) return root.friends;
+  if (Array.isArray(root.friendships)) return root.friendships;
+  if (Array.isArray(root.connections)) return root.connections;
 
   const data = toRecord(root.data);
   if (!data) return [];
@@ -513,6 +543,8 @@ function getCollection(payload: unknown): unknown[] {
   if (Array.isArray(data.following)) return data.following;
   if (Array.isArray(data.users)) return data.users;
   if (Array.isArray(data.friends)) return data.friends;
+  if (Array.isArray(data.friendships)) return data.friendships;
+  if (Array.isArray(data.connections)) return data.connections;
 
   return [];
 }
@@ -540,11 +572,45 @@ function extractFriendCandidateUser(friendship: Record<string, unknown>): Record
   );
 }
 
-function parseAcceptedFriends(payload: unknown): SocialUser[] {
+function pickFriendCandidateByUsername(
+  friendship: Record<string, unknown>,
+  requestedUsername?: string,
+): Record<string, unknown> | null {
+  const requested = requestedUsername?.trim().toLocaleLowerCase();
+  const candidates = [
+    toRecord(friendship.friend),
+    toRecord(friendship.other_user),
+    toRecord(friendship.receiver),
+    toRecord(friendship.sender),
+    toRecord(friendship.requester),
+    toRecord(friendship.addressee),
+    toRecord(friendship.from_user),
+    toRecord(friendship.to_user),
+    toRecord(friendship.user),
+    toRecord(friendship.profile),
+    toRecord(friendship.user_1),
+    toRecord(friendship.user_2),
+    toRecord(friendship.user1),
+    toRecord(friendship.user2),
+  ].filter((item): item is Record<string, unknown> => Boolean(item));
+
+  if (candidates.length === 0) return null;
+  if (!requested) return candidates[0];
+
+  const exactRequested = candidates.find((candidate) => safeTrim(candidate.username)?.toLocaleLowerCase() === requested);
+  if (exactRequested && candidates.length === 1) return exactRequested;
+
+  const notRequested = candidates.find((candidate) => safeTrim(candidate.username)?.toLocaleLowerCase() !== requested);
+  if (notRequested) return notRequested;
+
+  return candidates[0];
+}
+
+function parseAcceptedFriends(payload: unknown, requestedUsername?: string): SocialUser[] {
   const acceptedFriendships = getAcceptedFriendships(payload);
   return acceptedFriendships
     .map((friendship, index): SocialUser | null => {
-      const user = extractFriendCandidateUser(friendship);
+      const user = pickFriendCandidateByUsername(friendship, requestedUsername) || extractFriendCandidateUser(friendship);
       const username = safeTrim(pickFirst(user.username, user.name, user.user_name));
       if (!username) return null;
 
@@ -562,7 +628,17 @@ function parseAcceptedFriends(payload: unknown): SocialUser[] {
 function isAcceptedFriendship(entry: Record<string, unknown>): boolean {
   const status = safeTrim(pickFirst(entry.status, entry.friendship_status, entry.request_status, entry.state))?.toLowerCase();
   if (!status) return true;
-  return ["accepted", "accept", "friends", "friend", "active"].includes(status);
+  return [
+    "accepted",
+    "accept",
+    "friends",
+    "friend",
+    "active",
+    "matched",
+    "connected",
+    "approved",
+    "confirmed",
+  ].some((allowed) => status === allowed || status.includes(allowed));
 }
 
 function parseFollowingUsers(payload: unknown): SocialUser[] {
@@ -672,12 +748,13 @@ export async function getSocialActivity(
       try {
         const payload = await apiFetch(endpoint, { signal });
         const parsed = parseSocialActivity(payload);
-        if (!isUsernameScopedActivity(parsed.items, usernameScope)) {
+        const scopedItems = filterUsernameScopedActivity(parsed.items, usernameScope);
+        if (scopedItems.length === 0) {
           continue;
         }
 
         return {
-          items: parsed.items,
+          items: scopedItems,
           next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
         };
       } catch (error) {
