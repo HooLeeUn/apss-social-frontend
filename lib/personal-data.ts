@@ -1,6 +1,7 @@
 import { apiFetch } from "./api";
 
 const PERSONAL_DATA_ENDPOINT = "/me/personal-data/";
+export const MINIMUM_AGE = 13;
 
 export type GenderIdentity = "male" | "female" | "non_binary" | "prefer_not_to_say";
 
@@ -25,6 +26,40 @@ export interface PersonalDataPayload {
   birth_date_visible: boolean;
   gender_identity: GenderIdentity | null;
   gender_identity_visible: boolean;
+}
+
+export function getAgeFromBirthDate(birthDate: string): number | null {
+  if (!birthDate) return null;
+
+  const [year, month, day] = birthDate.split("-").map(Number);
+  if (!year || !month || !day) return null;
+
+  const today = new Date();
+  const birth = new Date(year, month - 1, day);
+
+  if (Number.isNaN(birth.getTime())) return null;
+
+  let age = today.getFullYear() - birth.getFullYear();
+  const hasBirthdayPassed =
+    today.getMonth() > birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+
+  if (!hasBirthdayPassed) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : null;
+}
+
+export function formatBirthDate(date: string): string {
+  if (!date) return "";
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(parsed);
 }
 
 function toNullableString(value: unknown): string | null {
