@@ -6,6 +6,7 @@ interface DirectorBoardMenuProps {
   onClose: () => void;
   onCloseSession?: () => void;
   onPrivacySecurityClick?: () => void;
+  onPersonalDataClick?: () => void;
 }
 
 interface DirectorBoardToggleProps {
@@ -41,6 +42,7 @@ export default function DirectorBoardMenu({
   onClose,
   onCloseSession,
   onPrivacySecurityClick,
+  onPersonalDataClick,
 }: DirectorBoardMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -74,6 +76,11 @@ export default function DirectorBoardMenu({
     onClose();
   };
 
+  const handlePersonalDataClick = () => {
+    onClose();
+    onPersonalDataClick?.();
+  };
+
   const handlePrivacySecurityClick = () => {
     onClose();
     onPrivacySecurityClick?.();
@@ -91,14 +98,16 @@ export default function DirectorBoardMenu({
       <div
         id="director-board-panel"
         className={`absolute left-1/2 top-full z-50 mt-2 w-[198px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-[0_12px_30px_rgba(0,0,0,0.42)] transition-all duration-300 ${
-          isOpen ? "pointer-events-auto max-h-80 translate-y-0 opacity-100" : "pointer-events-none max-h-0 -translate-y-2 opacity-0"
+          isOpen
+            ? "pointer-events-auto max-h-80 translate-y-0 opacity-100"
+            : "pointer-events-none max-h-0 -translate-y-2 opacity-0"
         }`}
       >
         <ul className="divide-y divide-white/10">
           <li>
             <button
               type="button"
-              onClick={handleMenuOptionClick}
+              onClick={handlePersonalDataClick}
               className="w-full px-3 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
             >
               Datos Personales

@@ -19,13 +19,23 @@ function normalizeHeaders(h?: HeadersInit): Record<string, string> {
   return h;
 }
 
+function hasHeader(headers: Record<string, string>, name: string): boolean {
+  const normalizedName = name.toLowerCase();
+  return Object.keys(headers).some((headerName) => headerName.toLowerCase() === normalizedName);
+}
+
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   const token = getToken();
+  const normalizedIncomingHeaders = normalizeHeaders(options.headers);
+  const isFormDataBody = typeof FormData !== "undefined" && options.body instanceof FormData;
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...normalizeHeaders(options.headers),
+    ...normalizedIncomingHeaders,
   };
+
+  if (!isFormDataBody && !hasHeader(headers, "Content-Type")) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers.Authorization = `Token ${token}`;
