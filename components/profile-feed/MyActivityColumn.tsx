@@ -52,9 +52,9 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): stri
   return `${actorVerb} like al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
 }
 
-function getActivityDetail(item: SocialActivityItem): string {
+function getActivityDetail(item: SocialActivityItem): string | null {
   if (item.interactionType === "rating") {
-    return "Registraste una calificación en tu historial.";
+    return null;
   }
 
   if (item.interactionType === "comment") {
@@ -71,6 +71,7 @@ function formatMetadata(item: SocialActivityItem): string {
 
 function ActivityRow({ item, isOwnProfile }: { item: SocialActivityItem; isOwnProfile: boolean }) {
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
+  const activityDetail = getActivityDetail(item);
 
   return (
     <article className="grid grid-cols-[52px_minmax(0,1fr)] gap-3 border-b border-white/5 py-3 last:border-b-0">
@@ -95,7 +96,9 @@ function ActivityRow({ item, isOwnProfile }: { item: SocialActivityItem; isOwnPr
           {item.movieTitle}
         </Link>
         <p className="mt-1 truncate text-[11px] text-zinc-500">{formatMetadata(item)}</p>
-        <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{getActivityDetail(item)}</p>
+        {activityDetail ? (
+          <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p>
+        ) : null}
         <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p>
       </div>
     </article>
