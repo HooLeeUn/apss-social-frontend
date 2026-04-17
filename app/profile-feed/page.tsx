@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
+import ProfileIdentityCard from "../../components/profile-feed/ProfileIdentityCard";
 import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivityTabsBlock";
 import TopUsersSection from "../../components/profile-feed/TopUsersSection";
-import { getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
+import { getMyProfile, getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
 import { SocialUser } from "../../lib/profile-feed/types";
+import { getPersonalData } from "../../lib/personal-data";
 
 export default function ProfileFeedPage() {
   const [friends, setFriends] = useState<SocialUser[]>([]);
@@ -16,6 +17,7 @@ export default function ProfileFeedPage() {
   const [loadingFollowing, setLoadingFollowing] = useState(true);
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [followingError, setFollowingError] = useState<string | null>(null);
+  const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
 
   const loadFollowing = useCallback(async () => {
     setLoadingFollowing(true);
@@ -50,22 +52,48 @@ export default function ProfileFeedPage() {
     void loadFriends();
   }, [loadFollowing, loadFriends]);
 
+  useEffect(() => {
+    const loadOwnProfileData = async () => {
+      try {
+        const [myProfile, personalData] = await Promise.all([getMyProfile(), getPersonalData()]);
+        setProfileUser({
+          id: myProfile?.id ?? "me",
+          username: myProfile?.username ?? "usuario",
+          displayName: myProfile?.displayName ?? null,
+          avatarUrl: personalData.avatar ?? myProfile?.avatarUrl ?? null,
+          followersCount: myProfile?.followersCount ?? null,
+          firstName: personalData.first_name || myProfile?.firstName || null,
+          lastName: personalData.last_name || myProfile?.lastName || null,
+          age: personalData.age ?? myProfile?.age ?? null,
+          ageVisible: personalData.birth_date_visible,
+          genderIdentity: personalData.gender_identity ?? myProfile?.genderIdentity ?? null,
+          genderIdentityVisible: personalData.gender_identity_visible,
+        });
+      } catch {
+        const myProfile = await getMyProfile().catch(() => null);
+        setProfileUser(myProfile);
+      }
+    };
+
+    void loadOwnProfileData();
+  }, []);
+
   return (
     <main className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 md:px-8">
         <section className="rounded-3xl border border-white/10 bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
           <div className="grid items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
             <div className="flex">
-              <Link
-                href="/feed"
-                className="group relative flex min-h-[220px] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 px-4 py-8 text-center shadow-[0_20px_40px_rgba(0,0,0,0.35)] transition hover:border-blue-200/70 hover:shadow-[0_20px_45px_rgba(37,99,235,0.18)] md:px-5"
-              >
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75 transition group-hover:opacity-100" />
-                <div className="relative">
-                  <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500">Volver a feed</p>
-                  <p className="mt-3 text-xl font-semibold uppercase tracking-[0.2em] text-zinc-100">MiAppSocialMovies</p>
-                </div>
-              </Link>
+              <ProfileIdentityCard
+                username={profileUser?.username || "usuario"}
+                avatarUrl={profileUser?.avatarUrl}
+                firstName={profileUser?.firstName}
+                lastName={profileUser?.lastName}
+                age={profileUser?.age}
+                ageVisible={profileUser?.ageVisible}
+                genderIdentity={profileUser?.genderIdentity}
+                genderIdentityVisible={profileUser?.genderIdentityVisible}
+              />
             </div>
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">

@@ -222,6 +222,11 @@ export default function PersonalDataPage() {
 
     applyLoadedData(finalData, { clearPendingAvatar: true });
     setFeedback({ type: "success", message: "Datos personales actualizados correctamente." });
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("profile_avatar_updated_at", String(Date.now()));
+    }
+    router.push("/feed");
   };
 
   const handleSave = async () => {

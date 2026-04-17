@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import FavoriteMoviesBlock from "../../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../../components/profile-feed/MyActivityColumn";
+import ProfileIdentityCard from "../../../components/profile-feed/ProfileIdentityCard";
 import TopUsersSection from "../../../components/profile-feed/TopUsersSection";
 import {
   getTopFollowingByUsername,
@@ -34,7 +35,6 @@ export default function UserProfileFeedPage() {
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [followingError, setFollowingError] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
 
   const loadFollowing = useCallback(async () => {
     if (!routeUsername) {
@@ -87,29 +87,20 @@ export default function UserProfileFeedPage() {
     const loadProfile = async () => {
       if (!routeUsername) {
         setProfileUser(null);
-        setLoadingProfile(false);
         return;
       }
 
-      setLoadingProfile(true);
       try {
         const profile = await getUserProfileByUsername(routeUsername);
         setProfileUser(profile);
       } catch {
         setProfileUser(null);
-      } finally {
-        setLoadingProfile(false);
       }
     };
 
     void loadProfile();
   }, [routeUsername]);
 
-  const displayName = useMemo(
-    () => profileUser?.displayName || profileUser?.username || routeUsername || "Usuario",
-    [profileUser, routeUsername],
-  );
-  const initials = displayName.slice(0, 2).toUpperCase();
   const profileTitleName = profileUser?.displayName || profileUser?.username || routeUsername || "Usuario";
   const profileHandle = profileUser?.username || routeUsername || "usuario";
 
@@ -127,31 +118,16 @@ export default function UserProfileFeedPage() {
           </div>
 
           <div className="grid items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
-            <div className="rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)]">
-              <div className="flex items-center gap-3">
-                {profileUser?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profileUser.avatarUrl} alt={`Avatar de ${displayName}`} className="h-16 w-16 rounded-full border border-white/20 object-cover" />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-zinc-800 text-lg font-semibold text-zinc-200">
-                    {initials}
-                  </div>
-                )}
-
-                <div className="min-w-0">
-                  <p className="truncate text-sm uppercase tracking-[0.18em] text-zinc-500">Perfil público</p>
-                  <p className="truncate text-lg font-semibold text-zinc-100">{profileTitleName}</p>
-                  <p className="truncate text-xs text-zinc-400">@{profileHandle}</p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-white/10 bg-zinc-950/60 p-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Información personal</p>
-                <p className="mt-2 text-sm text-zinc-400">
-                  {loadingProfile ? "Cargando perfil..." : "Información personal disponible próximamente."}
-                </p>
-              </div>
-            </div>
+            <ProfileIdentityCard
+              username={profileHandle}
+              avatarUrl={profileUser?.avatarUrl}
+              firstName={profileUser?.firstName}
+              lastName={profileUser?.lastName}
+              age={profileUser?.age}
+              ageVisible={profileUser?.ageVisible}
+              genderIdentity={profileUser?.genderIdentity}
+              genderIdentityVisible={profileUser?.genderIdentityVisible}
+            />
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
               <FavoriteMoviesBlock title={`Favoritas de ${profileTitleName}`} readOnly viewedUsername={routeUsername} />

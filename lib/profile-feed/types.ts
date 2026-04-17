@@ -39,6 +39,12 @@ export interface SocialUser {
   displayName: string | null;
   avatarUrl: string | null;
   followersCount: number | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  age?: number | null;
+  ageVisible?: boolean | null;
+  genderIdentity?: string | null;
+  genderIdentityVisible?: boolean | null;
 }
 
 export interface SocialActivityItem {
