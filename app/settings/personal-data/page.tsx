@@ -44,6 +44,7 @@ const genderOptions: Array<{ value: GenderIdentity; label: string }> = [
 const inputClassName =
   "w-full rounded-xl border border-zinc-700/85 bg-zinc-900/90 px-4 py-3 text-sm text-zinc-100 outline-none transition duration-200 hover:border-zinc-500/90 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-400/35";
 const labelClassName = "text-[0.8rem] font-semibold uppercase tracking-[0.1em] text-zinc-200";
+const MINIMUM_AGE = 13;
 
 function calculateAge(birthDate: string): number | null {
   if (!birthDate) return null;
@@ -65,6 +66,10 @@ function calculateAge(birthDate: string): number | null {
   }
 
   return age >= 0 ? age : null;
+}
+
+function getAgeFromBirthDate(date: string): number | null {
+  return calculateAge(date);
 }
 
 function formatBirthDate(date: string): string {
@@ -115,7 +120,7 @@ export default function PersonalDataPage() {
     gender_identity_visible: "yes",
   });
 
-  const pendingBirthDateAge = useMemo(() => calculateAge(form.birth_date), [form.birth_date]);
+  const pendingBirthDateAge = useMemo(() => getAgeFromBirthDate(form.birth_date), [form.birth_date]);
 
   const applyLoadedData = (data: PersonalData) => {
     setForm(toFormState(data));
@@ -149,7 +154,7 @@ export default function PersonalDataPage() {
     setForm((current) => {
       const next = { ...current, [field]: value };
       if (field === "birth_date") {
-        const recalculatedAge = calculateAge(String(value));
+        const recalculatedAge = getAgeFromBirthDate(String(value));
         next.age = recalculatedAge !== null ? String(recalculatedAge) : "";
       }
       return next;
@@ -172,6 +177,15 @@ export default function PersonalDataPage() {
 
     if (!form.email.trim()) {
       nextErrors.email = "El email es obligatorio.";
+    }
+
+    if (form.birth_date) {
+      const birthDateAge = getAgeFromBirthDate(form.birth_date);
+      if (birthDateAge === null) {
+        nextErrors.birth_date = "Ingresa una fecha de nacimiento válida.";
+      } else if (birthDateAge < MINIMUM_AGE) {
+        nextErrors.birth_date = `Debes tener al menos ${MINIMUM_AGE} años para registrarte.`;
+      }
     }
 
     return nextErrors;
@@ -345,6 +359,7 @@ export default function PersonalDataPage() {
               {birthDateLocked ? (
                 <p className="text-xs text-zinc-400">La fecha de nacimiento ya fue confirmada y no puede modificarse.</p>
               ) : null}
+              {errors.birth_date ? <p className="text-sm text-red-300">{errors.birth_date}</p> : null}
             </div>
 
             <div className="space-y-2">
