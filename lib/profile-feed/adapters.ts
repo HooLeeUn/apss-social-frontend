@@ -424,9 +424,38 @@ export async function getTopFriends(): Promise<SocialUser[]> {
   return sortUsersByFollowersDesc(friends);
 }
 
+export async function getTopFriendsByUsername(username: string): Promise<SocialUser[]> {
+  const endpoint = `${PROFILE_FRIENDS_ENDPOINT}?${new URLSearchParams({ username }).toString()}`;
+  const payload = await apiFetch(endpoint);
+  const friends = parseAcceptedFriends(payload);
+  return sortUsersByFollowersDesc(friends);
+}
+
 export async function getTopFollowing(): Promise<SocialUser[]> {
   const results = await tryFollowingEndpoints();
   return sortUsersByFollowersDesc(results);
+}
+
+export async function getTopFollowingByUsername(username: string): Promise<SocialUser[]> {
+  const attempts = [
+    buildUserFollowingEndpoint(username),
+    `${PROFILE_ME_FOLLOWING_ENDPOINT}?${new URLSearchParams({ username }).toString()}`,
+  ];
+
+  for (const endpoint of attempts) {
+    try {
+      const payload = await apiFetch(endpoint);
+      const parsed = parseFollowingUsers(payload);
+      if (parsed.length > 0) return sortUsersByFollowersDesc(parsed);
+    } catch (error) {
+      if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return [];
 }
 
 function getCollection(payload: unknown): unknown[] {

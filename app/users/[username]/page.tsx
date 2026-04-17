@@ -1,21 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import FavoriteMoviesBlock from "../../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../../components/profile-feed/MyActivityColumn";
 import TopUsersSection from "../../../components/profile-feed/TopUsersSection";
-import { getTopFollowing, getTopFriends, getUserProfileByUsername } from "../../../lib/profile-feed/adapters";
+import {
+  getTopFollowingByUsername,
+  getTopFriendsByUsername,
+  getUserProfileByUsername,
+} from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 
-interface UserProfileFeedPageProps {
-  params: {
-    username: string;
-  };
+function resolveUsernameParam(rawValue: string | string[] | undefined): string {
+  if (Array.isArray(rawValue)) {
+    const candidate = rawValue[0];
+    if (!candidate) return "";
+    return decodeURIComponent(candidate).trim();
+  }
+
+  if (!rawValue) return "";
+  return decodeURIComponent(rawValue).trim();
 }
 
-export default function UserProfileFeedPage({ params }: UserProfileFeedPageProps) {
-  const username = decodeURIComponent(params.username);
+export default function UserProfileFeedPage() {
+  const params = useParams<{ username?: string | string[] }>();
+  const routeUsername = resolveUsernameParam(params?.username);
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
@@ -26,32 +37,46 @@ export default function UserProfileFeedPage({ params }: UserProfileFeedPageProps
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   const loadFollowing = useCallback(async () => {
+    if (!routeUsername) {
+      setFollowing([]);
+      setLoadingFollowing(false);
+      setFollowingError("Usuario inválido.");
+      return;
+    }
+
     setLoadingFollowing(true);
     setFollowingError(null);
     try {
-      const topFollowing = await getTopFollowing();
+      const topFollowing = await getTopFollowingByUsername(routeUsername);
       setFollowing(topFollowing);
     } catch {
       setFollowing([]);
-      setFollowingError("No se pudieron cargar tus seguidos.");
+      setFollowingError("No se pudieron cargar los seguidos de este perfil.");
     } finally {
       setLoadingFollowing(false);
     }
-  }, []);
+  }, [routeUsername]);
 
   const loadFriends = useCallback(async () => {
+    if (!routeUsername) {
+      setFriends([]);
+      setLoadingFriends(false);
+      setFriendsError("Usuario inválido.");
+      return;
+    }
+
     setLoadingFriends(true);
     setFriendsError(null);
     try {
-      const topFriends = await getTopFriends();
+      const topFriends = await getTopFriendsByUsername(routeUsername);
       setFriends(topFriends);
     } catch {
       setFriends([]);
-      setFriendsError("No se pudieron cargar tus amigos.");
+      setFriendsError("No se pudieron cargar los amigos de este perfil.");
     } finally {
       setLoadingFriends(false);
     }
-  }, []);
+  }, [routeUsername]);
 
   useEffect(() => {
     void loadFollowing();
@@ -60,9 +85,15 @@ export default function UserProfileFeedPage({ params }: UserProfileFeedPageProps
 
   useEffect(() => {
     const loadProfile = async () => {
+      if (!routeUsername) {
+        setProfileUser(null);
+        setLoadingProfile(false);
+        return;
+      }
+
       setLoadingProfile(true);
       try {
-        const profile = await getUserProfileByUsername(username);
+        const profile = await getUserProfileByUsername(routeUsername);
         setProfileUser(profile);
       } catch {
         setProfileUser(null);
@@ -72,10 +103,15 @@ export default function UserProfileFeedPage({ params }: UserProfileFeedPageProps
     };
 
     void loadProfile();
-  }, [username]);
+  }, [routeUsername]);
 
-  const displayName = useMemo(() => profileUser?.displayName || profileUser?.username || username, [profileUser, username]);
+  const displayName = useMemo(
+    () => profileUser?.displayName || profileUser?.username || routeUsername || "Usuario",
+    [profileUser, routeUsername],
+  );
   const initials = displayName.slice(0, 2).toUpperCase();
+  const profileTitleName = profileUser?.displayName || profileUser?.username || routeUsername || "Usuario";
+  const profileHandle = profileUser?.username || routeUsername || "usuario";
 
   return (
     <main className="min-h-screen bg-black text-zinc-100">
@@ -104,8 +140,8 @@ export default function UserProfileFeedPage({ params }: UserProfileFeedPageProps
 
                 <div className="min-w-0">
                   <p className="truncate text-sm uppercase tracking-[0.18em] text-zinc-500">Perfil público</p>
-                  <p className="truncate text-lg font-semibold text-zinc-100">{displayName}</p>
-                  <p className="truncate text-xs text-zinc-400">@{username}</p>
+                  <p className="truncate text-lg font-semibold text-zinc-100">{profileTitleName}</p>
+                  <p className="truncate text-xs text-zinc-400">@{profileHandle}</p>
                 </div>
               </div>
 
@@ -118,7 +154,7 @@ export default function UserProfileFeedPage({ params }: UserProfileFeedPageProps
             </div>
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
-              <FavoriteMoviesBlock title={`Favoritas de ${username}`} readOnly viewedUsername={username} />
+              <FavoriteMoviesBlock title={`Favoritas de ${profileTitleName}`} readOnly viewedUsername={routeUsername} />
             </div>
           </div>
         </section>
@@ -136,8 +172,8 @@ export default function UserProfileFeedPage({ params }: UserProfileFeedPageProps
               onRetryFollowing={() => void loadFollowing()}
             />
             <MyActivityColumn
-              scope={`user:${username}`}
-              title={`Actividad de ${username}`}
+              scope={routeUsername ? `user:${routeUsername}` : "user:unknown"}
+              title={`Actividad de ${profileTitleName}`}
               emptyCopy="Este usuario no tiene actividad social visible aún."
               errorCopy="No se pudo cargar la actividad de este usuario."
             />
