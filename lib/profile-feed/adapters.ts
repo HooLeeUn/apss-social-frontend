@@ -202,19 +202,54 @@ function resolveFollowersCount(candidate: Record<string, unknown>): number | nul
   const stats = toRecord(candidate.stats);
   const socialStats = toRecord(candidate.social_stats);
   const profile = toRecord(candidate.profile);
+  const nestedUser =
+    toRecord(candidate.user) ||
+    toRecord(candidate.following) ||
+    toRecord(candidate.followed) ||
+    toRecord(candidate.followed_user) ||
+    toRecord(candidate.target_user);
+  const nestedStats = toRecord(nestedUser?.stats);
+  const nestedSocialStats = toRecord(nestedUser?.social_stats);
+  const nestedProfile = toRecord(nestedUser?.profile);
 
   const value = toNumberOrNull(
     pickFirst(
       candidate.followers_count,
       candidate.followersCount,
       candidate.follower_count,
+      candidate.followerCount,
+      candidate.total_followers,
+      candidate.totalFollowers,
       candidate.followers,
       stats?.followers_count,
       stats?.followersCount,
+      stats?.follower_count,
+      stats?.followerCount,
       socialStats?.followers_count,
       socialStats?.followersCount,
+      socialStats?.follower_count,
+      socialStats?.followerCount,
       profile?.followers_count,
       profile?.followersCount,
+      profile?.follower_count,
+      profile?.followerCount,
+      nestedUser?.followers_count,
+      nestedUser?.followersCount,
+      nestedUser?.follower_count,
+      nestedUser?.followerCount,
+      nestedUser?.followers,
+      nestedStats?.followers_count,
+      nestedStats?.followersCount,
+      nestedStats?.follower_count,
+      nestedStats?.followerCount,
+      nestedSocialStats?.followers_count,
+      nestedSocialStats?.followersCount,
+      nestedSocialStats?.follower_count,
+      nestedSocialStats?.followerCount,
+      nestedProfile?.followers_count,
+      nestedProfile?.followersCount,
+      nestedProfile?.follower_count,
+      nestedProfile?.followerCount,
     ),
   );
 

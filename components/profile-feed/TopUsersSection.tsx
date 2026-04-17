@@ -16,6 +16,12 @@ interface TopUsersSectionProps {
 function UserRow({ user }: { user: SocialUser }) {
   const initials = user.username.slice(0, 2).toUpperCase();
   const title = user.displayName || user.username;
+  const followersCopy =
+    typeof user.followersCount === "number"
+      ? user.followersCount === 1
+        ? "Lo sigue 1 usuario"
+        : `Lo siguen ${user.followersCount} usuarios`
+      : null;
 
   return (
     <article className="flex items-center gap-3 border-b border-white/5 py-2.5 last:border-b-0 last:pb-0 first:pt-0">
@@ -34,9 +40,7 @@ function UserRow({ user }: { user: SocialUser }) {
         >
           {title}
         </Link>
-        {typeof user.followersCount === "number" ? (
-          <p className="text-xs text-zinc-400">Lo siguen {user.followersCount} usuarios</p>
-        ) : null}
+        {followersCopy ? <p className="text-xs text-zinc-400">{followersCopy}</p> : null}
       </div>
     </article>
   );
