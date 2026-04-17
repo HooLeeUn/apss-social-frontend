@@ -450,7 +450,14 @@ export default function PersonalDataPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="h-20 w-20 overflow-hidden rounded-full border border-white/20 bg-zinc-900/80">
               {displayedAvatar ? (
-                <Image src={displayedAvatar} alt="Avatar actual" width={80} height={80} className="h-full w-full object-cover" />
+                <Image
+                  src={displayedAvatar}
+                  alt="Avatar actual"
+                  width={80}
+                  height={80}
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-xs tracking-[0.18em] text-zinc-400">AVATAR</div>
               )}
