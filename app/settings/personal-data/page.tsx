@@ -37,6 +37,13 @@ interface FormErrors {
   general?: string;
 }
 
+class AvatarUploadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AvatarUploadError";
+  }
+}
+
 const genderOptions: Array<{ value: GenderIdentity; label: string }> = [
   { value: "male", label: "Hombre" },
   { value: "female", label: "Mujer" },
@@ -109,12 +116,14 @@ export default function PersonalDataPage() {
 
   const displayedAvatar = avatarPreviewUrl || avatarUrl;
 
-  const applyLoadedData = (data: PersonalData) => {
+  const applyLoadedData = (data: PersonalData, options?: { clearPendingAvatar?: boolean }) => {
     setForm(toFormState(data));
     setBirthDateLocked(data.birth_date_locked);
     setInitialBirthDate(data.birth_date ?? "");
     setAvatarUrl(data.avatar);
-    setAvatarFile(null);
+    if (options?.clearPendingAvatar ?? true) {
+      setAvatarFile(null);
+    }
   };
 
   useEffect(() => {
@@ -189,14 +198,29 @@ export default function PersonalDataPage() {
       gender_identity_visible: form.gender_identity_visible === "yes",
     };
 
-    await updatePersonalData(payload);
+    const updatedPersonalData = await updatePersonalData(payload);
+    let finalData = updatedPersonalData;
 
     if (avatarFile) {
-      await updatePersonalAvatar(avatarFile);
+      let avatarUpdateResponse: PersonalData;
+      try {
+        avatarUpdateResponse = await updatePersonalAvatar(avatarFile);
+      } catch (error) {
+        throw new AvatarUploadError(
+          error instanceof ApiError
+            ? "No pudimos guardar la foto/avatar. Intenta nuevamente."
+            : "No pudimos guardar la foto/avatar. Intenta nuevamente."
+        );
+      }
+
+      finalData = avatarUpdateResponse;
+
+      if (!avatarUpdateResponse.avatar) {
+        finalData = await getPersonalData();
+      }
     }
 
-    const freshData = await getPersonalData();
-    applyLoadedData(freshData);
+    applyLoadedData(finalData, { clearPendingAvatar: true });
     setFeedback({ type: "success", message: "Datos personales actualizados correctamente." });
   };
 
@@ -222,7 +246,11 @@ export default function PersonalDataPage() {
       await persistChanges();
     } catch (error) {
       console.error(error);
-      setFeedback({ type: "error", message: "No se pudieron guardar los cambios." });
+      const isAvatarUploadError = error instanceof AvatarUploadError;
+      setFeedback({
+        type: "error",
+        message: isAvatarUploadError ? "No pudimos guardar la foto/avatar. Intenta nuevamente." : "No se pudieron guardar los cambios.",
+      });
       setErrors((current) => ({ ...current, general: "Revisa los datos e intenta nuevamente." }));
     } finally {
       setSaving(false);
@@ -239,7 +267,11 @@ export default function PersonalDataPage() {
       await persistChanges();
     } catch (error) {
       console.error(error);
-      setFeedback({ type: "error", message: "No se pudieron guardar los cambios." });
+      const isAvatarUploadError = error instanceof AvatarUploadError;
+      setFeedback({
+        type: "error",
+        message: isAvatarUploadError ? "No pudimos guardar la foto/avatar. Intenta nuevamente." : "No se pudieron guardar los cambios.",
+      });
       setErrors((current) => ({ ...current, general: "Revisa los datos e intenta nuevamente." }));
     } finally {
       setSaving(false);

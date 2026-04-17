@@ -114,7 +114,7 @@ function normalizePersonalData(payload: unknown): PersonalData {
 }
 
 export async function getPersonalData(): Promise<PersonalData> {
-  const response = await apiFetch(PERSONAL_DATA_ENDPOINT);
+  const response = await apiFetch(PERSONAL_DATA_ENDPOINT, { cache: "no-store" });
   return normalizePersonalData(response);
 }
 
