@@ -30,23 +30,26 @@ function formatRelativeDate(iso: string): string {
   }).format(date);
 }
 
-function getActivityTitle(item: SocialActivityItem): string {
+function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): string {
   const safeMovieTitle = item.movieTitle || "título";
+  const actorVerb = isOwnProfile ? "Diste" : "Dio";
+  const ratedVerb = isOwnProfile ? "Calificaste" : "Calificó";
+  const commentedVerb = isOwnProfile ? "Comentaste" : "Comentó";
 
   if (item.interactionType === "rating") {
     const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : "sin nota";
-    return `Calificaste con ${score} ${safeMovieTitle}`;
+    return `${ratedVerb} con ${score} ${safeMovieTitle}`;
   }
 
   if (item.interactionType === "comment") {
-    return `Comentaste ${safeMovieTitle}`;
+    return `${commentedVerb} ${safeMovieTitle}`;
   }
 
   if (item.interactionType === "dislike") {
-    return `Diste dislike al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+    return `${actorVerb} dislike al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
   }
 
-  return `Diste like al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+  return `${actorVerb} like al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
 }
 
 function getActivityDetail(item: SocialActivityItem): string {
@@ -66,7 +69,7 @@ function formatMetadata(item: SocialActivityItem): string {
   return values.length > 0 ? values.join(" · ") : "Sin metadata";
 }
 
-function ActivityRow({ item }: { item: SocialActivityItem }) {
+function ActivityRow({ item, isOwnProfile }: { item: SocialActivityItem; isOwnProfile: boolean }) {
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
 
   return (
@@ -87,7 +90,7 @@ function ActivityRow({ item }: { item: SocialActivityItem }) {
       </Link>
 
       <div className="min-w-0">
-        <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item)}</p>
+        <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p>
         <Link href={movieHref} className="mt-1 block truncate text-sm font-semibold text-zinc-100 transition hover:text-blue-100">
           {item.movieTitle}
         </Link>
@@ -182,7 +185,7 @@ export default function MyActivityColumn({
 
         {!loading && !error && items.length === 0 ? <p className="text-sm text-zinc-500">{emptyCopy}</p> : null}
 
-        {!loading && !error ? items.map((item) => <ActivityRow key={item.id} item={item} />) : null}
+        {!loading && !error ? items.map((item) => <ActivityRow key={item.id} item={item} isOwnProfile={isOwnProfile} />) : null}
 
         {loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
       </div>
