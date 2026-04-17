@@ -13,18 +13,23 @@ import {
 
 const PROFILE_FAVORITES_ENDPOINT = "/profile/favorites/";
 const PROFILE_FEED_ACTIVITY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_FEED_ACTIVITY_ENDPOINT || "/profile-feed/activity/";
-const PROFILE_FEED_MY_ACTIVITY_SCOPE = process.env.NEXT_PUBLIC_PROFILE_FEED_MY_ACTIVITY_SCOPE || "me";
 const PROFILE_ME_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_ENDPOINT || "/me/";
 const PROFILE_USER_ENDPOINT_TEMPLATE = process.env.NEXT_PUBLIC_PROFILE_USER_ENDPOINT_TEMPLATE || "/users/{username}/";
 const PROFILE_PUBLIC_USER_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_PUBLIC_USER_ENDPOINT_TEMPLATE || "/profile/{username}/";
 const PROFILE_USER_FAVORITES_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_USER_FAVORITES_ENDPOINT_TEMPLATE || "/users/{username}/favorites/";
+const PROFILE_USER_FRIENDS_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_PROFILE_USER_FRIENDS_ENDPOINT_TEMPLATE || "/users/{username}/friends/";
+const PROFILE_SOCIAL_USER_FRIENDS_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_SOCIAL_USER_FRIENDS_ENDPOINT_TEMPLATE || "/social/friends/{username}/";
 const PROFILE_ME_FOLLOWING_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_FOLLOWING_ENDPOINT || "/me/following/";
 const PROFILE_LEGACY_ME_FOLLOWING_ENDPOINT = "/users/me/following/";
 const PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE || "/users/{username}/following/";
 const PROFILE_FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
+const PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE || "/users/{username}/activity/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -247,14 +252,6 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
   };
 }
 
-function resolveScope(scope: SocialActivityScope): string {
-  if (scope === "me") return PROFILE_FEED_MY_ACTIVITY_SCOPE;
-  if (scope.startsWith("user:")) {
-    return scope.slice(5);
-  }
-  return scope;
-}
-
 function buildUserProfileEndpoint(username: string): string {
   return PROFILE_USER_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
 }
@@ -267,10 +264,40 @@ function buildUserFavoritesEndpoint(username: string): string {
   return PROFILE_USER_FAVORITES_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
 }
 
+function buildUserFriendsEndpoint(username: string): string {
+  return PROFILE_USER_FRIENDS_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
+}
+
+function buildSocialUserFriendsEndpoint(username: string): string {
+  return PROFILE_SOCIAL_USER_FRIENDS_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
+}
+
+function parseUserScope(scope: SocialActivityScope): string | null {
+  if (!scope.startsWith("user:")) return null;
+  const username = scope.slice(5).trim();
+  return username || null;
+}
+
+function buildUserActivityEndpoint(username: string): string {
+  return PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username));
+}
+
+function isUsernameScopedActivity(items: SocialActivityItem[], username: string): boolean {
+  const normalizedExpected = username.trim().toLocaleLowerCase();
+  if (!normalizedExpected || items.length === 0) return true;
+
+  return items.every((item) => item.user.username.toLocaleLowerCase() === normalizedExpected);
+}
+
 function buildActivityScopeEndpoint(scope: SocialActivityScope): string {
   if (scope === "me") return PROFILE_FEED_ACTIVITY_ENDPOINT;
 
-  const params = new URLSearchParams({ scope: resolveScope(scope) });
+  const username = parseUserScope(scope);
+  if (username) {
+    return buildUserActivityEndpoint(username);
+  }
+
+  const params = new URLSearchParams({ scope: scope });
   return `${PROFILE_FEED_ACTIVITY_ENDPOINT}?${params.toString()}`;
 }
 
@@ -343,10 +370,7 @@ export async function getUserProfileByUsername(username: string): Promise<Social
 }
 
 export async function getFavoriteMoviesByUsername(username: string): Promise<FavoriteMovie[]> {
-  const attempts = [
-    buildUserFavoritesEndpoint(username),
-    `${PROFILE_FAVORITES_ENDPOINT}?${new URLSearchParams({ username }).toString()}`,
-  ];
+  const attempts = [buildUserFavoritesEndpoint(username)];
 
   for (const endpoint of attempts) {
     try {
@@ -425,10 +449,22 @@ export async function getTopFriends(): Promise<SocialUser[]> {
 }
 
 export async function getTopFriendsByUsername(username: string): Promise<SocialUser[]> {
-  const endpoint = `${PROFILE_FRIENDS_ENDPOINT}?${new URLSearchParams({ username }).toString()}`;
-  const payload = await apiFetch(endpoint);
-  const friends = parseAcceptedFriends(payload);
-  return sortUsersByFollowersDesc(friends);
+  const attempts = [buildUserFriendsEndpoint(username), buildSocialUserFriendsEndpoint(username)];
+
+  for (const endpoint of attempts) {
+    try {
+      const payload = await apiFetch(endpoint);
+      const friends = parseAcceptedFriends(payload);
+      return sortUsersByFollowersDesc(friends);
+    } catch (error) {
+      if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return [];
 }
 
 export async function getTopFollowing(): Promise<SocialUser[]> {
@@ -623,14 +659,45 @@ export async function getSocialActivity(
   nextEndpoint: string | null = null,
   signal?: AbortSignal,
 ): Promise<PaginatedSocialActivity> {
+  const usernameScope = parseUserScope(tab);
+
+  if (usernameScope && !nextEndpoint) {
+    const attempts = [
+      buildUserActivityEndpoint(usernameScope),
+      `${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ username: usernameScope }).toString()}`,
+      `${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ scope: tab }).toString()}`,
+    ];
+
+    for (const endpoint of attempts) {
+      try {
+        const payload = await apiFetch(endpoint, { signal });
+        const parsed = parseSocialActivity(payload);
+        if (!isUsernameScopedActivity(parsed.items, usernameScope)) {
+          continue;
+        }
+
+        return {
+          items: parsed.items,
+          next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+        };
+      } catch (error) {
+        if (error instanceof ApiError && [400, 404, 405, 422].includes(error.status)) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    return { items: [], next: null };
+  }
+
   const endpoint = nextEndpoint || buildActivityScopeEndpoint(tab);
   let payload: unknown;
 
   try {
     payload = await apiFetch(endpoint, { signal });
   } catch (error) {
-    const myActivityScope = resolveScope(tab);
-    const isMyActivity = myActivityScope === PROFILE_FEED_MY_ACTIVITY_SCOPE;
+    const isMyActivity = tab === "me";
     if (isMyActivity && error instanceof ApiError && [400, 404, 422].includes(error.status)) {
       return { items: [], next: null };
     }

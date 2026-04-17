@@ -120,18 +120,24 @@ function MyActivitySkeleton() {
 
 interface MyActivityColumnProps {
   scope?: "me" | `user:${string}`;
+  isOwnProfile?: boolean;
+  viewedUsername?: string;
   title?: string;
   emptyCopy?: string;
   errorCopy?: string;
 }
 
 export default function MyActivityColumn({
-  scope = "me",
+  scope,
+  isOwnProfile = true,
+  viewedUsername,
   title = "Mi actividad",
   emptyCopy = "Aún no tienes actividad registrada.",
   errorCopy = "No se pudo cargar la actividad.",
 }: MyActivityColumnProps = {}) {
-  const { items, loading, loadingMore, error, hasMore, loadMore, reload } = useInfiniteScopedSocialActivity(scope);
+  const normalizedViewedUsername = viewedUsername?.trim() || "";
+  const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
+  const { items, loading, loadingMore, error, hasMore, loadMore, reload } = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown");
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
@@ -155,6 +161,10 @@ export default function MyActivityColumn({
         className="activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
         onScroll={handleScroll}
       >
+        {!isOwnProfile && !normalizedViewedUsername ? (
+          <p className="text-sm text-zinc-500">No se pudo resolver el usuario para cargar actividad.</p>
+        ) : null}
+
         {loading ? <MyActivitySkeleton /> : null}
 
         {!loading && error ? (
