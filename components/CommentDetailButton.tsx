@@ -11,7 +11,7 @@ export default function CommentDetailButton({ href, title, className = "" }: Com
     return (
       <span
         aria-hidden="true"
-        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-zinc-900/55 text-zinc-600 ${className}`.trim()}
+        className={`inline-flex h-9 w-9 items-center justify-center p-1.5 text-zinc-600 ${className}`.trim()}
       >
         <CommentBubbleIcon />
       </span>
@@ -22,7 +22,7 @@ export default function CommentDetailButton({ href, title, className = "" }: Com
     <Link
       href={href}
       aria-label={`Ver comentarios de ${title}`}
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900/80 text-zinc-100 shadow-[0_6px_18px_rgba(0,0,0,0.35)] transition hover:border-zinc-200/80 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${className}`.trim()}
+      className={`inline-flex h-9 w-9 items-center justify-center p-1.5 text-zinc-200/90 transition-all duration-200 hover:scale-[1.04] hover:text-zinc-50 hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.2)] focus-visible:outline-none focus-visible:text-zinc-50 focus-visible:ring-2 focus-visible:ring-zinc-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${className}`.trim()}
     >
       <CommentBubbleIcon />
     </Link>

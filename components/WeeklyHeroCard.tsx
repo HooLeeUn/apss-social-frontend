@@ -72,7 +72,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
                   {topUserName}
                 </p>
               </div>
-              <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0 border-white/30 bg-zinc-900/90" />
+              <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0" />
             </div>
           </div>
         </div>

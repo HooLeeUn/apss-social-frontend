@@ -49,7 +49,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
       </div>
 
       <div className="absolute right-[calc(34%+0.35rem)] top-1/2 z-10 -translate-y-1/2">
-        <CommentDetailButton href={detailHref} title={title} className="h-[30px] w-[30px] border-white/30 bg-zinc-900/95" />
+        <CommentDetailButton href={detailHref} title={title} className="h-[30px] w-[30px]" />
       </div>
 
       <div className="flex h-full overflow-hidden rounded-xl border border-white/25 bg-zinc-950 p-[2px] shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
