@@ -48,6 +48,10 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
         )}
       </div>
 
+      <div className="absolute right-[calc(34%+0.35rem)] top-1/2 z-10 -translate-y-1/2">
+        <CommentDetailButton href={detailHref} title={title} className="h-[30px] w-[30px] border-white/30 bg-zinc-900/95" />
+      </div>
+
       <div className="flex h-full overflow-hidden rounded-xl border border-white/25 bg-zinc-950 p-[2px] shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
         <div className="flex h-full w-full overflow-hidden rounded-[10px] border border-white/10 bg-zinc-900/90">
           <div className="flex min-w-0 flex-1 flex-col p-2.5 pt-2">
@@ -64,10 +68,6 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
                     <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
                   </p>
                 </div>
-              </div>
-
-              <div className="mt-2">
-                <CommentDetailButton href={detailHref} title={title} className="h-8 w-8" />
               </div>
 
               <div className="pt-2">
