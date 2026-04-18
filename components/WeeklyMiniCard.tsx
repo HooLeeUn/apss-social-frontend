@@ -1,9 +1,9 @@
 "use client";
 
-import { KeyboardEvent, memo } from "react";
-import { useRouter } from "next/navigation";
+import { memo } from "react";
 import { Movie } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
+import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 
 interface WeeklyMiniCardProps {
@@ -22,7 +22,6 @@ function getAvatarFallback(name?: string | null): string {
 }
 
 function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) {
-  const router = useRouter();
   const title = movie?.title ?? fallbackLabel;
   const genres = movie?.genres?.filter(Boolean) ?? [];
   const genre = genres.length ? genres.slice(0, 3).join(" • ") : "Sin género";
@@ -32,33 +31,8 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
   const topUserName = movie?.topUser?.name?.trim() || "Top user";
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
 
-  const navigateToDetail = () => {
-    if (!detailHref) return;
-    router.push(detailHref);
-  };
-
-  const handleCardClick = () => {
-    if (!detailHref) return;
-    navigateToDetail();
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (!detailHref) return;
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      navigateToDetail();
-    }
-  };
-
   return (
-    <article
-      className={`relative h-full pl-4 ${detailHref ? "cursor-pointer" : ""}`}
-      onClick={handleCardClick}
-      onKeyDown={handleKeyDown}
-      role={detailHref ? "link" : undefined}
-      tabIndex={detailHref ? 0 : undefined}
-      aria-label={detailHref ? `Ver detalle y comentarios de ${title}` : undefined}
-    >
+    <article className="relative h-full pl-4">
       <div className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]">
         {movie?.topUser?.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -90,6 +64,10 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
                     <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
                   </p>
                 </div>
+              </div>
+
+              <div className="mt-2">
+                <CommentDetailButton href={detailHref} title={title} className="h-8 w-8" />
               </div>
 
               <div className="pt-2">

@@ -1,9 +1,9 @@
 "use client";
 
-import { KeyboardEvent, memo } from "react";
-import { useRouter } from "next/navigation";
+import { memo } from "react";
 import { Movie } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
+import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 
 interface WeeklyHeroCardProps {
@@ -22,7 +22,6 @@ function getAvatarFallback(name?: string | null): string {
 }
 
 function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) {
-  const router = useRouter();
   const title = movie?.title ?? fallbackLabel;
   const genre = movie?.genres?.[0] ?? "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
@@ -31,35 +30,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
   const topUserName = movie?.topUser?.name?.trim() || "Top user";
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
 
-  const navigateToDetail = () => {
-    if (!detailHref) return;
-    router.push(detailHref);
-  };
-
-  const handleCardClick = () => {
-    if (!detailHref) return;
-    navigateToDetail();
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (!detailHref) return;
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      navigateToDetail();
-    }
-  };
-
   return (
-    <article
-      className={`relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)] ${
-        detailHref ? "cursor-pointer" : ""
-      }`}
-      onClick={handleCardClick}
-      onKeyDown={handleKeyDown}
-      role={detailHref ? "link" : undefined}
-      tabIndex={detailHref ? 0 : undefined}
-      aria-label={detailHref ? `Ver detalle y comentarios de ${title}` : undefined}
-    >
+    <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
         <div className="mx-auto w-full max-w-[280px] px-4 pt-4 sm:max-w-[300px]">
           <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900">
@@ -80,24 +52,27 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
           </div>
 
           <div className="flex justify-center py-3">
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/25 bg-zinc-800 text-xs font-semibold text-zinc-100">
-                {movie?.topUser?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={movie.topUser.avatarUrl}
-                    alt={`Top user: ${topUserName}`}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <span>{getAvatarFallback(movie?.topUser?.name)}</span>
-                )}
+            <div className="flex items-center justify-center gap-3">
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/25 bg-zinc-800 text-xs font-semibold text-zinc-100">
+                  {movie?.topUser?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={movie.topUser.avatarUrl}
+                      alt={`Top user: ${topUserName}`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <span>{getAvatarFallback(movie?.topUser?.name)}</span>
+                  )}
+                </div>
+                <p className="max-w-[160px] truncate text-center text-[11px] uppercase tracking-[0.15em] text-zinc-400">
+                  {topUserName}
+                </p>
               </div>
-              <p className="max-w-[160px] truncate text-center text-[11px] uppercase tracking-[0.15em] text-zinc-400">
-                {topUserName}
-              </p>
+              <CommentDetailButton href={detailHref} title={title} className="h-10 w-10 border-white/30 bg-zinc-900/90" />
             </div>
           </div>
         </div>
