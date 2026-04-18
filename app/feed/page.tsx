@@ -70,6 +70,14 @@ function filterBySelectedGenres(movies: Movie[], selectedGenres: string[]): Movi
   return movies.filter((movie) => movieMatchesSelectedGenres(movie.genres, selectedGenres));
 }
 
+function shouldExcludeFromPersonalized(movie: Movie, excludedRatedIds: Set<string>): boolean {
+  return excludedRatedIds.has(String(movie.id)) || movie.myRating !== null;
+}
+
+function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<string>): Movie[] {
+  return movies.filter((movie) => !shouldExcludeFromPersonalized(movie, excludedRatedIds));
+}
+
 export default function FeedPage() {
   const router = useRouter();
 
@@ -90,6 +98,7 @@ export default function FeedPage() {
   const personalizedQueryKeyRef = useRef("");
   const personalizedAbortControllerRef = useRef<AbortController | null>(null);
   const personalizedLoadMoreAbortControllerRef = useRef<AbortController | null>(null);
+  const excludedRatedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const token = getToken();
@@ -178,7 +187,10 @@ export default function FeedPage() {
         const payload = await apiFetch(buildPersonalizedFeedEndpoint(genres), { signal: abortController.signal });
         if (personalizedRequestIdRef.current !== requestId || personalizedQueryKeyRef.current !== queryKey) return;
 
-        const nextMovies = filterBySelectedGenres(parseMovieList(payload), genres);
+        const nextMovies = sanitizePersonalizedMovies(
+          filterBySelectedGenres(parseMovieList(payload), genres),
+          excludedRatedIdsRef.current,
+        );
         const pagination = parseMoviePagination(payload);
 
         setPersonalizedMovies(nextMovies);
@@ -224,10 +236,15 @@ export default function FeedPage() {
       const payload = await apiFetch(endpointWithFilters, { signal: abortController.signal });
       if (requestId !== personalizedRequestIdRef.current || queryKey !== personalizedQueryKeyRef.current) return;
 
-      const nextPageMovies = filterBySelectedGenres(parseMovieList(payload), selectedGenres);
+      const nextPageMovies = sanitizePersonalizedMovies(
+        filterBySelectedGenres(parseMovieList(payload), selectedGenres),
+        excludedRatedIdsRef.current,
+      );
       const pagination = parseMoviePagination(payload);
 
-      setPersonalizedMovies((current) => mergeUniqueMovies(current, nextPageMovies));
+      setPersonalizedMovies((current) =>
+        sanitizePersonalizedMovies(mergeUniqueMovies(current, nextPageMovies), excludedRatedIdsRef.current),
+      );
       setPersonalizedNext(pagination.next);
     } catch (loadMoreError) {
       if ((loadMoreError as Error).name === "AbortError") return;
@@ -302,11 +319,12 @@ export default function FeedPage() {
   const handlePersonalizedRated = useCallback((movieId: Movie["id"], _score: number, _payload?: unknown) => {
     void _score;
     void _payload;
-    setPersonalizedMovies((current) => current.filter((movie) => String(movie.id) !== String(movieId)));
+    excludedRatedIdsRef.current.add(String(movieId));
+    setPersonalizedMovies((current) => sanitizePersonalizedMovies(current, excludedRatedIdsRef.current));
   }, []);
 
   const visiblePersonalizedMovies = useMemo(
-    () => filterBySelectedGenres(personalizedMovies, selectedGenres),
+    () => sanitizePersonalizedMovies(filterBySelectedGenres(personalizedMovies, selectedGenres), excludedRatedIdsRef.current),
     [personalizedMovies, selectedGenres],
   );
 
