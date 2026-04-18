@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { KeyboardEvent, memo } from "react";
+import { memo } from "react";
 import { Movie } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
+import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 
 interface MovieCardProps {
@@ -23,7 +23,6 @@ function formatContentType(contentType: string) {
 }
 
 function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }: MovieCardProps) {
-  const router = useRouter();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
@@ -32,36 +31,11 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
     .join(" · ");
   const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : "Sin género";
 
-  const canNavigateFromCard = isFeed && linkToDetail;
-
-  const navigateToDetail = () => {
-    if (!canNavigateFromCard) return;
-    router.push(detailHref);
-  };
-
-  const handleCardClick = () => {
-    if (!canNavigateFromCard) return;
-    navigateToDetail();
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (!canNavigateFromCard) return;
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      navigateToDetail();
-    }
-  };
-
   const cardContent = (
     <article
       className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
-      } ${isLarge || isFeed ? "flex" : ""} ${canNavigateFromCard ? "cursor-pointer" : ""}`}
-      onClick={handleCardClick}
-      onKeyDown={handleKeyDown}
-      role={canNavigateFromCard ? "link" : undefined}
-      tabIndex={canNavigateFromCard ? 0 : undefined}
-      aria-label={canNavigateFromCard ? `Ver detalle y comentarios de ${movie.title}` : undefined}
+      } ${isLarge || isFeed ? "flex" : ""}`}
     >
       <div
         className={`group relative flex-shrink-0 ${isFeed ? "h-[164px] w-[108px] bg-zinc-900 sm:h-[172px] sm:w-[114px]" : "bg-gray-200"} ${
@@ -87,13 +61,6 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
           </div>
         )}
 
-        {canNavigateFromCard ? (
-          <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/65 via-black/20 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-            <span className="rounded-full border border-white/35 bg-black/40 px-2 py-1 text-[11px] font-medium text-zinc-100">
-              Ver comentarios
-            </span>
-          </div>
-        ) : null}
       </div>
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
@@ -105,7 +72,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
         <div
           className={`mt-2 rounded-lg border ${
             isFeed
-              ? "flex items-center gap-3 border-white/10 bg-black/35 px-2.5 py-2 text-zinc-200"
+              ? "flex items-center gap-2 border-white/10 bg-black/35 px-2.5 py-2 text-zinc-200"
               : "grid grid-cols-3 gap-1.5 border-gray-200 bg-gray-50 px-2 py-2 text-center text-gray-700"
           }`}
         >
@@ -163,6 +130,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
               </>
             )}
           </div>
+          {isFeed ? <CommentDetailButton href={detailHref} title={movie.title} className="ml-auto h-8 w-8 shrink-0" /> : null}
         </div>
       </div>
     </article>
