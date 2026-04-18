@@ -33,7 +33,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
   return (
     <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
-        <div className="mx-auto w-full max-w-[280px] px-4 pt-4 sm:max-w-[300px]">
+        <div className="mx-auto w-full max-w-[268px] px-4 pt-3 sm:max-w-[288px]">
           <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900">
             {movie?.posterUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -51,8 +51,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
             )}
           </div>
 
-          <div className="flex justify-center py-3">
-            <div className="flex items-center justify-center gap-3">
+          <div className="py-2">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex flex-col items-center gap-1">
                 <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/25 bg-zinc-800 text-xs font-semibold text-zinc-100">
                   {movie?.topUser?.avatarUrl ? (
@@ -72,12 +72,12 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
                   {topUserName}
                 </p>
               </div>
-              <CommentDetailButton href={detailHref} title={title} className="h-10 w-10 border-white/30 bg-zinc-900/90" />
+              <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0 border-white/30 bg-zinc-900/90" />
             </div>
           </div>
         </div>
 
-        <div className="mt-auto border-t border-white/10 bg-zinc-950/80 p-4 text-zinc-100">
+        <div className="border-t border-white/10 bg-zinc-950/80 p-3.5 text-zinc-100">
           <h3 className="line-clamp-2 text-xl font-semibold leading-tight text-zinc-50">{title}</h3>
 
           <p className="mt-2 text-sm text-zinc-400">
