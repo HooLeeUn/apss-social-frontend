@@ -92,10 +92,24 @@ function ActivityRow({ item, isOwnProfile }: { item: SocialActivityItem; isOwnPr
 
       <div className="min-w-0">
         <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p>
-        <Link href={movieHref} className="mt-1 block truncate text-sm font-semibold text-zinc-100 transition hover:text-blue-100">
+        <Link
+          href={movieHref}
+          aria-label={`Ver detalle de ${item.movieTitle}`}
+          className="mt-1 block cursor-pointer truncate text-sm font-semibold text-zinc-100 transition hover:text-blue-100"
+        >
           {item.movieTitle}
         </Link>
-        {item.movieSecondaryTitle ? <p className="mt-0.5 truncate text-[11px] text-blue-200/75">{item.movieSecondaryTitle}</p> : null}
+        {item.movieSecondaryTitle ? (
+          <p className="mt-0.5 truncate text-[11px] text-blue-200/75">
+            <Link
+              href={movieHref}
+              aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`}
+              className="inline-block max-w-full cursor-pointer truncate transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+            >
+              {item.movieSecondaryTitle}
+            </Link>
+          </p>
+        ) : null}
         <p className="mt-1 truncate text-[11px] text-zinc-500">{formatMetadata(item)}</p>
         {activityDetail ? (
           <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p>
