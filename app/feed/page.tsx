@@ -12,6 +12,7 @@ import DirectorBoardMenu from "../../components/DirectorBoardMenu";
 import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholderButton";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
+import { getMyProfile } from "../../lib/profile-feed/adapters";
 import {
   Movie,
   MOVIES_FEED_ENDPOINT,
@@ -90,6 +91,7 @@ export default function FeedPage() {
   const [isDirectorBoardOpen, setIsDirectorBoardOpen] = useState(false);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileAvatarVersion, setProfileAvatarVersion] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -150,19 +152,21 @@ export default function FeedPage() {
     const token = getToken();
     if (!token) return;
 
-    const loadAvatar = async () => {
+    const loadProfileContext = async () => {
       try {
-        const personalData = await getPersonalData();
+        const [personalData, profile] = await Promise.all([getPersonalData(), getMyProfile()]);
         setProfileAvatarUrl(personalData.avatar);
+        setCurrentUserId(profile?.id ?? null);
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
       } catch (avatarError) {
         console.warn("No se pudo cargar el avatar del perfil para feed:", avatarError);
         setProfileAvatarUrl(null);
+        setCurrentUserId(null);
       }
     };
 
-    void loadAvatar();
+    void loadProfileContext();
   }, []);
 
   const fetchPersonalizedMovies = useCallback(
@@ -395,7 +399,7 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} onRated={updateWeeklyMovieRating} />
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} onRated={updateWeeklyMovieRating} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { memo, useState } from "react";
 import { Movie } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
@@ -9,6 +10,7 @@ import RatingPopover from "./RatingPopover";
 interface WeeklyMiniCardProps {
   movie?: Movie;
   fallbackLabel: string;
+  currentUserId?: string | number | null;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
@@ -21,7 +23,7 @@ function getAvatarFallback(username?: string | null): string {
   return initials || "★";
 }
 
-function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) {
+function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: WeeklyMiniCardProps) {
   const title = movie?.title ?? fallbackLabel;
   const genres = movie?.genres?.filter(Boolean) ?? [];
   const genre = genres.length ? genres.slice(0, 3).join(" • ") : "Sin género";
@@ -29,28 +31,60 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
   const topUsername = movie?.topUser?.username?.trim() || "Top user";
+  const topUserId = movie?.topUser?.id;
   const topUserAvatar = movie?.topUser?.avatar ?? null;
   const [avatarFailedSrc, setAvatarFailedSrc] = useState<string | null>(null);
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
   const hasAvatarError = Boolean(topUserAvatar && avatarFailedSrc === topUserAvatar);
+  const hasTopUserNavigationData = Boolean(topUsername && topUserId !== null && topUserId !== undefined);
+  const isCurrentUser = hasTopUserNavigationData && currentUserId !== null && currentUserId !== undefined
+    ? String(topUserId) === String(currentUserId)
+    : false;
+  const topUserHref = hasTopUserNavigationData
+    ? isCurrentUser
+      ? "/profile-feed"
+      : `/users/${encodeURIComponent(topUsername)}`
+    : null;
 
   return (
     <article className="relative h-full pl-4">
-      <div className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]">
-        {topUserAvatar && !hasAvatarError ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={topUserAvatar}
-            alt={`Top user: ${topUsername}`}
-            className="block h-full w-full object-cover object-center"
-            loading="lazy"
-            decoding="async"
-            onError={() => setAvatarFailedSrc(topUserAvatar)}
-          />
-        ) : (
-          <span>{getAvatarFallback(movie?.topUser?.username)}</span>
-        )}
-      </div>
+      {topUserHref ? (
+        <Link
+          href={topUserHref}
+          aria-label={`Ir al perfil de ${topUsername}`}
+          className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]"
+        >
+          {topUserAvatar && !hasAvatarError ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={topUserAvatar}
+              alt={`Top user: ${topUsername}`}
+              className="block h-full w-full object-cover object-center"
+              loading="lazy"
+              decoding="async"
+              onError={() => setAvatarFailedSrc(topUserAvatar)}
+            />
+          ) : (
+            <span>{getAvatarFallback(movie?.topUser?.username)}</span>
+          )}
+        </Link>
+      ) : (
+        <div className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]">
+          {topUserAvatar && !hasAvatarError ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={topUserAvatar}
+              alt={`Top user: ${topUsername}`}
+              className="block h-full w-full object-cover object-center"
+              loading="lazy"
+              decoding="async"
+              onError={() => setAvatarFailedSrc(topUserAvatar)}
+            />
+          ) : (
+            <span>{getAvatarFallback(movie?.topUser?.username)}</span>
+          )}
+        </div>
+      )}
 
       <div className="absolute right-[calc(34%+0.35rem)] top-1/2 z-10 -translate-y-1/2">
         <CommentDetailButton href={detailHref} title={title} className="h-[30px] w-[30px]" />
