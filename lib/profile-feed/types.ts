@@ -3,7 +3,7 @@ export type SocialActivityScope = SocialTab | "me" | `user:${string}`;
 
 export type InteractionType = "rating" | "comment" | "like" | "dislike";
 
-export type SocialActivityType = "rating" | "public_comment" | "public_comment_like" | "public_comment_dislike";
+export type SocialActivityType = "rating" | "public_comment" | "directed_comment" | "public_comment_like" | "public_comment_dislike";
 
 export interface FavoriteMovie {
   id: string;
@@ -67,6 +67,8 @@ export interface SocialActivityItem {
   myRating?: number;
   createdAt: string;
   interactionType: InteractionType;
+  isDirectedComment?: boolean;
+  directedCommentTargetUsername?: string;
   ratingValue?: number;
   commentText?: string;
   likedCommentSnippet?: string;
@@ -107,6 +109,10 @@ export interface PublicCommentActivityPayload {
   comment_id?: number | string;
   content?: string;
   text?: string;
+  target_user?: {
+    id?: number | string;
+    username?: string;
+  } | string;
 }
 
 export interface PublicCommentLikeActivityPayload {

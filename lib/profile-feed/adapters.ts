@@ -269,11 +269,16 @@ function getDisplayMovieSecondaryTitle(movie: ProfileFeedActivityResponseItem["m
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
   const payload = toRecord(item.payload) ?? {};
   const movie = toRecord(item.movie) ?? {};
+  const isDirectedComment = item.activity_type === "directed_comment";
   const score = toNumberOrNull(payload.score);
   const commentText = toStringOrNull(pickFirst(payload.content, payload.text));
   const likedCommentSnippet = toStringOrNull(payload.comment_excerpt);
   const likedCommentAuthor = toRecord(payload.comment_author);
   const likedCommentAuthorUsername = toStringOrNull(likedCommentAuthor?.username);
+  const directedTargetUser = toRecord(payload.target_user);
+  const directedCommentTargetUsername = toStringOrNull(
+    typeof payload.target_user === "string" ? payload.target_user : directedTargetUser?.username,
+  );
 
   const movieType = toStringOrNull(movie.type);
   const movieGenre = toStringOrNull(movie.genre) || undefined;
@@ -307,11 +312,13 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     interactionType:
       item.activity_type === "rating"
         ? "rating"
-        : item.activity_type === "public_comment"
+        : item.activity_type === "public_comment" || item.activity_type === "directed_comment"
           ? "comment"
           : item.activity_type === "public_comment_dislike"
             ? "dislike"
             : "like",
+    isDirectedComment: isDirectedComment || undefined,
+    directedCommentTargetUsername: directedCommentTargetUsername ?? undefined,
     ratingValue: score ?? undefined,
     commentText: commentText ?? undefined,
     likedCommentSnippet: likedCommentSnippet ?? undefined,
