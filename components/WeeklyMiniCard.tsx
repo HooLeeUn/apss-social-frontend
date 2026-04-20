@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Movie } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
@@ -29,19 +29,23 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
   const topUsername = movie?.topUser?.username?.trim() || "Top user";
+  const topUserAvatar = movie?.topUser?.avatar ?? null;
+  const [avatarFailedSrc, setAvatarFailedSrc] = useState<string | null>(null);
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
+  const hasAvatarError = Boolean(topUserAvatar && avatarFailedSrc === topUserAvatar);
 
   return (
     <article className="relative h-full pl-4">
       <div className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]">
-        {movie?.topUser?.avatar ? (
+        {topUserAvatar && !hasAvatarError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={movie.topUser.avatar}
+            src={topUserAvatar}
             alt={`Top user: ${topUsername}`}
-            className="h-full w-full object-cover"
+            className="block h-full w-full object-cover object-center"
             loading="lazy"
             decoding="async"
+            onError={() => setAvatarFailedSrc(topUserAvatar)}
           />
         ) : (
           <span>{getAvatarFallback(movie?.topUser?.username)}</span>
