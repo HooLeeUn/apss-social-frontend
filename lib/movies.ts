@@ -11,6 +11,7 @@ export interface Movie {
   id: number | string;
   title: string;
   displayTitle: string;
+  displaySecondaryTitle: string | null;
   titleEnglish: string | null;
   titleSpanish: string | null;
   contentType: string;
@@ -184,6 +185,17 @@ export function resolveMovieDisplayTitle(
   );
 }
 
+export function resolveMovieSecondaryTitle(
+  displayTitle: string,
+  movie: Record<string, unknown>,
+  nestedMovie?: Record<string, unknown> | null,
+): string | null {
+  const titleEnglish = pickFirstNonEmptyString(movie.title_english, nestedMovie?.title_english);
+  if (!titleEnglish) return null;
+
+  return titleEnglish.localeCompare(displayTitle, "es", { sensitivity: "accent" }) === 0 ? null : titleEnglish;
+}
+
 function resolveBackendAssetUrl(value: unknown): string | null {
   const candidate = toStringOrNull(value);
   if (!candidate) return null;
@@ -287,6 +299,7 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   const titleSpanish = pickFirstNonEmptyString(raw.title_spanish, nestedMovie?.title_spanish);
   const titleEnglish = pickFirstNonEmptyString(raw.title_english, nestedMovie?.title_english);
   const displayTitle = resolveMovieDisplayTitle(raw, nestedMovie);
+  const displaySecondaryTitle = resolveMovieSecondaryTitle(displayTitle, raw, nestedMovie);
   const title = displayTitle;
   const id = pickFirst(raw.movie_id, nestedMovie?.id, raw.id, `${title}-${index + 1}`) as number | string;
 
@@ -298,6 +311,7 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     id,
     title,
     displayTitle,
+    displaySecondaryTitle,
     titleEnglish,
     titleSpanish,
     contentType: normalizeContentType(contentType),

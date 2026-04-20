@@ -1,5 +1,5 @@
 import { ApiError, apiFetch } from "../api";
-import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle } from "../movies";
+import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle, resolveMovieSecondaryTitle } from "../movies";
 import { favoriteMoviesMock } from "./mocks";
 import {
   FavoriteMovie,
@@ -99,6 +99,7 @@ function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
   const titleSpanish = typeof nestedMovie.title_spanish === "string" ? nestedMovie.title_spanish : null;
   const titleEnglish = typeof nestedMovie.title_english === "string" ? nestedMovie.title_english : null;
   const title = resolveMovieDisplayTitle(rawFavorite, nestedMovie);
+  const displaySecondaryTitle = resolveMovieSecondaryTitle(title, rawFavorite, nestedMovie);
 
   const yearCandidate = pickFirst(nestedMovie.release_year, nestedMovie.year, nestedMovie.release_date);
   const year = typeof yearCandidate === "string" ? yearCandidate.slice(0, 4) : toNumberOrNull(yearCandidate)?.toString() || "-";
@@ -118,6 +119,7 @@ function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
     id: String(id),
     slot,
     title,
+    displaySecondaryTitle,
     titleSpanish,
     titleEnglish,
     year,
@@ -259,6 +261,11 @@ function getDisplayMovieTitle(movie: ProfileFeedActivityResponseItem["movie"]): 
   return resolveMovieDisplayTitle(movie);
 }
 
+function getDisplayMovieSecondaryTitle(movie: ProfileFeedActivityResponseItem["movie"]): string | null {
+  const displayTitle = getDisplayMovieTitle(movie);
+  return resolveMovieSecondaryTitle(displayTitle, movie);
+}
+
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
   const payload = toRecord(item.payload) ?? {};
   const movie = toRecord(item.movie) ?? {};
@@ -286,6 +293,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     },
     userDisplayName: toStringOrNull(item.actor.display_name),
     movieTitle: getDisplayMovieTitle(item.movie),
+    movieSecondaryTitle: getDisplayMovieSecondaryTitle(item.movie),
     movieYear: item.movie.release_year,
     movieId: item.movie.id,
     moviePosterUrl: (pickFirst(movie.image, movie.poster, movie.poster_url, movie.image_url) as string | null) ?? null,
@@ -580,6 +588,7 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
       id: String(normalized.id),
       title: normalized.displayTitle,
       displayTitle: normalized.displayTitle,
+      displaySecondaryTitle: normalized.displaySecondaryTitle,
       year: normalized.year,
       genre: normalized.genres[0] || "-",
       type: normalized.contentType,

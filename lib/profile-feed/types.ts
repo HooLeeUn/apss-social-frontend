@@ -9,6 +9,7 @@ export interface FavoriteMovie {
   id: string;
   slot: number;
   title: string;
+  displaySecondaryTitle?: string | null;
   titleSpanish?: string | null;
   titleEnglish?: string | null;
   year: string;
@@ -25,6 +26,7 @@ export interface FavoriteMovieSearchResult {
   id: string;
   title: string;
   displayTitle: string;
+  displaySecondaryTitle?: string | null;
   year: string;
   genre: string;
   type: string;
@@ -53,6 +55,7 @@ export interface SocialActivityItem {
   user: SocialUser;
   userDisplayName?: string | null;
   movieTitle: string;
+  movieSecondaryTitle?: string | null;
   movieYear: number | null;
   movieId: number | string;
   moviePosterUrl: string | null;

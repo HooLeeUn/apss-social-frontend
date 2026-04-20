@@ -31,6 +31,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
     .join(" · ");
   const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : "Sin género";
   const displayTitle = movie.displayTitle || movie.title;
+  const displaySecondaryTitle = movie.displaySecondaryTitle;
 
   const cardContent = (
     <article
@@ -66,7 +67,12 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
         <div className={isFeed ? "min-w-0 space-y-1.5" : "space-y-2"}>
-          <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>{displayTitle}</h3>
+          <div className="min-w-0">
+            <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>{displayTitle}</h3>
+            {displaySecondaryTitle ? (
+              <p className={`truncate text-xs leading-tight ${isFeed ? "text-blue-200/80" : "text-sky-700"}`}>{displaySecondaryTitle}</p>
+            ) : null}
+          </div>
           <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || "Desconocido"}</p>
           <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
         </div>
