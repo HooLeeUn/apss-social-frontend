@@ -95,6 +95,7 @@ function ActivityRow({ item, isOwnProfile }: { item: SocialActivityItem; isOwnPr
         <Link href={movieHref} className="mt-1 block truncate text-sm font-semibold text-zinc-100 transition hover:text-blue-100">
           {item.movieTitle}
         </Link>
+        {item.movieSecondaryTitle ? <p className="mt-0.5 truncate text-[11px] text-blue-200/75">{item.movieSecondaryTitle}</p> : null}
         <p className="mt-1 truncate text-[11px] text-zinc-500">{formatMetadata(item)}</p>
         {activityDetail ? (
           <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p>

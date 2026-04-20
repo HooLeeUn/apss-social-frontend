@@ -25,6 +25,7 @@ function getAvatarFallback(username?: string | null): string {
 
 function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: WeeklyHeroCardProps) {
   const title = movie?.displayTitle ?? movie?.title ?? fallbackLabel;
+  const secondaryTitle = movie?.displaySecondaryTitle ?? null;
   const genre = movie?.genres?.[0] ?? "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
@@ -117,6 +118,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
 
         <div className="border-t border-white/10 bg-zinc-950/80 p-3.5 text-zinc-100">
           <h3 className="line-clamp-2 text-xl font-semibold leading-tight text-zinc-50">{title}</h3>
+          {secondaryTitle ? <p className="mt-1 line-clamp-1 text-sm leading-tight text-blue-200/80">{secondaryTitle}</p> : null}
 
           <p className="mt-2 text-sm text-zinc-400">
             <span>{genre}</span>

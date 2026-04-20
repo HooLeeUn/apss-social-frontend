@@ -37,6 +37,7 @@ interface FavoriteMoviesBlockProps {
 
 function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
   const displayTitle = movie?.title || "";
+  const displaySecondaryTitle = movie?.displaySecondaryTitle ?? null;
   const firstLetter = displayTitle.charAt(0)?.toUpperCase() ?? "—";
   const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
 
@@ -71,6 +72,9 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                   </div>
                   <div className="min-w-0">
                     <h3 className="truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">{displayTitle}</h3>
+                    {displaySecondaryTitle ? (
+                      <p className="truncate text-[11px] leading-tight text-blue-200/80">{displaySecondaryTitle}</p>
+                    ) : null}
                     <div className="mt-1 flex min-w-0 flex-col justify-center gap-0.5 pr-1">
                       <p className="truncate text-sm leading-tight text-zinc-300">{movie.year}</p>
                       <p className="truncate text-sm leading-tight text-zinc-300">{movie.genre}</p>
@@ -260,6 +264,9 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
                     }`}
                   >
                     <p className="truncate text-sm font-medium">{movie.displayTitle || movie.title}</p>
+                    {movie.displaySecondaryTitle ? (
+                      <p className="truncate text-[11px] text-blue-200/80">{movie.displaySecondaryTitle}</p>
+                    ) : null}
                     <p className="text-xs text-zinc-500">
                       {movie.year} · {movie.genre} · {movie.type}
                     </p>

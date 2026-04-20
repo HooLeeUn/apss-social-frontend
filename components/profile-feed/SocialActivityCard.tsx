@@ -96,6 +96,9 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
                 </Link>{" "}
                 <span className="text-zinc-500">{movieYear}</span>
               </p>
+              {item.movieSecondaryTitle ? (
+                <p className="mt-1 truncate text-xs text-blue-200/75">{item.movieSecondaryTitle}</p>
+              ) : null}
               <p className="mt-1 line-clamp-3 text-sm text-zinc-400">{activity.detail}</p>
               {activity.subDetail ? (
                 <p className={`mt-1 text-xs ${activity.tone === "dislike" ? "text-rose-300/80" : "text-zinc-500"}`}>{activity.subDetail}</p>
