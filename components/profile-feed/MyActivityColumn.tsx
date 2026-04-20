@@ -35,6 +35,7 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): stri
   const actorVerb = isOwnProfile ? "Diste" : "Dio";
   const ratedVerb = isOwnProfile ? "Calificaste" : "Calificó";
   const commentedVerb = isOwnProfile ? "Comentaste" : "Comentó";
+  const directedTarget = item.directedCommentTargetUsername ? ` a @${item.directedCommentTargetUsername}` : "";
 
   if (item.interactionType === "rating") {
     const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : "sin nota";
@@ -42,6 +43,11 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): stri
   }
 
   if (item.interactionType === "comment") {
+    if (item.isDirectedComment) {
+      return isOwnProfile
+        ? `Enviaste un mensaje privado sobre ${safeMovieTitle}${directedTarget}`
+        : `Envió un mensaje privado sobre ${safeMovieTitle}${directedTarget}`;
+    }
     return `${commentedVerb} ${safeMovieTitle}`;
   }
 
@@ -58,6 +64,9 @@ function getActivityDetail(item: SocialActivityItem): string | null {
   }
 
   if (item.interactionType === "comment") {
+    if (item.isDirectedComment) {
+      return item.commentText || "Enviaste un comentario privado.";
+    }
     return item.commentText || "Dejaste un comentario público.";
   }
 
