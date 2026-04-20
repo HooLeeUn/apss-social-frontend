@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "./api";
+
 export interface MovieTopUser {
   id: number | null;
   username: string | null;
@@ -152,6 +154,28 @@ function toStringOrNull(value: unknown): string | null {
   return normalized || null;
 }
 
+function resolveBackendAssetUrl(value: unknown): string | null {
+  const candidate = toStringOrNull(value);
+  if (!candidate) return null;
+
+  if (
+    candidate.startsWith("http://") ||
+    candidate.startsWith("https://") ||
+    candidate.startsWith("data:") ||
+    candidate.startsWith("blob:")
+  ) {
+    return candidate;
+  }
+
+  const normalizedCandidate = candidate.startsWith("media/") ? `/${candidate}` : candidate;
+
+  try {
+    return new URL(normalizedCandidate, API_BASE_URL).toString();
+  } catch {
+    return candidate;
+  }
+}
+
 function parseTopUser(raw: Record<string, unknown>): MovieTopUser | null {
   const nestedTopUser = toRecord(pickFirst(raw.top_user, raw.topUser, raw.recommended_by));
 
@@ -177,7 +201,7 @@ function parseTopUser(raw: Record<string, unknown>): MovieTopUser | null {
     ),
   );
 
-  const avatar = toStringOrNull(
+  const avatar = resolveBackendAssetUrl(
     pickFirst(
       nestedTopUser?.avatar,
       nestedTopUser?.avatar_url,
@@ -257,15 +281,17 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     year,
     genres,
     posterUrl:
-      (pickFirst(
-        raw.image,
-        raw.poster,
-        raw.poster_url,
-        nestedMovie?.image,
-        nestedMovie?.poster,
-        nestedMovie?.poster_url,
-        raw.image_url,
-      ) as string | null) || null,
+      resolveBackendAssetUrl(
+        pickFirst(
+          raw.image,
+          raw.poster,
+          raw.poster_url,
+          nestedMovie?.image,
+          nestedMovie?.poster,
+          nestedMovie?.poster_url,
+          raw.image_url,
+        ),
+      ),
     displayRating: toNumber(pickFirst(raw.display_rating, raw.general_rating, raw.avg_rating, raw.rating)),
     myRating: toNumber(raw.my_rating),
     followingAvgRating: toNumber(pickFirst(raw.following_avg_rating, raw.following_rating)),

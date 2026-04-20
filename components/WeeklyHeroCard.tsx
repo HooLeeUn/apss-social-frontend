@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Movie } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
@@ -28,7 +28,10 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
   const topUsername = movie?.topUser?.username?.trim() || "Top user";
+  const topUserAvatar = movie?.topUser?.avatar ?? null;
+  const [avatarFailedSrc, setAvatarFailedSrc] = useState<string | null>(null);
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
+  const hasAvatarError = Boolean(topUserAvatar && avatarFailedSrc === topUserAvatar);
 
   return (
     <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
@@ -55,14 +58,15 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
             <div className="flex items-center justify-between gap-4">
               <div className="flex flex-col items-center gap-1">
                 <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/25 bg-zinc-800 text-xs font-semibold text-zinc-100">
-                  {movie?.topUser?.avatar ? (
+                  {topUserAvatar && !hasAvatarError ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={movie.topUser.avatar}
+                      src={topUserAvatar}
                       alt={`Top user: ${topUsername}`}
-                      className="h-full w-full object-cover"
+                      className="block h-full w-full object-cover object-center"
                       loading="lazy"
                       decoding="async"
+                      onError={() => setAvatarFailedSrc(topUserAvatar)}
                     />
                   ) : (
                     <span>{getAvatarFallback(movie?.topUser?.username)}</span>
