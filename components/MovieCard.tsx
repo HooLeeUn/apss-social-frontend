@@ -32,6 +32,10 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
   const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : "Sin género";
   const displayTitle = movie.displayTitle || movie.title;
   const displaySecondaryTitle = movie.displaySecondaryTitle;
+  const canNavigateToDetail = linkToDetail;
+  const titleLinkClassName = `inline-block max-w-full truncate transition-colors duration-150 ${
+    isFeed ? "cursor-pointer hover:text-blue-100 focus-visible:text-blue-100" : "cursor-pointer hover:text-sky-700 focus-visible:text-sky-700"
+  } focus-visible:outline-none`;
 
   const cardContent = (
     <article
@@ -68,9 +72,29 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
         <div className={isFeed ? "min-w-0 space-y-1.5" : "space-y-2"}>
           <div className="min-w-0">
-            <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>{displayTitle}</h3>
+            <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
+              {canNavigateToDetail ? (
+                <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className={titleLinkClassName}>
+                  {displayTitle}
+                </Link>
+              ) : (
+                displayTitle
+              )}
+            </h3>
             {displaySecondaryTitle ? (
-              <p className={`truncate text-xs leading-tight ${isFeed ? "text-blue-200/80" : "text-sky-700"}`}>{displaySecondaryTitle}</p>
+              <p className={`truncate text-xs leading-tight ${isFeed ? "text-blue-200/80" : "text-sky-700"}`}>
+                {canNavigateToDetail ? (
+                  <Link
+                    href={detailHref}
+                    aria-label={`Ver detalle de ${displayTitle} (${displaySecondaryTitle})`}
+                    className="inline-block max-w-full cursor-pointer truncate transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+                  >
+                    {displaySecondaryTitle}
+                  </Link>
+                ) : (
+                  displaySecondaryTitle
+                )}
+              </p>
             ) : null}
           </div>
           <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || "Desconocido"}</p>

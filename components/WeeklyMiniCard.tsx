@@ -96,9 +96,33 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
           <div className="flex min-w-0 flex-1 flex-col p-2.5 pt-2">
             <div className="flex h-full min-w-0 flex-col justify-between">
               <div className="min-w-0">
-                <h4 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-50">{title}</h4>
+                <h4 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-50">
+                  {detailHref ? (
+                    <Link
+                      href={detailHref}
+                      aria-label={`Ver detalle de ${title}`}
+                      className="inline cursor-pointer transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+                    >
+                      {title}
+                    </Link>
+                  ) : (
+                    title
+                  )}
+                </h4>
                 {secondaryTitle ? (
-                  <p className="mt-0.5 line-clamp-1 min-h-[1rem] text-[11px] leading-tight text-blue-200/80">{secondaryTitle}</p>
+                  <p className="mt-0.5 line-clamp-1 min-h-[1rem] text-[11px] leading-tight text-blue-200/80">
+                    {detailHref ? (
+                      <Link
+                        href={detailHref}
+                        aria-label={`Ver detalle de ${title} (${secondaryTitle})`}
+                        className="inline cursor-pointer transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+                      >
+                        {secondaryTitle}
+                      </Link>
+                    ) : (
+                      secondaryTitle
+                    )}
+                  </p>
                 ) : (
                   <div className="min-h-[1rem]" aria-hidden="true" />
                 )}

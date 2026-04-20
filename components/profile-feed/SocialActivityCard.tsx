@@ -91,13 +91,25 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               </div>
               <p className="mt-1 text-sm text-zinc-300">
                 <span className="font-medium text-zinc-200">{activity.label}</span>{" "}
-                <Link href={movieHref} className="font-semibold text-blue-200 transition hover:text-blue-100">
+                <Link
+                  href={movieHref}
+                  aria-label={`Ver detalle de ${item.movieTitle}`}
+                  className="cursor-pointer font-semibold text-blue-200 transition hover:text-blue-100"
+                >
                   {item.movieTitle}
                 </Link>{" "}
                 <span className="text-zinc-500">{movieYear}</span>
               </p>
               {item.movieSecondaryTitle ? (
-                <p className="mt-1 truncate text-xs text-blue-200/75">{item.movieSecondaryTitle}</p>
+                <p className="mt-1 truncate text-xs text-blue-200/75">
+                  <Link
+                    href={movieHref}
+                    aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`}
+                    className="inline-block max-w-full cursor-pointer truncate transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+                  >
+                    {item.movieSecondaryTitle}
+                  </Link>
+                </p>
               ) : null}
               <p className="mt-1 line-clamp-3 text-sm text-zinc-400">{activity.detail}</p>
               {activity.subDetail ? (

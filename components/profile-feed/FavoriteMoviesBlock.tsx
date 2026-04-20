@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
@@ -57,6 +58,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
     lastCommittedRatingRef.current = score;
     onUpdateMovieRating(movie.id, score);
   };
+  const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
 
   return (
     <div className="group relative isolate h-[180px] overflow-visible">
@@ -71,9 +73,33 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                     <span className="text-lg">{firstLetter}</span>
                   </div>
                   <div className="min-w-0">
-                    <h3 className="truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">{displayTitle}</h3>
+                    <h3 className="truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">
+                      {detailHref ? (
+                        <Link
+                          href={detailHref}
+                          aria-label={`Ver detalle de ${displayTitle}`}
+                          className="inline-block max-w-full cursor-pointer truncate transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+                        >
+                          {displayTitle}
+                        </Link>
+                      ) : (
+                        displayTitle
+                      )}
+                    </h3>
                     {displaySecondaryTitle ? (
-                      <p className="truncate text-[11px] leading-tight text-blue-200/80">{displaySecondaryTitle}</p>
+                      <p className="truncate text-[11px] leading-tight text-blue-200/80">
+                        {detailHref ? (
+                          <Link
+                            href={detailHref}
+                            aria-label={`Ver detalle de ${displayTitle} (${displaySecondaryTitle})`}
+                            className="inline-block max-w-full cursor-pointer truncate transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+                          >
+                            {displaySecondaryTitle}
+                          </Link>
+                        ) : (
+                          displaySecondaryTitle
+                        )}
+                      </p>
                     ) : null}
                     <div className="mt-1 flex min-w-0 flex-col justify-center gap-0.5 pr-1">
                       <p className="truncate text-sm leading-tight text-zinc-300">{movie.year}</p>

@@ -117,8 +117,34 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
         </div>
 
         <div className="border-t border-white/10 bg-zinc-950/80 p-3.5 text-zinc-100">
-          <h3 className="line-clamp-2 text-xl font-semibold leading-tight text-zinc-50">{title}</h3>
-          {secondaryTitle ? <p className="mt-1 line-clamp-1 text-sm leading-tight text-blue-200/80">{secondaryTitle}</p> : null}
+          <h3 className="line-clamp-2 text-xl font-semibold leading-tight text-zinc-50">
+            {detailHref ? (
+              <Link
+                href={detailHref}
+                aria-label={`Ver detalle de ${title}`}
+                className="inline cursor-pointer transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+              >
+                {title}
+              </Link>
+            ) : (
+              title
+            )}
+          </h3>
+          {secondaryTitle ? (
+            <p className="mt-1 line-clamp-1 text-sm leading-tight text-blue-200/80">
+              {detailHref ? (
+                <Link
+                  href={detailHref}
+                  aria-label={`Ver detalle de ${title} (${secondaryTitle})`}
+                  className="inline cursor-pointer transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+                >
+                  {secondaryTitle}
+                </Link>
+              ) : (
+                secondaryTitle
+              )}
+            </p>
+          ) : null}
 
           <p className="mt-2 text-sm text-zinc-400">
             <span>{genre}</span>
