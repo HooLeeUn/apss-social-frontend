@@ -5,8 +5,10 @@ import {
   FavoriteMovie,
   PaginatedSocialActivity,
   ProfileFeedActivityResponseItem,
+  PaginatedMyMessages,
   SocialActivityItem,
   SocialActivityScope,
+  MyMessageItem,
   SocialUser,
   FavoriteMovieSearchResult,
 } from "./types";
@@ -30,6 +32,7 @@ const PROFILE_USER_FOLLOWING_ENDPOINT_TEMPLATE =
 const PROFILE_FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
 const PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE || "/users/{username}/activity/";
+const PROFILE_ME_MESSAGES_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_ENDPOINT || "/me/messages/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -360,6 +363,88 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
       if (Number.isNaN(leftTs) || Number.isNaN(rightTs)) return 0;
       return rightTs - leftTs;
     }),
+    next: typeof root?.next === "string" ? root.next : null,
+  };
+}
+
+function resolveMessageSender(payload: Record<string, unknown>, fallbackId: string): SocialUser {
+  const senderRecord =
+    toRecord(payload.sender) ||
+    toRecord(payload.actor) ||
+    toRecord(payload.from_user) ||
+    toRecord(payload.user) ||
+    payload;
+
+  const sender = toSocialUser(senderRecord, fallbackId);
+  if (sender) return sender;
+
+  return {
+    id: fallbackId,
+    username: "usuario",
+    displayName: null,
+    avatarUrl: null,
+    followersCount: null,
+  };
+}
+
+function toMessageItem(item: Record<string, unknown>, index: number): MyMessageItem {
+  const movieRecord = toRecord(item.movie) || item;
+  const displayTitle = resolveMovieDisplayTitle(item, movieRecord);
+
+  return {
+    id: String(pickFirst(item.id, item.message_id, item.uuid, `message-${index}`)),
+    sender: resolveMessageSender(item, `sender-${index}`),
+    movieId: pickFirst(movieRecord.id, movieRecord.movie_id, item.movie_id, `movie-${index}`) as string | number,
+    movieTitle: displayTitle,
+    movieSecondaryTitle: resolveMovieSecondaryTitle(displayTitle, item, movieRecord),
+    moviePosterUrl: (pickFirst(
+      movieRecord.image,
+      movieRecord.poster,
+      movieRecord.poster_url,
+      movieRecord.image_url,
+      item.movie_image,
+      item.movie_poster,
+      item.movie_poster_url,
+    ) as string | null) ?? null,
+    movieType: toStringOrNull(pickFirst(movieRecord.type, movieRecord.content_type, item.movie_type)) || undefined,
+    movieGenre: toStringOrNull(pickFirst(movieRecord.genre, item.movie_genre)) || undefined,
+    text: toStringOrNull(pickFirst(item.text, item.content, item.message, item.body)) || "Sin contenido",
+    createdAt: toStringOrNull(pickFirst(item.created_at, item.createdAt, item.timestamp, item.date)) || new Date().toISOString(),
+  };
+}
+
+function parseMyMessages(payload: unknown): PaginatedMyMessages {
+  const root = toRecord(payload);
+  const data = toRecord(root?.data);
+  const results = Array.isArray(payload)
+    ? payload
+    : Array.isArray(root?.results)
+      ? root.results
+      : Array.isArray(root?.items)
+        ? root.items
+        : Array.isArray(root?.messages)
+          ? root.messages
+          : Array.isArray(data?.results)
+            ? data.results
+            : Array.isArray(data?.items)
+              ? data.items
+              : Array.isArray(data?.messages)
+                ? data.messages
+                : [];
+
+  const items = results
+    .map((entry) => toRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    .map((entry, index) => toMessageItem(entry, index))
+    .sort((left, right) => {
+      const leftTs = new Date(left.createdAt).getTime();
+      const rightTs = new Date(right.createdAt).getTime();
+      if (Number.isNaN(leftTs) || Number.isNaN(rightTs)) return 0;
+      return rightTs - leftTs;
+    });
+
+  return {
+    items,
     next: typeof root?.next === "string" ? root.next : null,
   };
 }
@@ -961,6 +1046,17 @@ export async function getSocialActivity(
 
   return {
     items,
+    next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+  };
+}
+
+export async function getMyMessages(nextEndpoint: string | null = null, signal?: AbortSignal): Promise<PaginatedMyMessages> {
+  const endpoint = nextEndpoint || PROFILE_ME_MESSAGES_ENDPOINT;
+  const payload = await apiFetch(endpoint, { signal });
+  const parsed = parseMyMessages(payload);
+
+  return {
+    items: parsed.items,
     next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
   };
 }
