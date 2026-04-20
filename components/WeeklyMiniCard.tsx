@@ -12,8 +12,8 @@ interface WeeklyMiniCardProps {
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
-function getAvatarFallback(name?: string | null): string {
-  const trimmed = name?.trim();
+function getAvatarFallback(username?: string | null): string {
+  const trimmed = username?.trim();
   if (!trimmed) return "★";
 
   const [first, second] = trimmed.split(/\s+/);
@@ -28,23 +28,23 @@ function WeeklyMiniCard({ movie, fallbackLabel, onRated }: WeeklyMiniCardProps) 
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
-  const topUserName = movie?.topUser?.name?.trim() || "Top user";
+  const topUsername = movie?.topUser?.username?.trim() || "Top user";
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
 
   return (
     <article className="relative h-full pl-4">
       <div className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]">
-        {movie?.topUser?.avatarUrl ? (
+        {movie?.topUser?.avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={movie.topUser.avatarUrl}
-            alt={`Top user: ${topUserName}`}
+            src={movie.topUser.avatar}
+            alt={`Top user: ${topUsername}`}
             className="h-full w-full object-cover"
             loading="lazy"
             decoding="async"
           />
         ) : (
-          <span>{getAvatarFallback(movie?.topUser?.name)}</span>
+          <span>{getAvatarFallback(movie?.topUser?.username)}</span>
         )}
       </div>
 
