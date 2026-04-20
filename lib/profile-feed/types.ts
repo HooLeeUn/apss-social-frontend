@@ -80,6 +80,24 @@ export interface PaginatedSocialActivity {
   next: string | null;
 }
 
+export interface MyMessageItem {
+  id: string;
+  sender: SocialUser;
+  movieId: number | string;
+  movieTitle: string;
+  movieSecondaryTitle?: string | null;
+  moviePosterUrl: string | null;
+  movieType?: string;
+  movieGenre?: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface PaginatedMyMessages {
+  items: MyMessageItem[];
+  next: string | null;
+}
+
 export interface ProfileFeedActivityActor {
   id: number;
   username: string;

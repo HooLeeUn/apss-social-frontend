@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { UIEvent, useCallback } from "react";
+import { UIEvent, useCallback, useMemo, useState } from "react";
+import { useInfiniteMyMessages } from "../../hooks/useInfiniteMyMessages";
 import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSocialActivity";
-import { SocialActivityItem } from "../../lib/profile-feed/types";
+import { MyMessageItem, SocialActivityItem } from "../../lib/profile-feed/types";
 import { formatAverageRating } from "../../lib/rating-format";
 
 function formatRelativeDate(iso: string): string {
@@ -73,8 +74,8 @@ function getActivityDetail(item: SocialActivityItem): string | null {
   return item.likedCommentSnippet || item.movieTitle;
 }
 
-function formatMetadata(item: SocialActivityItem): string {
-  const values = [item.movieType, item.movieGenre, item.movieYear ? String(item.movieYear) : null].filter(Boolean);
+function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: number | null): string {
+  const values = [movieType, movieGenre, movieYear ? String(movieYear) : null].filter(Boolean);
   return values.length > 0 ? values.join(" · ") : "Sin metadata";
 }
 
@@ -119,11 +120,71 @@ function ActivityRow({ item, isOwnProfile }: { item: SocialActivityItem; isOwnPr
             </Link>
           </p>
         ) : null}
-        <p className="mt-1 truncate text-[11px] text-zinc-500">{formatMetadata(item)}</p>
+        <p className="mt-1 truncate text-[11px] text-zinc-500">{formatMetadata(item.movieType, item.movieGenre, item.movieYear)}</p>
         {activityDetail ? (
           <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p>
         ) : null}
         <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p>
+      </div>
+    </article>
+  );
+}
+
+function MessageRow({ item }: { item: MyMessageItem }) {
+  const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
+  const senderInitials = item.sender.username.slice(0, 2).toUpperCase();
+
+  return (
+    <article className="border-b border-white/5 py-3 last:border-b-0">
+      <div className="mb-2 flex items-center gap-2.5">
+        {item.sender.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.sender.avatarUrl}
+            alt={`Avatar de ${item.sender.username}`}
+            className="h-7 w-7 rounded-full border border-white/20 object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-zinc-900 text-[10px] font-semibold text-zinc-200">
+            {senderInitials}
+          </div>
+        )}
+        <p className="text-xs text-zinc-300">
+          De <span className="font-semibold text-zinc-100">@{item.sender.username}</span>
+        </p>
+      </div>
+
+      <div className="grid grid-cols-[52px_minmax(0,1fr)] gap-3">
+        <Link href={movieHref} className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
+          {item.moviePosterUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.moviePosterUrl}
+              alt={`Poster de ${item.movieTitle}`}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-[0.18em] text-zinc-600">Poster</div>
+          )}
+        </Link>
+
+        <div className="min-w-0">
+          <Link
+            href={movieHref}
+            aria-label={`Ver detalle de ${item.movieTitle}`}
+            className="block truncate text-sm font-semibold text-zinc-100 transition hover:text-blue-100"
+          >
+            {item.movieTitle}
+          </Link>
+          {item.movieSecondaryTitle ? <p className="mt-0.5 truncate text-[11px] text-blue-200/75">{item.movieSecondaryTitle}</p> : null}
+          <p className="mt-1 truncate text-[11px] text-zinc-500">{formatMetadata(item.movieType, item.movieGenre)}</p>
+          <p className="mt-2 line-clamp-3 text-xs text-zinc-300/90">{item.text}</p>
+          <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p>
+        </div>
       </div>
     </article>
   );
@@ -165,56 +226,148 @@ export default function MyActivityColumn({
   emptyCopy = "Aún no tienes actividad registrada.",
   errorCopy = "No se pudo cargar la actividad.",
 }: MyActivityColumnProps = {}) {
+  const [activeTab, setActiveTab] = useState<"activity" | "messages">("activity");
+  const [senderQuery, setSenderQuery] = useState("");
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
-  const { items, loading, loadingMore, error, hasMore, loadMore, reload } = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown");
+
+  const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown");
+  const messages = useInfiniteMyMessages(isOwnProfile);
+
+  const filteredMessages = useMemo(() => {
+    const normalizedQuery = senderQuery.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return messages.items;
+
+    return messages.items.filter((message) => message.sender.username.toLocaleLowerCase().includes(normalizedQuery));
+  }, [messages.items, senderQuery]);
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
-      if (!hasMore || loading || loadingMore || error) return;
-
       const target = event.currentTarget;
       const remainingDistance = target.scrollHeight - target.scrollTop - target.clientHeight;
+      if (remainingDistance >= 160) return;
 
-      if (remainingDistance < 160) {
-        void loadMore();
+      if (activeTab === "activity") {
+        if (!activity.hasMore || activity.loading || activity.loadingMore || activity.error) return;
+        void activity.loadMore();
+        return;
       }
+
+      if (!messages.hasMore || messages.loading || messages.loadingMore || messages.error) return;
+      void messages.loadMore();
     },
-    [error, hasMore, loadMore, loading, loadingMore],
+    [activeTab, activity, messages],
   );
 
   return (
     <section className="w-full min-w-0 max-w-[360px] xl:max-w-[340px]">
-      <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
+      {isOwnProfile ? (
+        <header className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("activity")}
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+              activeTab === "activity"
+                ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+            }`}
+          >
+            Mi actividad
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("messages")}
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+              activeTab === "messages"
+                ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+            }`}
+          >
+            Mis mensajes
+          </button>
+        </header>
+      ) : (
+        <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
+      )}
+
+      {isOwnProfile && activeTab === "messages" ? (
+        <div className="mt-3 flex items-center justify-end">
+          <input
+            type="search"
+            value={senderQuery}
+            onChange={(event) => setSenderQuery(event.target.value)}
+            placeholder="Buscar usuario"
+            aria-label="Buscar mensajes por usuario remitente"
+            className="h-9 w-40 rounded-full border border-white/15 bg-zinc-900/75 px-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
+          />
+        </div>
+      ) : null}
 
       <div
         className="activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
         onScroll={handleScroll}
       >
-        {!isOwnProfile && !normalizedViewedUsername ? (
-          <p className="text-sm text-zinc-500">No se pudo resolver el usuario para cargar actividad.</p>
-        ) : null}
+        {activeTab === "activity" ? (
+          <>
+            {!isOwnProfile && !normalizedViewedUsername ? (
+              <p className="text-sm text-zinc-500">No se pudo resolver el usuario para cargar actividad.</p>
+            ) : null}
 
-        {loading ? <MyActivitySkeleton /> : null}
+            {activity.loading ? <MyActivitySkeleton /> : null}
 
-        {!loading && error ? (
-          <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
-            <p>{error || errorCopy}</p>
-            <button
-              type="button"
-              onClick={reload}
-              className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60"
-            >
-              Reintentar
-            </button>
-          </div>
-        ) : null}
+            {!activity.loading && activity.error ? (
+              <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
+                <p>{activity.error || errorCopy}</p>
+                <button
+                  type="button"
+                  onClick={activity.reload}
+                  className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : null}
 
-        {!loading && !error && items.length === 0 ? <p className="text-sm text-zinc-500">{emptyCopy}</p> : null}
+            {!activity.loading && !activity.error && activity.items.length === 0 ? <p className="text-sm text-zinc-500">{emptyCopy}</p> : null}
 
-        {!loading && !error ? items.map((item) => <ActivityRow key={item.id} item={item} isOwnProfile={isOwnProfile} />) : null}
+            {!activity.loading && !activity.error
+              ? activity.items.map((item) => <ActivityRow key={item.id} item={item} isOwnProfile={isOwnProfile} />)
+              : null}
 
-        {loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
+            {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
+          </>
+        ) : (
+          <>
+            {messages.loading ? <MyActivitySkeleton /> : null}
+
+            {!messages.loading && messages.error ? (
+              <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
+                <p>{messages.error}</p>
+                <button
+                  type="button"
+                  onClick={messages.reload}
+                  className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : null}
+
+            {!messages.loading && !messages.error && messages.items.length === 0 ? (
+              <p className="text-sm text-zinc-500">No tienes mensajes privados por ahora</p>
+            ) : null}
+
+            {!messages.loading && !messages.error && messages.items.length > 0 && filteredMessages.length === 0 ? (
+              <p className="text-sm text-zinc-500">No se encontraron mensajes para ese usuario</p>
+            ) : null}
+
+            {!messages.loading && !messages.error
+              ? filteredMessages.map((item) => <MessageRow key={item.id} item={item} />)
+              : null}
+
+            {messages.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más mensajes...</p> : null}
+          </>
+        )}
       </div>
     </section>
   );
