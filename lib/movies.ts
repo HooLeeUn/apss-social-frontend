@@ -10,6 +10,9 @@ export interface MovieTopUser {
 export interface Movie {
   id: number | string;
   title: string;
+  displayTitle: string;
+  titleEnglish: string | null;
+  titleSpanish: string | null;
   contentType: string;
   year: string;
   genres: string[];
@@ -154,6 +157,33 @@ function toStringOrNull(value: unknown): string | null {
   return normalized || null;
 }
 
+function pickFirstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const normalized = toStringOrNull(value);
+    if (normalized) return normalized;
+  }
+
+  return null;
+}
+
+export function resolveMovieDisplayTitle(
+  movie: Record<string, unknown>,
+  nestedMovie?: Record<string, unknown> | null,
+): string {
+  return (
+    pickFirstNonEmptyString(
+      movie.title_spanish,
+      nestedMovie?.title_spanish,
+      movie.title_english,
+      nestedMovie?.title_english,
+      movie.title,
+      nestedMovie?.title,
+      movie.name,
+      nestedMovie?.name,
+    ) || "Sin título"
+  );
+}
+
 function resolveBackendAssetUrl(value: unknown): string | null {
   const candidate = toStringOrNull(value);
   if (!candidate) return null;
@@ -254,20 +284,10 @@ function normalizeContentType(value: unknown): string {
 export function normalizeMovie(raw: Record<string, unknown>, index: number): Movie {
   const nestedMovie = toRecord(raw.movie);
   const genres = resolveGenres(raw, nestedMovie);
-
-  const title = String(
-    pickFirst(
-      raw.title_english,
-      raw.title_spanish,
-      raw.title,
-      nestedMovie?.title_english,
-      nestedMovie?.title_spanish,
-      nestedMovie?.title,
-      raw.name,
-      nestedMovie?.name,
-      "Sin título",
-    ),
-  );
+  const titleSpanish = pickFirstNonEmptyString(raw.title_spanish, nestedMovie?.title_spanish);
+  const titleEnglish = pickFirstNonEmptyString(raw.title_english, nestedMovie?.title_english);
+  const displayTitle = resolveMovieDisplayTitle(raw, nestedMovie);
+  const title = displayTitle;
   const id = pickFirst(raw.movie_id, nestedMovie?.id, raw.id, `${title}-${index + 1}`) as number | string;
 
   const yearValue = pickFirst(raw.release_year, raw.year, nestedMovie?.release_year, nestedMovie?.year, raw.release_date);
@@ -277,6 +297,9 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   return {
     id,
     title,
+    displayTitle,
+    titleEnglish,
+    titleSpanish,
     contentType: normalizeContentType(contentType),
     year,
     genres,

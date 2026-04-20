@@ -24,6 +24,7 @@ export interface FavoriteMovie {
 export interface FavoriteMovieSearchResult {
   id: string;
   title: string;
+  displayTitle: string;
   year: string;
   genre: string;
   type: string;

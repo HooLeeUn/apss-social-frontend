@@ -24,7 +24,7 @@ function getAvatarFallback(username?: string | null): string {
 }
 
 function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: WeeklyHeroCardProps) {
-  const title = movie?.title ?? fallbackLabel;
+  const title = movie?.displayTitle ?? movie?.title ?? fallbackLabel;
   const genre = movie?.genres?.[0] ?? "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
