@@ -12,8 +12,8 @@ interface WeeklyHeroCardProps {
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
-function getAvatarFallback(name?: string | null): string {
-  const trimmed = name?.trim();
+function getAvatarFallback(username?: string | null): string {
+  const trimmed = username?.trim();
   if (!trimmed) return "★";
 
   const [first, second] = trimmed.split(/\s+/);
@@ -27,7 +27,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
-  const topUserName = movie?.topUser?.name?.trim() || "Top user";
+  const topUsername = movie?.topUser?.username?.trim() || "Top user";
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
 
   return (
@@ -55,21 +55,21 @@ function WeeklyHeroCard({ movie, fallbackLabel, onRated }: WeeklyHeroCardProps) 
             <div className="flex items-center justify-between gap-4">
               <div className="flex flex-col items-center gap-1">
                 <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/25 bg-zinc-800 text-xs font-semibold text-zinc-100">
-                  {movie?.topUser?.avatarUrl ? (
+                  {movie?.topUser?.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={movie.topUser.avatarUrl}
-                      alt={`Top user: ${topUserName}`}
+                      src={movie.topUser.avatar}
+                      alt={`Top user: ${topUsername}`}
                       className="h-full w-full object-cover"
                       loading="lazy"
                       decoding="async"
                     />
                   ) : (
-                    <span>{getAvatarFallback(movie?.topUser?.name)}</span>
+                    <span>{getAvatarFallback(movie?.topUser?.username)}</span>
                   )}
                 </div>
                 <p className="max-w-[160px] truncate text-center text-[11px] uppercase tracking-[0.15em] text-zinc-400">
-                  {topUserName}
+                  {topUsername}
                 </p>
               </div>
               <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0" />

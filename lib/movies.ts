@@ -1,6 +1,8 @@
 export interface MovieTopUser {
-  name: string | null;
-  avatarUrl: string | null;
+  id: number | null;
+  username: string | null;
+  avatar: string | null;
+  followersCount: number;
 }
 
 export interface Movie {
@@ -153,30 +155,52 @@ function toStringOrNull(value: unknown): string | null {
 function parseTopUser(raw: Record<string, unknown>): MovieTopUser | null {
   const nestedTopUser = toRecord(pickFirst(raw.top_user, raw.topUser, raw.recommended_by));
 
-  const name = toStringOrNull(
+  const id = toNumber(
     pickFirst(
-      nestedTopUser?.name,
+      nestedTopUser?.id,
+      nestedTopUser?.user_id,
+      raw.top_user_id,
+      raw.topUserId,
+      raw.recommended_by_id,
+    ),
+  );
+
+  const username = toStringOrNull(
+    pickFirst(
       nestedTopUser?.username,
+      nestedTopUser?.name,
+      raw.top_user_username,
+      raw.topUserUsername,
       raw.top_user_name,
       raw.topUserName,
       raw.recommended_by_name,
     ),
   );
 
-  const avatarUrl = toStringOrNull(
+  const avatar = toStringOrNull(
     pickFirst(
       nestedTopUser?.avatar,
       nestedTopUser?.avatar_url,
       nestedTopUser?.profile_image,
+      raw.top_user_avatar_url,
       raw.top_user_avatar,
       raw.topUserAvatar,
       raw.recommended_by_avatar,
     ),
   );
 
-  if (!name && !avatarUrl) return null;
+  const followersCount = toNonNegativeInteger(
+    pickFirst(
+      nestedTopUser?.followers_count,
+      nestedTopUser?.followersCount,
+      raw.top_user_followers_count,
+      raw.topUserFollowersCount,
+    ),
+  );
 
-  return { name, avatarUrl };
+  if (id === null && !username && !avatar && followersCount === 0) return null;
+
+  return { id, username, avatar, followersCount };
 }
 
 function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
