@@ -36,8 +36,8 @@ interface FavoriteMoviesBlockProps {
 }
 
 function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
-  const firstLetter = (movie?.titleSpanish || movie?.titleEnglish || movie?.title)?.charAt(0)?.toUpperCase() ?? "—";
-  const displayTitle = movie?.titleSpanish || movie?.titleEnglish || movie?.title || "";
+  const displayTitle = movie?.title || "";
+  const firstLetter = displayTitle.charAt(0)?.toUpperCase() ?? "—";
   const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
 
   const handleOptimisticRate = (score: number) => {
@@ -259,7 +259,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
                         : "border-white/10 bg-zinc-900 text-zinc-300 hover:border-white/30"
                     }`}
                   >
-                    <p className="truncate text-sm font-medium">{movie.title}</p>
+                    <p className="truncate text-sm font-medium">{movie.displayTitle || movie.title}</p>
                     <p className="text-xs text-zinc-500">
                       {movie.year} · {movie.genre} · {movie.type}
                     </p>

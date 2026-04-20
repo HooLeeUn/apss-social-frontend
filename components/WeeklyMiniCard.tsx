@@ -24,7 +24,7 @@ function getAvatarFallback(username?: string | null): string {
 }
 
 function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: WeeklyMiniCardProps) {
-  const title = movie?.title ?? fallbackLabel;
+  const title = movie?.displayTitle ?? movie?.title ?? fallbackLabel;
   const genres = movie?.genres?.filter(Boolean) ?? [];
   const genre = genres.length ? genres.slice(0, 3).join(" • ") : "Sin género";
   const type = movie?.contentType ?? "Movie / Series";

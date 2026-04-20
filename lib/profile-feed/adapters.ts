@@ -1,5 +1,5 @@
 import { ApiError, apiFetch } from "../api";
-import { normalizeMovie, parseMovieList } from "../movies";
+import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle } from "../movies";
 import { favoriteMoviesMock } from "./mocks";
 import {
   FavoriteMovie,
@@ -98,8 +98,7 @@ function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
 
   const titleSpanish = typeof nestedMovie.title_spanish === "string" ? nestedMovie.title_spanish : null;
   const titleEnglish = typeof nestedMovie.title_english === "string" ? nestedMovie.title_english : null;
-  const fallbackTitle = typeof nestedMovie.title === "string" ? nestedMovie.title : null;
-  const title = titleSpanish || titleEnglish || fallbackTitle || "Sin título";
+  const title = resolveMovieDisplayTitle(rawFavorite, nestedMovie);
 
   const yearCandidate = pickFirst(nestedMovie.release_year, nestedMovie.year, nestedMovie.release_date);
   const year = typeof yearCandidate === "string" ? yearCandidate.slice(0, 4) : toNumberOrNull(yearCandidate)?.toString() || "-";
@@ -256,13 +255,8 @@ function resolveFollowersCount(candidate: Record<string, unknown>): number | nul
   return value === null ? null : toNonNegativeInteger(value);
 }
 
-function getMovieFallbackTitle(movie: ProfileFeedActivityResponseItem["movie"]): string | null {
-  if (!("title" in movie)) return null;
-  return toStringOrNull(movie.title);
-}
-
 function getDisplayMovieTitle(movie: ProfileFeedActivityResponseItem["movie"]): string {
-  return toStringOrNull(movie.title_spanish) || toStringOrNull(movie.title_english) || getMovieFallbackTitle(movie) || "Título";
+  return resolveMovieDisplayTitle(movie);
 }
 
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
@@ -584,7 +578,8 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
 
     return {
       id: String(normalized.id),
-      title: normalized.title,
+      title: normalized.displayTitle,
+      displayTitle: normalized.displayTitle,
       year: normalized.year,
       genre: normalized.genres[0] || "-",
       type: normalized.contentType,

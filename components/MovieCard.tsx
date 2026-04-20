@@ -30,6 +30,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
     .filter(Boolean)
     .join(" · ");
   const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : "Sin género";
+  const displayTitle = movie.displayTitle || movie.title;
 
   const cardContent = (
     <article
@@ -46,7 +47,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={movie.posterUrl}
-            alt={`Poster de ${movie.title}`}
+            alt={`Poster de ${displayTitle}`}
             className="h-full w-full object-cover"
             loading={isFeed ? "lazy" : "eager"}
             decoding="async"
@@ -65,7 +66,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
         <div className={isFeed ? "min-w-0 space-y-1.5" : "space-y-2"}>
-          <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>{movie.title}</h3>
+          <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>{displayTitle}</h3>
           <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || "Desconocido"}</p>
           <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
         </div>
@@ -130,7 +131,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
               </>
             )}
           </div>
-          {isFeed ? <CommentDetailButton href={detailHref} title={movie.title} className="ml-auto h-8 w-8 shrink-0" /> : null}
+          {isFeed ? <CommentDetailButton href={detailHref} title={displayTitle} className="ml-auto h-8 w-8 shrink-0" /> : null}
         </div>
       </div>
     </article>
