@@ -367,117 +367,108 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
   };
 }
 
-function resolveMessageSender(payload: Record<string, unknown>, fallbackId: string): SocialUser {
-  const rawSender = toRecord(payload.sender);
-  const senderRecord =
-    rawSender ||
-    toRecord(rawSender?.user) ||
-    toRecord(rawSender?.profile) ||
-    toRecord(payload.sender_user) ||
-    toRecord(payload.actor) ||
-    toRecord(payload.from) ||
-    toRecord(payload.from_user) ||
-    toRecord(payload.sender_profile) ||
-    toRecord(payload.user) ||
-    payload;
+interface MyMessagesApiSender {
+  id?: number | string;
+  username?: string | null;
+  avatar?: string | null;
+  avatar_url?: string | null;
+}
 
-  const sender = toSocialUser(senderRecord, fallbackId);
-  if (sender) return sender;
+interface MyMessagesApiMovie {
+  id?: number | string;
+  movie_id?: number | string;
+  title_spanish?: string | null;
+  title_english?: string | null;
+  image?: string | null;
+  poster?: string | null;
+  poster_url?: string | null;
+  image_url?: string | null;
+  type?: string | null;
+  genre?: string | null | string[];
+}
 
-  const directUsername = safeTrim(
-    pickFirst(
-      rawSender?.username,
-      toRecord(rawSender?.user)?.username,
-      payload.sender_username,
-      payload.from_username,
-      payload.username,
-      payload.sender_name,
-      payload.from_name,
-    ),
-  );
-  if (directUsername) {
-    return {
-      id: String(pickFirst(rawSender?.id, payload.sender_id, payload.from_user_id, fallbackId)),
-      username: directUsername,
-      displayName: null,
-      avatarUrl: safeTrim(
-        pickFirst(
-          rawSender?.avatar,
-          rawSender?.avatar_url,
-          toRecord(rawSender?.user)?.avatar,
-          toRecord(rawSender?.user)?.avatar_url,
-          payload.sender_avatar,
-          payload.from_user_avatar,
-          payload.avatar_url,
-        ),
-      ),
-      followersCount: null,
-    };
-  }
+interface MyMessagesApiItem {
+  id?: number | string;
+  message_id?: number | string;
+  sender?: MyMessagesApiSender | null;
+  movie?: MyMessagesApiMovie | null;
+  content?: string | null;
+  created_at?: string | null;
+}
+
+function toStringOrNumberOrUndefined(value: unknown): string | number | undefined {
+  if (typeof value === "string" && value.trim() !== "") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return undefined;
+}
+
+function parseMyMessagesApiItem(raw: Record<string, unknown>): MyMessagesApiItem {
+  const senderRaw = toRecord(raw.sender);
+  const movieRaw = toRecord(raw.movie);
 
   return {
-    id: fallbackId,
-    username: "usuario",
-    displayName: null,
-    avatarUrl: null,
-    followersCount: null,
+    id: toStringOrNumberOrUndefined(pickFirst(raw.id, raw.message_id)),
+    message_id: toStringOrNumberOrUndefined(raw.message_id),
+    sender: senderRaw
+      ? {
+          id: toStringOrNumberOrUndefined(senderRaw.id),
+          username: toStringOrNull(senderRaw.username),
+          avatar: toStringOrNull(senderRaw.avatar),
+          avatar_url: toStringOrNull(senderRaw.avatar_url),
+        }
+      : null,
+    movie: movieRaw
+      ? {
+          id: toStringOrNumberOrUndefined(movieRaw.id),
+          movie_id: toStringOrNumberOrUndefined(movieRaw.movie_id),
+          title_spanish: toStringOrNull(movieRaw.title_spanish),
+          title_english: toStringOrNull(movieRaw.title_english),
+          image: toStringOrNull(movieRaw.image),
+          poster: toStringOrNull(movieRaw.poster),
+          poster_url: toStringOrNull(movieRaw.poster_url),
+          image_url: toStringOrNull(movieRaw.image_url),
+          type: toStringOrNull(movieRaw.type),
+          genre: Array.isArray(movieRaw.genre) ? movieRaw.genre.filter((entry): entry is string => typeof entry === "string") : toStringOrNull(movieRaw.genre),
+        }
+      : null,
+    content: toStringOrNull(raw.content),
+    created_at: toStringOrNull(raw.created_at),
   };
 }
 
-function resolveMessageMovieRecord(item: Record<string, unknown>): Record<string, unknown> {
-  const movieRecord = toRecord(item.movie);
-  const metadataRecord = toRecord(item.metadata);
-
-  return (
-    movieRecord ||
-    toRecord(item.movie_data) ||
-    toRecord(item.movie_metadata) ||
-    (metadataRecord && (metadataRecord.title_spanish || metadataRecord.title_english || metadataRecord.type || metadataRecord.genre)
-      ? metadataRecord
-      : null) ||
-    item
-  );
+function resolveMessageEntityId(value: unknown, fallback: string): string | number {
+  if (typeof value === "string" && value.trim() !== "") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return fallback;
 }
 
-function resolveMessageGenre(movieRecord: Record<string, unknown>, item: Record<string, unknown>): string | undefined {
-  const genreCandidate = pickFirst(movieRecord.genre, item.movie_genre, item.genre, movieRecord.genres);
-  if (Array.isArray(genreCandidate)) {
-    const firstGenre = genreCandidate.find((entry) => typeof entry === "string" && entry.trim() !== "");
-    return typeof firstGenre === "string" ? firstGenre.trim() : undefined;
-  }
-
-  return toStringOrNull(genreCandidate) || undefined;
-}
-
-function resolveMessageType(movieRecord: Record<string, unknown>, item: Record<string, unknown>): string | undefined {
-  const typeCandidate = pickFirst(movieRecord.type, movieRecord.content_type, item.movie_type, item.type);
-  return toStringOrNull(typeCandidate) || undefined;
-}
-
-function toMessageItem(item: Record<string, unknown>, index: number): MyMessageItem {
-  const movieRecord = resolveMessageMovieRecord(item);
-  const displayTitle = resolveMovieDisplayTitle(movieRecord, item);
-  const secondaryTitle = resolveMovieSecondaryTitle(displayTitle, movieRecord, item);
+function toMessageItem(item: MyMessagesApiItem, index: number): MyMessageItem {
+  const sender = item.sender;
+  const movie = item.movie;
+  const titleSpanish = safeTrim(movie?.title_spanish);
+  const titleEnglish = safeTrim(movie?.title_english);
+  const movieTitle = titleSpanish || titleEnglish || "Título desconocido";
+  const movieSecondaryTitle = titleSpanish && titleEnglish && titleSpanish !== titleEnglish ? titleEnglish : null;
+  const genre = movie?.genre;
 
   return {
-    id: String(pickFirst(item.id, item.message_id, item.uuid, `message-${index}`)),
-    sender: resolveMessageSender(item, `sender-${index}`),
-    movieId: pickFirst(movieRecord.id, movieRecord.movie_id, item.movie_id, `movie-${index}`) as string | number,
-    movieTitle: displayTitle,
-    movieSecondaryTitle: secondaryTitle,
-    moviePosterUrl: (pickFirst(
-      movieRecord.image,
-      movieRecord.poster,
-      movieRecord.poster_url,
-      movieRecord.image_url,
-      item.movie_image,
-      item.movie_poster,
-      item.movie_poster_url,
-    ) as string | null) ?? null,
-    movieType: resolveMessageType(movieRecord, item),
-    movieGenre: resolveMessageGenre(movieRecord, item),
-    text: toStringOrNull(pickFirst(item.text, item.content, item.message, item.body)) || "Sin contenido",
-    createdAt: toStringOrNull(pickFirst(item.created_at, item.createdAt, item.timestamp, item.date)) || new Date().toISOString(),
+    id: String(pickFirst(item.id, item.message_id, `message-${index}`)),
+    sender: {
+      id: String(pickFirst(sender?.id, `sender-${index}`)),
+      username: safeTrim(sender?.username) || "usuario",
+      displayName: null,
+      avatarUrl: safeTrim(pickFirst(sender?.avatar, sender?.avatar_url)),
+      followersCount: null,
+    },
+    movieId: resolveMessageEntityId(pickFirst(movie?.id, movie?.movie_id), `movie-${index}`),
+    movieTitle,
+    movieSecondaryTitle,
+    moviePosterUrl: safeTrim(pickFirst(movie?.image, movie?.poster, movie?.poster_url, movie?.image_url)),
+    movieType: safeTrim(movie?.type) || undefined,
+    movieGenre:
+      Array.isArray(genre) ? safeTrim(genre.find((entry) => typeof entry === "string")) || undefined : safeTrim(genre) || undefined,
+    text: safeTrim(item.content) || "Sin contenido",
+    createdAt: safeTrim(item.created_at) || new Date().toISOString(),
   };
 }
 
@@ -503,6 +494,7 @@ function parseMyMessages(payload: unknown): PaginatedMyMessages {
   const items = results
     .map((entry) => toRecord(entry))
     .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    .map((entry) => parseMyMessagesApiItem(entry))
     .map((entry, index) => toMessageItem(entry, index))
     .sort((left, right) => {
       const leftTs = new Date(left.createdAt).getTime();
