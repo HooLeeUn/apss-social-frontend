@@ -59,6 +59,11 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
     onUpdateMovieRating(movie.id, score);
   };
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
+  const readOnlyFollowingRating = readOnly ? (movie?.visitedFollowingAvgRating ?? movie?.followingRating ?? null) : movie?.followingRating ?? null;
+  const readOnlyFollowingRatingsCount = readOnly
+    ? (movie?.visitedFollowingRatingsCount ?? movie?.followingRatingsCount ?? 0)
+    : movie?.followingRatingsCount ?? 0;
+  const readOnlyOwnerRating = readOnly ? (movie?.visitedOwnerRating ?? movie?.myRating ?? null) : movie?.myRating ?? null;
 
   return (
     <div className="group relative isolate h-[180px] overflow-visible">
@@ -114,9 +119,9 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                   </div>
                   <div className="inline-flex h-10 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1" aria-label="Seguidos">
                     <div className="flex flex-col justify-center leading-tight text-zinc-200">
-                      <span className="whitespace-nowrap text-sm font-semibold">👥 {formatFollowingRating(movie.followingRating)}</span>
-                      {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
-                        <span className="text-[9px] font-normal text-zinc-500/90">{formatFollowingRatingsCount(movie.followingRatingsCount)}</span>
+                      <span className="whitespace-nowrap text-sm font-semibold">👥 {formatFollowingRating(readOnlyFollowingRating)}</span>
+                      {formatFollowingRatingsCount(readOnlyFollowingRatingsCount) ? (
+                        <span className="text-[9px] font-normal text-zinc-500/90">{formatFollowingRatingsCount(readOnlyFollowingRatingsCount)}</span>
                       ) : null}
                     </div>
                   </div>
@@ -127,7 +132,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                         aria-label={viewedUsername ? `Calificación visible de ${viewedUsername}` : "Calificación visible"}
                       >
                         <span aria-hidden="true">🧑</span>
-                        <span>{movie.myRating === null ? "—" : formatAverageRating(movie.myRating)}</span>
+                        <span>{readOnlyOwnerRating === null ? "—" : formatAverageRating(readOnlyOwnerRating)}</span>
                       </div>
                     ) : (
                       <RatingPopover

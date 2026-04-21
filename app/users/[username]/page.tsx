@@ -8,6 +8,7 @@ import MyActivityColumn from "../../../components/profile-feed/MyActivityColumn"
 import ProfileIdentityCard from "../../../components/profile-feed/ProfileIdentityCard";
 import TopUsersSection from "../../../components/profile-feed/TopUsersSection";
 import {
+  getMyProfile,
   getTopFollowingByUsername,
   getTopFriendsByUsername,
   getUserProfileByUsername,
@@ -35,6 +36,14 @@ export default function UserProfileFeedPage() {
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [followingError, setFollowingError] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
+  const [authenticatedUsername, setAuthenticatedUsername] = useState<string>("");
+
+  const normalizedProfileAccess = profileUser?.profileAccess?.trim().toLocaleLowerCase();
+  const hasLimitedAccess =
+    profileUser?.canViewFullProfile === false ||
+    normalizedProfileAccess === "restricted" ||
+    normalizedProfileAccess === "limited" ||
+    normalizedProfileAccess === "private";
 
   const loadFollowing = useCallback(async () => {
     if (!routeUsername) {
@@ -79,9 +88,19 @@ export default function UserProfileFeedPage() {
   }, [routeUsername]);
 
   useEffect(() => {
+    if (hasLimitedAccess) {
+      setFollowing([]);
+      setFriends([]);
+      setLoadingFollowing(false);
+      setLoadingFriends(false);
+      setFollowingError(null);
+      setFriendsError(null);
+      return;
+    }
+
     void loadFollowing();
     void loadFriends();
-  }, [loadFollowing, loadFriends]);
+  }, [hasLimitedAccess, loadFollowing, loadFriends]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -100,6 +119,19 @@ export default function UserProfileFeedPage() {
 
     void loadProfile();
   }, [routeUsername]);
+
+  useEffect(() => {
+    const loadAuthenticated = async () => {
+      try {
+        const me = await getMyProfile();
+        setAuthenticatedUsername(me?.username ?? "");
+      } catch {
+        setAuthenticatedUsername("");
+      }
+    };
+
+    void loadAuthenticated();
+  }, []);
 
   const profileTitleName = profileUser?.displayName || profileUser?.username || routeUsername || "Usuario";
   const profileHandle = profileUser?.username || routeUsername || "usuario";
@@ -130,33 +162,37 @@ export default function UserProfileFeedPage() {
             />
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
-              <FavoriteMoviesBlock title={`Favoritas de ${profileTitleName}`} readOnly viewedUsername={routeUsername} />
+              {!hasLimitedAccess ? <FavoriteMoviesBlock title={`Favoritas de ${profileTitleName}`} readOnly viewedUsername={routeUsername} /> : null}
             </div>
           </div>
         </section>
 
-        <section className="w-full">
-          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(280px,340px)_minmax(80px,1fr)]">
-            <TopUsersSection
-              friends={friends}
-              following={following}
-              loadingFriends={loadingFriends}
-              loadingFollowing={loadingFollowing}
-              friendsError={friendsError}
-              followingError={followingError}
-              onRetryFriends={() => void loadFriends()}
-              onRetryFollowing={() => void loadFollowing()}
-            />
-            <MyActivityColumn
-              isOwnProfile={false}
-              viewedUsername={routeUsername}
-              title={`Actividad de ${profileTitleName}`}
-              emptyCopy="Este usuario no tiene actividad social visible aún."
-              errorCopy="No se pudo cargar la actividad de este usuario."
-            />
-            <div className="hidden xl:block" aria-hidden="true" />
-          </div>
-        </section>
+        {!hasLimitedAccess ? (
+          <section className="w-full">
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(280px,340px)_minmax(80px,1fr)]">
+              <TopUsersSection
+                friends={friends}
+                following={following}
+                loadingFriends={loadingFriends}
+                loadingFollowing={loadingFollowing}
+                friendsError={friendsError}
+                followingError={followingError}
+                onRetryFriends={() => void loadFriends()}
+                onRetryFollowing={() => void loadFollowing()}
+                authenticatedUsername={authenticatedUsername}
+                redirectOwnClicksToProfileFeed
+              />
+              <MyActivityColumn
+                isOwnProfile={false}
+                viewedUsername={routeUsername}
+                title={`Actividad de ${profileTitleName}`}
+                emptyCopy="Este usuario no tiene actividad social visible aún."
+                errorCopy="No se pudo cargar la actividad de este usuario."
+              />
+              <div className="hidden xl:block" aria-hidden="true" />
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );

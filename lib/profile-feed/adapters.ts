@@ -98,7 +98,7 @@ function safeTrim(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
+function extractMovieInfo(rawFavorite: Record<string, unknown>, options?: { forVisitedProfile?: boolean }): FavoriteMovie {
   const nestedMovie = toRecord(rawFavorite.movie) ?? rawFavorite;
   const slot = toNumberOrNull(pickFirst(rawFavorite.slot, rawFavorite.position, rawFavorite.index, nestedMovie.slot)) ?? 1;
   const id = pickFirst(nestedMovie.id, nestedMovie.movie_id, rawFavorite.movie_id, `slot-${slot}`);
@@ -122,6 +122,45 @@ function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
   const typeValue = pickFirst(nestedMovie.type, nestedMovie.content_type, rawFavorite.type);
   const type = typeof typeValue === "string" && typeValue.trim() !== "" ? typeValue : "-";
 
+  const visitedOwnerRating = toNumberOrNull(
+    pickFirst(
+      nestedMovie.visited_owner_rating,
+      nestedMovie.profile_owner_rating,
+      nestedMovie.owner_rating,
+      rawFavorite.visited_owner_rating,
+      rawFavorite.profile_owner_rating,
+      rawFavorite.owner_rating,
+    ),
+  );
+  const visitedFollowingAvgRating = toNumberOrNull(
+    pickFirst(
+      nestedMovie.visited_following_avg_rating,
+      nestedMovie.profile_following_avg_rating,
+      nestedMovie.owner_following_avg_rating,
+      rawFavorite.visited_following_avg_rating,
+      rawFavorite.profile_following_avg_rating,
+      rawFavorite.owner_following_avg_rating,
+    ),
+  );
+  const visitedFollowingRatingsCount = toNonNegativeInteger(
+    pickFirst(
+      nestedMovie.visited_following_ratings_count,
+      nestedMovie.profile_following_ratings_count,
+      nestedMovie.owner_following_ratings_count,
+      rawFavorite.visited_following_ratings_count,
+      rawFavorite.profile_following_ratings_count,
+      rawFavorite.owner_following_ratings_count,
+    ),
+  );
+  const followingRatingDefault = toNumberOrNull(
+    pickFirst(nestedMovie.following_avg_rating, nestedMovie.following_rating, rawFavorite.following_rating),
+  );
+  const followingRatingsCountDefault = toNonNegativeInteger(
+    pickFirst(nestedMovie.following_ratings_count, nestedMovie.following_rating_count, rawFavorite.following_ratings_count),
+  );
+  const myRatingDefault = toNumberOrNull(pickFirst(nestedMovie.my_rating, rawFavorite.my_rating));
+  const useVisitedPerspective = Boolean(options?.forVisitedProfile);
+
   return {
     id: String(id),
     slot,
@@ -141,17 +180,18 @@ function extractMovieInfo(rawFavorite: Record<string, unknown>): FavoriteMovie {
         rawFavorite.poster_url,
       ) as string | null) || null,
     generalRating: toNumberOrNull(pickFirst(nestedMovie.display_rating, nestedMovie.general_rating, rawFavorite.general_rating)),
-    followingRating: toNumberOrNull(
-      pickFirst(nestedMovie.following_avg_rating, nestedMovie.following_rating, rawFavorite.following_rating),
-    ),
-    followingRatingsCount: toNonNegativeInteger(
-      pickFirst(nestedMovie.following_ratings_count, nestedMovie.following_rating_count, rawFavorite.following_ratings_count),
-    ),
-    myRating: toNumberOrNull(pickFirst(nestedMovie.my_rating, rawFavorite.my_rating)),
+    followingRating: useVisitedPerspective ? (visitedFollowingAvgRating ?? followingRatingDefault) : followingRatingDefault,
+    followingRatingsCount: useVisitedPerspective
+      ? (visitedFollowingRatingsCount || followingRatingsCountDefault)
+      : followingRatingsCountDefault,
+    myRating: useVisitedPerspective ? (visitedOwnerRating ?? myRatingDefault) : myRatingDefault,
+    visitedOwnerRating,
+    visitedFollowingAvgRating,
+    visitedFollowingRatingsCount,
   };
 }
 
-function parseFavorites(payload: unknown): FavoriteMovie[] {
+function parseFavorites(payload: unknown, options?: { forVisitedProfile?: boolean }): FavoriteMovie[] {
   const asRecord = toRecord(payload);
   const dataRecord = toRecord(asRecord?.data);
   const unwrapCollection = (value: unknown): unknown[] => {
@@ -199,7 +239,7 @@ function parseFavorites(payload: unknown): FavoriteMovie[] {
   return source
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
-    .map((item) => extractMovieInfo(item));
+    .map((item) => extractMovieInfo(item, options));
 }
 
 function toStringOrNull(value: unknown): string | null {
@@ -564,6 +604,8 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
         personalData?.gender_identity_visible,
       ),
     ),
+    canViewFullProfile: toBooleanOrNull(pickFirst(user.can_view_full_profile, user.canViewFullProfile, profile?.can_view_full_profile)),
+    profileAccess: safeTrim(pickFirst(user.profile_access, user.profileAccess, profile?.profile_access)),
   };
 }
 
@@ -613,6 +655,8 @@ export async function getUserProfileByUsername(username: string): Promise<Social
         ageVisible: normalized.ageVisible ?? mergedProfile.ageVisible ?? null,
         genderIdentity: normalized.genderIdentity ?? mergedProfile.genderIdentity ?? null,
         genderIdentityVisible: normalized.genderIdentityVisible ?? mergedProfile.genderIdentityVisible ?? null,
+        canViewFullProfile: normalized.canViewFullProfile ?? mergedProfile.canViewFullProfile ?? null,
+        profileAccess: normalized.profileAccess ?? mergedProfile.profileAccess ?? null,
       };
     } catch (error) {
       if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
@@ -631,7 +675,7 @@ export async function getFavoriteMoviesByUsername(username: string): Promise<Fav
   for (const endpoint of attempts) {
     try {
       const payload = await apiFetch(endpoint);
-      return parseFavorites(payload);
+      return parseFavorites(payload, { forVisitedProfile: true });
     } catch (error) {
       if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
         continue;
