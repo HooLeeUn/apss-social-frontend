@@ -154,7 +154,7 @@ export default function TopUsersSection({
   const filteredFriends = useMemo(() => filterUsers(friends, friendsQuery), [friends, friendsQuery]);
 
   return (
-    <section className="grid w-full max-w-[640px] gap-3 sm:grid-cols-2 lg:max-w-[680px]">
+    <section className="grid w-full max-w-full gap-3 sm:grid-cols-2">
       <Block
         title="Seguidos"
         users={filteredFollowing}
