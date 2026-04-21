@@ -167,10 +167,14 @@ function pickFirstNonEmptyString(...values: unknown[]): string | null {
   return null;
 }
 
-export function resolveMovieDisplayTitle(
-  movie: Record<string, unknown>,
-  nestedMovie?: Record<string, unknown> | null,
-): string {
+export interface MovieTitleSource {
+  title_spanish?: unknown;
+  title_english?: unknown;
+  title?: unknown;
+  name?: unknown;
+}
+
+export function resolveMovieDisplayTitle(movie: MovieTitleSource, nestedMovie?: MovieTitleSource | null): string {
   return (
     pickFirstNonEmptyString(
       movie.title_spanish,
@@ -187,8 +191,8 @@ export function resolveMovieDisplayTitle(
 
 export function resolveMovieSecondaryTitle(
   displayTitle: string,
-  movie: Record<string, unknown>,
-  nestedMovie?: Record<string, unknown> | null,
+  movie: MovieTitleSource,
+  nestedMovie?: MovieTitleSource | null,
 ): string | null {
   const titleEnglish = pickFirstNonEmptyString(movie.title_english, nestedMovie?.title_english);
   if (!titleEnglish) return null;
