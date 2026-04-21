@@ -20,6 +20,9 @@ export interface FavoriteMovie {
   followingRating: number | null;
   followingRatingsCount: number;
   myRating: number | null;
+  visitedOwnerRating?: number | null;
+  visitedFollowingAvgRating?: number | null;
+  visitedFollowingRatingsCount?: number;
 }
 
 export interface FavoriteMovieSearchResult {
@@ -48,6 +51,8 @@ export interface SocialUser {
   ageVisible?: boolean | null;
   genderIdentity?: string | null;
   genderIdentityVisible?: boolean | null;
+  canViewFullProfile?: boolean | null;
+  profileAccess?: string | null;
 }
 
 export interface SocialActivityItem {

@@ -1,5 +1,6 @@
 import { SocialUser } from "../../lib/profile-feed/types";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 interface TopUsersSectionProps {
@@ -11,9 +12,17 @@ interface TopUsersSectionProps {
   followingError: string | null;
   onRetryFriends: () => void;
   onRetryFollowing: () => void;
+  authenticatedUsername?: string;
+  redirectOwnClicksToProfileFeed?: boolean;
 }
 
-function UserRow({ user }: { user: SocialUser }) {
+function UserRow({
+  user,
+  onNavigateUser,
+}: {
+  user: SocialUser;
+  onNavigateUser?: (clickedUser: SocialUser) => void;
+}) {
   const initials = user.username.slice(0, 2).toUpperCase();
   const title = user.displayName || user.username;
   const followersCopy =
@@ -22,6 +31,8 @@ function UserRow({ user }: { user: SocialUser }) {
         ? "Lo sigue 1 usuario"
         : `Lo siguen ${user.followersCount} usuarios`
       : null;
+
+  const href = `/users/${encodeURIComponent(user.username)}`;
 
   return (
     <article className="flex items-center gap-3 border-b border-white/5 py-2.5 last:border-b-0 last:pb-0 first:pt-0">
@@ -34,12 +45,19 @@ function UserRow({ user }: { user: SocialUser }) {
         </div>
       )}
       <div className="min-w-0">
-        <Link
-          href={`/users/${encodeURIComponent(user.username)}`}
-          className="truncate text-sm font-medium text-zinc-100 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
-        >
-          {title}
-        </Link>
+        {onNavigateUser ? (
+          <button
+            type="button"
+            onClick={() => onNavigateUser(user)}
+            className="truncate text-left text-sm font-medium text-zinc-100 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
+          >
+            {title}
+          </button>
+        ) : (
+          <Link href={href} className="truncate text-sm font-medium text-zinc-100 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none">
+            {title}
+          </Link>
+        )}
         {followersCopy ? <p className="text-xs text-zinc-400">{followersCopy}</p> : null}
       </div>
     </article>
@@ -55,6 +73,7 @@ function Block({
   emptyCopy,
   error,
   onRetry,
+  onNavigateUser,
 }: {
   title: string;
   users: SocialUser[];
@@ -64,6 +83,7 @@ function Block({
   emptyCopy: string;
   error: string | null;
   onRetry: () => void;
+  onNavigateUser?: (clickedUser: SocialUser) => void;
 }) {
   return (
     <section className="flex h-[30rem] flex-col rounded-3xl border border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
@@ -114,7 +134,7 @@ function Block({
           ? (
               <div className="activity-scrollbar h-full overflow-y-auto pr-1">
                 {users.map((user) => (
-                  <UserRow key={`${title}-${user.id}`} user={user} />
+                  <UserRow key={`${title}-${user.id}`} user={user} onNavigateUser={onNavigateUser} />
                 ))}
               </div>
             )
@@ -133,7 +153,10 @@ export default function TopUsersSection({
   followingError,
   onRetryFriends,
   onRetryFollowing,
+  authenticatedUsername,
+  redirectOwnClicksToProfileFeed = false,
 }: TopUsersSectionProps) {
+  const router = useRouter();
   const [followingQuery, setFollowingQuery] = useState("");
   const [friendsQuery, setFriendsQuery] = useState("");
 
@@ -152,6 +175,20 @@ export default function TopUsersSection({
 
   const filteredFollowing = useMemo(() => filterUsers(following, followingQuery), [following, followingQuery]);
   const filteredFriends = useMemo(() => filterUsers(friends, friendsQuery), [friends, friendsQuery]);
+  const normalizedAuthenticatedUsername = authenticatedUsername?.trim().toLocaleLowerCase() ?? "";
+
+  const handleNavigateUser = (clickedUser: SocialUser) => {
+    if (
+      redirectOwnClicksToProfileFeed &&
+      normalizedAuthenticatedUsername &&
+      clickedUser.username.toLocaleLowerCase() === normalizedAuthenticatedUsername
+    ) {
+      router.push("/profile-feed");
+      return;
+    }
+
+    router.push(`/users/${encodeURIComponent(clickedUser.username)}`);
+  };
 
   return (
     <section className="grid w-full max-w-[640px] gap-3 sm:grid-cols-2 lg:max-w-[680px]">
@@ -164,6 +201,7 @@ export default function TopUsersSection({
         emptyCopy={followingQuery.trim() ? "Sin coincidencias en seguidos" : "Aún no sigues a ningún usuario"}
         error={followingError}
         onRetry={onRetryFollowing}
+        onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
       />
       <Block
         title="Amigos"
@@ -174,6 +212,7 @@ export default function TopUsersSection({
         emptyCopy={friendsQuery.trim() ? "Sin coincidencias en amigos" : "Aún no tienes amigos agregados"}
         error={friendsError}
         onRetry={onRetryFriends}
+        onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
       />
     </section>
   );
