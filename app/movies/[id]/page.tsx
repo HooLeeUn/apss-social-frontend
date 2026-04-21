@@ -43,6 +43,14 @@ function buildMovieDirectedSubmitEndpoint(movieId: string): string {
   return `/movies/${encodeURIComponent(movieId)}/comments/directed/`;
 }
 
+function buildMovieDirectedFetchEndpoints(movieId: string): string[] {
+  const encodedMovieId = encodeURIComponent(movieId);
+  return [
+    `/movies/${encodedMovieId}/comments/directed/received/`,
+    `/movies/${encodedMovieId}/comments/directed/`,
+  ];
+}
+
 interface DirectedConversation {
   key: string;
   otherUsername: string;
@@ -85,8 +93,21 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
     (Array.isArray(root?.conversations) ? root?.conversations : null) ||
     (Array.isArray(root?.results) ? root?.results : null) ||
     (Array.isArray(root?.items) ? root?.items : null);
+  const hasConversationShape =
+    Array.isArray(explicitConversations) &&
+    explicitConversations.some((entry) => {
+      const record = toRecord(entry);
+      if (!record) return false;
+      return (
+        Array.isArray(record.messages) ||
+        Array.isArray(record.results) ||
+        Boolean(toRecord(record.other_user)) ||
+        typeof record.other_username === "string" ||
+        typeof record.direction === "string"
+      );
+    });
 
-  if (explicitConversations) {
+  if (explicitConversations && hasConversationShape) {
     return explicitConversations
       .map((entry) => toRecord(entry))
       .filter((entry): entry is Record<string, unknown> => Boolean(entry))
@@ -389,7 +410,8 @@ export default function MovieDetailPage() {
       }
 
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
-      const directedEndpoint = buildMovieDirectedSubmitEndpoint(movieId);
+      const directedEndpoints = buildMovieDirectedFetchEndpoints(movieId);
+      const directedEndpoint = directedEndpoints[0];
 
       const [friendsResult, meResult, publicResult, directedReceivedResult] = await Promise.all([
         fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
@@ -415,16 +437,23 @@ export default function MovieDetailPage() {
         })(),
         (async () => {
           console.log("[movie-comments-debug] directed GET url", joinApiUrl(directedEndpoint));
-          try {
-            const response = await debugApiRequest(directedEndpoint);
-            console.log("[movie-comments-debug] directed GET status", response.status);
-            console.log("[movie-comments-debug] directed GET response", response.body);
-            return { ok: true as const, payload: response.body };
-          } catch (error) {
-            console.log("[movie-comments-debug] directed GET status", error instanceof ApiError ? error.status : null);
-            console.log("[movie-comments-debug] directed GET response", error instanceof Error ? error.message : String(error));
-            return { ok: false as const, error };
+          const response = await fetchWithFallbacks<unknown>(directedEndpoints, "[movie-detail-debug]").then(
+            ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
+            (error) => ({ ok: false as const, error }),
+          );
+
+          if (response.ok) {
+            console.log("[movie-comments-debug] directed GET endpoint", {
+              endpoint: response.endpoint,
+              usedFallback: response.usedFallback,
+            });
+            console.log("[movie-comments-debug] directed GET response", response.payload);
+          } else {
+            console.log("[movie-comments-debug] directed GET status", response.error instanceof ApiError ? response.error.status : null);
+            console.log("[movie-comments-debug] directed GET response", response.error instanceof Error ? response.error.message : String(response.error));
           }
+
+          return response.ok ? { ok: true as const, payload: response.payload } : { ok: false as const, error: response.error };
         })(),
       ]);
 
