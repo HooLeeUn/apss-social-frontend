@@ -98,6 +98,12 @@ export interface PaginatedMyMessages {
   next: string | null;
 }
 
+export interface MyMessagesSummary {
+  hasUnreadMessages: boolean;
+  unreadCount: number;
+  totalMessages: number;
+}
+
 export interface ProfileFeedActivityActor {
   id: number;
   username: string;

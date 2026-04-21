@@ -12,7 +12,7 @@ import DirectorBoardMenu from "../../components/DirectorBoardMenu";
 import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholderButton";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
-import { getMyProfile } from "../../lib/profile-feed/adapters";
+import { getMyMessagesSummary, getMyProfile } from "../../lib/profile-feed/adapters";
 import {
   Movie,
   MOVIES_FEED_ENDPOINT,
@@ -92,6 +92,7 @@ export default function FeedPage() {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileAvatarVersion, setProfileAvatarVersion] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -154,15 +155,21 @@ export default function FeedPage() {
 
     const loadProfileContext = async () => {
       try {
-        const [personalData, profile] = await Promise.all([getPersonalData(), getMyProfile()]);
+        const [personalData, profile, messagesSummary] = await Promise.all([
+          getPersonalData(),
+          getMyProfile(),
+          getMyMessagesSummary(),
+        ]);
         setProfileAvatarUrl(personalData.avatar);
         setCurrentUserId(profile?.id ?? null);
+        setUnreadMessagesCount(messagesSummary.unreadCount);
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
       } catch (avatarError) {
         console.warn("No se pudo cargar el avatar del perfil para feed:", avatarError);
         setProfileAvatarUrl(null);
         setCurrentUserId(null);
+        setUnreadMessagesCount(0);
       }
     };
 
@@ -354,12 +361,31 @@ export default function FeedPage() {
         <div className="sticky top-0 z-40 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0 relative">
           <div className="pointer-events-none absolute right-0 top-5 z-50 pr-1 md:right-4 md:top-6">
             <div className="pointer-events-auto relative flex w-[198px] flex-col items-center">
-              <UserProfilePlaceholderButton
-                onClick={() => router.push("/profile-feed")}
-                avatarUrl={profileAvatarUrl}
-                avatarAlt="Ir a perfil"
-                avatarVersion={profileAvatarVersion}
-              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Ir a mis mensajes"
+                  onClick={() => router.push("/profile-feed?tab=messages")}
+                  className="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-zinc-900/90 text-zinc-200 shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-200 hover:border-white/60 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 md:h-12 md:w-12"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-5 w-5">
+                    <path d="M15 18H4a1 1 0 0 1-.77-1.64L6 13V8a6 6 0 1 1 12 0v5l2.77 3.36A1 1 0 0 1 20 18h-1" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 21a3 3 0 0 0 6 0" strokeLinecap="round" />
+                  </svg>
+                  {unreadMessagesCount > 0 ? (
+                    <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-semibold leading-none text-zinc-950">
+                      {unreadMessagesCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                <UserProfilePlaceholderButton
+                  onClick={() => router.push("/profile-feed")}
+                  avatarUrl={profileAvatarUrl}
+                  avatarAlt="Ir a perfil"
+                  avatarVersion={profileAvatarVersion}
+                />
+              </div>
               <div className="mt-3">
                 <DirectorBoardMenu
                   isOpen={isDirectorBoardOpen}
