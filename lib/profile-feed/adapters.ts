@@ -383,8 +383,10 @@ interface MyMessageApiMovie {
 
 interface MyMessageApiItem {
   id?: number | string;
+  body?: string | null;
   content?: string | null;
   created_at?: string | null;
+  author?: MyMessageApiSender | null;
   sender?: MyMessageApiSender | null;
   movie?: MyMessageApiMovie | null;
 }
@@ -396,7 +398,7 @@ function resolveMessageEntityId(value: unknown, fallback: string): string | numb
 }
 
 function toMessageItem(item: MyMessageApiItem, index: number): MyMessageItem {
-  const sender = item.sender;
+  const sender = item.author || item.sender;
   const movie = item.movie;
   const titleSpanish = safeTrim(movie?.title_spanish);
   const titleEnglish = safeTrim(movie?.title_english);
@@ -420,7 +422,7 @@ function toMessageItem(item: MyMessageApiItem, index: number): MyMessageItem {
     moviePosterUrl: null,
     movieType: metadataType,
     movieGenre: metadataGenre,
-    text: safeTrim(item.content) || "Sin contenido",
+    text: safeTrim(item.body) || safeTrim(item.content) || "Sin contenido",
     createdAt: safeTrim(item.created_at) || new Date().toISOString(),
   };
 }
