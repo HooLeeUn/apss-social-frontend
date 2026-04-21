@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
 import ProfileIdentityCard from "../../components/profile-feed/ProfileIdentityCard";
@@ -11,6 +12,7 @@ import { SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
 
 export default function ProfileFeedPage() {
+  const searchParams = useSearchParams();
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
@@ -18,6 +20,8 @@ export default function ProfileFeedPage() {
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [followingError, setFollowingError] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
+  const requestedTab = searchParams.get("tab");
+  const initialActivityTab = requestedTab === "messages" ? "messages" : "activity";
 
   const loadFollowing = useCallback(async () => {
     setLoadingFollowing(true);
@@ -115,7 +119,7 @@ export default function ProfileFeedPage() {
               onRetryFriends={() => void loadFriends()}
               onRetryFollowing={() => void loadFollowing()}
             />
-            <MyActivityColumn isOwnProfile />
+            <MyActivityColumn key={`my-activity-${initialActivityTab}`} isOwnProfile initialActiveTab={initialActivityTab} />
             <div className="hidden xl:block" aria-hidden="true" />
           </div>
         </section>

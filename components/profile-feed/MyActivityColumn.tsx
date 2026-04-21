@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { UIEvent, useCallback, useMemo, useState } from "react";
+import { UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteMyMessages } from "../../hooks/useInfiniteMyMessages";
 import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSocialActivity";
+import { markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
 import { MyMessageItem, SocialActivityItem } from "../../lib/profile-feed/types";
 import { formatAverageRating } from "../../lib/rating-format";
 
@@ -211,6 +212,7 @@ function MyActivitySkeleton() {
 interface MyActivityColumnProps {
   scope?: "me" | `user:${string}`;
   isOwnProfile?: boolean;
+  initialActiveTab?: "activity" | "messages";
   viewedUsername?: string;
   title?: string;
   emptyCopy?: string;
@@ -220,18 +222,21 @@ interface MyActivityColumnProps {
 export default function MyActivityColumn({
   scope,
   isOwnProfile = true,
+  initialActiveTab = "activity",
   viewedUsername,
   title = "Mi actividad",
   emptyCopy = "Aún no tienes actividad registrada.",
   errorCopy = "No se pudo cargar la actividad.",
 }: MyActivityColumnProps = {}) {
-  const [activeTab, setActiveTab] = useState<"activity" | "messages">("activity");
+  const [activeTab, setActiveTab] = useState<"activity" | "messages">(initialActiveTab);
   const [senderQuery, setSenderQuery] = useState("");
+  const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown");
   const messages = useInfiniteMyMessages(isOwnProfile);
+  const reloadMessages = messages.reload;
 
   const filteredMessages = useMemo(() => {
     const normalizedQuery = senderQuery.trim().toLocaleLowerCase();
@@ -239,6 +244,34 @@ export default function MyActivityColumn({
 
     return messages.items.filter((message) => message.sender.username.toLocaleLowerCase().includes(normalizedQuery));
   }, [messages.items, senderQuery]);
+
+  useEffect(() => {
+    setActiveTab(initialActiveTab);
+  }, [initialActiveTab]);
+
+  useEffect(() => {
+    if (!isOwnProfile || activeTab !== "messages") return;
+
+    markAsReadAbortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    markAsReadAbortControllerRef.current = abortController;
+
+    const markMessagesAsRead = async () => {
+      try {
+        await markMyMessagesAsRead(abortController.signal);
+        reloadMessages();
+      } catch (error) {
+        if ((error as Error).name === "AbortError") return;
+        console.warn("No se pudieron marcar mensajes como leídos.", error);
+      }
+    };
+
+    void markMessagesAsRead();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [activeTab, isOwnProfile, reloadMessages]);
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {

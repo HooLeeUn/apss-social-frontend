@@ -11,6 +11,7 @@ import {
   MyMessageItem,
   SocialUser,
   FavoriteMovieSearchResult,
+  MyMessagesSummary,
 } from "./types";
 
 const PROFILE_FAVORITES_ENDPOINT = "/profile/favorites/";
@@ -33,6 +34,9 @@ const PROFILE_FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT
 const PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE || "/users/{username}/activity/";
 const PROFILE_ME_MESSAGES_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_ENDPOINT || "/me/messages/";
+const PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT || "/me/messages/summary/";
+const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
+  process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -1063,4 +1067,24 @@ export async function getMyMessages(nextEndpoint: string | null = null, signal?:
     items: parsed.items,
     next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
   };
+}
+
+export async function getMyMessagesSummary(signal?: AbortSignal): Promise<MyMessagesSummary> {
+  const payload = await apiFetch(PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT, { signal });
+  const record = toRecord(payload);
+
+  return {
+    hasUnreadMessages: Boolean(record?.has_unread_messages),
+    unreadCount: toNonNegativeInteger(record?.unread_count),
+    totalMessages: toNonNegativeInteger(record?.total_messages),
+  };
+}
+
+export async function markMyMessagesAsRead(signal?: AbortSignal): Promise<number> {
+  const payload = await apiFetch(PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT, {
+    method: "POST",
+    signal,
+  });
+
+  return toNonNegativeInteger(toRecord(payload)?.updated);
 }
