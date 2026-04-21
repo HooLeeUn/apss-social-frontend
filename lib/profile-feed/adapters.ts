@@ -370,13 +370,35 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
 function resolveMessageSender(payload: Record<string, unknown>, fallbackId: string): SocialUser {
   const senderRecord =
     toRecord(payload.sender) ||
+    toRecord(payload.sender_user) ||
     toRecord(payload.actor) ||
+    toRecord(payload.from) ||
     toRecord(payload.from_user) ||
+    toRecord(payload.sender_profile) ||
     toRecord(payload.user) ||
     payload;
 
   const sender = toSocialUser(senderRecord, fallbackId);
   if (sender) return sender;
+
+  const directUsername = safeTrim(
+    pickFirst(
+      payload.sender_username,
+      payload.from_username,
+      payload.username,
+      payload.sender_name,
+      payload.from_name,
+    ),
+  );
+  if (directUsername) {
+    return {
+      id: String(pickFirst(payload.sender_id, payload.from_user_id, fallbackId)),
+      username: directUsername,
+      displayName: null,
+      avatarUrl: safeTrim(pickFirst(payload.sender_avatar, payload.from_user_avatar, payload.avatar_url)),
+      followersCount: null,
+    };
+  }
 
   return {
     id: fallbackId,
@@ -387,16 +409,37 @@ function resolveMessageSender(payload: Record<string, unknown>, fallbackId: stri
   };
 }
 
+function resolveMessageMovieRecord(item: Record<string, unknown>): Record<string, unknown> {
+  return (
+    toRecord(item.movie) ||
+    toRecord(item.movie_data) ||
+    toRecord(item.movie_metadata) ||
+    toRecord(item.metadata) ||
+    item
+  );
+}
+
+function resolveMessageGenre(movieRecord: Record<string, unknown>, item: Record<string, unknown>): string | undefined {
+  const genreCandidate = pickFirst(movieRecord.genre, item.movie_genre, item.genre, movieRecord.genres);
+  if (Array.isArray(genreCandidate)) {
+    const firstGenre = genreCandidate.find((entry) => typeof entry === "string" && entry.trim() !== "");
+    return typeof firstGenre === "string" ? firstGenre.trim() : undefined;
+  }
+
+  return toStringOrNull(genreCandidate) || undefined;
+}
+
 function toMessageItem(item: Record<string, unknown>, index: number): MyMessageItem {
-  const movieRecord = toRecord(item.movie) || item;
-  const displayTitle = resolveMovieDisplayTitle(item, movieRecord);
+  const movieRecord = resolveMessageMovieRecord(item);
+  const displayTitle = resolveMovieDisplayTitle(movieRecord, item);
+  const secondaryTitle = resolveMovieSecondaryTitle(displayTitle, movieRecord, item);
 
   return {
     id: String(pickFirst(item.id, item.message_id, item.uuid, `message-${index}`)),
     sender: resolveMessageSender(item, `sender-${index}`),
     movieId: pickFirst(movieRecord.id, movieRecord.movie_id, item.movie_id, `movie-${index}`) as string | number,
     movieTitle: displayTitle,
-    movieSecondaryTitle: resolveMovieSecondaryTitle(displayTitle, item, movieRecord),
+    movieSecondaryTitle: secondaryTitle,
     moviePosterUrl: (pickFirst(
       movieRecord.image,
       movieRecord.poster,
@@ -406,8 +449,8 @@ function toMessageItem(item: Record<string, unknown>, index: number): MyMessageI
       item.movie_poster,
       item.movie_poster_url,
     ) as string | null) ?? null,
-    movieType: toStringOrNull(pickFirst(movieRecord.type, movieRecord.content_type, item.movie_type)) || undefined,
-    movieGenre: toStringOrNull(pickFirst(movieRecord.genre, item.movie_genre)) || undefined,
+    movieType: toStringOrNull(pickFirst(movieRecord.type, movieRecord.content_type, item.movie_type, item.type)) || undefined,
+    movieGenre: resolveMessageGenre(movieRecord, item),
     text: toStringOrNull(pickFirst(item.text, item.content, item.message, item.body)) || "Sin contenido",
     createdAt: toStringOrNull(pickFirst(item.created_at, item.createdAt, item.timestamp, item.date)) || new Date().toISOString(),
   };
