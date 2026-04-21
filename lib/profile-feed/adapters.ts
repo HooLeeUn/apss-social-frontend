@@ -368,8 +368,11 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
 }
 
 function resolveMessageSender(payload: Record<string, unknown>, fallbackId: string): SocialUser {
+  const rawSender = toRecord(payload.sender);
   const senderRecord =
-    toRecord(payload.sender) ||
+    rawSender ||
+    toRecord(rawSender?.user) ||
+    toRecord(rawSender?.profile) ||
     toRecord(payload.sender_user) ||
     toRecord(payload.actor) ||
     toRecord(payload.from) ||
@@ -383,6 +386,8 @@ function resolveMessageSender(payload: Record<string, unknown>, fallbackId: stri
 
   const directUsername = safeTrim(
     pickFirst(
+      rawSender?.username,
+      toRecord(rawSender?.user)?.username,
       payload.sender_username,
       payload.from_username,
       payload.username,
@@ -392,10 +397,20 @@ function resolveMessageSender(payload: Record<string, unknown>, fallbackId: stri
   );
   if (directUsername) {
     return {
-      id: String(pickFirst(payload.sender_id, payload.from_user_id, fallbackId)),
+      id: String(pickFirst(rawSender?.id, payload.sender_id, payload.from_user_id, fallbackId)),
       username: directUsername,
       displayName: null,
-      avatarUrl: safeTrim(pickFirst(payload.sender_avatar, payload.from_user_avatar, payload.avatar_url)),
+      avatarUrl: safeTrim(
+        pickFirst(
+          rawSender?.avatar,
+          rawSender?.avatar_url,
+          toRecord(rawSender?.user)?.avatar,
+          toRecord(rawSender?.user)?.avatar_url,
+          payload.sender_avatar,
+          payload.from_user_avatar,
+          payload.avatar_url,
+        ),
+      ),
       followersCount: null,
     };
   }
@@ -410,11 +425,16 @@ function resolveMessageSender(payload: Record<string, unknown>, fallbackId: stri
 }
 
 function resolveMessageMovieRecord(item: Record<string, unknown>): Record<string, unknown> {
+  const movieRecord = toRecord(item.movie);
+  const metadataRecord = toRecord(item.metadata);
+
   return (
-    toRecord(item.movie) ||
+    movieRecord ||
     toRecord(item.movie_data) ||
     toRecord(item.movie_metadata) ||
-    toRecord(item.metadata) ||
+    (metadataRecord && (metadataRecord.title_spanish || metadataRecord.title_english || metadataRecord.type || metadataRecord.genre)
+      ? metadataRecord
+      : null) ||
     item
   );
 }
@@ -427,6 +447,11 @@ function resolveMessageGenre(movieRecord: Record<string, unknown>, item: Record<
   }
 
   return toStringOrNull(genreCandidate) || undefined;
+}
+
+function resolveMessageType(movieRecord: Record<string, unknown>, item: Record<string, unknown>): string | undefined {
+  const typeCandidate = pickFirst(movieRecord.type, movieRecord.content_type, item.movie_type, item.type);
+  return toStringOrNull(typeCandidate) || undefined;
 }
 
 function toMessageItem(item: Record<string, unknown>, index: number): MyMessageItem {
@@ -449,7 +474,7 @@ function toMessageItem(item: Record<string, unknown>, index: number): MyMessageI
       item.movie_poster,
       item.movie_poster_url,
     ) as string | null) ?? null,
-    movieType: toStringOrNull(pickFirst(movieRecord.type, movieRecord.content_type, item.movie_type, item.type)) || undefined,
+    movieType: resolveMessageType(movieRecord, item),
     movieGenre: resolveMessageGenre(movieRecord, item),
     text: toStringOrNull(pickFirst(item.text, item.content, item.message, item.body)) || "Sin contenido",
     createdAt: toStringOrNull(pickFirst(item.created_at, item.createdAt, item.timestamp, item.date)) || new Date().toISOString(),
