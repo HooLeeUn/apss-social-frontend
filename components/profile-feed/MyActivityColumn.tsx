@@ -291,7 +291,7 @@ export default function MyActivityColumn({
       )}
 
       {isOwnProfile && activeTab === "messages" ? (
-        <div className="mt-3 flex items-center justify-end">
+        <div className="mt-3 flex items-center justify-start">
           <input
             type="search"
             value={senderQuery}
