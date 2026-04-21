@@ -104,7 +104,7 @@ export default function ProfileFeedPage() {
         </section>
 
         <section className="w-full">
-          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,640px)_minmax(300px,380px)_minmax(520px,1.35fr)]">
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(460px,1.25fr)]">
             <TopUsersSection
               friends={friends}
               following={following}
