@@ -181,7 +181,7 @@ function MessageRow({ item }: { item: MyMessageItem }) {
             {item.movieTitle}
           </Link>
           {item.movieSecondaryTitle ? <p className="mt-0.5 truncate text-[11px] text-blue-200/75">{item.movieSecondaryTitle}</p> : null}
-          <p className="mt-1 truncate text-[11px] text-zinc-500">{formatMetadata(item.movieType, item.movieGenre)}</p>
+          {item.movieType ? <p className="mt-1 truncate text-[11px] text-zinc-500">{item.movieType}</p> : null}
           <p className="mt-2 line-clamp-3 text-xs text-zinc-300/90">{item.text}</p>
           <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p>
         </div>
