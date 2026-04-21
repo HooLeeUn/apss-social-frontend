@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import CommentComposer from "../../../components/social/CommentComposer";
 import CommentsList from "../../../components/social/CommentsList";
@@ -21,12 +21,11 @@ import {
   FRIENDS_ENDPOINT,
   FRIENDS_FALLBACK_ENDPOINTS,
   parseComments,
+  parseCommentsPage,
   parseFriends,
   ReactionType,
   SocialComment,
 } from "../../../lib/social";
-
-type DirectedTab = "received" | "sent";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -44,16 +43,101 @@ function buildMovieDirectedSubmitEndpoint(movieId: string): string {
   return `/movies/${encodeURIComponent(movieId)}/comments/directed/`;
 }
 
-function extractDirectedCollections(payload: unknown): { received: unknown; sent: unknown } {
-  const record = toRecord(payload);
-  if (!record) {
-    return { received: payload, sent: payload };
+interface DirectedConversation {
+  key: string;
+  otherUsername: string;
+  otherDisplayName: string;
+  otherAvatar: string | null;
+  messages: SocialComment[];
+  next: string | null;
+  lastMessageAt: string | null;
+}
+
+function getCurrentUsernameFromPayload(payload: unknown): string | null {
+  const root = toRecord(payload);
+  const user = toRecord(root?.user);
+  return typeof (user?.username ?? root?.username) === "string" ? String(user?.username ?? root?.username) : null;
+}
+
+function getNextFromPayload(payload: unknown): string | null {
+  const root = toRecord(payload);
+  const data = toRecord(root?.data);
+  const nextCandidate = root?.next ?? root?.next_page ?? root?.nextPage ?? data?.next ?? data?.next_page;
+  return typeof nextCandidate === "string" && nextCandidate.trim() ? nextCandidate : null;
+}
+
+function normalizeEndpointPath(nextValue: string | null): string | null {
+  if (!nextValue) return null;
+  if (nextValue.startsWith("http")) {
+    try {
+      const url = new URL(nextValue);
+      return `${url.pathname}${url.search}`.replace(/^\/api/, "") || null;
+    } catch {
+      return null;
+    }
+  }
+  return nextValue;
+}
+
+function groupDirectedConversations(payload: unknown, authenticatedUsername: string): DirectedConversation[] {
+  const root = toRecord(payload);
+  const explicitConversations =
+    (Array.isArray(root?.conversations) ? root?.conversations : null) ||
+    (Array.isArray(root?.results) ? root?.results : null) ||
+    (Array.isArray(root?.items) ? root?.items : null);
+
+  if (explicitConversations) {
+    return explicitConversations
+      .map((entry) => toRecord(entry))
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+      .map((entry, index) => {
+        const otherUser = toRecord(entry.other_user) ?? toRecord(entry.user) ?? toRecord(entry.participant);
+        const otherUsername = String(otherUser?.username ?? entry.other_username ?? `usuario-${index + 1}`);
+        const otherDisplayName = String(otherUser?.display_name ?? otherUser?.name ?? otherUsername);
+        const otherAvatar =
+          typeof (otherUser?.avatar_url ?? otherUser?.avatar) === "string" ? String(otherUser?.avatar_url ?? otherUser?.avatar) : null;
+        const parsed = parseCommentsPage(entry.messages ?? entry, "directed");
+        const messages = parsed.comments.map((message) => ({
+          ...message,
+          type: "directed" as const,
+        }));
+        const sortedMessages = [...messages].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
+
+        return {
+          key: `conversation-${otherUsername}`,
+          otherUsername,
+          otherDisplayName,
+          otherAvatar,
+          messages: sortedMessages,
+          next: normalizeEndpointPath(parsed.next ?? getNextFromPayload(entry)),
+          lastMessageAt: sortedMessages[0]?.createdAt ?? null,
+        };
+      })
+      .sort((a, b) => (a.lastMessageAt && b.lastMessageAt ? b.lastMessageAt.localeCompare(a.lastMessageAt) : 0));
   }
 
-  const received = record.received ?? record.inbox ?? record.recibidos ?? payload;
-  const sent = record.sent ?? record.outbox ?? record.enviados ?? payload;
+  const flatComments = parseComments(payload, "directed");
+  const byConversation = new Map<string, DirectedConversation>();
+  flatComments.forEach((message) => {
+    const isSentByMe = message.authorUsername === authenticatedUsername;
+    const otherUsername = isSentByMe ? message.recipientName ?? "usuario" : message.authorUsername;
+    const existing = byConversation.get(otherUsername);
+    const nextMessageList = existing ? [...existing.messages, message] : [message];
+    const sortedMessages = [...nextMessageList].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
+    byConversation.set(otherUsername, {
+      key: `conversation-${otherUsername}`,
+      otherUsername,
+      otherDisplayName: otherUsername,
+      otherAvatar: existing?.otherAvatar ?? (isSentByMe ? null : message.authorAvatar),
+      messages: sortedMessages,
+      next: existing?.next ?? null,
+      lastMessageAt: sortedMessages[0]?.createdAt ?? null,
+    });
+  });
 
-  return { received, sent };
+  return [...byConversation.values()].sort((a, b) =>
+    a.lastMessageAt && b.lastMessageAt ? b.lastMessageAt.localeCompare(a.lastMessageAt) : 0,
+  );
 }
 
 async function debugApiRequest(endpoint: string, options: RequestInit = {}) {
@@ -200,10 +284,14 @@ export default function MovieDetailPage() {
   const [movieError, setMovieError] = useState("");
 
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [authenticatedUsername, setAuthenticatedUsername] = useState("");
 
   const [publicComments, setPublicComments] = useState<SocialComment[]>([]);
-  const [directedReceived, setDirectedReceived] = useState<SocialComment[]>([]);
-  const [directedSent, setDirectedSent] = useState<SocialComment[]>([]);
+  const [publicNext, setPublicNext] = useState<string | null>(null);
+  const [loadingPublicMore, setLoadingPublicMore] = useState(false);
+  const [directedConversations, setDirectedConversations] = useState<DirectedConversation[]>([]);
+  const [expandedConversationKey, setExpandedConversationKey] = useState<string | null>(null);
+  const [loadingDirectedMoreByKey, setLoadingDirectedMoreByKey] = useState<Record<string, boolean>>({});
 
   const [loadingPublic, setLoadingPublic] = useState(true);
   const [loadingDirected, setLoadingDirected] = useState(true);
@@ -213,8 +301,6 @@ export default function MovieDetailPage() {
   const [composerError, setComposerError] = useState("");
   const [reactionError, setReactionError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [directedTab, setDirectedTab] = useState<DirectedTab>("received");
 
   const fetchMovieDetail = useCallback(async () => {
     if (!movieId) return null;
@@ -305,9 +391,13 @@ export default function MovieDetailPage() {
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
       const directedEndpoint = buildMovieDirectedSubmitEndpoint(movieId);
 
-      const [friendsResult, publicResult, directedReceivedResult] = await Promise.all([
+      const [friendsResult, meResult, publicResult, directedReceivedResult] = await Promise.all([
         fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
           ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
+          (error) => ({ ok: false as const, error }),
+        ),
+        apiFetch("/me/").then(
+          (payload) => ({ ok: true as const, payload }),
           (error) => ({ ok: false as const, error }),
         ),
         (async () => {
@@ -342,6 +432,10 @@ export default function MovieDetailPage() {
         router.replace("/login");
         return;
       }
+      if (!meResult.ok && meResult.error instanceof ApiError && meResult.error.status === 401) {
+        router.replace("/login");
+        return;
+      }
 
       if (!publicResult.ok && publicResult.error instanceof ApiError && publicResult.error.status === 401) {
         router.replace("/login");
@@ -363,21 +457,26 @@ export default function MovieDetailPage() {
         console.log("[mentions-debug] Normalized friends list:", normalizedFriends);
         setFriends(normalizedFriends);
       }
+      if (meResult.ok) {
+        const meUsername = getCurrentUsernameFromPayload(meResult.payload);
+        if (meUsername) setAuthenticatedUsername(meUsername);
+      }
 
       if (publicResult.ok) {
-        setPublicComments(parseComments(publicResult.payload, "public"));
+        const parsed = parseCommentsPage(publicResult.payload, "public");
+        setPublicComments(parsed.comments);
+        setPublicNext(normalizeEndpointPath(parsed.next));
         setPublicError("");
       } else {
         setPublicError("No pudimos cargar los comentarios públicos.");
       }
 
       if (directedReceivedResult.ok) {
-        const { received, sent } = extractDirectedCollections(directedReceivedResult.payload);
-        setDirectedReceived(parseComments(received, "directed"));
-        setDirectedSent(parseComments(sent, "directed"));
+        const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
+        setDirectedConversations(groupDirectedConversations(directedReceivedResult.payload, meUsername));
         setDirectedError("");
       } else {
-        setDirectedError("No pudimos cargar las recomendaciones dirigidas.");
+        setDirectedError("No pudimos cargar los comentarios dirigidos.");
       }
 
       setLoadingPublic(false);
@@ -406,18 +505,74 @@ export default function MovieDetailPage() {
     [fetchMovieDetail],
   );
 
-  const displayedDirectedComments = useMemo(
-    () => (directedTab === "received" ? directedReceived : directedSent),
-    [directedReceived, directedSent, directedTab],
-  );
-
   useEffect(() => {
     console.log("[movie-comments-debug] render public count", publicComments.length);
   }, [publicComments.length]);
 
   useEffect(() => {
-    console.log("[movie-comments-debug] render directed count", displayedDirectedComments.length);
-  }, [displayedDirectedComments.length]);
+    console.log("[movie-comments-debug] render directed conversations count", directedConversations.length);
+  }, [directedConversations.length]);
+
+  const handleAuthorNavigation = useCallback(
+    (username: string) => {
+      if (!username) return;
+      if (authenticatedUsername && username === authenticatedUsername) {
+        router.push("/profile-feed");
+        return;
+      }
+      router.push(`/users/${encodeURIComponent(username)}`);
+    },
+    [authenticatedUsername, router],
+  );
+
+  const appendPublicComments = useCallback(async () => {
+    if (!publicNext || loadingPublicMore) return;
+    setLoadingPublicMore(true);
+    try {
+      const payload = await apiFetch(publicNext);
+      const parsed = parseCommentsPage(payload, "public");
+      setPublicComments((current) => {
+        const existing = new Set(current.map((comment) => String(comment.id)));
+        const incoming = parsed.comments.filter((comment) => !existing.has(String(comment.id)));
+        return [...current, ...incoming];
+      });
+      setPublicNext(normalizeEndpointPath(parsed.next));
+    } catch {
+      // keep current UI stable if infinite scroll fails
+    } finally {
+      setLoadingPublicMore(false);
+    }
+  }, [loadingPublicMore, publicNext]);
+
+  const loadMoreConversationMessages = useCallback(
+    async (conversationKey: string) => {
+      const target = directedConversations.find((conversation) => conversation.key === conversationKey);
+      if (!target?.next || loadingDirectedMoreByKey[conversationKey]) return;
+
+      setLoadingDirectedMoreByKey((current) => ({ ...current, [conversationKey]: true }));
+      try {
+        const payload = await apiFetch(target.next);
+        const parsed = parseCommentsPage(payload, "directed");
+        setDirectedConversations((current) =>
+          current.map((conversation) => {
+            if (conversation.key !== conversationKey) return conversation;
+            const existing = new Set(conversation.messages.map((message) => String(message.id)));
+            const merged = [...conversation.messages, ...parsed.comments.filter((message) => !existing.has(String(message.id)))];
+            return {
+              ...conversation,
+              messages: merged.sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0)),
+              next: normalizeEndpointPath(parsed.next),
+            };
+          }),
+        );
+      } catch {
+        // keep current UI stable if infinite scroll fails
+      } finally {
+        setLoadingDirectedMoreByKey((current) => ({ ...current, [conversationKey]: false }));
+      }
+    },
+    [directedConversations, loadingDirectedMoreByKey],
+  );
 
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
     if (!movieId) return;
@@ -446,24 +601,51 @@ export default function MovieDetailPage() {
       if (mode === "directed") {
         try {
           const refreshed = await debugApiRequest(buildMovieDirectedSubmitEndpoint(movieId));
-          const collections = extractDirectedCollections(refreshed.body);
-          setDirectedSent(parseComments(collections.sent, "directed"));
+          setDirectedConversations(groupDirectedConversations(refreshed.body, authenticatedUsername));
           setDirectedError("");
-          setDirectedTab("sent");
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
             router.replace("/login");
             return;
           }
           if (parsedSubmittedComment) {
-            setDirectedSent((current) => [parsedSubmittedComment, ...current]);
-            setDirectedTab("sent");
+            const recipient = parsedSubmittedComment.recipientName || "usuario";
+            const conversationKey = `conversation-${recipient}`;
+            setDirectedConversations((current) => {
+              const target = current.find((conversation) => conversation.key === conversationKey);
+              if (!target) {
+                return [
+                  {
+                    key: conversationKey,
+                    otherUsername: recipient,
+                    otherDisplayName: recipient,
+                    otherAvatar: null,
+                    messages: [parsedSubmittedComment],
+                    next: null,
+                    lastMessageAt: parsedSubmittedComment.createdAt,
+                  },
+                  ...current,
+                ];
+              }
+              return current.map((conversation) =>
+                conversation.key === conversationKey
+                  ? {
+                      ...conversation,
+                      messages: [parsedSubmittedComment, ...conversation.messages],
+                      lastMessageAt: parsedSubmittedComment.createdAt,
+                    }
+                  : conversation,
+              );
+            });
+            setExpandedConversationKey(conversationKey);
           }
         }
       } else {
         try {
           const refreshed = await debugApiRequest(buildMoviePublicSubmitEndpoint(movieId));
-          setPublicComments(parseComments(refreshed.body, "public"));
+          const parsed = parseCommentsPage(refreshed.body, "public");
+          setPublicComments(parsed.comments);
+          setPublicNext(normalizeEndpointPath(parsed.next));
           setPublicError("");
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
@@ -491,12 +673,15 @@ export default function MovieDetailPage() {
     setReactionError("");
 
     const previousPublic = publicComments;
-    const previousReceived = directedReceived;
-    const previousSent = directedSent;
+    const previousConversations = directedConversations;
 
     setPublicComments((current) => applyReactionToCollection(current, commentId, reaction));
-    setDirectedReceived((current) => applyReactionToCollection(current, commentId, reaction));
-    setDirectedSent((current) => applyReactionToCollection(current, commentId, reaction));
+    setDirectedConversations((current) =>
+      current.map((conversation) => ({
+        ...conversation,
+        messages: applyReactionToCollection(conversation.messages, commentId, reaction),
+      })),
+    );
 
     try {
       const endpoint = buildReactionEndpoint(commentId);
@@ -514,8 +699,12 @@ export default function MovieDetailPage() {
       );
 
       setPublicComments((current) => applyReactionResultToCollection(current, commentId, response));
-      setDirectedReceived((current) => applyReactionResultToCollection(current, commentId, response));
-      setDirectedSent((current) => applyReactionResultToCollection(current, commentId, response));
+      setDirectedConversations((current) =>
+        current.map((conversation) => ({
+          ...conversation,
+          messages: applyReactionResultToCollection(conversation.messages, commentId, response),
+        })),
+      );
     } catch (error) {
       if (error instanceof ApiError) {
         console.error("Reaction request failed", {
@@ -536,8 +725,7 @@ export default function MovieDetailPage() {
         });
       }
       setPublicComments(previousPublic);
-      setDirectedReceived(previousReceived);
-      setDirectedSent(previousSent);
+      setDirectedConversations(previousConversations);
       setReactionError("No pudimos registrar tu reacción en este momento.");
     }
   };
@@ -572,45 +760,87 @@ export default function MovieDetailPage() {
             error={publicError}
             emptyMessage="Todavía no hay comentarios públicos para esta película."
             onReact={handleReact}
+            onAuthorClick={handleAuthorNavigation}
+            singleContainer
+            onLoadMore={() => void appendPublicComments()}
+            hasMore={Boolean(publicNext)}
+            loadingMore={loadingPublicMore}
           />
         </section>
 
         <section className="space-y-3">
-          <header className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-zinc-100">Recomendaciones dirigidas</h2>
-            <div className="flex rounded-full border border-white/20 p-1">
-              <button
-                type="button"
-                onClick={() => setDirectedTab("received")}
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  directedTab === "received" ? "bg-zinc-100 text-zinc-900" : "text-zinc-300"
-                }`}
-              >
-                Recibidas
-              </button>
-              <button
-                type="button"
-                onClick={() => setDirectedTab("sent")}
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  directedTab === "sent" ? "bg-zinc-100 text-zinc-900" : "text-zinc-300"
-                }`}
-              >
-                Enviadas
-              </button>
+          <h2 className="text-lg font-semibold text-zinc-100">Comentarios Dirigidos</h2>
+          {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div> : null}
+          {!loadingDirected && directedError ? (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
+          ) : null}
+          {!loadingDirected && !directedError && directedConversations.length === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
+              No hay comentarios dirigidos para esta película.
             </div>
-          </header>
+          ) : null}
+          {!loadingDirected && !directedError ? (
+            <div className="space-y-3">
+              {directedConversations.map((conversation) => {
+                const isExpanded = expandedConversationKey === conversation.key;
+                return (
+                  <article key={conversation.key} className="rounded-xl border border-white/15 bg-zinc-950/65 p-4">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 text-left"
+                      onClick={() => setExpandedConversationKey((current) => (current === conversation.key ? null : conversation.key))}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
+                          {conversation.otherAvatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={conversation.otherAvatar} alt={conversation.otherDisplayName} className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            conversation.otherDisplayName.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName}</p>
+                          <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-zinc-400">{isExpanded ? "Ocultar" : "Ver conversación"}</span>
+                    </button>
 
-          <CommentsList
-            comments={displayedDirectedComments}
-            loading={loadingDirected}
-            error={directedError}
-            emptyMessage={
-              directedTab === "received"
-                ? "No tienes recomendaciones privadas recibidas para esta película."
-                : "Aún no enviaste recomendaciones privadas para esta película."
-            }
-            onReact={handleReact}
-          />
+                    {isExpanded ? (
+                      <div
+                        className="mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-3"
+                        onScroll={(event) => {
+                          const target = event.currentTarget;
+                          if (
+                            conversation.next &&
+                            !loadingDirectedMoreByKey[conversation.key] &&
+                            target.scrollTop + target.clientHeight >= target.scrollHeight - 48
+                          ) {
+                            void loadMoreConversationMessages(conversation.key);
+                          }
+                        }}
+                      >
+                        <CommentsList
+                          comments={conversation.messages}
+                          emptyMessage="No hay mensajes en esta conversación."
+                          onReact={handleReact}
+                          onAuthorClick={handleAuthorNavigation}
+                          singleContainer={false}
+                          itemBadgeLabel={(message) =>
+                            message.authorUsername === authenticatedUsername ? "Enviado" : "Recibido"
+                          }
+                        />
+                        {loadingDirectedMoreByKey[conversation.key] ? (
+                          <p className="pt-2 text-xs text-zinc-400">Cargando mensajes anteriores...</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
         </section>
       </div>
     </main>

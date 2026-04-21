@@ -12,12 +12,18 @@ export interface SocialComment {
   text: string;
   createdAt: string | null;
   authorName: string;
+  authorUsername: string;
   authorAvatar: string | null;
   recipientName: string | null;
   type: "public" | "directed";
   likesCount: number;
   dislikesCount: number;
   myReaction: ReactionType;
+}
+
+export interface PaginatedComments {
+  comments: SocialComment[];
+  next: string | null;
 }
 
 export const FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
@@ -125,8 +131,9 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
   const nestedAuthor = toRecord(pickFirst(raw.author, raw.user, raw.created_by));
   const nestedRecipient = toRecord(pickFirst(raw.recipient, raw.mentioned_user, raw.target_user));
 
-  const authorName =
-    toStringOrNull(pickFirst(nestedAuthor?.username, nestedAuthor?.name, raw.author_name, raw.username)) || "Usuario";
+  const authorUsername =
+    toStringOrNull(pickFirst(nestedAuthor?.username, raw.author_username, raw.username, nestedAuthor?.name)) || "usuario";
+  const authorName = toStringOrNull(pickFirst(nestedAuthor?.name, raw.author_name, nestedAuthor?.username, raw.username)) || "Usuario";
 
   const recipientName = toStringOrNull(
     pickFirst(nestedRecipient?.username, nestedRecipient?.name, raw.recipient_name, raw.mentioned_username),
@@ -141,6 +148,7 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
     text: String(pickFirst(raw.body, raw.text, raw.comment, raw.content, "")),
     createdAt: toStringOrNull(pickFirst(raw.created_at, raw.createdAt, raw.date, raw.timestamp)),
     authorName,
+    authorUsername,
     authorAvatar: toStringOrNull(pickFirst(nestedAuthor?.avatar, nestedAuthor?.avatar_url, raw.author_avatar)),
     recipientName,
     type,
@@ -151,6 +159,10 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 }
 
 export function parseComments(payload: unknown, fallbackType: "public" | "directed"): SocialComment[] {
+  return parseCommentsPage(payload, fallbackType).comments;
+}
+
+export function parseCommentsPage(payload: unknown, fallbackType: "public" | "directed"): PaginatedComments {
   const root = toRecord(payload);
   const rootData = toRecord(root?.data);
 
@@ -170,10 +182,17 @@ export function parseComments(payload: unknown, fallbackType: "public" | "direct
                 ? rootData.comments
                 : [];
 
-  return source
+  const comments = source
     .map((entry) => toRecord(entry))
     .filter((entry): entry is Record<string, unknown> => Boolean(entry))
     .map((entry) => normalizeComment(entry, fallbackType));
+
+  const next = toStringOrNull(pickFirst(root?.next, rootData?.next, root?.next_page, rootData?.next_page, root?.nextPage));
+
+  return {
+    comments,
+    next,
+  };
 }
 
 export function buildReactionEndpoint(commentId: number | string): string {
