@@ -75,33 +75,33 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, showExtend
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
         <div className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${showExtendedMetadata ? "md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] md:gap-6 md:space-y-0" : ""}`}>
-          <div className="min-w-0">
-            <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
-              {canNavigateToDetail ? (
-                <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className={titleLinkClassName}>
-                  {displayTitle}
-                </Link>
-              ) : (
-                displayTitle
-              )}
-            </h3>
-            {displaySecondaryTitle ? (
-              <p className={`truncate text-xs leading-tight ${isFeed ? "text-blue-200/80" : "text-sky-700"}`}>
+          <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0">
+              <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
                 {canNavigateToDetail ? (
-                  <Link
-                    href={detailHref}
-                    aria-label={`Ver detalle de ${displayTitle} (${displaySecondaryTitle})`}
-                    className="inline-block max-w-full cursor-pointer truncate transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
-                  >
-                    {displaySecondaryTitle}
+                  <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className={titleLinkClassName}>
+                    {displayTitle}
                   </Link>
                 ) : (
-                  displaySecondaryTitle
+                  displayTitle
                 )}
-              </p>
-            ) : null}
-          </div>
-          <div className="space-y-1.5">
+              </h3>
+              {displaySecondaryTitle ? (
+                <p className={`truncate text-xs leading-tight ${isFeed ? "text-blue-200/80" : "text-sky-700"}`}>
+                  {canNavigateToDetail ? (
+                    <Link
+                      href={detailHref}
+                      aria-label={`Ver detalle de ${displayTitle} (${displaySecondaryTitle})`}
+                      className="inline-block max-w-full cursor-pointer truncate transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+                    >
+                      {displaySecondaryTitle}
+                    </Link>
+                  ) : (
+                    displaySecondaryTitle
+                  )}
+                </p>
+              ) : null}
+            </div>
             <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || "Desconocido"}</p>
             <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
           </div>
@@ -113,7 +113,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, showExtend
                 </p>
               ) : null}
               {hasCast ? (
-                <p className={`text-sm leading-snug ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+                <p className={`line-clamp-2 text-sm leading-snug ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
                   <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>Casting:</span> {castPreview.join(" · ")}
                 </p>
               ) : null}
