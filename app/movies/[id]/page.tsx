@@ -55,6 +55,7 @@ function buildMovieDirectedFetchEndpoints(movieId: string): string[] {
 
 interface DirectedConversation {
   key: string;
+  counterpartKey: string;
   otherUsername: string;
   otherDisplayName: string;
   otherAvatar: string | null;
@@ -69,12 +70,6 @@ function getCurrentUsernameFromPayload(payload: unknown): string | null {
   return typeof (user?.username ?? root?.username) === "string" ? String(user?.username ?? root?.username) : null;
 }
 
-function getNextFromPayload(payload: unknown): string | null {
-  const root = toRecord(payload);
-  const data = toRecord(root?.data);
-  const nextCandidate = root?.next ?? root?.next_page ?? root?.nextPage ?? data?.next ?? data?.next_page;
-  return typeof nextCandidate === "string" && nextCandidate.trim() ? nextCandidate : null;
-}
 
 function normalizeEndpointPath(nextValue: string | null): string | null {
   if (!nextValue) return null;
@@ -95,58 +90,46 @@ function normalizeId(value: number | string | null | undefined): string | null {
   return normalized || null;
 }
 
+
+function buildCounterpartData(message: SocialComment, authenticatedUsername: string): {
+  counterpartKey: string;
+  username: string;
+  displayName: string;
+  avatar: string | null;
+  direction: "sent" | "received";
+} {
+  const isSentByMe = message.authorUsername === authenticatedUsername;
+  const normalizedAuthorId = normalizeId(message.authorId);
+  const normalizedTargetUserId = normalizeId(message.targetUserId);
+  const counterpartId = isSentByMe ? normalizedTargetUserId : normalizedAuthorId;
+  const fallbackUsername = counterpartId ? `usuario-${counterpartId}` : "usuario";
+  const username = (isSentByMe ? message.recipientName : message.authorUsername) ?? fallbackUsername;
+
+  return {
+    counterpartKey: counterpartId ? `id:${counterpartId}` : `username:${username.toLowerCase()}`,
+    username,
+    displayName: isSentByMe ? message.recipientName ?? username : message.authorName || username,
+    avatar: isSentByMe ? null : message.authorAvatar,
+    direction: isSentByMe ? "sent" : "received",
+  };
+}
+
 function groupDirectedConversations(payload: unknown, authenticatedUsername: string, currentMovieId: string): DirectedConversation[] {
   const root = toRecord(payload);
   const explicitConversations =
     (Array.isArray(root?.conversations) ? root?.conversations : null) ||
     (Array.isArray(root?.results) ? root?.results : null) ||
     (Array.isArray(root?.items) ? root?.items : null);
-  const hasConversationShape =
-    Array.isArray(explicitConversations) &&
-    explicitConversations.some((entry) => {
-      const record = toRecord(entry);
-      if (!record) return false;
-      return (
-        Array.isArray(record.messages) ||
-        Array.isArray(record.results) ||
-        Boolean(toRecord(record.other_user)) ||
-        typeof record.other_username === "string" ||
-        typeof record.direction === "string"
-      );
-    });
 
-  if (explicitConversations && hasConversationShape) {
-    return explicitConversations
-      .map((entry) => toRecord(entry))
-      .filter((entry): entry is Record<string, unknown> => Boolean(entry))
-      .map((entry, index) => {
-        const otherUser = toRecord(entry.other_user) ?? toRecord(entry.user) ?? toRecord(entry.participant);
-        const otherUsername = String(otherUser?.username ?? entry.other_username ?? `usuario-${index + 1}`);
-        const otherDisplayName = String(otherUser?.display_name ?? otherUser?.name ?? otherUsername);
-        const otherAvatar =
-          typeof (otherUser?.avatar_url ?? otherUser?.avatar) === "string" ? String(otherUser?.avatar_url ?? otherUser?.avatar) : null;
-        const parsed = parseCommentsPage(entry.messages ?? entry, "directed");
-        const messages = parsed.comments.map((message) => ({
-          ...message,
-          type: "directed" as const,
-          direction: message.authorUsername === authenticatedUsername ? ("sent" as const) : ("received" as const),
-        }));
-        const sortedMessages = [...messages].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
-
-        return {
-          key: `conversation-${otherUsername}`,
-          otherUsername,
-          otherDisplayName,
-          otherAvatar,
-          messages: sortedMessages,
-          next: normalizeEndpointPath(parsed.next ?? getNextFromPayload(entry)),
-          lastMessageAt: sortedMessages[0]?.createdAt ?? null,
-        };
+  const parsedMessagesFromConversations = Array.isArray(explicitConversations)
+    ? explicitConversations.flatMap((entry) => {
+        const record = toRecord(entry);
+        if (!record) return [];
+        return parseCommentsPage(record.messages ?? record, "directed").comments;
       })
-      .sort((a, b) => (a.lastMessageAt && b.lastMessageAt ? b.lastMessageAt.localeCompare(a.lastMessageAt) : 0));
-  }
+    : [];
 
-  const flatComments = parseComments(payload, "directed");
+  const flatComments = parsedMessagesFromConversations.length > 0 ? parsedMessagesFromConversations : parseComments(payload, "directed");
   const byConversation = new Map<string, DirectedConversation>();
   const normalizedMovieId = normalizeId(currentMovieId);
 
@@ -158,24 +141,20 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
     : flatComments;
 
   commentsForMovie.forEach((message) => {
-    const isSentByMe = message.authorUsername === authenticatedUsername;
-    const normalizedAuthorId = normalizeId(message.authorId);
-    const normalizedTargetUserId = normalizeId(message.targetUserId);
-    const counterpartId = isSentByMe ? normalizedTargetUserId : normalizedAuthorId;
-    const otherUsername = isSentByMe ? message.recipientName ?? counterpartId ?? "usuario" : message.authorUsername;
-    const existing = byConversation.get(otherUsername);
+    const counterpart = buildCounterpartData(message, authenticatedUsername);
+    const existing = byConversation.get(counterpart.counterpartKey);
     const directionMessage: SocialComment = {
       ...message,
-      recipientName: message.recipientName ?? (counterpartId ? `usuario-${counterpartId}` : message.recipientName),
-      direction: isSentByMe ? "sent" : "received",
+      direction: counterpart.direction,
     };
     const nextMessageList = existing ? [...existing.messages, directionMessage] : [directionMessage];
     const sortedMessages = [...nextMessageList].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
-    byConversation.set(otherUsername, {
-      key: `conversation-${otherUsername}`,
-      otherUsername,
-      otherDisplayName: otherUsername,
-      otherAvatar: existing?.otherAvatar ?? (isSentByMe ? null : message.authorAvatar),
+    byConversation.set(counterpart.counterpartKey, {
+      key: `conversation-${counterpart.counterpartKey}`,
+      counterpartKey: counterpart.counterpartKey,
+      otherUsername: existing?.otherUsername ?? counterpart.username,
+      otherDisplayName: existing?.otherDisplayName ?? counterpart.displayName,
+      otherAvatar: existing?.otherAvatar ?? counterpart.avatar,
       messages: sortedMessages,
       next: existing?.next ?? null,
       lastMessageAt: sortedMessages[0]?.createdAt ?? null,
@@ -664,18 +643,20 @@ export default function MovieDetailPage() {
             return;
           }
           if (parsedSubmittedComment) {
-            const recipient = parsedSubmittedComment.recipientName || "usuario";
-            const conversationKey = `conversation-${recipient}`;
+            const counterpart = buildCounterpartData(parsedSubmittedComment, authenticatedUsername);
+            const conversationKey = `conversation-${counterpart.counterpartKey}`;
             setDirectedConversations((current) => {
               const target = current.find((conversation) => conversation.key === conversationKey);
+              const nextMessage: SocialComment = { ...parsedSubmittedComment, direction: counterpart.direction };
               if (!target) {
                 return [
                   {
                     key: conversationKey,
-                    otherUsername: recipient,
-                    otherDisplayName: recipient,
-                    otherAvatar: null,
-                    messages: [parsedSubmittedComment],
+                    counterpartKey: counterpart.counterpartKey,
+                    otherUsername: counterpart.username,
+                    otherDisplayName: counterpart.displayName,
+                    otherAvatar: counterpart.avatar,
+                    messages: [nextMessage],
                     next: null,
                     lastMessageAt: parsedSubmittedComment.createdAt,
                   },
@@ -686,7 +667,7 @@ export default function MovieDetailPage() {
                 conversation.key === conversationKey
                   ? {
                       ...conversation,
-                      messages: [parsedSubmittedComment, ...conversation.messages],
+                      messages: [nextMessage, ...conversation.messages],
                       lastMessageAt: parsedSubmittedComment.createdAt,
                     }
                   : conversation,
@@ -856,7 +837,12 @@ export default function MovieDetailPage() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName}</p>
-                          <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p>
+                            <span className="rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[11px] text-zinc-300">
+                              {conversation.messages.length}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <span className="text-xs text-zinc-400">{isExpanded ? "Ocultar" : "Ver conversación"}</span>
