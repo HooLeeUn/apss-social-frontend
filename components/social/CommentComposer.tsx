@@ -37,6 +37,13 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedMention, setSelectedMention] = useState<MentionSelection | null>(null);
 
+  const hasValidSelectedMention = useMemo(() => {
+    if (!selectedMention) return false;
+    const mentionToken = text.slice(selectedMention.tokenStart, selectedMention.tokenEnd);
+    if (mentionToken !== `@${selectedMention.username}`) return false;
+    return friends.some((friend) => friend.username === selectedMention.username);
+  }, [friends, selectedMention, text]);
+
   const suggestions = useMemo(() => {
     if (mentionQuery === null) return [];
     const normalized = mentionQuery.trim().replace(/^@+/, "").toLowerCase();
@@ -126,9 +133,14 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
+    const mentionUsername = hasValidSelectedMention ? selectedMention?.username ?? null : null;
+    console.log("[mentions-debug] submit mode:", mentionUsername ? "directed" : "public");
+    console.log("[mentions-debug] selected mention object:", selectedMention);
+    console.log("[mentions-debug] mentioned_username final:", mentionUsername);
+
     await onSubmit({
       text: trimmed,
-      mentionUsername: selectedMention?.username || null,
+      mentionUsername,
     });
 
     setText("");
@@ -163,7 +175,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-xs text-zinc-400">
-          {selectedMention
+          {hasValidSelectedMention && selectedMention
             ? `Mención válida seleccionada: @${selectedMention.username}`
             : "Si eliges una mención del listado, se enviará como recomendación privada."}
         </p>
