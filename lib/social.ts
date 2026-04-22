@@ -61,6 +61,12 @@ function toStringOrNull(value: unknown): string | null {
   return normalized || null;
 }
 
+function normalizeUsername(value: unknown): string | null {
+  const raw = toStringOrNull(value);
+  if (!raw) return null;
+  return raw.replace(/^@+/, "");
+}
+
 function toCount(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) {
@@ -120,7 +126,17 @@ export function parseFriends(payload: unknown): Friend[] {
     .filter((item): item is Record<string, unknown> => Boolean(item))
     .map((friendship, index) => {
       const friend = getFriendRecord(friendship);
-      const username = String(pickFirst(friend.username, friend.name, friend.user_name, `amigo-${index + 1}`));
+      const username =
+        normalizeUsername(
+          pickFirst(
+            friend.username,
+            friend.user_name,
+            friend.userName,
+            friendship.username,
+            friendship.user_name,
+            friendship.userName,
+          ),
+        ) || `amigo-${index + 1}`;
       return {
         id: pickFirst(friend.id, friend.user_id, friendship.id, username) as number | string,
         username,

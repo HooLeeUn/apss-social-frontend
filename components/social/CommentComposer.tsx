@@ -10,6 +10,10 @@ interface MentionSelection {
   tokenEnd: number;
 }
 
+function normalizeMentionUsername(value: string): string {
+  return value.trim().replace(/^@+/, "");
+}
+
 interface CommentComposerProps {
   friends: Friend[];
   onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<void>;
@@ -88,11 +92,15 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
     const nextText = `${text.slice(0, mentionStart)}@${friend.username} ${text.slice(caretIndex)}`;
     const tokenStart = mentionStart;
     const tokenEnd = mentionStart + friend.username.length + 1;
+    const nextSelection = { username: friend.username, tokenStart, tokenEnd };
 
     setText(nextText);
-    setSelectedMention({ username: friend.username, tokenStart, tokenEnd });
+    setSelectedMention(nextSelection);
     setMentionQuery(null);
     setMentionStart(null);
+    console.log("[mentions-debug] selected friend object:", friend);
+    console.log("[mentions-debug] selected mention object:", nextSelection);
+    console.log("[mentions-debug] textarea after selection:", nextText);
 
     requestAnimationFrame(() => {
       if (!textareaRef.current) return;
@@ -133,10 +141,11 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
-    const mentionUsername = hasValidSelectedMention ? selectedMention?.username ?? null : null;
+    const mentionUsername = hasValidSelectedMention ? normalizeMentionUsername(selectedMention?.username ?? "") : null;
     console.log("[mentions-debug] submit mode:", mentionUsername ? "directed" : "public");
     console.log("[mentions-debug] selected mention object:", selectedMention);
     console.log("[mentions-debug] mentioned_username final:", mentionUsername);
+    console.log("[mentions-debug] textarea value:", trimmed);
 
     await onSubmit({
       text: trimmed,
