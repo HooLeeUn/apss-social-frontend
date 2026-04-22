@@ -622,6 +622,8 @@ export default function MovieDetailPage() {
       const payload = mentionUsername ? { body: text, mentioned_username: mentionUsername } : { body: text };
 
       console.log("[movie-comments-debug] submit mode:", mode);
+      console.log("[movie-comments-debug] textarea value:", text);
+      console.log("[movie-comments-debug] mentioned_username final:", mentionUsername);
       console.log("[movie-comments-debug] submit payload:", payload);
 
       let submitResponse: Awaited<ReturnType<typeof debugApiRequest>> | null = null;
@@ -631,12 +633,14 @@ export default function MovieDetailPage() {
         for (let index = 0; index < directedEndpoints.length; index += 1) {
           const endpoint = directedEndpoints[index];
           try {
+            const requestPayload = { ...payload, movie_id: movieId };
             console.log("[movie-comments-debug] endpoint used:", endpoint);
             console.log("[movie-comments-debug] submit url:", joinApiUrl(endpoint));
+            console.log("[movie-comments-debug] final request payload:", requestPayload);
             submitResponse = await debugApiRequest(endpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ...payload, movie_id: movieId }),
+              body: JSON.stringify(requestPayload),
             });
             break;
           } catch (error) {
@@ -650,6 +654,7 @@ export default function MovieDetailPage() {
       } else {
         console.log("[movie-comments-debug] endpoint used:", publicEndpoint);
         console.log("[movie-comments-debug] submit url:", joinApiUrl(publicEndpoint));
+        console.log("[movie-comments-debug] final request payload:", payload);
         submitResponse = await debugApiRequest(publicEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
