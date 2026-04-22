@@ -656,7 +656,7 @@ export default function MovieDetailPage() {
       if (mode === "directed") {
         try {
           const refreshed = await debugApiRequest(buildMovieDirectedSubmitEndpoint(movieId));
-          setDirectedConversations(groupDirectedConversations(refreshed.body, authenticatedUsername));
+          setDirectedConversations(groupDirectedConversations(refreshed.body, authenticatedUsername, movieId));
           setDirectedError("");
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
