@@ -631,6 +631,7 @@ export default function MovieDetailPage() {
         for (let index = 0; index < directedEndpoints.length; index += 1) {
           const endpoint = directedEndpoints[index];
           try {
+            console.log("[movie-comments-debug] endpoint used:", endpoint);
             console.log("[movie-comments-debug] submit url:", joinApiUrl(endpoint));
             submitResponse = await debugApiRequest(endpoint, {
               method: "POST",
@@ -647,6 +648,7 @@ export default function MovieDetailPage() {
           }
         }
       } else {
+        console.log("[movie-comments-debug] endpoint used:", publicEndpoint);
         console.log("[movie-comments-debug] submit url:", joinApiUrl(publicEndpoint));
         submitResponse = await debugApiRequest(publicEndpoint, {
           method: "POST",
