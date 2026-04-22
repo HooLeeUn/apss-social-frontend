@@ -44,15 +44,17 @@ export default function CommentsList({
 
   if (!singleContainer) {
     return (
-      <div className="space-y-3">
-        {comments.map((comment) => (
-          <CommentItem
-            key={comment.id}
-            comment={comment}
-            onReact={onReact}
-            onAuthorClick={onAuthorClick}
-            badgeLabel={itemBadgeLabel?.(comment)}
-          />
+      <div className="space-y-0">
+        {comments.map((comment, index) => (
+          <div key={comment.id} className={index === 0 ? "" : "border-t border-white/10"}>
+            <CommentItem
+              comment={comment}
+              onReact={onReact}
+              onAuthorClick={onAuthorClick}
+              showCard={false}
+              badgeLabel={itemBadgeLabel?.(comment)}
+            />
+          </div>
         ))}
       </div>
     );
@@ -60,7 +62,7 @@ export default function CommentsList({
 
   return (
     <div
-      className="max-h-[28rem] overflow-y-auto rounded-xl border border-white/15 bg-zinc-950/65 p-4"
+      className="scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/15 bg-zinc-950/65 p-4"
       onScroll={(event) => {
         if (!hasMore || loadingMore || !onLoadMore) return;
         const target = event.currentTarget;

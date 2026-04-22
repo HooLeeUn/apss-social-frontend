@@ -850,7 +850,7 @@ export default function MovieDetailPage() {
 
                     {isExpanded ? (
                       <div
-                        className="mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-3"
+                        className="scrollbar-dark mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-3"
                         onScroll={(event) => {
                           const target = event.currentTarget;
                           if (
