@@ -17,6 +17,8 @@ export interface Movie {
   contentType: string;
   year: string;
   genres: string[];
+  director: string | null;
+  castMembers: string[];
   posterUrl: string | null;
   displayRating: number | null;
   myRating: number | null;
@@ -310,6 +312,8 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   const yearValue = pickFirst(raw.release_year, raw.year, nestedMovie?.release_year, nestedMovie?.year, raw.release_date);
   const year = typeof yearValue === "string" ? yearValue.slice(0, 4) : String(yearValue ?? "-");
   const contentType = pickFirst(raw.type, nestedMovie?.type);
+  const director = pickFirstNonEmptyString(raw.director, nestedMovie?.director, raw.director_name, nestedMovie?.director_name);
+  const castMembers = toStringList(pickFirst(raw.cast_members, nestedMovie?.cast_members, raw.cast, nestedMovie?.cast));
 
   return {
     id,
@@ -321,6 +325,8 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     contentType: normalizeContentType(contentType),
     year,
     genres,
+    director,
+    castMembers,
     posterUrl:
       resolveBackendAssetUrl(
         pickFirst(
