@@ -39,8 +39,9 @@ function buildMoviePublicSubmitEndpoint(movieId: string): string {
   return `/movies/${encodeURIComponent(movieId)}/comments/`;
 }
 
-function buildMovieDirectedSubmitEndpoint(movieId: string): string {
-  return `/movies/${encodeURIComponent(movieId)}/comments/directed/`;
+function buildMovieDirectedSubmitEndpoints(movieId: string): string[] {
+  const encodedMovieId = encodeURIComponent(movieId);
+  return [`/comments/directed/?movie_id=${encodedMovieId}`, `/movies/${encodedMovieId}/comments/directed/`];
 }
 
 function buildMovieDirectedFetchEndpoints(movieId: string): string[] {
@@ -616,26 +617,55 @@ export default function MovieDetailPage() {
 
     try {
       const mode = mentionUsername ? "directed" : "public";
-      const endpoint = mentionUsername ? buildMovieDirectedSubmitEndpoint(movieId) : buildMoviePublicSubmitEndpoint(movieId);
+      const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
+      const directedEndpoints = buildMovieDirectedSubmitEndpoints(movieId);
       const payload = mentionUsername ? { body: text, mentioned_username: mentionUsername } : { body: text };
 
       console.log("[movie-comments-debug] submit mode:", mode);
-      console.log("[movie-comments-debug] submit url:", joinApiUrl(endpoint));
       console.log("[movie-comments-debug] submit payload:", payload);
 
-      const submitResponse = await debugApiRequest(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      let submitResponse: Awaited<ReturnType<typeof debugApiRequest>> | null = null;
+      let submitError: unknown = null;
+
+      if (mode === "directed") {
+        for (let index = 0; index < directedEndpoints.length; index += 1) {
+          const endpoint = directedEndpoints[index];
+          try {
+            console.log("[movie-comments-debug] submit url:", joinApiUrl(endpoint));
+            submitResponse = await debugApiRequest(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...payload, movie_id: movieId }),
+            });
+            break;
+          } catch (error) {
+            submitError = error;
+            if (error instanceof ApiError && [404, 405].includes(error.status) && index < directedEndpoints.length - 1) {
+              continue;
+            }
+            throw error;
+          }
+        }
+      } else {
+        console.log("[movie-comments-debug] submit url:", joinApiUrl(publicEndpoint));
+        submitResponse = await debugApiRequest(publicEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      if (!submitResponse) {
+        throw submitError ?? new Error("No endpoint available for directed submit.");
+      }
 
       console.log("[movie-comments-debug] submit response status:", submitResponse.status);
       const parsedSubmittedComment = parseComments([submitResponse.body], mode)[0];
 
       if (mode === "directed") {
         try {
-          const refreshed = await debugApiRequest(buildMovieDirectedSubmitEndpoint(movieId));
-          setDirectedConversations(groupDirectedConversations(refreshed.body, authenticatedUsername, movieId));
+          const refreshed = await fetchWithFallbacks<unknown>(buildMovieDirectedFetchEndpoints(movieId), "[movie-detail-debug]");
+          setDirectedConversations(groupDirectedConversations(refreshed.payload, authenticatedUsername, movieId));
           setDirectedError("");
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
@@ -667,7 +697,7 @@ export default function MovieDetailPage() {
                 conversation.key === conversationKey
                   ? {
                       ...conversation,
-                      messages: [nextMessage, ...conversation.messages],
+                      messages: [nextMessage, ...conversation.messages.filter((message) => String(message.id) !== String(nextMessage.id))],
                       lastMessageAt: parsedSubmittedComment.createdAt,
                     }
                   : conversation,
