@@ -13,6 +13,17 @@ interface CommentsListProps {
   loadingMore?: boolean;
   singleContainer?: boolean;
   itemBadgeLabel?: (comment: SocialComment) => string;
+  canManageComment?: (comment: SocialComment) => boolean;
+  editingCommentId?: string | null;
+  editingValue?: string;
+  onStartEdit?: (comment: SocialComment) => void;
+  onEditValueChange?: (nextValue: string) => void;
+  onCancelEdit?: () => void;
+  onSaveEdit?: (comment: SocialComment) => void;
+  savingEditCommentId?: string | null;
+  onDeleteComment?: (comment: SocialComment) => Promise<void>;
+  deletingCommentIds?: Record<string, boolean>;
+  actionErrorByCommentId?: Record<string, string>;
 }
 
 export default function CommentsList({
@@ -27,6 +38,17 @@ export default function CommentsList({
   loadingMore = false,
   singleContainer = false,
   itemBadgeLabel,
+  canManageComment,
+  editingCommentId = null,
+  editingValue = "",
+  onStartEdit,
+  onEditValueChange,
+  onCancelEdit,
+  onSaveEdit,
+  savingEditCommentId = null,
+  onDeleteComment,
+  deletingCommentIds = {},
+  actionErrorByCommentId = {},
 }: CommentsListProps) {
   if (loading) {
     return (
@@ -53,6 +75,17 @@ export default function CommentsList({
               onAuthorClick={onAuthorClick}
               showCard={false}
               badgeLabel={itemBadgeLabel?.(comment)}
+              canManage={canManageComment?.(comment) ?? false}
+              isEditing={editingCommentId !== null && String(comment.id) === editingCommentId}
+              editValue={editingValue}
+              onStartEdit={onStartEdit}
+              onEditValueChange={onEditValueChange}
+              onCancelEdit={onCancelEdit}
+              onSaveEdit={onSaveEdit}
+              savingEdit={savingEditCommentId !== null && String(comment.id) === savingEditCommentId}
+              onDelete={onDeleteComment}
+              deleting={Boolean(deletingCommentIds[String(comment.id)])}
+              actionError={actionErrorByCommentId[String(comment.id)]}
             />
           </div>
         ))}
@@ -80,6 +113,17 @@ export default function CommentsList({
               onAuthorClick={onAuthorClick}
               showCard={false}
               badgeLabel={itemBadgeLabel?.(comment)}
+              canManage={canManageComment?.(comment) ?? false}
+              isEditing={editingCommentId !== null && String(comment.id) === editingCommentId}
+              editValue={editingValue}
+              onStartEdit={onStartEdit}
+              onEditValueChange={onEditValueChange}
+              onCancelEdit={onCancelEdit}
+              onSaveEdit={onSaveEdit}
+              savingEdit={savingEditCommentId !== null && String(comment.id) === savingEditCommentId}
+              onDelete={onDeleteComment}
+              deleting={Boolean(deletingCommentIds[String(comment.id)])}
+              actionError={actionErrorByCommentId[String(comment.id)]}
             />
           </div>
         ))}

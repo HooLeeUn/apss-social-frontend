@@ -42,6 +42,8 @@ export const DIRECTED_COMMENTS_ENDPOINT =
 export const COMMENT_CREATE_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_COMMENT_CREATE_ENDPOINT || "/social/comments/";
 export const COMMENT_REACTION_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_SOCIAL_COMMENT_REACTION_ENDPOINT_TEMPLATE || "/comments/{id}/reaction/";
+export const COMMENT_DETAIL_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_SOCIAL_COMMENT_DETAIL_ENDPOINT_TEMPLATE || "/comments/{id}/";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -220,6 +222,10 @@ export function parseCommentsPage(payload: unknown, fallbackType: "public" | "di
 
 export function buildReactionEndpoint(commentId: number | string): string {
   return COMMENT_REACTION_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(commentId)));
+}
+
+export function buildCommentDetailEndpoint(commentId: number | string): string {
+  return COMMENT_DETAIL_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(commentId)));
 }
 
 export function formatSocialDate(date: string | null): string {
