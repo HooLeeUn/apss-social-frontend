@@ -879,7 +879,7 @@ export default function MovieDetailPage() {
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">{movieError}</div>
         ) : null}
         {!movieLoading && !movieError && movie ? (
-          <MovieCard movie={movie} variant="feed" linkToDetail={false} onRated={handleMovieRated} />
+          <MovieCard movie={movie} variant="feed" linkToDetail={false} showExtendedMetadata onRated={handleMovieRated} />
         ) : null}
 
         <CommentComposer friends={friends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} />
@@ -887,7 +887,7 @@ export default function MovieDetailPage() {
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-zinc-100">Comentarios públicos</h2>
+          <h2 className="text-xl font-bold text-slate-300">Comentarios públicos</h2>
           <CommentsList
             comments={publicComments}
             loading={loadingPublic}
@@ -903,7 +903,7 @@ export default function MovieDetailPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-zinc-100">Comentarios Dirigidos</h2>
+          <h2 className="text-xl font-bold text-slate-300">Comentarios dirigidos</h2>
           {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div> : null}
           {!loadingDirected && directedError ? (
             <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>

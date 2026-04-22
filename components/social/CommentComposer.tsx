@@ -159,8 +159,8 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
   };
 
   return (
-    <section className="rounded-2xl border border-white/15 bg-zinc-950/55 p-4">
-      <h3 className="mb-3 text-sm font-semibold text-zinc-200">Comentar película</h3>
+    <section className="rounded-2xl border-2 border-white/25 bg-zinc-950/55 p-4">
+      <h3 className="mb-3 text-xl font-bold text-slate-300">Comentar película</h3>
 
       <div className="relative">
         <textarea
@@ -174,7 +174,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
           }}
           onKeyDown={handleKeyDown}
           placeholder="Comparte tu recomendación... Usa @ para mencionar a un amigo"
-          className="w-full rounded-xl border border-white/20 bg-black/30 p-3 text-sm text-zinc-100 outline-none transition focus:border-white/40"
+          className="w-full rounded-xl border border-white/30 bg-black/30 p-3 text-sm text-zinc-100 outline-none transition focus:border-white/45"
         />
 
         {mentionQuery !== null ? (

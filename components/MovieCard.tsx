@@ -11,6 +11,7 @@ interface MovieCardProps {
   movie: Movie;
   variant?: "large" | "compact" | "feed";
   linkToDetail?: boolean;
+  showExtendedMetadata?: boolean;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
@@ -22,7 +23,7 @@ function formatContentType(contentType: string) {
   return contentType;
 }
 
-function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }: MovieCardProps) {
+function MovieCard({ movie, variant = "compact", linkToDetail = true, showExtendedMetadata = false, onRated }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
@@ -32,6 +33,9 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
   const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : "Sin género";
   const displayTitle = movie.displayTitle || movie.title;
   const displaySecondaryTitle = movie.displaySecondaryTitle;
+  const hasDirector = Boolean(movie.director?.trim());
+  const castPreview = movie.castMembers.slice(0, 4);
+  const hasCast = castPreview.length > 0;
   const canNavigateToDetail = linkToDetail;
   const titleLinkClassName = `inline-block max-w-full truncate transition-colors duration-150 ${
     isFeed ? "cursor-pointer hover:text-blue-100 focus-visible:text-blue-100" : "cursor-pointer hover:text-sky-700 focus-visible:text-sky-700"
@@ -70,7 +74,7 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
       </div>
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
-        <div className={isFeed ? "min-w-0 space-y-1.5" : "space-y-2"}>
+        <div className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${showExtendedMetadata ? "md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] md:gap-6 md:space-y-0" : ""}`}>
           <div className="min-w-0">
             <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
               {canNavigateToDetail ? (
@@ -97,8 +101,24 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, onRated }:
               </p>
             ) : null}
           </div>
-          <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || "Desconocido"}</p>
-          <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
+          <div className="space-y-1.5">
+            <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || "Desconocido"}</p>
+            <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
+          </div>
+          {showExtendedMetadata && (hasDirector || hasCast) ? (
+            <div className="space-y-1.5 md:pt-0.5">
+              {hasDirector ? (
+                <p className={`text-sm leading-snug ${isFeed ? "text-zinc-300" : "text-gray-600"}`}>
+                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>Director:</span> {movie.director}
+                </p>
+              ) : null}
+              {hasCast ? (
+                <p className={`text-sm leading-snug ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>Casting:</span> {castPreview.join(" · ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div
           className={`mt-2 rounded-lg border ${
