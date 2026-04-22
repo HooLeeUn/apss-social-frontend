@@ -53,9 +53,6 @@ export default function CommentItem({
         </span>
       </header>
 
-      {comment.recipientName && comment.type === "directed" ? (
-        <p className="mb-1 text-xs text-zinc-400">Para @{comment.recipientName}</p>
-      ) : null}
 
       <p className="mb-3 whitespace-pre-wrap text-sm leading-6 text-zinc-100">{comment.text}</p>
 
