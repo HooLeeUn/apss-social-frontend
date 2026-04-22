@@ -16,6 +16,7 @@ import {
   normalizeMovie,
 } from "../../../lib/movies";
 import {
+  buildCommentDetailEndpoint,
   buildReactionEndpoint,
   Friend,
   FRIENDS_ENDPOINT,
@@ -362,6 +363,14 @@ function applyReactionResultToCollection(
   );
 }
 
+function updateCommentTextInCollection(collection: SocialComment[], commentId: number | string, nextText: string): SocialComment[] {
+  return collection.map((comment) => (String(comment.id) === String(commentId) ? { ...comment, text: nextText } : comment));
+}
+
+function removeCommentFromCollection(collection: SocialComment[], commentId: number | string): SocialComment[] {
+  return collection.filter((comment) => String(comment.id) !== String(commentId));
+}
+
 export default function MovieDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -388,6 +397,11 @@ export default function MovieDetailPage() {
   const [directedError, setDirectedError] = useState("");
   const [composerError, setComposerError] = useState("");
   const [reactionError, setReactionError] = useState("");
+  const [commentActionErrorById, setCommentActionErrorById] = useState<Record<string, string>>({});
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentValue, setEditingCommentValue] = useState("");
+  const [savingEditCommentId, setSavingEditCommentId] = useState<string | null>(null);
+  const [deletingCommentIds, setDeletingCommentIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchMovieDetail = useCallback(async () => {
@@ -608,6 +622,13 @@ export default function MovieDetailPage() {
   useEffect(() => {
     console.log("[movie-comments-debug] render directed conversations count", directedConversations.length);
   }, [directedConversations.length]);
+
+  useEffect(() => {
+    if (!expandedConversationKey) return;
+    if (!directedConversations.some((conversation) => conversation.key === expandedConversationKey)) {
+      setExpandedConversationKey(null);
+    }
+  }, [directedConversations, expandedConversationKey]);
 
   const handleAuthorNavigation = useCallback(
     (username: string) => {
@@ -864,6 +885,129 @@ export default function MovieDetailPage() {
     }
   };
 
+  const isMyComment = useCallback(
+    (comment: SocialComment) => normalizeUsername(comment.authorUsername) === normalizeUsername(authenticatedUsername),
+    [authenticatedUsername],
+  );
+
+  const handleStartEdit = useCallback((comment: SocialComment) => {
+    const commentId = String(comment.id);
+    setEditingCommentId(commentId);
+    setEditingCommentValue(comment.text);
+    setCommentActionErrorById((current) => {
+      const next = { ...current };
+      delete next[commentId];
+      return next;
+    });
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingCommentId(null);
+    setEditingCommentValue("");
+  }, []);
+
+  const handleSaveEdit = useCallback(
+    async (comment: SocialComment) => {
+      const commentId = String(comment.id);
+      const trimmedValue = editingCommentValue.trim();
+      if (!trimmedValue || !isMyComment(comment)) return;
+
+      setSavingEditCommentId(commentId);
+      setCommentActionErrorById((current) => {
+        const next = { ...current };
+        delete next[commentId];
+        return next;
+      });
+
+      const endpoint = buildCommentDetailEndpoint(comment.id);
+      try {
+        try {
+          await apiFetch(endpoint, {
+            method: "PATCH",
+            body: JSON.stringify({ body: trimmedValue }),
+          });
+        } catch (error) {
+          if (error instanceof ApiError && [404, 405].includes(error.status)) {
+            await apiFetch(endpoint, {
+              method: "PUT",
+              body: JSON.stringify({ body: trimmedValue }),
+            });
+          } else {
+            throw error;
+          }
+        }
+
+        setPublicComments((current) => updateCommentTextInCollection(current, comment.id, trimmedValue));
+        setDirectedConversations((current) =>
+          current.map((conversation) => ({
+            ...conversation,
+            messages: updateCommentTextInCollection(conversation.messages, comment.id, trimmedValue),
+          })),
+        );
+        setEditingCommentId(null);
+        setEditingCommentValue("");
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        setCommentActionErrorById((current) => ({
+          ...current,
+          [commentId]: "No se pudo guardar la edición. Revisa el texto e intenta nuevamente.",
+        }));
+      } finally {
+        setSavingEditCommentId(null);
+      }
+    },
+    [editingCommentValue, isMyComment, router],
+  );
+
+  const handleDeleteComment = useCallback(
+    async (comment: SocialComment) => {
+      const commentId = String(comment.id);
+      if (!isMyComment(comment)) return;
+      setDeletingCommentIds((current) => ({ ...current, [commentId]: true }));
+      setCommentActionErrorById((current) => {
+        const next = { ...current };
+        delete next[commentId];
+        return next;
+      });
+
+      try {
+        await apiFetch(buildCommentDetailEndpoint(comment.id), { method: "DELETE" });
+        setPublicComments((current) => removeCommentFromCollection(current, comment.id));
+        setDirectedConversations((current) =>
+          current
+            .map((conversation) => ({
+              ...conversation,
+              messages: removeCommentFromCollection(conversation.messages, comment.id),
+            }))
+            .filter((conversation) => conversation.messages.length > 0),
+        );
+        if (editingCommentId === commentId) {
+          setEditingCommentId(null);
+          setEditingCommentValue("");
+        }
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        setCommentActionErrorById((current) => ({
+          ...current,
+          [commentId]: "No se pudo eliminar el comentario. Intenta nuevamente.",
+        }));
+      } finally {
+        setDeletingCommentIds((current) => {
+          const next = { ...current };
+          delete next[commentId];
+          return next;
+        });
+      }
+    },
+    [editingCommentId, isMyComment, router],
+  );
+
   return (
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-8 md:px-8">
@@ -899,6 +1043,17 @@ export default function MovieDetailPage() {
             onLoadMore={() => void appendPublicComments()}
             hasMore={Boolean(publicNext)}
             loadingMore={loadingPublicMore}
+            canManageComment={isMyComment}
+            editingCommentId={editingCommentId}
+            editingValue={editingCommentValue}
+            onStartEdit={handleStartEdit}
+            onEditValueChange={setEditingCommentValue}
+            onCancelEdit={handleCancelEdit}
+            onSaveEdit={handleSaveEdit}
+            savingEditCommentId={savingEditCommentId}
+            onDeleteComment={handleDeleteComment}
+            deletingCommentIds={deletingCommentIds}
+            actionErrorByCommentId={commentActionErrorById}
           />
         </section>
 
@@ -969,6 +1124,17 @@ export default function MovieDetailPage() {
                           itemBadgeLabel={(message) =>
                             message.authorUsername === authenticatedUsername ? "Enviado" : "Recibido"
                           }
+                          canManageComment={isMyComment}
+                          editingCommentId={editingCommentId}
+                          editingValue={editingCommentValue}
+                          onStartEdit={handleStartEdit}
+                          onEditValueChange={setEditingCommentValue}
+                          onCancelEdit={handleCancelEdit}
+                          onSaveEdit={handleSaveEdit}
+                          savingEditCommentId={savingEditCommentId}
+                          onDeleteComment={handleDeleteComment}
+                          deletingCommentIds={deletingCommentIds}
+                          actionErrorByCommentId={commentActionErrorById}
                         />
                         {loadingDirectedMoreByKey[conversation.key] ? (
                           <p className="pt-2 text-xs text-zinc-400">Cargando mensajes anteriores...</p>
