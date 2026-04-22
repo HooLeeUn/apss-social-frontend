@@ -46,6 +46,8 @@ function buildMovieDirectedSubmitEndpoint(movieId: string): string {
 function buildMovieDirectedFetchEndpoints(movieId: string): string[] {
   const encodedMovieId = encodeURIComponent(movieId);
   return [
+    `/comments/directed/?movie_id=${encodedMovieId}`,
+    `/comments/directed/received/?movie_id=${encodedMovieId}`,
     `/movies/${encodedMovieId}/comments/directed/received/`,
     `/movies/${encodedMovieId}/comments/directed/`,
   ];
@@ -87,7 +89,13 @@ function normalizeEndpointPath(nextValue: string | null): string | null {
   return nextValue;
 }
 
-function groupDirectedConversations(payload: unknown, authenticatedUsername: string): DirectedConversation[] {
+function normalizeId(value: number | string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+function groupDirectedConversations(payload: unknown, authenticatedUsername: string, currentMovieId: string): DirectedConversation[] {
   const root = toRecord(payload);
   const explicitConversations =
     (Array.isArray(root?.conversations) ? root?.conversations : null) ||
@@ -121,6 +129,7 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
         const messages = parsed.comments.map((message) => ({
           ...message,
           type: "directed" as const,
+          direction: message.authorUsername === authenticatedUsername ? ("sent" as const) : ("received" as const),
         }));
         const sortedMessages = [...messages].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
 
@@ -139,11 +148,28 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
 
   const flatComments = parseComments(payload, "directed");
   const byConversation = new Map<string, DirectedConversation>();
-  flatComments.forEach((message) => {
+  const normalizedMovieId = normalizeId(currentMovieId);
+
+  const commentsForMovie = normalizedMovieId
+    ? flatComments.filter((message) => {
+        const messageMovieId = normalizeId(message.movieId);
+        return !messageMovieId || messageMovieId === normalizedMovieId;
+      })
+    : flatComments;
+
+  commentsForMovie.forEach((message) => {
     const isSentByMe = message.authorUsername === authenticatedUsername;
-    const otherUsername = isSentByMe ? message.recipientName ?? "usuario" : message.authorUsername;
+    const normalizedAuthorId = normalizeId(message.authorId);
+    const normalizedTargetUserId = normalizeId(message.targetUserId);
+    const counterpartId = isSentByMe ? normalizedTargetUserId : normalizedAuthorId;
+    const otherUsername = isSentByMe ? message.recipientName ?? counterpartId ?? "usuario" : message.authorUsername;
     const existing = byConversation.get(otherUsername);
-    const nextMessageList = existing ? [...existing.messages, message] : [message];
+    const directionMessage: SocialComment = {
+      ...message,
+      recipientName: message.recipientName ?? (counterpartId ? `usuario-${counterpartId}` : message.recipientName),
+      direction: isSentByMe ? "sent" : "received",
+    };
+    const nextMessageList = existing ? [...existing.messages, directionMessage] : [directionMessage];
     const sortedMessages = [...nextMessageList].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
     byConversation.set(otherUsername, {
       key: `conversation-${otherUsername}`,
@@ -502,7 +528,7 @@ export default function MovieDetailPage() {
 
       if (directedReceivedResult.ok) {
         const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
-        setDirectedConversations(groupDirectedConversations(directedReceivedResult.payload, meUsername));
+        setDirectedConversations(groupDirectedConversations(directedReceivedResult.payload, meUsername, movieId));
         setDirectedError("");
       } else {
         setDirectedError("No pudimos cargar los comentarios dirigidos.");

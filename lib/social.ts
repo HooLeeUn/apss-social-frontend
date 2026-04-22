@@ -8,6 +8,8 @@ export interface Friend {
 
 export interface SocialComment {
   id: number | string;
+  authorId: number | string | null;
+  targetUserId: number | string | null;
   movieId: number | string | null;
   text: string;
   createdAt: string | null;
@@ -19,6 +21,7 @@ export interface SocialComment {
   likesCount: number;
   dislikesCount: number;
   myReaction: ReactionType;
+  direction?: "sent" | "received";
 }
 
 export interface PaginatedComments {
@@ -133,7 +136,9 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 
   const authorUsername =
     toStringOrNull(pickFirst(nestedAuthor?.username, raw.author_username, raw.username, nestedAuthor?.name)) || "usuario";
-  const authorName = toStringOrNull(pickFirst(nestedAuthor?.name, raw.author_name, nestedAuthor?.username, raw.username)) || "Usuario";
+  const authorName =
+    toStringOrNull(pickFirst(nestedAuthor?.display_name, nestedAuthor?.name, raw.author_display_name, raw.author_name, nestedAuthor?.username, raw.username)) ||
+    "Usuario";
 
   const recipientName = toStringOrNull(
     pickFirst(nestedRecipient?.username, nestedRecipient?.name, raw.recipient_name, raw.mentioned_username),
@@ -144,6 +149,8 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 
   return {
     id: (pickFirst(raw.id, raw.comment_id, raw.uuid) || `comment-${Math.random().toString(36).slice(2, 10)}`) as number | string,
+    authorId: (pickFirst(nestedAuthor?.id, raw.author_id) as number | string | null | undefined) ?? null,
+    targetUserId: (pickFirst(nestedRecipient?.id, raw.target_user, raw.target_user_id, raw.recipient_id) as number | string | null | undefined) ?? null,
     movieId: (pickFirst(raw.movie, raw.movie_id) as number | string | null | undefined) ?? null,
     text: String(pickFirst(raw.body, raw.text, raw.comment, raw.content, "")),
     createdAt: toStringOrNull(pickFirst(raw.created_at, raw.createdAt, raw.date, raw.timestamp)),
