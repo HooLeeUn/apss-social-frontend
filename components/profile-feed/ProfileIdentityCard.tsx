@@ -78,10 +78,22 @@ export default function ProfileIdentityCard({
         </div>
       </div>
 
-      <div className="relative min-w-0 space-y-2">
+      <div className="relative min-w-0 space-y-2 pr-24">
         <p className="truncate text-sm uppercase tracking-[0.18em] text-zinc-500">usuario</p>
-        <p className="truncate text-2xl font-semibold text-zinc-100">@{username}</p>
-        {fullName ? <p className="truncate text-base font-medium text-zinc-300">{fullName}</p> : null}
+        <p
+          className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-2xl font-semibold text-zinc-100"
+          title={`@${username}`}
+        >
+          @{username}
+        </p>
+        {fullName ? (
+          <p
+            className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-base font-medium text-zinc-300"
+            title={fullName}
+          >
+            {fullName}
+          </p>
+        ) : null}
       </div>
 
       <div className="relative mt-auto flex flex-wrap items-center gap-2">
