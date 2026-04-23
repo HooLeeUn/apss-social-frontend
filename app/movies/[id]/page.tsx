@@ -1018,14 +1018,14 @@ export default function MovieDetailPage() {
           <h1 className="text-2xl font-semibold text-zinc-100">Detalle de película</h1>
           <Link
             href="/feed"
-            className="inline-flex items-center rounded-2xl border border-white/25 bg-zinc-950/70 px-3 py-2 transition hover:border-white/70"
+            className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
             aria-label="Volver al feed"
           >
             <AppLogo
               branding={branding}
               slot="movie_detail_logo_url"
               alt="Volver al feed"
-              className="h-8 w-auto max-w-[150px] object-contain"
+              className="block h-11 w-auto max-w-[220px] object-contain object-center"
               textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
             />
           </Link>

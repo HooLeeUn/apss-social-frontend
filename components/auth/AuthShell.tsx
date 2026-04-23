@@ -38,7 +38,7 @@ export default function AuthShell({
             branding={branding}
             slot={brandingSlot}
             alt="Logo de la app"
-            className="h-9 w-auto max-w-[220px] object-contain"
+            className="block h-14 w-auto max-w-[320px] object-contain object-center"
             textClassName="text-[0.69rem] font-semibold uppercase tracking-[0.25em] text-zinc-400/90"
           />
           <h1 className="text-[2rem] font-semibold tracking-tight text-zinc-50 sm:text-[2.1rem]">{title}</h1>
