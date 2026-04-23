@@ -67,14 +67,14 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
 
   return (
     <div className="group relative isolate h-[180px] overflow-visible">
-      <article className="relative h-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5 py-3.5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(9%_0%,100%_0%,91%_100%,0%_100%)]">
+      <article className="relative h-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5.5 py-3.5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(7%_0%,100%_0%,93%_100%,0%_100%)]">
         <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-blue-300/10 opacity-80" />
-        <div className="relative flex h-full min-w-0 pr-10">
+        <div className="relative flex h-full min-w-0 pr-8">
           <div className="flex min-w-0 flex-1 flex-col justify-between">
             {movie ? (
               <>
-                <div className="grid min-w-0 grid-cols-[56px_minmax(0,1fr)] items-center gap-3">
-                  <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
+                <div className="grid min-w-0 grid-cols-[60px_minmax(0,1fr)] items-center gap-3.5">
+                  <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
                     <span className="text-lg">{firstLetter}</span>
                   </div>
                   <div className="min-w-0">
@@ -112,7 +112,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                     </div>
                   </div>
                 </div>
-                <div className="mt-auto flex items-end justify-between gap-1.5 pb-0.5">
+                <div className="mt-auto flex items-end justify-between gap-2 pb-0.5">
                   <div className="inline-flex h-10 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200" aria-label="General">
                     <span aria-hidden="true">⭐</span>
                     <span>{formatAverageRating(movie.generalRating)}</span>
@@ -153,7 +153,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
               </>
             ) : (
               <>
-                <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
+                <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
                   <span className="text-zinc-600">VACÍO</span>
                 </div>
                 <div className="space-y-1">
@@ -171,9 +171,9 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
           type="button"
           onClick={() => onOpenSearch(slot)}
           aria-label={`Asignar película favorita al slot ${slot}`}
-          className="absolute right-0 top-1/2 z-10 inline-flex h-11 w-11 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/60 bg-zinc-900 text-blue-200 shadow-[0_8px_18px_rgba(56,189,248,0.22)] transition hover:border-blue-200 hover:text-blue-100"
+          className="absolute right-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/60 bg-zinc-900 text-blue-200 shadow-[0_8px_18px_rgba(56,189,248,0.22)] transition hover:border-blue-200 hover:text-blue-100"
         >
-          <span className="text-xl leading-none">+</span>
+          <span className="text-lg leading-none">+</span>
         </button>
       ) : null}
     </div>
@@ -387,7 +387,7 @@ export default function FavoriteMoviesBlock({
       {loading ? <p className="text-sm text-zinc-400">Cargando favoritas...</p> : null}
       {!loading && error ? <p className="mb-3 text-xs text-zinc-400">{error}</p> : null}
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3 xl:gap-2.5">
         {slots.map((movie, index) => (
           <FavoriteMovieItem
             key={movie?.id ?? `placeholder-${index}`}
