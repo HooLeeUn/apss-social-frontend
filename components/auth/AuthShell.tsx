@@ -34,13 +34,15 @@ export default function AuthShell({
 
       <div className="relative w-full max-w-[29.5rem] rounded-[1.75rem] border border-zinc-700/70 bg-zinc-950/90 px-6 py-7 shadow-[0_26px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl sm:px-8 sm:py-9">
         <header className="mb-7 space-y-2.5 sm:mb-9">
-          <AppLogo
-            branding={branding}
-            slot={brandingSlot}
-            alt="Logo de la app"
-            className="block h-14 w-auto max-w-[320px] object-contain object-center"
-            textClassName="text-[0.69rem] font-semibold uppercase tracking-[0.25em] text-zinc-400/90"
-          />
+          <div className={brandingSlot === "signup_logo_url" ? "w-full flex justify-center items-center h-32 sm:h-36 md:h-40" : "flex justify-center"}>
+            <AppLogo
+              branding={branding}
+              slot={brandingSlot}
+              alt="Logo de la app"
+              className={brandingSlot === "signup_logo_url" ? "h-full w-auto object-contain" : "block h-14 w-auto max-w-[320px] object-contain object-center"}
+              textClassName="text-[0.69rem] font-semibold uppercase tracking-[0.25em] text-zinc-400/90"
+            />
+          </div>
           <h1 className="text-[2rem] font-semibold tracking-tight text-zinc-50 sm:text-[2.1rem]">{title}</h1>
           <p className="max-w-prose text-[0.94rem] leading-relaxed text-zinc-300">{description}</p>
         </header>
