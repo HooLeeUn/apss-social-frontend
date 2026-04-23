@@ -56,7 +56,7 @@ export default function ProfileIdentityCard({
       <div className="relative flex items-start justify-between gap-4">
         <Link
           href="/feed"
-          className="inline-flex min-h-[68px] min-w-[188px] items-center justify-center overflow-hidden rounded-xl bg-black px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100"
+          className="inline-flex min-h-[68px] min-w-[188px] items-center justify-center overflow-hidden rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100"
           aria-label="Ir al feed principal"
         >
           <AppLogo
@@ -68,7 +68,7 @@ export default function ProfileIdentityCard({
           />
         </Link>
 
-        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90">
+        <div className="relative top-24 h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUrl} alt={`Avatar de @${username}`} className="h-full w-full object-cover" />
