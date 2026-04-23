@@ -315,7 +315,7 @@ export default function MyActivityColumn({
                 : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
             }`}
           >
-            Mis mensajes
+            Buzón Privado
           </button>
         </header>
       ) : (
