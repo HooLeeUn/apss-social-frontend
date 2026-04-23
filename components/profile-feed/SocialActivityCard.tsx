@@ -64,6 +64,7 @@ function getActivityText(item: SocialActivityItem): { label: string; detail?: st
 
 export default function SocialActivityCard({ item }: { item: SocialActivityItem }) {
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
+  const profileHref = item.user.username?.trim() ? `/users/${encodeURIComponent(item.user.username)}` : null;
   const movieYear = item.movieYear ? `(${item.movieYear})` : "";
   const activity = getActivityText(item);
   const movieType = item.movieType || "-";
@@ -74,17 +75,45 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
       <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1.2fr)_96px_minmax(260px,0.95fr)] lg:gap-6">
         <div className="min-w-0">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
-              {item.user.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-              ) : (
-                getAvatarFallback(item.user.username)
-              )}
-            </div>
+            {profileHref ? (
+              <Link
+                href={profileHref}
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`Ver perfil de ${item.user.username}`}
+                className="shrink-0 cursor-pointer rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
+              >
+                <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
+                  {item.user.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                  ) : (
+                    getAvatarFallback(item.user.username)
+                  )}
+                </div>
+              </Link>
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
+                {item.user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                ) : (
+                  getAvatarFallback(item.user.username)
+                )}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-zinc-100">@{item.user.username}</p>
+                {profileHref ? (
+                  <Link
+                    href={profileHref}
+                    onClick={(event) => event.stopPropagation()}
+                    className="cursor-pointer text-sm font-semibold text-zinc-100 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
+                  >
+                    @{item.user.username}
+                  </Link>
+                ) : (
+                  <p className="text-sm font-semibold text-zinc-100">@{item.user.username}</p>
+                )}
                 <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
                   {formatRelativeDate(item.createdAt)}
                 </span>
