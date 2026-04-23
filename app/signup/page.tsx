@@ -170,6 +170,7 @@ export default function SignupPage() {
         footerText="¿Ya tienes cuenta?"
         footerLinkText="Inicia sesión"
         footerHref="/login"
+        brandingSlot="signup_logo_url"
       >
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
           <div className="space-y-2">

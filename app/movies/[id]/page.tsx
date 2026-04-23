@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import AppLogo from "../../../components/AppLogo";
 import CommentComposer from "../../../components/social/CommentComposer";
 import CommentsList from "../../../components/social/CommentsList";
 import MovieCard from "../../../components/MovieCard";
@@ -27,6 +28,7 @@ import {
   ReactionType,
   SocialComment,
 } from "../../../lib/social";
+import { useAppBranding } from "../../../hooks/useAppBranding";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -373,6 +375,7 @@ function removeCommentFromCollection(collection: SocialComment[], commentId: num
 
 export default function MovieDetailPage() {
   const router = useRouter();
+  const branding = useAppBranding();
   const params = useParams<{ id: string }>();
   const movieId = params?.id ? String(params.id) : "";
 
@@ -1013,8 +1016,18 @@ export default function MovieDetailPage() {
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-8 md:px-8">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-zinc-100">Detalle de película</h1>
-          <Link href="/feed" className="rounded-full border border-white/40 px-4 py-2 text-sm text-zinc-200 hover:border-white">
-            Volver al feed
+          <Link
+            href="/feed"
+            className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
+            aria-label="Volver al feed"
+          >
+            <AppLogo
+              branding={branding}
+              slot="movie_detail_logo_url"
+              alt="Volver al feed"
+              className="block h-11 w-auto max-w-[220px] object-contain object-center"
+              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+            />
           </Link>
         </div>
 

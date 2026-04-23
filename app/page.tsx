@@ -51,6 +51,7 @@ export default function LoginPage() {
       footerText="¿No tienes cuenta?"
       footerLinkText="Regístrate"
       footerHref="/signup"
+      brandingSlot="login_logo_url"
     >
       <div className="space-y-5">
         <div className="space-y-2">

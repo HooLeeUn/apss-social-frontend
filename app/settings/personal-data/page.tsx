@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "../../../lib/api";
+import AppLogo from "../../../components/AppLogo";
+import { useAppBranding } from "../../../hooks/useAppBranding";
 import {
   formatBirthDate,
   GenderIdentity,
@@ -77,6 +79,7 @@ function toFormState(data: PersonalData): FormState {
 
 export default function PersonalDataPage() {
   const router = useRouter();
+  const branding = useAppBranding();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -315,9 +318,16 @@ export default function PersonalDataPage() {
           <button
             type="button"
             onClick={() => router.push("/feed")}
-            className="rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-zinc-100 transition hover:border-white"
+            className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
+            aria-label="Volver al feed"
           >
-            Volver al feed
+            <AppLogo
+              branding={branding}
+              slot="personal_data_logo_url"
+              alt="Volver al feed"
+              className="block h-11 w-auto max-w-[220px] object-contain object-center"
+              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+            />
           </button>
         </header>
 

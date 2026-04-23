@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError } from "../../lib/api";
+import AppLogo from "../../components/AppLogo";
+import { useAppBranding } from "../../hooks/useAppBranding";
 import {
   blockUser,
   BlockedUser,
@@ -25,6 +28,7 @@ const privacyDisclaimer = [
 
 export default function PrivacySecurityPage() {
   const router = useRouter();
+  const branding = useAppBranding();
 
   const [visibility, setVisibility] = useState<ProfileVisibility>("public");
   const [loadingVisibility, setLoadingVisibility] = useState(true);
@@ -193,15 +197,21 @@ export default function PrivacySecurityPage() {
   return (
     <main className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto w-full max-w-[980px] space-y-6 px-4 py-7 md:px-8 md:py-8">
-        <header className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.35)]">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-zinc-100 transition hover:border-white"
-          >
-            Volver
-          </button>
+        <header className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.35)]">
           <h1 className="text-xl font-semibold tracking-wide text-zinc-100 md:text-2xl">Privacidad y Seguridad</h1>
+          <Link
+            href="/feed"
+            className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
+            aria-label="Volver al feed"
+          >
+            <AppLogo
+              branding={branding}
+              slot="privacy_security_logo_url"
+              alt="Volver al feed"
+              className="block h-11 w-auto max-w-[220px] object-contain object-center"
+              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+            />
+          </Link>
         </header>
 
         <section className="rounded-3xl border border-blue-300/20 bg-gradient-to-b from-zinc-900/90 via-zinc-950/95 to-black p-5 shadow-[0_20px_45px_rgba(0,0,0,0.42)]">
