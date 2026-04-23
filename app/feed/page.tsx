@@ -10,9 +10,11 @@ import SearchBar from "../../components/SearchBar";
 import WeeklyRecommendationsSection from "../../components/WeeklyRecommendationsSection";
 import DirectorBoardMenu from "../../components/DirectorBoardMenu";
 import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholderButton";
+import AppLogo from "../../components/AppLogo";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
 import { getMyMessagesSummary, getMyProfile } from "../../lib/profile-feed/adapters";
+import { useAppBranding } from "../../hooks/useAppBranding";
 import {
   Movie,
   MOVIES_FEED_ENDPOINT,
@@ -81,6 +83,7 @@ function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<strin
 
 export default function FeedPage() {
   const router = useRouter();
+  const branding = useAppBranding();
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
@@ -359,6 +362,15 @@ export default function FeedPage() {
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="sticky top-0 z-40 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0 relative">
+          <div className="absolute left-3 top-3 z-30 hidden rounded-2xl border border-white/15 bg-zinc-950/80 px-3 py-2 shadow-[0_12px_26px_rgba(0,0,0,0.35)] sm:block">
+            <AppLogo
+              branding={branding}
+              slot="feed_logo_url"
+              alt="Branding del feed"
+              className="h-8 w-auto max-w-[170px] object-contain"
+              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+            />
+          </div>
           <div className="pointer-events-none absolute right-0 top-5 z-50 pr-1 md:right-4 md:top-6">
             <div className="pointer-events-auto relative flex w-[198px] flex-col items-center">
               <div className="flex items-center gap-2">

@@ -14,6 +14,7 @@ import {
   getUserProfileByUsername,
 } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
+import { useAppBranding } from "../../../hooks/useAppBranding";
 
 function resolveUsernameParam(rawValue: string | string[] | undefined): string {
   if (Array.isArray(rawValue)) {
@@ -28,6 +29,7 @@ function resolveUsernameParam(rawValue: string | string[] | undefined): string {
 
 export default function UserProfileFeedPage() {
   const params = useParams<{ username?: string | string[] }>();
+  const branding = useAppBranding();
   const routeUsername = resolveUsernameParam(params?.username);
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
@@ -159,6 +161,8 @@ export default function UserProfileFeedPage() {
               ageVisible={profileUser?.ageVisible}
               genderIdentity={profileUser?.genderIdentity}
               genderIdentityVisible={profileUser?.genderIdentityVisible}
+              appBranding={branding}
+              logoSlot="visited_profile_logo_url"
             />
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">

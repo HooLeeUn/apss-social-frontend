@@ -10,9 +10,11 @@ import TopUsersSection from "../../components/profile-feed/TopUsersSection";
 import { getMyProfile, getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
 import { SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
+import { useAppBranding } from "../../hooks/useAppBranding";
 
 export default function ProfileFeedPage() {
   const searchParams = useSearchParams();
+  const branding = useAppBranding();
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
@@ -97,6 +99,8 @@ export default function ProfileFeedPage() {
                 ageVisible={profileUser?.ageVisible}
                 genderIdentity={profileUser?.genderIdentity}
                 genderIdentityVisible={profileUser?.genderIdentityVisible}
+                appBranding={branding}
+                logoSlot="profile_feed_logo_url"
               />
             </div>
 

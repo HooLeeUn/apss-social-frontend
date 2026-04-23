@@ -1,4 +1,6 @@
 import Link from "next/link";
+import AppLogo from "../AppLogo";
+import { AppBranding, BrandingLogoSlot } from "../../lib/branding";
 
 interface ProfileIdentityCardProps {
   username: string;
@@ -10,6 +12,8 @@ interface ProfileIdentityCardProps {
   genderIdentity?: string | null;
   genderIdentityVisible?: boolean | null;
   appTitle?: string;
+  appBranding?: AppBranding | null;
+  logoSlot?: BrandingLogoSlot;
 }
 
 function formatGender(gender: string): string {
@@ -37,6 +41,8 @@ export default function ProfileIdentityCard({
   genderIdentity = null,
   genderIdentityVisible = null,
   appTitle = "MiAppSocialMovies",
+  appBranding = null,
+  logoSlot = "profile_feed_logo_url",
 }: ProfileIdentityCardProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);
@@ -50,9 +56,16 @@ export default function ProfileIdentityCard({
       <div className="relative flex items-start justify-between gap-4">
         <Link
           href="/feed"
-          className="inline-flex rounded-xl border border-white/20 bg-zinc-950/70 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:border-blue-200/70 hover:text-blue-100"
+          className="inline-flex min-h-[62px] min-w-[164px] items-center justify-center rounded-2xl border border-white/20 bg-zinc-950/75 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:border-blue-200/70 hover:text-blue-100"
+          aria-label="Ir al feed principal"
         >
-          {appTitle}
+          <AppLogo
+            branding={appBranding}
+            slot={logoSlot}
+            alt={appTitle}
+            className="h-10 w-auto max-w-[160px] object-contain"
+            textClassName="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100"
+          />
         </Link>
 
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90">
