@@ -367,7 +367,7 @@ export default function FeedPage() {
               branding={branding}
               slot="feed_logo_url"
               alt="Branding del feed"
-              className="block h-16 w-auto max-w-[260px] object-contain object-left sm:h-20 md:h-24"
+              className="block h-16 w-auto max-w-[260px] translate-y-1 object-contain object-left sm:h-20 md:h-24"
               textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
             />
           </div>
