@@ -29,6 +29,7 @@ import {
   SocialComment,
 } from "../../../lib/social";
 import { useAppBranding } from "../../../hooks/useAppBranding";
+import { stripLeadingMention } from "../../../lib/strip-leading-mention";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -1148,6 +1149,9 @@ export default function MovieDetailPage() {
                           onDeleteComment={handleDeleteComment}
                           deletingCommentIds={deletingCommentIds}
                           actionErrorByCommentId={commentActionErrorById}
+                          getDisplayText={(message) =>
+                            message.type === "directed" ? stripLeadingMention(message.text) : message.text
+                          }
                         />
                         {loadingDirectedMoreByKey[conversation.key] ? (
                           <p className="pt-2 text-xs text-zinc-400">Cargando mensajes anteriores...</p>

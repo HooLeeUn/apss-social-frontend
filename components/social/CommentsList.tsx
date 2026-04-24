@@ -24,6 +24,7 @@ interface CommentsListProps {
   onDeleteComment?: (comment: SocialComment) => Promise<void>;
   deletingCommentIds?: Record<string, boolean>;
   actionErrorByCommentId?: Record<string, string>;
+  getDisplayText?: (comment: SocialComment) => string;
 }
 
 export default function CommentsList({
@@ -49,6 +50,7 @@ export default function CommentsList({
   onDeleteComment,
   deletingCommentIds = {},
   actionErrorByCommentId = {},
+  getDisplayText,
 }: CommentsListProps) {
   if (loading) {
     return (
@@ -86,6 +88,7 @@ export default function CommentsList({
               onDelete={onDeleteComment}
               deleting={Boolean(deletingCommentIds[String(comment.id)])}
               actionError={actionErrorByCommentId[String(comment.id)]}
+              displayText={getDisplayText?.(comment)}
             />
           </div>
         ))}
@@ -124,6 +127,7 @@ export default function CommentsList({
               onDelete={onDeleteComment}
               deleting={Boolean(deletingCommentIds[String(comment.id)])}
               actionError={actionErrorByCommentId[String(comment.id)]}
+              displayText={getDisplayText?.(comment)}
             />
           </div>
         ))}
