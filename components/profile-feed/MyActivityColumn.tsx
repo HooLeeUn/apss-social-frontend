@@ -81,12 +81,45 @@ function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: num
   return values.length > 0 ? values.join(" · ") : "Sin metadata";
 }
 
-function ActivityRow({ item, isOwnProfile }: { item: SocialActivityItem; isOwnProfile: boolean }) {
+function getVisitedActionMessage(item: SocialActivityItem): string | null {
+  if (item.interactionType === "rating") {
+    const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : "sin nota";
+    return `Calificó con ${score} esta película`;
+  }
+
+  if (item.interactionType === "like") {
+    return `Le gustó este comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+  }
+
+  if (item.interactionType === "dislike") {
+    return `No le gustó este comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+  }
+
+  return null;
+}
+
+function ActivityRow({
+  item,
+  isOwnProfile,
+  visitedActivityTab,
+}: {
+  item: SocialActivityItem;
+  isOwnProfile: boolean;
+  visitedActivityTab?: "public_comments" | "ratings" | "reactions" | "recommendations";
+}) {
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
   const activityDetail = getActivityDetail(item);
+  const visitedActionMessage = getVisitedActionMessage(item);
+  const isVisitedProfile = !isOwnProfile;
 
   return (
-    <article className="grid grid-cols-[52px_minmax(0,1fr)] gap-3 border-b border-white/5 py-3 last:border-b-0">
+    <article
+      className={`grid gap-3 border-b border-white/5 py-3 last:border-b-0 ${
+        isVisitedProfile
+          ? "grid-cols-[52px_minmax(0,1fr)] md:grid-cols-[52px_minmax(0,1fr)_minmax(220px,0.9fr)] md:gap-x-6"
+          : "grid-cols-[52px_minmax(0,1fr)]"
+      }`}
+    >
       <Link href={movieHref} className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
         {item.moviePosterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -103,31 +136,57 @@ function ActivityRow({ item, isOwnProfile }: { item: SocialActivityItem; isOwnPr
       </Link>
 
       <div className="min-w-0">
-        <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p>
+        {isOwnProfile ? <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p> : null}
         <Link
           href={movieHref}
           aria-label={`Ver detalle de ${item.movieTitle}`}
-          className="mt-1 block cursor-pointer truncate text-sm font-semibold text-zinc-100 transition hover:text-blue-100"
+          className={`mt-1 block cursor-pointer font-semibold text-zinc-100 transition hover:text-blue-100 ${
+            isVisitedProfile ? "text-base leading-snug md:text-lg" : "truncate text-sm"
+          }`}
         >
           {item.movieTitle}
         </Link>
         {item.movieSecondaryTitle ? (
-          <p className="mt-0.5 truncate text-[11px] text-blue-200/75">
+          <p className={`mt-0.5 text-blue-200/75 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
             <Link
               href={movieHref}
               aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`}
-              className="inline-block max-w-full cursor-pointer truncate transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
+              className={`inline-block max-w-full cursor-pointer transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none ${
+                isVisitedProfile ? "break-words" : "truncate"
+              }`}
             >
               {item.movieSecondaryTitle}
             </Link>
           </p>
         ) : null}
-        <p className="mt-1 truncate text-[11px] text-zinc-500">{formatMetadata(item.movieType, item.movieGenre, item.movieYear)}</p>
-        {activityDetail ? (
-          <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p>
-        ) : null}
-        <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p>
+        <p className={`mt-1 text-zinc-500 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
+          {formatMetadata(item.movieType, item.movieGenre, item.movieYear)}
+        </p>
+        {isOwnProfile && activityDetail ? <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p> : null}
+        {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p> : null}
       </div>
+
+      {isVisitedProfile ? (
+        <div className="min-w-0 md:pt-1">
+          {visitedActivityTab === "public_comments" && activityDetail ? (
+            <p className="text-sm leading-relaxed text-zinc-200 md:text-base">{activityDetail}</p>
+          ) : null}
+
+          {visitedActivityTab === "ratings" && visitedActionMessage ? (
+            <p className="text-sm leading-relaxed text-blue-100 md:text-base">{visitedActionMessage}</p>
+          ) : null}
+
+          {visitedActivityTab === "reactions" && visitedActionMessage ? (
+            <div className="space-y-1">
+              <p className="text-sm leading-relaxed text-blue-100 md:text-base">{visitedActionMessage}</p>
+              {item.likedCommentSnippet ? (
+                <p className="text-sm leading-relaxed text-zinc-200 md:text-base">{item.likedCommentSnippet}</p>
+              ) : null}
+              <p className="text-xs text-zinc-500 md:text-sm">{formatRelativeDate(item.createdAt)}</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -348,7 +407,7 @@ export default function MyActivityColumn({
             <button
               type="button"
               onClick={() => setVisitedActivityTab("public_comments")}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "public_comments"
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
@@ -359,7 +418,7 @@ export default function MyActivityColumn({
             <button
               type="button"
               onClick={() => setVisitedActivityTab("ratings")}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "ratings"
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
@@ -370,18 +429,18 @@ export default function MyActivityColumn({
             <button
               type="button"
               onClick={() => setVisitedActivityTab("reactions")}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "reactions"
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
               }`}
             >
-              Likes / Dislikes
+              Me gusta/No me gusta
             </button>
             <button
               type="button"
               onClick={() => setVisitedActivityTab("recommendations")}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "recommendations"
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
@@ -445,7 +504,12 @@ export default function MyActivityColumn({
 
             {!activity.loading && !activity.error
               ? (isOwnProfile ? activity.items : filteredActivityItems).map((item) => (
-                  <ActivityRow key={item.id} item={item} isOwnProfile={isOwnProfile} />
+                  <ActivityRow
+                    key={item.id}
+                    item={item}
+                    isOwnProfile={isOwnProfile}
+                    visitedActivityTab={isOwnProfile ? undefined : visitedActivityTab}
+                  />
                 ))
               : null}
 
