@@ -12,6 +12,9 @@ import {
   SocialUser,
   FavoriteMovieSearchResult,
   MyMessagesSummary,
+  MyNotificationsSummary,
+  MyNotificationItem,
+  NotificationTargetTab,
 } from "./types";
 
 const PROFILE_FAVORITES_ENDPOINT = "/profile/favorites/";
@@ -37,6 +40,7 @@ const PROFILE_ME_MESSAGES_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES
 const PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT || "/me/messages/summary/";
 const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
+const PROFILE_ME_NOTIFICATIONS_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_ENDPOINT || "/me/notifications/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -1131,4 +1135,61 @@ export async function markMyMessagesAsRead(signal?: AbortSignal): Promise<number
   });
 
   return toNonNegativeInteger(toRecord(payload)?.updated);
+}
+
+function toTargetTab(value: unknown): NotificationTargetTab | null {
+  const normalized = safeTrim(value)?.toLocaleLowerCase();
+  if (!normalized) return null;
+  if (normalized === "activity") return "activity";
+  if (normalized === "private_inbox" || normalized === "messages") return "private_inbox";
+  return null;
+}
+
+function toNotificationItem(value: unknown, index: number): MyNotificationItem | null {
+  const record = toRecord(value);
+  if (!record) return null;
+
+  const id = safeTrim(pickFirst(record.id, record.notification_id, record.uuid)) || `notification-${index}`;
+  const text =
+    safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
+  const targetTab = toTargetTab(pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.tab));
+
+  if (!targetTab) return null;
+
+  return {
+    id,
+    text,
+    targetTab,
+    createdAt: safeTrim(pickFirst(record.created_at, record.createdAt, record.timestamp)),
+  };
+}
+
+function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
+  const root = toRecord(payload);
+  const data = toRecord(root?.data);
+  const notificationsRaw = pickFirst(
+    root?.notifications,
+    root?.results,
+    root?.items,
+    root?.unread_notifications,
+    data?.notifications,
+    data?.results,
+    data?.items,
+    data?.unread_notifications,
+    [],
+  );
+  const notifications = Array.isArray(notificationsRaw)
+    ? notificationsRaw.map((item, index) => toNotificationItem(item, index)).filter((item): item is MyNotificationItem => Boolean(item))
+    : [];
+
+  const totalUnread = toNonNegativeInteger(
+    pickFirst(root?.total_unread, root?.unread_count, data?.total_unread, data?.unread_count, notifications.length),
+  );
+
+  return { totalUnread, items: notifications };
+}
+
+export async function getMyNotificationsSummary(signal?: AbortSignal): Promise<MyNotificationsSummary> {
+  const payload = await apiFetch(PROFILE_ME_NOTIFICATIONS_ENDPOINT, { signal });
+  return parseNotificationsSummary(payload);
 }

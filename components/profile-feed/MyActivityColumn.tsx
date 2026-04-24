@@ -35,7 +35,6 @@ function formatRelativeDate(iso: string): string {
 
 function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): string {
   const safeMovieTitle = item.movieTitle || "título";
-  const actorVerb = isOwnProfile ? "Diste" : "Dio";
   const ratedVerb = isOwnProfile ? "Calificaste" : "Calificó";
   const commentedVerb = isOwnProfile ? "Comentaste" : "Comentó";
   const directedTarget = item.directedCommentTargetUsername ? ` a @${item.directedCommentTargetUsername}` : "";
@@ -55,10 +54,10 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): stri
   }
 
   if (item.interactionType === "dislike") {
-    return `${actorVerb} dislike al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+    return `${isOwnProfile ? "No te gustó" : "No le gustó"} el comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
   }
 
-  return `${actorVerb} like al comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+  return `${isOwnProfile ? "Te gustó" : "Le gustó"} el comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
 }
 
 function getActivityDetail(item: SocialActivityItem): string | null {
@@ -433,6 +432,11 @@ export default function MyActivityColumn({
     return [];
   }, [activity.items, isOwnProfile, visitedActivityTab]);
 
+  const ownActivityItems = useMemo(
+    () => activity.items.filter((item) => !(item.interactionType === "comment" && item.isDirectedComment)),
+    [activity.items],
+  );
+
   useEffect(() => {
     if (isOwnProfile) return;
     let cancelled = false;
@@ -671,12 +675,12 @@ export default function MyActivityColumn({
 
             {!activity.loading &&
             !activity.error &&
-            (isOwnProfile ? activity.items.length === 0 : visitedActivityTab !== "recommendations" && filteredActivityItems.length === 0) ? (
+            (isOwnProfile ? ownActivityItems.length === 0 : visitedActivityTab !== "recommendations" && filteredActivityItems.length === 0) ? (
               <p className="text-sm text-zinc-500">{emptyCopy}</p>
             ) : null}
 
             {!activity.loading && !activity.error
-              ? (isOwnProfile ? activity.items : filteredActivityItems).map((item) => (
+              ? (isOwnProfile ? ownActivityItems : filteredActivityItems).map((item) => (
                   <ActivityRow
                     key={item.id}
                     item={item}

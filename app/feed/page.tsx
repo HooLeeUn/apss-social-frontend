@@ -13,7 +13,8 @@ import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholde
 import AppLogo from "../../components/AppLogo";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
-import { getMyMessagesSummary, getMyProfile } from "../../lib/profile-feed/adapters";
+import { getMyMessagesSummary, getMyNotificationsSummary, getMyProfile } from "../../lib/profile-feed/adapters";
+import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import {
   Movie,
@@ -95,7 +96,9 @@ export default function FeedPage() {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileAvatarVersion, setProfileAvatarVersion] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [notificationItems, setNotificationItems] = useState<MyNotificationItem[]>([]);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -105,6 +108,7 @@ export default function FeedPage() {
   const personalizedAbortControllerRef = useRef<AbortController | null>(null);
   const personalizedLoadMoreAbortControllerRef = useRef<AbortController | null>(null);
   const excludedRatedIdsRef = useRef<Set<string>>(new Set());
+  const notificationContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -158,21 +162,29 @@ export default function FeedPage() {
 
     const loadProfileContext = async () => {
       try {
-        const [personalData, profile, messagesSummary] = await Promise.all([
+        const [personalData, profile, notificationsSummary] = await Promise.all([
           getPersonalData(),
           getMyProfile(),
-          getMyMessagesSummary(),
+          getMyNotificationsSummary().catch(async () => {
+            const fallbackMessagesSummary = await getMyMessagesSummary();
+            return {
+              totalUnread: fallbackMessagesSummary.unreadCount,
+              items: [] as MyNotificationItem[],
+            };
+          }),
         ]);
         setProfileAvatarUrl(personalData.avatar);
         setCurrentUserId(profile?.id ?? null);
-        setUnreadMessagesCount(messagesSummary.unreadCount);
+        setUnreadNotificationsCount(notificationsSummary.totalUnread);
+        setNotificationItems(notificationsSummary.items);
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
       } catch (avatarError) {
         console.warn("No se pudo cargar el avatar del perfil para feed:", avatarError);
         setProfileAvatarUrl(null);
         setCurrentUserId(null);
-        setUnreadMessagesCount(0);
+        setUnreadNotificationsCount(0);
+        setNotificationItems([]);
       }
     };
 
@@ -323,6 +335,28 @@ export default function FeedPage() {
     router.replace("/login");
   }, [router]);
 
+  const hasPendingActivityNotifications = useMemo(
+    () => notificationItems.some((item) => item.targetTab === "activity"),
+    [notificationItems],
+  );
+
+  const handleBellClick = useCallback(() => {
+    if (hasPendingActivityNotifications) {
+      setIsNotificationPanelOpen((current) => !current);
+      return;
+    }
+
+    router.push("/profile-feed?tab=private_inbox");
+  }, [hasPendingActivityNotifications, router]);
+
+  const handleNotificationItemClick = useCallback(
+    (item: MyNotificationItem) => {
+      setIsNotificationPanelOpen(false);
+      router.push(`/profile-feed?tab=${item.targetTab}`);
+    },
+    [router],
+  );
+
   const updateWeeklyMovieRating = useCallback((movieId: Movie["id"], score: number, _payload?: unknown) => {
     void _payload;
     setWeeklyMovies((current) =>
@@ -350,6 +384,22 @@ export default function FeedPage() {
     [],
   );
 
+  useEffect(() => {
+    if (!isNotificationPanelOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!notificationContainerRef.current) return;
+      if (event.target instanceof Node && !notificationContainerRef.current.contains(event.target)) {
+        setIsNotificationPanelOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isNotificationPanelOpen]);
+
   if (loading) {
     return <div className="p-6 text-zinc-100">Cargando feed principal...</div>;
   }
@@ -376,20 +426,50 @@ export default function FeedPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  aria-label="Ir a mis mensajes"
-                  onClick={() => router.push("/profile-feed?tab=messages")}
+                  aria-label="Ver notificaciones"
+                  onClick={handleBellClick}
                   className="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-zinc-900/90 text-zinc-200 shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-200 hover:border-white/60 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 md:h-12 md:w-12"
                 >
                   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-5 w-5">
                     <path d="M15 18H4a1 1 0 0 1-.77-1.64L6 13V8a6 6 0 1 1 12 0v5l2.77 3.36A1 1 0 0 1 20 18h-1" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M9 21a3 3 0 0 0 6 0" strokeLinecap="round" />
                   </svg>
-                  {unreadMessagesCount > 0 ? (
+                  {unreadNotificationsCount > 0 ? (
                     <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-semibold leading-none text-zinc-950">
-                      {unreadMessagesCount}
+                      {unreadNotificationsCount}
                     </span>
                   ) : null}
                 </button>
+
+                {isNotificationPanelOpen ? (
+                  <div
+                    ref={notificationContainerRef}
+                    className="absolute right-14 top-0 z-[70] w-[310px] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md md:right-16"
+                  >
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">Notificaciones</p>
+                    <div className="activity-scrollbar max-h-[300px] space-y-2 overflow-y-auto pr-1">
+                      {notificationItems.length > 0 ? (
+                        notificationItems.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleNotificationItemClick(item)}
+                            className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-left transition hover:border-blue-300/50 hover:bg-zinc-800"
+                          >
+                            <p className="text-sm text-zinc-100">{item.text}</p>
+                            <p className="mt-1 text-[11px] text-zinc-500">
+                              {item.targetTab === "activity" ? "Ir a Mi actividad" : "Ir a Buzón Privado"}
+                            </p>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-xs text-zinc-400">
+                          No tienes notificaciones pendientes.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
 
                 <UserProfilePlaceholderButton
                   onClick={() => router.push("/profile-feed")}

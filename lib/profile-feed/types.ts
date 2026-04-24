@@ -109,6 +109,20 @@ export interface MyMessagesSummary {
   totalMessages: number;
 }
 
+export type NotificationTargetTab = "activity" | "private_inbox";
+
+export interface MyNotificationItem {
+  id: string;
+  text: string;
+  targetTab: NotificationTargetTab;
+  createdAt: string | null;
+}
+
+export interface MyNotificationsSummary {
+  totalUnread: number;
+  items: MyNotificationItem[];
+}
+
 export interface ProfileFeedActivityActor {
   id: number;
   username: string;
