@@ -2,15 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import FavoriteMoviesBlock from "../../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../../components/profile-feed/MyActivityColumn";
 import ProfileIdentityCard from "../../../components/profile-feed/ProfileIdentityCard";
-import TopUsersSection from "../../../components/profile-feed/TopUsersSection";
 import {
-  getMyProfile,
-  getTopFollowingByUsername,
-  getTopFriendsByUsername,
   getUserProfileByUsername,
 } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
@@ -31,14 +27,7 @@ export default function UserProfileFeedPage() {
   const params = useParams<{ username?: string | string[] }>();
   const branding = useAppBranding();
   const routeUsername = resolveUsernameParam(params?.username);
-  const [friends, setFriends] = useState<SocialUser[]>([]);
-  const [following, setFollowing] = useState<SocialUser[]>([]);
-  const [loadingFriends, setLoadingFriends] = useState(true);
-  const [loadingFollowing, setLoadingFollowing] = useState(true);
-  const [friendsError, setFriendsError] = useState<string | null>(null);
-  const [followingError, setFollowingError] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
-  const [authenticatedUsername, setAuthenticatedUsername] = useState<string>("");
 
   const normalizedProfileAccess = profileUser?.profileAccess?.trim().toLocaleLowerCase();
   const hasLimitedAccess =
@@ -46,63 +35,6 @@ export default function UserProfileFeedPage() {
     normalizedProfileAccess === "restricted" ||
     normalizedProfileAccess === "limited" ||
     normalizedProfileAccess === "private";
-
-  const loadFollowing = useCallback(async () => {
-    if (!routeUsername) {
-      setFollowing([]);
-      setLoadingFollowing(false);
-      setFollowingError("Usuario inválido.");
-      return;
-    }
-
-    setLoadingFollowing(true);
-    setFollowingError(null);
-    try {
-      const topFollowing = await getTopFollowingByUsername(routeUsername);
-      setFollowing(topFollowing);
-    } catch {
-      setFollowing([]);
-      setFollowingError("No se pudieron cargar los seguidos de este perfil.");
-    } finally {
-      setLoadingFollowing(false);
-    }
-  }, [routeUsername]);
-
-  const loadFriends = useCallback(async () => {
-    if (!routeUsername) {
-      setFriends([]);
-      setLoadingFriends(false);
-      setFriendsError("Usuario inválido.");
-      return;
-    }
-
-    setLoadingFriends(true);
-    setFriendsError(null);
-    try {
-      const topFriends = await getTopFriendsByUsername(routeUsername);
-      setFriends(topFriends);
-    } catch {
-      setFriends([]);
-      setFriendsError("No se pudieron cargar los amigos de este perfil.");
-    } finally {
-      setLoadingFriends(false);
-    }
-  }, [routeUsername]);
-
-  useEffect(() => {
-    if (hasLimitedAccess) {
-      setFollowing([]);
-      setFriends([]);
-      setLoadingFollowing(false);
-      setLoadingFriends(false);
-      setFollowingError(null);
-      setFriendsError(null);
-      return;
-    }
-
-    void loadFollowing();
-    void loadFriends();
-  }, [hasLimitedAccess, loadFollowing, loadFriends]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -121,19 +53,6 @@ export default function UserProfileFeedPage() {
 
     void loadProfile();
   }, [routeUsername]);
-
-  useEffect(() => {
-    const loadAuthenticated = async () => {
-      try {
-        const me = await getMyProfile();
-        setAuthenticatedUsername(me?.username ?? "");
-      } catch {
-        setAuthenticatedUsername("");
-      }
-    };
-
-    void loadAuthenticated();
-  }, []);
 
   const profileTitleName = profileUser?.displayName || profileUser?.username || routeUsername || "Usuario";
   const profileHandle = profileUser?.username || routeUsername || "usuario";
@@ -173,19 +92,7 @@ export default function UserProfileFeedPage() {
 
         {!hasLimitedAccess ? (
           <section className="w-full">
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(280px,340px)_minmax(80px,1fr)]">
-              <TopUsersSection
-                friends={friends}
-                following={following}
-                loadingFriends={loadingFriends}
-                loadingFollowing={loadingFollowing}
-                friendsError={friendsError}
-                followingError={followingError}
-                onRetryFriends={() => void loadFriends()}
-                onRetryFollowing={() => void loadFollowing()}
-                authenticatedUsername={authenticatedUsername}
-                redirectOwnClicksToProfileFeed
-              />
+            <div className="grid items-start gap-6">
               <MyActivityColumn
                 isOwnProfile={false}
                 viewedUsername={routeUsername}
@@ -193,7 +100,6 @@ export default function UserProfileFeedPage() {
                 emptyCopy="Este usuario no tiene actividad social visible aún."
                 errorCopy="No se pudo cargar la actividad de este usuario."
               />
-              <div className="hidden xl:block" aria-hidden="true" />
             </div>
           </section>
         ) : null}

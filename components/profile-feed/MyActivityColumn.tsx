@@ -7,6 +7,7 @@ import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSo
 import { markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
 import { MyMessageItem, SocialActivityItem } from "../../lib/profile-feed/types";
 import { formatAverageRating } from "../../lib/rating-format";
+import { stripLeadingMention } from "../../lib/strip-leading-mention";
 
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
@@ -67,7 +68,7 @@ function getActivityDetail(item: SocialActivityItem): string | null {
 
   if (item.interactionType === "comment") {
     if (item.isDirectedComment) {
-      return item.commentText || "Enviaste un comentario privado.";
+      return stripLeadingMention(item.commentText || "Enviaste un comentario privado.");
     }
     return item.commentText || "Dejaste un comentario público.";
   }
@@ -182,7 +183,7 @@ function MessageRow({ item }: { item: MyMessageItem }) {
             {item.movieTitle}
           </Link>
           {item.movieSecondaryTitle ? <p className="mt-0.5 truncate text-[11px] text-blue-200/75">{item.movieSecondaryTitle}</p> : null}
-          <p className="mt-2 line-clamp-3 text-xs text-zinc-300/90">{item.text}</p>
+          <p className="mt-2 line-clamp-3 text-xs text-zinc-300/90">{stripLeadingMention(item.text)}</p>
           <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p>
         </div>
       </div>
@@ -229,6 +230,9 @@ export default function MyActivityColumn({
   errorCopy = "No se pudo cargar la actividad.",
 }: MyActivityColumnProps = {}) {
   const [activeTab, setActiveTab] = useState<"activity" | "messages">(initialActiveTab);
+  const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
+    "public_comments",
+  );
   const [senderQuery, setSenderQuery] = useState("");
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
@@ -244,6 +248,24 @@ export default function MyActivityColumn({
 
     return messages.items.filter((message) => message.sender.username.toLocaleLowerCase().includes(normalizedQuery));
   }, [messages.items, senderQuery]);
+
+  const filteredActivityItems = useMemo(() => {
+    if (isOwnProfile) return activity.items;
+
+    if (visitedActivityTab === "public_comments") {
+      return activity.items.filter((item) => item.interactionType === "comment" && !item.isDirectedComment);
+    }
+
+    if (visitedActivityTab === "ratings") {
+      return activity.items.filter((item) => item.interactionType === "rating");
+    }
+
+    if (visitedActivityTab === "reactions") {
+      return activity.items.filter((item) => item.interactionType === "like" || item.interactionType === "dislike");
+    }
+
+    return [];
+  }, [activity.items, isOwnProfile, visitedActivityTab]);
 
   useEffect(() => {
     setActiveTab(initialActiveTab);
@@ -280,6 +302,7 @@ export default function MyActivityColumn({
       if (remainingDistance >= 160) return;
 
       if (activeTab === "activity") {
+        if (!isOwnProfile && visitedActivityTab === "recommendations") return;
         if (!activity.hasMore || activity.loading || activity.loadingMore || activity.error) return;
         void activity.loadMore();
         return;
@@ -288,11 +311,11 @@ export default function MyActivityColumn({
       if (!messages.hasMore || messages.loading || messages.loadingMore || messages.error) return;
       void messages.loadMore();
     },
-    [activeTab, activity, messages],
+    [activeTab, activity, isOwnProfile, messages, visitedActivityTab],
   );
 
   return (
-    <section className="w-full min-w-0 max-w-[360px] xl:max-w-[360px]">
+    <section className={`w-full min-w-0 ${isOwnProfile ? "max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}>
       {isOwnProfile ? (
         <header className="flex flex-wrap gap-2">
           <button
@@ -319,7 +342,55 @@ export default function MyActivityColumn({
           </button>
         </header>
       ) : (
-        <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
+        <div className="space-y-3">
+          <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setVisitedActivityTab("public_comments")}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                visitedActivityTab === "public_comments"
+                  ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                  : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+              }`}
+            >
+              Comentarios públicos
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisitedActivityTab("ratings")}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                visitedActivityTab === "ratings"
+                  ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                  : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+              }`}
+            >
+              Calificaciones
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisitedActivityTab("reactions")}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                visitedActivityTab === "reactions"
+                  ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                  : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+              }`}
+            >
+              Likes / Dislikes
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisitedActivityTab("recommendations")}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                visitedActivityTab === "recommendations"
+                  ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                  : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+              }`}
+            >
+              Recomendaciones
+            </button>
+          </div>
+        </div>
       )}
 
       {isOwnProfile && activeTab === "messages" ? (
@@ -360,10 +431,22 @@ export default function MyActivityColumn({
               </div>
             ) : null}
 
-            {!activity.loading && !activity.error && activity.items.length === 0 ? <p className="text-sm text-zinc-500">{emptyCopy}</p> : null}
+            {!activity.loading && !activity.error && !isOwnProfile && visitedActivityTab === "recommendations" ? (
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/35 p-4 text-sm text-zinc-300">
+                Próximamente verás aquí las recomendaciones de este usuario.
+              </div>
+            ) : null}
+
+            {!activity.loading &&
+            !activity.error &&
+            (isOwnProfile ? activity.items.length === 0 : visitedActivityTab !== "recommendations" && filteredActivityItems.length === 0) ? (
+              <p className="text-sm text-zinc-500">{emptyCopy}</p>
+            ) : null}
 
             {!activity.loading && !activity.error
-              ? activity.items.map((item) => <ActivityRow key={item.id} item={item} isOwnProfile={isOwnProfile} />)
+              ? (isOwnProfile ? activity.items : filteredActivityItems).map((item) => (
+                  <ActivityRow key={item.id} item={item} isOwnProfile={isOwnProfile} />
+                ))
               : null}
 
             {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}

@@ -20,6 +20,7 @@ interface CommentItemProps {
   actionError?: string;
   onDelete?: (comment: SocialComment) => Promise<void>;
   deleting?: boolean;
+  displayText?: string;
 }
 
 export default function CommentItem({
@@ -40,6 +41,7 @@ export default function CommentItem({
   actionError,
   onDelete,
   deleting = false,
+  displayText,
 }: CommentItemProps) {
   const initial = comment.authorName.charAt(0).toUpperCase() || "U";
   const [menuOpen, setMenuOpen] = useState(false);
@@ -176,7 +178,7 @@ export default function CommentItem({
           {trimmedLength === 0 ? <p className="mt-1 text-right text-[11px] text-zinc-500">El comentario no puede quedar vacío.</p> : null}
         </div>
       ) : (
-        <p className="mb-3 whitespace-pre-wrap text-sm leading-6 text-zinc-100">{comment.text}</p>
+        <p className="mb-3 whitespace-pre-wrap text-sm leading-6 text-zinc-100">{displayText ?? comment.text}</p>
       )}
 
       {actionError ? <p className="mb-2 text-xs text-rose-300">{actionError}</p> : null}
