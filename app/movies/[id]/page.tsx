@@ -141,6 +141,11 @@ interface ConversationCounterpartContext {
 }
 
 function resolveIdentityFromCandidates(candidates: UserIdentity[]): UserIdentity {
+  const withNonSyntheticUsername = candidates.find(
+    (candidate) => Boolean(candidate.username) && !isSyntheticUserLabel(candidate.username),
+  );
+  if (withNonSyntheticUsername) return withNonSyntheticUsername;
+
   const withUsername = candidates.find((candidate) => Boolean(candidate.username));
   if (withUsername) return withUsername;
 
