@@ -56,7 +56,8 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): stri
   const reactionActor = item.reactionActorUsername || item.user.username || "otro usuario";
   const commentAuthor = item.likedCommentAuthorUsername || "otro usuario";
 
-  if (item.interactionType === "dislike") {
+  const reactionValue = item.reactionValue || (item.interactionType === "like" || item.interactionType === "dislike" ? item.interactionType : null);
+  if (reactionValue === "dislike") {
     if (item.isGivenReaction) {
       return `No te gustó el comentario de ${commentAuthor}`;
     }
@@ -66,13 +67,16 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): stri
     return `${isOwnProfile ? "No te gustó" : "No le gustó"} el comentario de ${commentAuthor}`;
   }
 
-  if (item.isGivenReaction) {
+  if (reactionValue === "like" && item.isGivenReaction) {
     return `Te gustó el comentario de ${commentAuthor}`;
   }
-  if (item.isReceivedReaction) {
+  if (reactionValue === "like" && item.isReceivedReaction) {
     return `A ${reactionActor} le gustó tu comentario`;
   }
-  return `${isOwnProfile ? "Te gustó" : "Le gustó"} el comentario de ${commentAuthor}`;
+  if (reactionValue === "like") {
+    return `${isOwnProfile ? "Te gustó" : "Le gustó"} el comentario de ${commentAuthor}`;
+  }
+  return "Reaccionaste a un comentario";
 }
 
 function getActivityDetail(item: SocialActivityItem): string | null {
@@ -182,7 +186,8 @@ function ActivityRow({
   myUsername?: string | null;
   authorCanVisitByUsername?: Record<string, boolean>;
 }) {
-  const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
+  const hasMovieId = item.movieId !== undefined && item.movieId !== null && String(item.movieId).trim() !== "";
+  const movieHref = hasMovieId ? `/movies/${encodeURIComponent(String(item.movieId))}` : null;
   const activityDetail = getActivityDetail(item);
   const visitedActionMessage = getVisitedActionMessage(item);
   const isVisitedProfile = !isOwnProfile;
@@ -191,14 +196,17 @@ function ActivityRow({
   const authorIsCurrentUser =
     Boolean(normalizedMyUsername) && Boolean(normalizedAuthorUsername) && normalizedAuthorUsername === normalizedMyUsername;
   const shouldRenderAuthorLink = Boolean(normalizedAuthorUsername && authorCanVisitByUsername?.[normalizedAuthorUsername]);
+  const reactionValue = item.reactionValue || (item.interactionType === "like" || item.interactionType === "dislike" ? item.interactionType : null);
   const reactionMessage =
-    item.interactionType === "like"
+    reactionValue === "like"
       ? authorIsCurrentUser
         ? `A ${viewedUsername || "este usuario"} le gustó tu comentario`
         : `A ${viewedUsername || "este usuario"} le gustó el comentario de`
-      : authorIsCurrentUser
-        ? `A ${viewedUsername || "este usuario"} no le gustó tu comentario`
-        : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`;
+      : reactionValue === "dislike"
+        ? authorIsCurrentUser
+          ? `A ${viewedUsername || "este usuario"} no le gustó tu comentario`
+          : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`
+        : `A ${viewedUsername || "este usuario"} reaccionó al comentario de`;
 
   return (
     <article
@@ -208,6 +216,7 @@ function ActivityRow({
           : "grid-cols-[52px_minmax(0,1fr)] border-b border-white/5"
       }`}
     >
+      {movieHref ? (
       <Link href={movieHref} className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
         {item.moviePosterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -222,10 +231,14 @@ function ActivityRow({
           <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-[0.18em] text-zinc-600">Poster</div>
         )}
       </Link>
+      ) : (
+        <div className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80" />
+      )}
 
       <div className="min-w-0">
         {isOwnProfile ? <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p> : null}
-        <Link
+        {movieHref ? (
+          <Link
           href={movieHref}
           aria-label={`Ver detalle de ${item.movieTitle}`}
           className={`mt-1 block cursor-pointer font-semibold text-zinc-100 transition hover:text-blue-100 ${
@@ -234,9 +247,15 @@ function ActivityRow({
         >
           {item.movieTitle}
         </Link>
+        ) : (
+          <p className={`mt-1 block font-semibold text-zinc-100 ${isVisitedProfile ? "text-base leading-snug md:text-lg" : "truncate text-sm"}`}>
+            {item.movieTitle || "Título desconocido"}
+          </p>
+        )}
         {item.movieSecondaryTitle ? (
           <p className={`mt-0.5 text-blue-200/75 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
-            <Link
+            {movieHref ? (
+              <Link
               href={movieHref}
               aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`}
               className={`inline-block max-w-full cursor-pointer transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none ${
@@ -245,6 +264,9 @@ function ActivityRow({
             >
               {item.movieSecondaryTitle}
             </Link>
+            ) : (
+              <span>{item.movieSecondaryTitle}</span>
+            )}
           </p>
         ) : null}
         <p className={`mt-1 text-zinc-500 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
@@ -273,7 +295,7 @@ function ActivityRow({
           {visitedActivityTab === "reactions" && visitedActionMessage && item.interactionType !== "rating" && item.interactionType !== "comment" ? (
             <div className="space-y-1">
               <div className="flex items-start gap-2.5">
-                {item.interactionType === "dislike" ? (
+                {reactionValue === "dislike" ? (
                   <ThumbsDownIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-200" />
                 ) : (
                   <ThumbsUpIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
@@ -311,9 +333,11 @@ function ActivityRow({
 }
 
 function MessageRow({ item }: { item: MyMessageItem }) {
-  const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
+  const hasMovieId = item.movieId !== undefined && item.movieId !== null && String(item.movieId).trim() !== "";
+  const movieHref = hasMovieId ? `/movies/${encodeURIComponent(String(item.movieId))}` : null;
   const counterpart = item.direction === "sent" ? item.recipient || item.sender : item.sender;
-  const counterpartInitials = counterpart.username.slice(0, 2).toUpperCase();
+  const counterpartUsername = counterpart?.username || "usuario";
+  const counterpartInitials = counterpartUsername.slice(0, 2).toUpperCase();
 
   return (
     <article className="border-b border-white/5 py-3 last:border-b-0">
@@ -322,7 +346,7 @@ function MessageRow({ item }: { item: MyMessageItem }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={counterpart.avatarUrl}
-            alt={`Avatar de ${counterpart.username}`}
+            alt={`Avatar de ${counterpartUsername}`}
             className="h-7 w-7 rounded-full border border-white/20 object-cover"
             loading="lazy"
             decoding="async"
@@ -334,12 +358,13 @@ function MessageRow({ item }: { item: MyMessageItem }) {
         )}
         <p className={`text-xs ${item.direction === "sent" ? "text-blue-300" : "text-zinc-300"}`}>
           {item.direction === "sent" ? "Enviado a" : "De"}{" "}
-          <span className="font-semibold text-zinc-100">@{counterpart.username}</span>
+          <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
         </p>
       </div>
 
       <div className="grid grid-cols-[52px_minmax(0,1fr)] gap-3">
-        <Link href={movieHref} className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
+        {movieHref ? (
+          <Link href={movieHref} className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
           {item.moviePosterUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -353,15 +378,22 @@ function MessageRow({ item }: { item: MyMessageItem }) {
             <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-[0.18em] text-zinc-600">Poster</div>
           )}
         </Link>
+        ) : (
+          <div className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80" />
+        )}
 
         <div className="min-w-0">
-          <Link
+          {movieHref ? (
+            <Link
             href={movieHref}
             aria-label={`Ver detalle de ${item.movieTitle}`}
             className="block truncate text-sm font-semibold text-zinc-100 transition hover:text-blue-100"
           >
             {item.movieTitle}
           </Link>
+          ) : (
+            <p className="block truncate text-sm font-semibold text-zinc-100">{item.movieTitle}</p>
+          )}
           {item.movieSecondaryTitle ? <p className="mt-0.5 truncate text-[11px] text-blue-200/75">{item.movieSecondaryTitle}</p> : null}
           <p className="mt-2 line-clamp-3 text-xs text-zinc-300/90">{stripLeadingMention(item.text)}</p>
           <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p>

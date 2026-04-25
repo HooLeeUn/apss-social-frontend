@@ -13,6 +13,8 @@ export type SocialActivityType =
   | "directed_comment_like"
   | "directed_comment_dislike"
   | "directed_comment_reaction"
+  | "private_message"
+  | "private_comment_reaction"
   | string;
 
 export interface FavoriteMovie {
@@ -96,6 +98,7 @@ export interface SocialActivityItem {
   isReceivedReaction?: boolean;
   scope?: NotificationTargetTab;
   reactionScope?: "public" | "private";
+  reactionValue?: "like" | "dislike";
 }
 
 export interface PaginatedSocialActivity {
