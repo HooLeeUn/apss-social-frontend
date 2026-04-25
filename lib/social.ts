@@ -17,6 +17,9 @@ export interface SocialComment {
   authorUsername: string;
   authorAvatar: string | null;
   recipientName: string | null;
+  counterpartName?: string | null;
+  counterpartUsername?: string | null;
+  counterpartId?: number | string | null;
   type: "public" | "directed";
   likesCount: number;
   dislikesCount: number;
@@ -149,18 +152,61 @@ export function parseFriends(payload: unknown): Friend[] {
 }
 
 function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" | "directed"): SocialComment {
-  const nestedAuthor = toRecord(pickFirst(raw.author, raw.user, raw.created_by));
-  const nestedRecipient = toRecord(pickFirst(raw.recipient, raw.mentioned_user, raw.target_user));
+  const nestedAuthor = toRecord(pickFirst(raw.author, raw.user, raw.created_by, raw.sender, raw.from_user));
+  const nestedRecipient = toRecord(pickFirst(raw.recipient, raw.mentioned_user, raw.target_user, raw.receiver, raw.to_user));
+  const nestedCounterpart = toRecord(pickFirst(raw.counterpart, raw.conversation_user, raw.other_user));
 
   const authorUsername =
-    toStringOrNull(pickFirst(nestedAuthor?.username, raw.author_username, raw.username, nestedAuthor?.name)) || "usuario";
+    normalizeUsername(pickFirst(nestedAuthor?.username, raw.author_username, raw.username, raw.sender_username, nestedAuthor?.name)) ||
+    "usuario";
   const authorName =
-    toStringOrNull(pickFirst(nestedAuthor?.display_name, nestedAuthor?.name, raw.author_display_name, raw.author_name, nestedAuthor?.username, raw.username)) ||
+    toStringOrNull(
+      pickFirst(
+        nestedAuthor?.display_name,
+        nestedAuthor?.name,
+        raw.author_display_name,
+        raw.author_name,
+        nestedAuthor?.username,
+        raw.username,
+      ),
+    ) ||
     "Usuario";
 
-  const recipientName = toStringOrNull(
-    pickFirst(nestedRecipient?.username, nestedRecipient?.name, raw.recipient_name, raw.mentioned_username),
+  const recipientName = normalizeUsername(
+    pickFirst(
+      nestedRecipient?.username,
+      nestedRecipient?.user_name,
+      nestedRecipient?.userName,
+      raw.recipient_username,
+      raw.recipient_name,
+      raw.target_user_username,
+      raw.target_username,
+      raw.mentioned_username,
+      raw.mentioned_user_username,
+      nestedCounterpart?.username,
+      nestedCounterpart?.user_name,
+      raw.counterpart_username,
+    ),
   );
+
+  const counterpartUsername = normalizeUsername(
+    pickFirst(
+      nestedCounterpart?.username,
+      nestedCounterpart?.user_name,
+      raw.counterpart_username,
+      raw.other_username,
+      raw.counterpartUserName,
+    ),
+  );
+  const counterpartName = toStringOrNull(
+    pickFirst(nestedCounterpart?.display_name, nestedCounterpart?.name, raw.counterpart_name, raw.other_name),
+  );
+  const counterpartId =
+    (pickFirst(nestedCounterpart?.id, raw.counterpart_id, raw.counterpartId, raw.other_user_id) as
+      | number
+      | string
+      | null
+      | undefined) ?? null;
 
   const explicitType = toStringOrNull(pickFirst(raw.type, raw.comment_type, raw.visibility))?.toLowerCase();
   const type = explicitType === "directed" || explicitType === "private" ? "directed" : fallbackType;
@@ -168,7 +214,19 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
   return {
     id: (pickFirst(raw.id, raw.comment_id, raw.uuid) || `comment-${Math.random().toString(36).slice(2, 10)}`) as number | string,
     authorId: (pickFirst(nestedAuthor?.id, raw.author_id) as number | string | null | undefined) ?? null,
-    targetUserId: (pickFirst(nestedRecipient?.id, raw.target_user, raw.target_user_id, raw.recipient_id) as number | string | null | undefined) ?? null,
+    targetUserId: (pickFirst(
+      nestedRecipient?.id,
+      raw.target_user_id,
+      raw.targetUserId,
+      raw.recipient_id,
+      raw.recipientId,
+      raw.mentioned_user_id,
+      raw.mentionedUserId,
+    ) as
+      | number
+      | string
+      | null
+      | undefined) ?? null,
     movieId: (pickFirst(raw.movie, raw.movie_id) as number | string | null | undefined) ?? null,
     text: String(pickFirst(raw.body, raw.text, raw.comment, raw.content, "")),
     createdAt: toStringOrNull(pickFirst(raw.created_at, raw.createdAt, raw.date, raw.timestamp)),
@@ -176,6 +234,9 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
     authorUsername,
     authorAvatar: toStringOrNull(pickFirst(nestedAuthor?.avatar, nestedAuthor?.avatar_url, raw.author_avatar)),
     recipientName,
+    counterpartName,
+    counterpartUsername,
+    counterpartId,
     type,
     likesCount: toCount(pickFirst(raw.likes_count, raw.like_count, raw.likes, raw.reactions_like_count)),
     dislikesCount: toCount(pickFirst(raw.dislikes_count, raw.dislike_count, raw.dislikes, raw.reactions_dislike_count)),

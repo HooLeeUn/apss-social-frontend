@@ -131,12 +131,22 @@ function buildCounterpartData(message: SocialComment, authenticatedUsername: str
   avatar: string | null;
   direction: "sent" | "received";
 } {
-  const isSentByMe = message.authorUsername === authenticatedUsername;
+  const normalizedAuthenticatedUsername = normalizeUsername(authenticatedUsername)?.toLowerCase();
+  const normalizedAuthorUsername = normalizeUsername(message.authorUsername)?.toLowerCase();
+  const isSentByMe = Boolean(
+    normalizedAuthenticatedUsername && normalizedAuthorUsername && normalizedAuthorUsername === normalizedAuthenticatedUsername,
+  );
+
   const normalizedAuthorId = normalizeId(message.authorId);
+  const normalizedCounterpartId = normalizeId(message.counterpartId);
   const normalizedTargetUserId = normalizeId(message.targetUserId);
-  const counterpartId = isSentByMe ? normalizedTargetUserId : normalizedAuthorId;
-  const username = normalizeUsername(isSentByMe ? message.recipientName : message.authorUsername);
-  const displayCandidate = isSentByMe ? message.recipientName : message.authorName;
+  const counterpartId = isSentByMe
+    ? normalizedTargetUserId ?? normalizedCounterpartId
+    : normalizedCounterpartId ?? normalizedAuthorId;
+  const username = normalizeUsername(
+    isSentByMe ? message.recipientName ?? message.counterpartUsername : message.authorUsername ?? message.counterpartUsername,
+  );
+  const displayCandidate = isSentByMe ? message.recipientName ?? message.counterpartName : message.authorName;
   const displayName = isUsableDisplayName(displayCandidate) ? String(displayCandidate).trim() : username || "Usuario";
 
   return {
@@ -177,20 +187,6 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
   commentsForMovie.forEach((message) => {
     const counterpart = buildCounterpartData(message, authenticatedUsername);
     const existing = byConversation.get(counterpart.counterpartKey);
-    const originalHeader = existing
-      ? {
-          username: existing.otherUsername,
-          displayName: existing.otherDisplayName,
-          avatar: existing.otherAvatar,
-        }
-      : null;
-
-    const messageRealData = {
-      authorUsername: normalizeUsername(message.authorUsername),
-      authorName: message.authorName,
-      authorAvatar: message.authorAvatar,
-      recipientName: message.recipientName,
-    };
 
     const hydratedUsername = pickBestUserValue(existing?.otherUsername ?? null, counterpart.username);
     const hydratedDisplayName = isUsableDisplayName(existing?.otherDisplayName)
@@ -199,15 +195,6 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
         ? counterpart.displayName
         : hydratedUsername || "Usuario";
     const hydratedAvatar = existing?.otherAvatar ?? counterpart.avatar;
-
-    console.log("[movie-directed-header-debug] conversation key", counterpart.counterpartKey);
-    console.log("[movie-directed-header-debug] header data original", originalHeader);
-    console.log("[movie-directed-header-debug] message real data", messageRealData);
-    console.log("[movie-directed-header-debug] header final hydrated", {
-      username: hydratedUsername,
-      displayName: hydratedDisplayName,
-      avatar: hydratedAvatar,
-    });
 
     const directionMessage: SocialComment = {
       ...message,
