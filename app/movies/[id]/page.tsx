@@ -27,6 +27,8 @@ import {
   parseFriends,
   ReactionType,
   SocialComment,
+  getUserIdentity,
+  UserIdentity,
 } from "../../../lib/social";
 import { useAppBranding } from "../../../hooks/useAppBranding";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
@@ -51,10 +53,10 @@ function buildMovieDirectedSubmitEndpoints(movieId: string): string[] {
 function buildMovieDirectedFetchEndpoints(movieId: string): string[] {
   const encodedMovieId = encodeURIComponent(movieId);
   return [
+    `/movies/${encodedMovieId}/comments/directed/`,
+    `/movies/${encodedMovieId}/comments/directed/received/`,
     `/comments/directed/?movie_id=${encodedMovieId}`,
     `/comments/directed/received/?movie_id=${encodedMovieId}`,
-    `/movies/${encodedMovieId}/comments/directed/received/`,
-    `/movies/${encodedMovieId}/comments/directed/`,
   ];
 }
 
@@ -65,6 +67,7 @@ interface DirectedConversation {
   otherDisplayName: string;
   otherAvatar: string | null;
   messages: SocialComment[];
+  messagesEndpoint: string | null;
   next: string | null;
   lastMessageAt: string | null;
 }
@@ -87,6 +90,17 @@ function normalizeEndpointPath(nextValue: string | null): string | null {
     }
   }
   return nextValue;
+}
+
+function mergeUniqueMessages(existing: SocialComment[], incoming: SocialComment[]): SocialComment[] {
+  const byId = new Map<string, SocialComment>();
+  existing.forEach((message) => {
+    byId.set(String(message.id), message);
+  });
+  incoming.forEach((message) => {
+    byId.set(String(message.id), message);
+  });
+  return [...byId.values()].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
 }
 
 function normalizeId(value: number | string | null | undefined): string | null {
@@ -123,8 +137,152 @@ function pickBestUserValue(current: string | null, candidate: string | null): st
   return current;
 }
 
+function pickFirstPresent<T>(...values: (T | null | undefined)[]): T | null {
+  for (const value of values) {
+    if (value !== null && value !== undefined) return value;
+  }
+  return null;
+}
 
-function buildCounterpartData(message: SocialComment, authenticatedUsername: string): {
+interface ConversationCounterpartContext {
+  preferredId: string | null;
+  preferredUsername: string | null;
+  preferredDisplayName: string | null;
+  preferredAvatar: string | null;
+  fallbackMessageId: string | null;
+}
+
+function resolveIdentityFromCandidates(candidates: UserIdentity[]): UserIdentity {
+  const withNonSyntheticUsername = candidates.find(
+    (candidate) => Boolean(candidate.username) && !isSyntheticUserLabel(candidate.username),
+  );
+  if (withNonSyntheticUsername) return withNonSyntheticUsername;
+
+  const withUsername = candidates.find((candidate) => Boolean(candidate.username));
+  if (withUsername) return withUsername;
+
+  const withDisplayName = candidates.find((candidate) => Boolean(candidate.displayName));
+  if (withDisplayName) return withDisplayName;
+
+  const withId = candidates.find((candidate) => candidate.id !== null && candidate.id !== undefined);
+  if (withId) return withId;
+
+  return {
+    id: null,
+    username: null,
+    displayName: null,
+    avatar: null,
+  };
+}
+
+function resolveDirectedConversationUser(
+  item: Record<string, unknown>,
+  direction?: "sent" | "received",
+): {
+  username: string | null;
+  displayName: string | null;
+  id: string | null;
+  avatar: string | null;
+} {
+  const previewFirstSnake = toRecord(Array.isArray(item.messages_preview) ? item.messages_preview[0] : null);
+  const previewFirstCamel = toRecord(Array.isArray(item.messagesPreview) ? item.messagesPreview[0] : null);
+  const previewAuthorSnake = toRecord(previewFirstSnake?.author ?? previewFirstSnake?.sender);
+  const previewAuthorCamel = toRecord(previewFirstCamel?.author ?? previewFirstCamel?.sender);
+
+  const counterpartIdentity = getUserIdentity(item.counterpart);
+  const recipientIdentity = getUserIdentity(item.recipient);
+  const otherUserSnakeIdentity = getUserIdentity(item.other_user);
+  const otherUserCamelIdentity = getUserIdentity(item.otherUser);
+  const previewCounterpartSnakeIdentity = getUserIdentity(previewFirstSnake?.counterpart);
+  const previewRecipientSnakeIdentity = getUserIdentity(previewFirstSnake?.recipient);
+  const previewCounterpartCamelIdentity = getUserIdentity(previewFirstCamel?.counterpart);
+  const previewRecipientCamelIdentity = getUserIdentity(previewFirstCamel?.recipient);
+  const previewAuthorSnakeIdentity = getUserIdentity(previewAuthorSnake);
+  const previewAuthorCamelIdentity = getUserIdentity(previewAuthorCamel);
+
+  const baseOrderedCandidates = [
+    counterpartIdentity,
+    recipientIdentity,
+    otherUserSnakeIdentity,
+    otherUserCamelIdentity,
+    previewCounterpartSnakeIdentity,
+    previewRecipientSnakeIdentity,
+    previewCounterpartCamelIdentity,
+    previewRecipientCamelIdentity,
+  ];
+
+  const directionOrderedCandidates =
+    direction === "sent"
+      ? [
+          recipientIdentity,
+          counterpartIdentity,
+          ...baseOrderedCandidates,
+        ]
+      : direction === "received"
+        ? [
+            counterpartIdentity,
+            previewAuthorSnakeIdentity,
+            previewAuthorCamelIdentity,
+            ...baseOrderedCandidates,
+          ]
+        : baseOrderedCandidates;
+
+  const resolvedIdentity = resolveIdentityFromCandidates(directionOrderedCandidates);
+
+  return {
+    username: resolvedIdentity.username,
+    displayName: resolvedIdentity.displayName,
+    id: normalizeId(resolvedIdentity.id),
+    avatar: resolvedIdentity.avatar,
+  };
+}
+
+function getConversationCounterpartContext(conversationRecord: Record<string, unknown>): ConversationCounterpartContext {
+  const resolvedDirectionRaw = pickFirstPresent(
+    conversationRecord.direction,
+    conversationRecord.message_direction,
+    conversationRecord.messageDirection,
+  );
+  const normalizedDirection = typeof resolvedDirectionRaw === "string" ? resolvedDirectionRaw.trim().toLowerCase() : "";
+  const resolvedDirection = normalizedDirection === "sent" || normalizedDirection === "received" ? normalizedDirection : undefined;
+  const resolvedUser = resolveDirectedConversationUser(conversationRecord, resolvedDirection);
+  const messagesPreview = Array.isArray(conversationRecord.messages_preview)
+    ? conversationRecord.messages_preview
+    : Array.isArray(conversationRecord.messagesPreview)
+      ? conversationRecord.messagesPreview
+      : [];
+  const previewFirst = toRecord(messagesPreview[0]);
+
+  const fallbackMessageId = normalizeId(
+    pickFirstPresent(
+      previewFirst?.id as number | string | null | undefined,
+      previewFirst?.comment_id as number | string | null | undefined,
+      conversationRecord.id as number | string | null | undefined,
+    ),
+  );
+
+  return {
+    preferredId: resolvedUser.id,
+    preferredUsername: resolvedUser.username,
+    preferredDisplayName: resolvedUser.displayName,
+    preferredAvatar: resolvedUser.avatar,
+    fallbackMessageId,
+  };
+}
+
+function getConversationMessagesEndpoint(conversationRecord: Record<string, unknown>): string | null {
+  const messagesEndpointRaw = pickFirstPresent(
+    conversationRecord.messages_endpoint as string | null | undefined,
+    conversationRecord.messagesEndpoint as string | null | undefined,
+  );
+  return typeof messagesEndpointRaw === "string" ? normalizeEndpointPath(messagesEndpointRaw) : null;
+}
+
+function buildCounterpartData(
+  message: SocialComment,
+  authenticatedUsername: string,
+  conversationContext?: ConversationCounterpartContext,
+): {
   counterpartKey: string;
   username: string | null;
   displayName: string;
@@ -142,52 +300,88 @@ function buildCounterpartData(message: SocialComment, authenticatedUsername: str
   const normalizedAuthorId = normalizeId(message.authorId);
   const normalizedCounterpartId = normalizeId(message.counterpartId);
   const normalizedTargetUserId = normalizeId(message.targetUserId);
-  const counterpartId = normalizedCounterpartId ?? (isSentByMe ? normalizedTargetUserId : normalizedAuthorId);
+  const counterpartId =
+    conversationContext?.preferredId ?? normalizedCounterpartId ?? (isSentByMe ? normalizedTargetUserId : normalizedAuthorId);
   const counterpartUsername = normalizeUsername(message.counterpartUsername);
   const inferredUsername = normalizeUsername(isSentByMe ? message.recipientName : message.authorUsername);
-  const username = counterpartUsername ?? inferredUsername;
-  const hasExplicitCounterpart = Boolean(normalizedCounterpartId || counterpartUsername);
+  const username = conversationContext?.preferredUsername ?? counterpartUsername ?? inferredUsername;
+  const hasExplicitCounterpart = Boolean(counterpartId || username);
   const displayName = isUsableDisplayName(message.counterpartName)
     ? String(message.counterpartName).trim()
-    : counterpartUsername ?? (hasExplicitCounterpart ? inferredUsername ?? "" : inferredUsername || "Usuario");
+    : conversationContext?.preferredDisplayName ?? username ?? (hasExplicitCounterpart ? inferredUsername ?? "Usuario" : "Usuario");
+
+  const conversationKey =
+    counterpartId
+      ? `counterpart:${counterpartId}`
+      : username
+        ? `username:${username.toLowerCase()}`
+        : `message:${conversationContext?.fallbackMessageId ?? normalizeId(message.id) ?? Date.now().toString()}`;
 
   return {
-    counterpartKey: counterpartId ? `id:${counterpartId}` : `username:${(counterpartUsername || username || "desconocido").toLowerCase()}`,
+    counterpartKey: conversationKey,
     username,
     displayName,
-    avatar: isSentByMe ? null : message.authorAvatar,
+    avatar: conversationContext?.preferredAvatar ?? (isSentByMe ? null : message.authorAvatar),
     direction: isSentByMe ? "sent" : "received",
   };
 }
 
 function groupDirectedConversations(payload: unknown, authenticatedUsername: string, currentMovieId: string): DirectedConversation[] {
   const root = toRecord(payload);
+  const rootData = toRecord(root?.data);
   const explicitConversations =
     (Array.isArray(root?.conversations) ? root?.conversations : null) ||
+    (Array.isArray(rootData?.conversations) ? rootData?.conversations : null) ||
     (Array.isArray(root?.results) ? root?.results : null) ||
-    (Array.isArray(root?.items) ? root?.items : null);
+    (Array.isArray(rootData?.results) ? rootData?.results : null) ||
+    (Array.isArray(root?.items) ? root?.items : null) ||
+    (Array.isArray(rootData?.items) ? rootData?.items : null);
 
-  const parsedMessagesFromConversations = Array.isArray(explicitConversations)
+  const parsedMessagesFromConversations: Array<{
+    message: SocialComment;
+    context?: ConversationCounterpartContext;
+    messagesEndpoint?: string | null;
+    conversationNext?: string | null;
+  }> = Array.isArray(explicitConversations)
     ? explicitConversations.flatMap((entry) => {
         const record = toRecord(entry);
         if (!record) return [];
-        return parseCommentsPage(record.messages ?? record, "directed").comments;
+        const context = getConversationCounterpartContext(record);
+        const parsed = parseCommentsPage(
+          pickFirstPresent(record.messages, record.messages_preview, record.messagesPreview, record) ?? record,
+          "directed",
+        );
+        const messagesEndpoint = getConversationMessagesEndpoint(record);
+        return parsed.comments.map((message) => ({
+          message,
+          context,
+          messagesEndpoint,
+          conversationNext: normalizeEndpointPath(parsed.next),
+        }));
       })
     : [];
 
-  const flatComments = parsedMessagesFromConversations.length > 0 ? parsedMessagesFromConversations : parseComments(payload, "directed");
+  const flatComments =
+    parsedMessagesFromConversations.length > 0
+      ? parsedMessagesFromConversations
+      : parseComments(payload, "directed").map((message) => ({
+          message,
+          context: undefined,
+          messagesEndpoint: undefined,
+          conversationNext: undefined,
+        }));
   const byConversation = new Map<string, DirectedConversation>();
   const normalizedMovieId = normalizeId(currentMovieId);
 
   const commentsForMovie = normalizedMovieId
-    ? flatComments.filter((message) => {
+    ? flatComments.filter(({ message }) => {
         const messageMovieId = normalizeId(message.movieId);
         return !messageMovieId || messageMovieId === normalizedMovieId;
       })
     : flatComments;
 
-  commentsForMovie.forEach((message) => {
-    const counterpart = buildCounterpartData(message, authenticatedUsername);
+  commentsForMovie.forEach(({ message, context, messagesEndpoint, conversationNext }) => {
+    const counterpart = buildCounterpartData(message, authenticatedUsername, context);
     const existing = byConversation.get(counterpart.counterpartKey);
 
     const hydratedUsername = pickBestUserValue(existing?.otherUsername ?? null, counterpart.username);
@@ -195,15 +389,14 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
       ? existing?.otherDisplayName ?? ""
       : isUsableDisplayName(counterpart.displayName)
         ? counterpart.displayName
-        : hydratedUsername || "";
+        : hydratedUsername || "Usuario";
     const hydratedAvatar = existing?.otherAvatar ?? counterpart.avatar;
 
     const directionMessage: SocialComment = {
       ...message,
       direction: counterpart.direction,
     };
-    const nextMessageList = existing ? [...existing.messages, directionMessage] : [directionMessage];
-    const sortedMessages = [...nextMessageList].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
+    const sortedMessages = mergeUniqueMessages(existing?.messages ?? [], [directionMessage]);
     byConversation.set(counterpart.counterpartKey, {
       key: `conversation-${counterpart.counterpartKey}`,
       counterpartKey: counterpart.counterpartKey,
@@ -211,7 +404,8 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
       otherDisplayName: hydratedDisplayName,
       otherAvatar: hydratedAvatar,
       messages: sortedMessages,
-      next: existing?.next ?? null,
+      messagesEndpoint: existing?.messagesEndpoint ?? messagesEndpoint ?? null,
+      next: existing?.next ?? conversationNext ?? null,
       lastMessageAt: sortedMessages[0]?.createdAt ?? null,
     });
   });
@@ -382,6 +576,8 @@ export default function MovieDetailPage() {
   const [directedConversations, setDirectedConversations] = useState<DirectedConversation[]>([]);
   const [expandedConversationKey, setExpandedConversationKey] = useState<string | null>(null);
   const [loadingDirectedMoreByKey, setLoadingDirectedMoreByKey] = useState<Record<string, boolean>>({});
+  const [loadingFullHistoryByConversationKey, setLoadingFullHistoryByConversationKey] = useState<Record<string, boolean>>({});
+  const [fullLoadedByConversationKey, setFullLoadedByConversationKey] = useState<Record<string, boolean>>({});
 
   const [loadingPublic, setLoadingPublic] = useState(true);
   const [loadingDirected, setLoadingDirected] = useState(true);
@@ -577,6 +773,8 @@ export default function MovieDetailPage() {
       if (directedReceivedResult.ok) {
         const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
         setDirectedConversations(groupDirectedConversations(directedReceivedResult.payload, meUsername, movieId));
+        setLoadingFullHistoryByConversationKey({});
+        setFullLoadedByConversationKey({});
         setDirectedError("");
       } else {
         setDirectedError("No pudimos cargar los comentarios dirigidos.");
@@ -666,11 +864,9 @@ export default function MovieDetailPage() {
         setDirectedConversations((current) =>
           current.map((conversation) => {
             if (conversation.key !== conversationKey) return conversation;
-            const existing = new Set(conversation.messages.map((message) => String(message.id)));
-            const merged = [...conversation.messages, ...parsed.comments.filter((message) => !existing.has(String(message.id)))];
             return {
               ...conversation,
-              messages: merged.sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0)),
+              messages: mergeUniqueMessages(conversation.messages, parsed.comments),
               next: normalizeEndpointPath(parsed.next),
             };
           }),
@@ -682,6 +878,39 @@ export default function MovieDetailPage() {
       }
     },
     [directedConversations, loadingDirectedMoreByKey],
+  );
+
+  const handleToggleConversation = useCallback(
+    async (conversation: DirectedConversation) => {
+      const isExpanded = expandedConversationKey === conversation.key;
+      setExpandedConversationKey(isExpanded ? null : conversation.key);
+      if (isExpanded) return;
+      if (!conversation.messagesEndpoint) return;
+      if (fullLoadedByConversationKey[conversation.key]) return;
+      if (loadingFullHistoryByConversationKey[conversation.key]) return;
+
+      setLoadingFullHistoryByConversationKey((current) => ({ ...current, [conversation.key]: true }));
+      try {
+        const payload = await apiFetch(conversation.messagesEndpoint);
+        const parsed = parseCommentsPage(payload, "directed");
+        setDirectedConversations((current) =>
+          current.map((currentConversation) => {
+            if (currentConversation.key !== conversation.key) return currentConversation;
+            return {
+              ...currentConversation,
+              messages: mergeUniqueMessages(currentConversation.messages, parsed.comments),
+              next: normalizeEndpointPath(parsed.next) ?? currentConversation.next,
+            };
+          }),
+        );
+        setFullLoadedByConversationKey((current) => ({ ...current, [conversation.key]: true }));
+      } catch {
+        // keep current preview stable if full history endpoint fails
+      } finally {
+        setLoadingFullHistoryByConversationKey((current) => ({ ...current, [conversation.key]: false }));
+      }
+    },
+    [expandedConversationKey, fullLoadedByConversationKey, loadingFullHistoryByConversationKey],
   );
 
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
@@ -748,6 +977,8 @@ export default function MovieDetailPage() {
         try {
           const refreshed = await fetchWithFallbacks<unknown>(buildMovieDirectedFetchEndpoints(movieId), "[movie-detail-debug]");
           setDirectedConversations(groupDirectedConversations(refreshed.payload, authenticatedUsername, movieId));
+          setLoadingFullHistoryByConversationKey({});
+          setFullLoadedByConversationKey({});
           setDirectedError("");
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
@@ -769,6 +1000,7 @@ export default function MovieDetailPage() {
                     otherDisplayName: counterpart.displayName,
                     otherAvatar: counterpart.avatar,
                     messages: [nextMessage],
+                    messagesEndpoint: null,
                     next: null,
                     lastMessageAt: parsedSubmittedComment.createdAt,
                   },
@@ -1080,7 +1312,9 @@ export default function MovieDetailPage() {
                     <button
                       type="button"
                       className="flex w-full items-center justify-between gap-3 text-left"
-                      onClick={() => setExpandedConversationKey((current) => (current === conversation.key ? null : conversation.key))}
+                      onClick={() => {
+                        void handleToggleConversation(conversation);
+                      }}
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
@@ -1088,13 +1322,13 @@ export default function MovieDetailPage() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={conversation.otherAvatar} alt={conversation.otherDisplayName} className="h-9 w-9 rounded-full object-cover" />
                           ) : (
-                            conversation.otherDisplayName.charAt(0).toUpperCase()
+                            (conversation.otherDisplayName || conversation.otherUsername || "Usuario").charAt(0).toUpperCase()
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName}</p>
+                          <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
                           <div className="flex items-center gap-2">
-                            <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p>
+                            {conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
                             <span className="rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[11px] text-zinc-300">
                               {conversation.messages.length}
                             </span>
@@ -1144,6 +1378,9 @@ export default function MovieDetailPage() {
                         />
                         {loadingDirectedMoreByKey[conversation.key] ? (
                           <p className="pt-2 text-xs text-zinc-400">Cargando mensajes anteriores...</p>
+                        ) : null}
+                        {loadingFullHistoryByConversationKey[conversation.key] ? (
+                          <p className="pt-2 text-xs text-zinc-400">Cargando historial completo...</p>
                         ) : null}
                       </div>
                     ) : null}
