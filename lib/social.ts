@@ -175,24 +175,38 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
   const recipientName = normalizeUsername(
     pickFirst(
       nestedRecipient?.username,
-      nestedRecipient?.name,
-      raw.recipient_name,
+      nestedRecipient?.user_name,
+      nestedRecipient?.userName,
       raw.recipient_username,
-      raw.mentioned_username,
+      raw.recipient_name,
+      raw.target_user_username,
       raw.target_username,
+      raw.mentioned_username,
+      raw.mentioned_user_username,
       nestedCounterpart?.username,
+      nestedCounterpart?.user_name,
       raw.counterpart_username,
     ),
   );
 
   const counterpartUsername = normalizeUsername(
-    pickFirst(nestedCounterpart?.username, nestedCounterpart?.name, raw.counterpart_username, raw.other_username),
+    pickFirst(
+      nestedCounterpart?.username,
+      nestedCounterpart?.user_name,
+      raw.counterpart_username,
+      raw.other_username,
+      raw.counterpartUserName,
+    ),
   );
   const counterpartName = toStringOrNull(
     pickFirst(nestedCounterpart?.display_name, nestedCounterpart?.name, raw.counterpart_name, raw.other_name),
   );
   const counterpartId =
-    (pickFirst(nestedCounterpart?.id, raw.counterpart_id, raw.other_user_id) as number | string | null | undefined) ?? null;
+    (pickFirst(nestedCounterpart?.id, raw.counterpart_id, raw.counterpartId, raw.other_user_id) as
+      | number
+      | string
+      | null
+      | undefined) ?? null;
 
   const explicitType = toStringOrNull(pickFirst(raw.type, raw.comment_type, raw.visibility))?.toLowerCase();
   const type = explicitType === "directed" || explicitType === "private" ? "directed" : fallbackType;
@@ -200,7 +214,15 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
   return {
     id: (pickFirst(raw.id, raw.comment_id, raw.uuid) || `comment-${Math.random().toString(36).slice(2, 10)}`) as number | string,
     authorId: (pickFirst(nestedAuthor?.id, raw.author_id) as number | string | null | undefined) ?? null,
-    targetUserId: (pickFirst(nestedRecipient?.id, raw.target_user_id, raw.recipient_id, raw.mentioned_user_id) as
+    targetUserId: (pickFirst(
+      nestedRecipient?.id,
+      raw.target_user_id,
+      raw.targetUserId,
+      raw.recipient_id,
+      raw.recipientId,
+      raw.mentioned_user_id,
+      raw.mentionedUserId,
+    ) as
       | number
       | string
       | null
