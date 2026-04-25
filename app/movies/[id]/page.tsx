@@ -53,10 +53,10 @@ function buildMovieDirectedSubmitEndpoints(movieId: string): string[] {
 function buildMovieDirectedFetchEndpoints(movieId: string): string[] {
   const encodedMovieId = encodeURIComponent(movieId);
   return [
+    `/movies/${encodedMovieId}/comments/directed/`,
+    `/movies/${encodedMovieId}/comments/directed/received/`,
     `/comments/directed/?movie_id=${encodedMovieId}`,
     `/comments/directed/received/?movie_id=${encodedMovieId}`,
-    `/movies/${encodedMovieId}/comments/directed/received/`,
-    `/movies/${encodedMovieId}/comments/directed/`,
   ];
 }
 
