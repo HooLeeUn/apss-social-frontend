@@ -497,8 +497,7 @@ export default function MyActivityColumn({
   const privateInboxReactionItems = useMemo(
     () =>
       activity.items.filter(
-        (item) =>
-          item.scope === "private_inbox" && (item.interactionType === "like" || item.interactionType === "dislike" || Boolean(item.isDirectedComment)),
+        (item) => item.scope === "private_inbox" && (item.interactionType === "like" || item.interactionType === "dislike"),
       ),
     [activity.items],
   );
