@@ -32,6 +32,13 @@ export interface PaginatedComments {
   next: string | null;
 }
 
+export interface UserIdentity {
+  id: number | string | null;
+  username: string | null;
+  displayName: string | null;
+  avatar: string | null;
+}
+
 export const FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT || "/social/friends/";
 export const FRIENDS_FALLBACK_ENDPOINTS = (process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_FALLBACK_ENDPOINTS || "/friends/")
   .split(",")
@@ -70,6 +77,94 @@ function normalizeUsername(value: unknown): string | null {
   const raw = toStringOrNull(value);
   if (!raw) return null;
   return raw.replace(/^@+/, "");
+}
+
+export function getUserIdentity(value: unknown): UserIdentity {
+  const record = toRecord(value);
+  if (!record) {
+    return {
+      id: null,
+      username: null,
+      displayName: null,
+      avatar: null,
+    };
+  }
+
+  const id =
+    (pickFirst(
+      record.id,
+      record.user_id,
+      record.userId,
+      record.recipient_id,
+      record.recipientId,
+      record.counterpart_id,
+      record.counterpartId,
+      record.other_user_id,
+      record.otherUserId,
+    ) as number | string | null | undefined) ?? null;
+
+  const username = normalizeUsername(
+    pickFirst(
+      record.username,
+      record.user_name,
+      record.userName,
+      record.recipient_username,
+      record.recipientUsername,
+      record.counterpart_username,
+      record.counterpartUsername,
+      record.other_user_username,
+      record.otherUserUsername,
+      record.other_username,
+      record.otherUsername,
+    ),
+  );
+
+  const displayName = toStringOrNull(
+    pickFirst(
+      record.display_name,
+      record.displayName,
+      record.name,
+      record.recipient_display_name,
+      record.recipientDisplayName,
+      record.recipient_name,
+      record.recipientName,
+      record.counterpart_display_name,
+      record.counterpartDisplayName,
+      record.counterpart_name,
+      record.counterpartName,
+      record.other_user_display_name,
+      record.otherUserDisplayName,
+      record.other_user_name,
+      record.otherUserName,
+      record.other_name,
+      record.otherName,
+    ),
+  );
+
+  const avatar = toStringOrNull(
+    pickFirst(
+      record.avatar,
+      record.avatar_url,
+      record.avatarUrl,
+      record.profile_image,
+      record.photo_url,
+      record.recipient_avatar,
+      record.recipientAvatar,
+      record.counterpart_avatar,
+      record.counterpartAvatar,
+      record.other_user_avatar,
+      record.otherUserAvatar,
+      record.other_avatar,
+      record.otherAvatar,
+    ),
+  );
+
+  return {
+    id,
+    username,
+    displayName,
+    avatar,
+  };
 }
 
 function toCount(value: unknown): number {
@@ -167,6 +262,11 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
   const nestedCounterpart = toRecord(
     pickFirst(raw.counterpart, raw.conversation_user, raw.conversationUser, raw.other_user, raw.otherUser),
   );
+  const nestedOtherUser = toRecord(pickFirst(raw.other_user, raw.otherUser));
+  const recipientIdentity = getUserIdentity(nestedRecipient);
+  const counterpartIdentity = getUserIdentity(nestedCounterpart);
+  const otherUserIdentity = getUserIdentity(nestedOtherUser);
+  const rootIdentity = getUserIdentity(raw);
 
   const authorUsername =
     normalizeUsername(pickFirst(nestedAuthor?.username, raw.author_username, raw.username, raw.sender_username, nestedAuthor?.name)) ||
@@ -186,11 +286,7 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 
   const recipientName = normalizeUsername(
     pickFirst(
-      nestedRecipient?.username,
-      nestedRecipient?.user_name,
-      nestedRecipient?.userName,
-      nestedRecipient?.display_name,
-      nestedRecipient?.displayName,
+      recipientIdentity.username,
       raw.recipient_username,
       raw.recipientUsername,
       raw.recipient_name,
@@ -200,9 +296,9 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
       raw.target_username,
       raw.mentioned_username,
       raw.mentioned_user_username,
-      nestedCounterpart?.username,
-      nestedCounterpart?.user_name,
-      nestedCounterpart?.userName,
+      counterpartIdentity.username,
+      otherUserIdentity.username,
+      rootIdentity.username,
       raw.counterpart_username,
       raw.counterpartUsername,
     ),
@@ -210,9 +306,10 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 
   const counterpartUsername = normalizeUsername(
     pickFirst(
-      nestedCounterpart?.username,
-      nestedCounterpart?.user_name,
-      nestedCounterpart?.userName,
+      counterpartIdentity.username,
+      otherUserIdentity.username,
+      recipientIdentity.username,
+      rootIdentity.username,
       raw.counterpart_username,
       raw.counterpartUsername,
       raw.other_username,
@@ -221,9 +318,10 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
   );
   const counterpartName = toStringOrNull(
     pickFirst(
-      nestedCounterpart?.display_name,
-      nestedCounterpart?.displayName,
-      nestedCounterpart?.name,
+      counterpartIdentity.displayName,
+      otherUserIdentity.displayName,
+      recipientIdentity.displayName,
+      rootIdentity.displayName,
       raw.counterpart_name,
       raw.counterpartName,
       raw.other_name,
@@ -231,7 +329,7 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
     ),
   );
   const counterpartId =
-    (pickFirst(nestedCounterpart?.id, raw.counterpart_id, raw.counterpartId, raw.other_user_id, raw.otherUserId) as
+    (pickFirst(counterpartIdentity.id, otherUserIdentity.id, recipientIdentity.id, rootIdentity.id, raw.counterpart_id, raw.counterpartId, raw.other_user_id, raw.otherUserId) as
       | number
       | string
       | null
