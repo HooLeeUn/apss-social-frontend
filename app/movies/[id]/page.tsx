@@ -123,8 +123,84 @@ function pickBestUserValue(current: string | null, candidate: string | null): st
   return current;
 }
 
+function pickFirstPresent<T>(...values: (T | null | undefined)[]): T | null {
+  for (const value of values) {
+    if (value !== null && value !== undefined) return value;
+  }
+  return null;
+}
 
-function buildCounterpartData(message: SocialComment, authenticatedUsername: string): {
+interface ConversationCounterpartContext {
+  preferredId: string | null;
+  preferredUsername: string | null;
+  preferredDisplayName: string | null;
+  fallbackMessageId: string | null;
+}
+
+function getConversationCounterpartContext(conversationRecord: Record<string, unknown>): ConversationCounterpartContext {
+  const counterpart = toRecord(conversationRecord.counterpart);
+  const recipient = toRecord(conversationRecord.recipient);
+  const otherUser = toRecord(conversationRecord.other_user);
+  const messagesPreview = Array.isArray(conversationRecord.messages_preview) ? conversationRecord.messages_preview : [];
+  const previewFirst = toRecord(messagesPreview[0]);
+  const previewCounterpart = toRecord(previewFirst?.counterpart);
+  const previewRecipient = toRecord(previewFirst?.recipient);
+
+  const preferredUsername = normalizeUsername(
+    pickFirstPresent(
+      counterpart?.username,
+      recipient?.username,
+      otherUser?.username,
+      previewCounterpart?.username,
+      previewRecipient?.username,
+    ) as string | null | undefined,
+  );
+
+  const preferredDisplayName =
+    (pickFirstPresent(
+      counterpart?.display_name,
+      counterpart?.name,
+      recipient?.display_name,
+      recipient?.name,
+      otherUser?.display_name,
+      otherUser?.name,
+      previewCounterpart?.display_name,
+      previewCounterpart?.name,
+      previewRecipient?.display_name,
+      previewRecipient?.name,
+    ) as string | null | undefined)?.trim() || null;
+
+  const preferredId = normalizeId(
+    pickFirstPresent(
+      counterpart?.id as number | string | null | undefined,
+      recipient?.id as number | string | null | undefined,
+      otherUser?.id as number | string | null | undefined,
+      previewCounterpart?.id as number | string | null | undefined,
+      previewRecipient?.id as number | string | null | undefined,
+    ),
+  );
+
+  const fallbackMessageId = normalizeId(
+    pickFirstPresent(
+      previewFirst?.id as number | string | null | undefined,
+      previewFirst?.comment_id as number | string | null | undefined,
+      conversationRecord.id as number | string | null | undefined,
+    ),
+  );
+
+  return {
+    preferredId,
+    preferredUsername,
+    preferredDisplayName,
+    fallbackMessageId,
+  };
+}
+
+function buildCounterpartData(
+  message: SocialComment,
+  authenticatedUsername: string,
+  conversationContext?: ConversationCounterpartContext,
+): {
   counterpartKey: string;
   username: string | null;
   displayName: string;
@@ -142,17 +218,25 @@ function buildCounterpartData(message: SocialComment, authenticatedUsername: str
   const normalizedAuthorId = normalizeId(message.authorId);
   const normalizedCounterpartId = normalizeId(message.counterpartId);
   const normalizedTargetUserId = normalizeId(message.targetUserId);
-  const counterpartId = normalizedCounterpartId ?? (isSentByMe ? normalizedTargetUserId : normalizedAuthorId);
+  const counterpartId =
+    conversationContext?.preferredId ?? normalizedCounterpartId ?? (isSentByMe ? normalizedTargetUserId : normalizedAuthorId);
   const counterpartUsername = normalizeUsername(message.counterpartUsername);
   const inferredUsername = normalizeUsername(isSentByMe ? message.recipientName : message.authorUsername);
-  const username = counterpartUsername ?? inferredUsername;
-  const hasExplicitCounterpart = Boolean(normalizedCounterpartId || counterpartUsername);
+  const username = conversationContext?.preferredUsername ?? counterpartUsername ?? inferredUsername;
+  const hasExplicitCounterpart = Boolean(counterpartId || username);
   const displayName = isUsableDisplayName(message.counterpartName)
     ? String(message.counterpartName).trim()
-    : counterpartUsername ?? (hasExplicitCounterpart ? inferredUsername ?? "" : inferredUsername || "Usuario");
+    : conversationContext?.preferredDisplayName ?? username ?? (hasExplicitCounterpart ? inferredUsername ?? "" : "Usuario");
+
+  const conversationKey =
+    counterpartId
+      ? `counterpart:${counterpartId}`
+      : username
+        ? `username:${username.toLowerCase()}`
+        : `message:${conversationContext?.fallbackMessageId ?? normalizeId(message.id) ?? Date.now().toString()}`;
 
   return {
-    counterpartKey: counterpartId ? `id:${counterpartId}` : `username:${(counterpartUsername || username || "desconocido").toLowerCase()}`,
+    counterpartKey: conversationKey,
     username,
     displayName,
     avatar: isSentByMe ? null : message.authorAvatar,
@@ -171,23 +255,31 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
     ? explicitConversations.flatMap((entry) => {
         const record = toRecord(entry);
         if (!record) return [];
-        return parseCommentsPage(record.messages ?? record, "directed").comments;
+        const context = getConversationCounterpartContext(record);
+        const parsed = parseCommentsPage(record.messages ?? record.messages_preview ?? record, "directed").comments;
+        return parsed.map((message) => ({
+          message,
+          context,
+        }));
       })
     : [];
 
-  const flatComments = parsedMessagesFromConversations.length > 0 ? parsedMessagesFromConversations : parseComments(payload, "directed");
+  const flatComments =
+    parsedMessagesFromConversations.length > 0
+      ? parsedMessagesFromConversations
+      : parseComments(payload, "directed").map((message) => ({ message, context: undefined }));
   const byConversation = new Map<string, DirectedConversation>();
   const normalizedMovieId = normalizeId(currentMovieId);
 
   const commentsForMovie = normalizedMovieId
-    ? flatComments.filter((message) => {
+    ? flatComments.filter(({ message }) => {
         const messageMovieId = normalizeId(message.movieId);
         return !messageMovieId || messageMovieId === normalizedMovieId;
       })
     : flatComments;
 
-  commentsForMovie.forEach((message) => {
-    const counterpart = buildCounterpartData(message, authenticatedUsername);
+  commentsForMovie.forEach(({ message, context }) => {
+    const counterpart = buildCounterpartData(message, authenticatedUsername, context);
     const existing = byConversation.get(counterpart.counterpartKey);
 
     const hydratedUsername = pickBestUserValue(existing?.otherUsername ?? null, counterpart.username);
