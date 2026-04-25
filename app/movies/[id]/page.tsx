@@ -27,6 +27,8 @@ import {
   parseFriends,
   ReactionType,
   SocialComment,
+  getUserIdentity,
+  UserIdentity,
 } from "../../../lib/social";
 import { useAppBranding } from "../../../hooks/useAppBranding";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
@@ -134,7 +136,26 @@ interface ConversationCounterpartContext {
   preferredId: string | null;
   preferredUsername: string | null;
   preferredDisplayName: string | null;
+  preferredAvatar: string | null;
   fallbackMessageId: string | null;
+}
+
+function resolveIdentityFromCandidates(candidates: UserIdentity[]): UserIdentity {
+  const withUsername = candidates.find((candidate) => Boolean(candidate.username));
+  if (withUsername) return withUsername;
+
+  const withDisplayName = candidates.find((candidate) => Boolean(candidate.displayName));
+  if (withDisplayName) return withDisplayName;
+
+  const withId = candidates.find((candidate) => candidate.id !== null && candidate.id !== undefined);
+  if (withId) return withId;
+
+  return {
+    id: null,
+    username: null,
+    displayName: null,
+    avatar: null,
+  };
 }
 
 function resolveDirectedConversationUser(
@@ -144,74 +165,58 @@ function resolveDirectedConversationUser(
   username: string | null;
   displayName: string | null;
   id: string | null;
+  avatar: string | null;
 } {
-  const counterpart = toRecord(item.counterpart);
-  const recipient = toRecord(item.recipient);
-  const otherUser = toRecord(pickFirstPresent(item.other_user, item.otherUser));
-  const messagesPreview = Array.isArray(item.messages_preview)
-    ? item.messages_preview
-    : Array.isArray(item.messagesPreview)
-      ? item.messagesPreview
-      : [];
-  const previewFirst = toRecord(messagesPreview[0]);
-  const previewCounterpart = toRecord(previewFirst?.counterpart);
-  const previewRecipient = toRecord(previewFirst?.recipient);
-  const previewAuthor = toRecord(previewFirst?.author);
-  const preferredUser = direction === "sent" ? pickFirstPresent(recipient, counterpart, otherUser) : pickFirstPresent(counterpart, otherUser, recipient);
-  const preferredPreviewUser =
-    direction === "sent" ? pickFirstPresent(previewRecipient, previewCounterpart) : pickFirstPresent(previewCounterpart, previewRecipient);
+  const previewFirstSnake = toRecord(Array.isArray(item.messages_preview) ? item.messages_preview[0] : null);
+  const previewFirstCamel = toRecord(Array.isArray(item.messagesPreview) ? item.messagesPreview[0] : null);
+  const previewAuthorSnake = toRecord(previewFirstSnake?.author ?? previewFirstSnake?.sender);
+  const previewAuthorCamel = toRecord(previewFirstCamel?.author ?? previewFirstCamel?.sender);
 
-  const username = normalizeUsername(
-    pickFirstPresent(
-      preferredUser?.username,
-      preferredUser?.user_name,
-      preferredUser?.userName,
-      counterpart?.username,
-      recipient?.username,
-      otherUser?.username,
-      preferredPreviewUser?.username,
-      preferredPreviewUser?.user_name,
-      preferredPreviewUser?.userName,
-      previewCounterpart?.username,
-      previewRecipient?.username,
-      direction === "received" ? previewAuthor?.username : null,
-    ) as string | null | undefined,
-  );
-  const displayName =
-    (pickFirstPresent(
-      preferredUser?.display_name,
-      preferredUser?.displayName,
-      preferredUser?.name,
-      counterpart?.display_name,
-      counterpart?.displayName,
-      counterpart?.name,
-      recipient?.display_name,
-      recipient?.displayName,
-      recipient?.name,
-      otherUser?.display_name,
-      otherUser?.displayName,
-      otherUser?.name,
-      preferredPreviewUser?.display_name,
-      preferredPreviewUser?.displayName,
-      preferredPreviewUser?.name,
-    ) as string | null | undefined)?.trim() || null;
-  const id = normalizeId(
-    pickFirstPresent(
-      preferredUser?.id as number | string | null | undefined,
-      counterpart?.id as number | string | null | undefined,
-      recipient?.id as number | string | null | undefined,
-      otherUser?.id as number | string | null | undefined,
-      preferredPreviewUser?.id as number | string | null | undefined,
-      previewCounterpart?.id as number | string | null | undefined,
-      previewRecipient?.id as number | string | null | undefined,
-      direction === "received" ? (previewAuthor?.id as number | string | null | undefined) : null,
-    ),
-  );
+  const counterpartIdentity = getUserIdentity(item.counterpart);
+  const recipientIdentity = getUserIdentity(item.recipient);
+  const otherUserSnakeIdentity = getUserIdentity(item.other_user);
+  const otherUserCamelIdentity = getUserIdentity(item.otherUser);
+  const previewCounterpartSnakeIdentity = getUserIdentity(previewFirstSnake?.counterpart);
+  const previewRecipientSnakeIdentity = getUserIdentity(previewFirstSnake?.recipient);
+  const previewCounterpartCamelIdentity = getUserIdentity(previewFirstCamel?.counterpart);
+  const previewRecipientCamelIdentity = getUserIdentity(previewFirstCamel?.recipient);
+  const previewAuthorSnakeIdentity = getUserIdentity(previewAuthorSnake);
+  const previewAuthorCamelIdentity = getUserIdentity(previewAuthorCamel);
+
+  const baseOrderedCandidates = [
+    counterpartIdentity,
+    recipientIdentity,
+    otherUserSnakeIdentity,
+    otherUserCamelIdentity,
+    previewCounterpartSnakeIdentity,
+    previewRecipientSnakeIdentity,
+    previewCounterpartCamelIdentity,
+    previewRecipientCamelIdentity,
+  ];
+
+  const directionOrderedCandidates =
+    direction === "sent"
+      ? [
+          recipientIdentity,
+          counterpartIdentity,
+          ...baseOrderedCandidates,
+        ]
+      : direction === "received"
+        ? [
+            counterpartIdentity,
+            previewAuthorSnakeIdentity,
+            previewAuthorCamelIdentity,
+            ...baseOrderedCandidates,
+          ]
+        : baseOrderedCandidates;
+
+  const resolvedIdentity = resolveIdentityFromCandidates(directionOrderedCandidates);
 
   return {
-    username,
-    displayName,
-    id,
+    username: resolvedIdentity.username,
+    displayName: resolvedIdentity.displayName,
+    id: normalizeId(resolvedIdentity.id),
+    avatar: resolvedIdentity.avatar,
   };
 }
 
@@ -243,6 +248,7 @@ function getConversationCounterpartContext(conversationRecord: Record<string, un
     preferredId: resolvedUser.id,
     preferredUsername: resolvedUser.username,
     preferredDisplayName: resolvedUser.displayName,
+    preferredAvatar: resolvedUser.avatar,
     fallbackMessageId,
   };
 }
@@ -290,7 +296,7 @@ function buildCounterpartData(
     counterpartKey: conversationKey,
     username,
     displayName,
-    avatar: isSentByMe ? null : message.authorAvatar,
+    avatar: conversationContext?.preferredAvatar ?? (isSentByMe ? null : message.authorAvatar),
     direction: isSentByMe ? "sent" : "received",
   };
 }
