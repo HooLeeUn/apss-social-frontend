@@ -67,6 +67,7 @@ interface DirectedConversation {
   otherDisplayName: string;
   otherAvatar: string | null;
   messages: SocialComment[];
+  messagesEndpoint: string | null;
   next: string | null;
   lastMessageAt: string | null;
 }
@@ -89,6 +90,17 @@ function normalizeEndpointPath(nextValue: string | null): string | null {
     }
   }
   return nextValue;
+}
+
+function mergeUniqueMessages(existing: SocialComment[], incoming: SocialComment[]): SocialComment[] {
+  const byId = new Map<string, SocialComment>();
+  existing.forEach((message) => {
+    byId.set(String(message.id), message);
+  });
+  incoming.forEach((message) => {
+    byId.set(String(message.id), message);
+  });
+  return [...byId.values()].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
 }
 
 function normalizeId(value: number | string | null | undefined): string | null {
@@ -258,6 +270,14 @@ function getConversationCounterpartContext(conversationRecord: Record<string, un
   };
 }
 
+function getConversationMessagesEndpoint(conversationRecord: Record<string, unknown>): string | null {
+  const messagesEndpointRaw = pickFirstPresent(
+    conversationRecord.messages_endpoint as string | null | undefined,
+    conversationRecord.messagesEndpoint as string | null | undefined,
+  );
+  return typeof messagesEndpointRaw === "string" ? normalizeEndpointPath(messagesEndpointRaw) : null;
+}
+
 function buildCounterpartData(
   message: SocialComment,
   authenticatedUsername: string,
@@ -317,7 +337,12 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
     (Array.isArray(root?.items) ? root?.items : null) ||
     (Array.isArray(rootData?.items) ? rootData?.items : null);
 
-  const parsedMessagesFromConversations = Array.isArray(explicitConversations)
+  const parsedMessagesFromConversations: Array<{
+    message: SocialComment;
+    context?: ConversationCounterpartContext;
+    messagesEndpoint?: string | null;
+    conversationNext?: string | null;
+  }> = Array.isArray(explicitConversations)
     ? explicitConversations.flatMap((entry) => {
         const record = toRecord(entry);
         if (!record) return [];
@@ -325,10 +350,13 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
         const parsed = parseCommentsPage(
           pickFirstPresent(record.messages, record.messages_preview, record.messagesPreview, record) ?? record,
           "directed",
-        ).comments;
-        return parsed.map((message) => ({
+        );
+        const messagesEndpoint = getConversationMessagesEndpoint(record);
+        return parsed.comments.map((message) => ({
           message,
           context,
+          messagesEndpoint,
+          conversationNext: normalizeEndpointPath(parsed.next),
         }));
       })
     : [];
@@ -336,7 +364,12 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
   const flatComments =
     parsedMessagesFromConversations.length > 0
       ? parsedMessagesFromConversations
-      : parseComments(payload, "directed").map((message) => ({ message, context: undefined }));
+      : parseComments(payload, "directed").map((message) => ({
+          message,
+          context: undefined,
+          messagesEndpoint: undefined,
+          conversationNext: undefined,
+        }));
   const byConversation = new Map<string, DirectedConversation>();
   const normalizedMovieId = normalizeId(currentMovieId);
 
@@ -347,7 +380,7 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
       })
     : flatComments;
 
-  commentsForMovie.forEach(({ message, context }) => {
+  commentsForMovie.forEach(({ message, context, messagesEndpoint, conversationNext }) => {
     const counterpart = buildCounterpartData(message, authenticatedUsername, context);
     const existing = byConversation.get(counterpart.counterpartKey);
 
@@ -363,8 +396,7 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
       ...message,
       direction: counterpart.direction,
     };
-    const nextMessageList = existing ? [...existing.messages, directionMessage] : [directionMessage];
-    const sortedMessages = [...nextMessageList].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
+    const sortedMessages = mergeUniqueMessages(existing?.messages ?? [], [directionMessage]);
     byConversation.set(counterpart.counterpartKey, {
       key: `conversation-${counterpart.counterpartKey}`,
       counterpartKey: counterpart.counterpartKey,
@@ -372,7 +404,8 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
       otherDisplayName: hydratedDisplayName,
       otherAvatar: hydratedAvatar,
       messages: sortedMessages,
-      next: existing?.next ?? null,
+      messagesEndpoint: existing?.messagesEndpoint ?? messagesEndpoint ?? null,
+      next: existing?.next ?? conversationNext ?? null,
       lastMessageAt: sortedMessages[0]?.createdAt ?? null,
     });
   });
@@ -543,6 +576,8 @@ export default function MovieDetailPage() {
   const [directedConversations, setDirectedConversations] = useState<DirectedConversation[]>([]);
   const [expandedConversationKey, setExpandedConversationKey] = useState<string | null>(null);
   const [loadingDirectedMoreByKey, setLoadingDirectedMoreByKey] = useState<Record<string, boolean>>({});
+  const [loadingFullHistoryByConversationKey, setLoadingFullHistoryByConversationKey] = useState<Record<string, boolean>>({});
+  const [fullLoadedByConversationKey, setFullLoadedByConversationKey] = useState<Record<string, boolean>>({});
 
   const [loadingPublic, setLoadingPublic] = useState(true);
   const [loadingDirected, setLoadingDirected] = useState(true);
@@ -738,6 +773,8 @@ export default function MovieDetailPage() {
       if (directedReceivedResult.ok) {
         const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
         setDirectedConversations(groupDirectedConversations(directedReceivedResult.payload, meUsername, movieId));
+        setLoadingFullHistoryByConversationKey({});
+        setFullLoadedByConversationKey({});
         setDirectedError("");
       } else {
         setDirectedError("No pudimos cargar los comentarios dirigidos.");
@@ -827,11 +864,9 @@ export default function MovieDetailPage() {
         setDirectedConversations((current) =>
           current.map((conversation) => {
             if (conversation.key !== conversationKey) return conversation;
-            const existing = new Set(conversation.messages.map((message) => String(message.id)));
-            const merged = [...conversation.messages, ...parsed.comments.filter((message) => !existing.has(String(message.id)))];
             return {
               ...conversation,
-              messages: merged.sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0)),
+              messages: mergeUniqueMessages(conversation.messages, parsed.comments),
               next: normalizeEndpointPath(parsed.next),
             };
           }),
@@ -843,6 +878,39 @@ export default function MovieDetailPage() {
       }
     },
     [directedConversations, loadingDirectedMoreByKey],
+  );
+
+  const handleToggleConversation = useCallback(
+    async (conversation: DirectedConversation) => {
+      const isExpanded = expandedConversationKey === conversation.key;
+      setExpandedConversationKey(isExpanded ? null : conversation.key);
+      if (isExpanded) return;
+      if (!conversation.messagesEndpoint) return;
+      if (fullLoadedByConversationKey[conversation.key]) return;
+      if (loadingFullHistoryByConversationKey[conversation.key]) return;
+
+      setLoadingFullHistoryByConversationKey((current) => ({ ...current, [conversation.key]: true }));
+      try {
+        const payload = await apiFetch(conversation.messagesEndpoint);
+        const parsed = parseCommentsPage(payload, "directed");
+        setDirectedConversations((current) =>
+          current.map((currentConversation) => {
+            if (currentConversation.key !== conversation.key) return currentConversation;
+            return {
+              ...currentConversation,
+              messages: mergeUniqueMessages(currentConversation.messages, parsed.comments),
+              next: normalizeEndpointPath(parsed.next) ?? currentConversation.next,
+            };
+          }),
+        );
+        setFullLoadedByConversationKey((current) => ({ ...current, [conversation.key]: true }));
+      } catch {
+        // keep current preview stable if full history endpoint fails
+      } finally {
+        setLoadingFullHistoryByConversationKey((current) => ({ ...current, [conversation.key]: false }));
+      }
+    },
+    [expandedConversationKey, fullLoadedByConversationKey, loadingFullHistoryByConversationKey],
   );
 
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
@@ -909,6 +977,8 @@ export default function MovieDetailPage() {
         try {
           const refreshed = await fetchWithFallbacks<unknown>(buildMovieDirectedFetchEndpoints(movieId), "[movie-detail-debug]");
           setDirectedConversations(groupDirectedConversations(refreshed.payload, authenticatedUsername, movieId));
+          setLoadingFullHistoryByConversationKey({});
+          setFullLoadedByConversationKey({});
           setDirectedError("");
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
@@ -930,6 +1000,7 @@ export default function MovieDetailPage() {
                     otherDisplayName: counterpart.displayName,
                     otherAvatar: counterpart.avatar,
                     messages: [nextMessage],
+                    messagesEndpoint: null,
                     next: null,
                     lastMessageAt: parsedSubmittedComment.createdAt,
                   },
@@ -1241,7 +1312,9 @@ export default function MovieDetailPage() {
                     <button
                       type="button"
                       className="flex w-full items-center justify-between gap-3 text-left"
-                      onClick={() => setExpandedConversationKey((current) => (current === conversation.key ? null : conversation.key))}
+                      onClick={() => {
+                        void handleToggleConversation(conversation);
+                      }}
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
@@ -1305,6 +1378,9 @@ export default function MovieDetailPage() {
                         />
                         {loadingDirectedMoreByKey[conversation.key] ? (
                           <p className="pt-2 text-xs text-zinc-400">Cargando mensajes anteriores...</p>
+                        ) : null}
+                        {loadingFullHistoryByConversationKey[conversation.key] ? (
+                          <p className="pt-2 text-xs text-zinc-400">Cargando historial completo...</p>
                         ) : null}
                       </div>
                     ) : null}
