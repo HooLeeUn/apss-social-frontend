@@ -535,10 +535,17 @@ interface MyMessageApiMovie {
 
 interface MyMessageApiItem {
   id?: number | string;
+  message_id?: number | string;
+  comment_id?: number | string;
   body?: string | null;
   content?: string | null;
+  text?: string | null;
+  comment?: string | null;
+  message?: string | null;
   created_at?: string | null;
   direction?: string | null;
+  activity_type?: string | null;
+  movie_id?: number | string | null;
   is_sent?: boolean | null;
   author?: MyMessageApiSender | null;
   sender?: MyMessageApiSender | null;
@@ -553,7 +560,93 @@ function resolveMessageEntityId(value: unknown, fallback: string): string | numb
   return fallback;
 }
 
-function toMessageItem(item: MyMessageApiItem, index: number): MyMessageItem {
+function normalizeMessageContent(value: string | null | undefined): string {
+  return (value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+function resolveMessageText(item: MyMessageApiItem): string | null {
+  return (
+    safeTrim(item.body) ||
+    safeTrim(item.content) ||
+    safeTrim(item.text) ||
+    safeTrim(item.comment) ||
+    safeTrim(item.message) ||
+    null
+  );
+}
+
+function isPrivateMessageType(item: MyMessageApiItem): boolean {
+  const normalizedType = safeTrim(item.activity_type)?.toLocaleLowerCase();
+  return normalizedType === "private_message";
+}
+
+interface ParsedMessageCandidate {
+  item: MyMessageItem;
+  messageId: string | null;
+  commentId: string | null;
+  isPrivateMessage: boolean;
+  normalizedContent: string;
+  fallbackKey: string;
+}
+
+function getMessageCounterpartUsername(item: MyMessageItem): string {
+  const counterpart = item.direction === "sent" ? item.recipient || item.sender : item.sender;
+  return counterpart.username.trim().toLocaleLowerCase();
+}
+
+function toParsedMessageCandidate(item: MyMessageApiItem, index: number): ParsedMessageCandidate | null {
+  const text = resolveMessageText(item);
+  if (!text) return null;
+
+  const mapped = toMessageItem(item, index, text);
+  const normalizedContent = normalizeMessageContent(text);
+  const messageId = toStringOrNull(item.message_id);
+  const commentId = toStringOrNull(item.comment_id);
+  const movieId = String(resolveMessageEntityId(pickFirst(item.movie?.id, item.movie_id), `movie-${index}`));
+  const counterpartUsername = getMessageCounterpartUsername(mapped);
+  const fallbackKey = [
+    movieId,
+    mapped.createdAt,
+    counterpartUsername,
+    normalizedContent,
+  ].join("::");
+
+  return {
+    item: mapped,
+    messageId,
+    commentId,
+    isPrivateMessage: isPrivateMessageType(item),
+    normalizedContent,
+    fallbackKey,
+  };
+}
+
+function dedupeMessageCandidates(candidates: ParsedMessageCandidate[]): MyMessageItem[] {
+  const byMessageId = new Map<string, ParsedMessageCandidate>();
+  const byCommentId = new Map<string, ParsedMessageCandidate>();
+  const byPrivateId = new Map<string, ParsedMessageCandidate>();
+  const byFallback = new Map<string, ParsedMessageCandidate>();
+  const deduped: ParsedMessageCandidate[] = [];
+
+  for (const candidate of candidates) {
+    const id = candidate.item.id;
+
+    if (candidate.messageId && byMessageId.has(candidate.messageId)) continue;
+    if (candidate.commentId && byCommentId.has(candidate.commentId)) continue;
+    if (candidate.isPrivateMessage && byPrivateId.has(id)) continue;
+    if (byFallback.has(candidate.fallbackKey)) continue;
+
+    deduped.push(candidate);
+    if (candidate.messageId) byMessageId.set(candidate.messageId, candidate);
+    if (candidate.commentId) byCommentId.set(candidate.commentId, candidate);
+    if (candidate.isPrivateMessage) byPrivateId.set(id, candidate);
+    byFallback.set(candidate.fallbackKey, candidate);
+  }
+
+  return deduped.map((candidate) => candidate.item);
+}
+
+function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: string): MyMessageItem {
   const sender = item.author || item.sender;
   const recipient = item.recipient || item.receiver;
   const normalizedDirection = safeTrim(item.direction)?.toLocaleLowerCase();
@@ -598,7 +691,7 @@ function toMessageItem(item: MyMessageApiItem, index: number): MyMessageItem {
     moviePosterUrl: null,
     movieType: metadataType,
     movieGenre: metadataGenre,
-    text: safeTrim(item.body) || safeTrim(item.content) || "Sin contenido",
+    text: resolvedText || resolveMessageText(item) || "",
     createdAt: safeTrim(item.created_at) || new Date().toISOString(),
   };
 }
@@ -622,11 +715,14 @@ function parseMyMessages(payload: unknown): PaginatedMyMessages {
                 ? data.messages
       : [];
 
-  const items = results
+  const items = dedupeMessageCandidates(
+    results
     .map((entry) => toRecord(entry))
     .filter((entry): entry is Record<string, unknown> => Boolean(entry))
     .map((entry) => entry as MyMessageApiItem)
-    .map((entry, index) => toMessageItem(entry, index))
+    .map((entry, index) => toParsedMessageCandidate(entry, index))
+    .filter((entry): entry is ParsedMessageCandidate => Boolean(entry)),
+  )
     .sort((left, right) => {
       const leftTs = new Date(left.createdAt).getTime();
       const rightTs = new Date(right.createdAt).getTime();
