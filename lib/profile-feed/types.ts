@@ -3,7 +3,19 @@ export type SocialActivityScope = SocialTab | "me" | `user:${string}`;
 
 export type InteractionType = "rating" | "comment" | "like" | "dislike";
 
-export type SocialActivityType = "rating" | "public_comment" | "directed_comment" | "public_comment_like" | "public_comment_dislike";
+export type SocialActivityType =
+  | "rating"
+  | "public_comment"
+  | "directed_comment"
+  | "public_comment_like"
+  | "public_comment_dislike"
+  | "public_comment_reaction"
+  | "directed_comment_like"
+  | "directed_comment_dislike"
+  | "directed_comment_reaction"
+  | "private_message"
+  | "private_comment_reaction"
+  | string;
 
 export interface FavoriteMovie {
   id: string;
@@ -78,6 +90,15 @@ export interface SocialActivityItem {
   commentText?: string;
   likedCommentSnippet?: string;
   likedCommentAuthorUsername?: string;
+  reactionActorUsername?: string;
+  commentId?: string;
+  reactionId?: string;
+  actorId?: string;
+  isGivenReaction?: boolean;
+  isReceivedReaction?: boolean;
+  scope?: NotificationTargetTab;
+  reactionScope?: "public" | "private";
+  reactionValue?: "like" | "dislike";
 }
 
 export interface PaginatedSocialActivity {
@@ -87,7 +108,9 @@ export interface PaginatedSocialActivity {
 
 export interface MyMessageItem {
   id: string;
+  direction: "sent" | "received";
   sender: SocialUser;
+  recipient: SocialUser | null;
   movieId: number | string;
   movieTitle: string;
   movieSecondaryTitle?: string | null;
@@ -107,6 +130,20 @@ export interface MyMessagesSummary {
   hasUnreadMessages: boolean;
   unreadCount: number;
   totalMessages: number;
+}
+
+export type NotificationTargetTab = "activity" | "private_inbox";
+
+export interface MyNotificationItem {
+  id: string;
+  text: string;
+  targetTab: NotificationTargetTab;
+  createdAt: string | null;
+}
+
+export interface MyNotificationsSummary {
+  totalUnread: number;
+  items: MyNotificationItem[];
 }
 
 export interface ProfileFeedActivityActor {

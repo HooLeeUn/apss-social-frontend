@@ -23,7 +23,7 @@ export default function ProfileFeedPage() {
   const [followingError, setFollowingError] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
   const requestedTab = searchParams.get("tab");
-  const initialActivityTab = requestedTab === "messages" ? "messages" : "activity";
+  const initialActivityTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "messages" : "activity";
 
   const loadFollowing = useCallback(async () => {
     setLoadingFollowing(true);
