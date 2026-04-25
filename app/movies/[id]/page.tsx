@@ -137,48 +137,67 @@ interface ConversationCounterpartContext {
   fallbackMessageId: string | null;
 }
 
-function getConversationCounterpartContext(conversationRecord: Record<string, unknown>): ConversationCounterpartContext {
-  const counterpart = toRecord(conversationRecord.counterpart);
-  const recipient = toRecord(conversationRecord.recipient);
-  const otherUser = toRecord(conversationRecord.other_user);
-  const messagesPreview = Array.isArray(conversationRecord.messages_preview) ? conversationRecord.messages_preview : [];
+function resolveDirectedConversationUser(
+  item: Record<string, unknown>,
+  direction?: "sent" | "received",
+): {
+  username: string | null;
+  displayName: string | null;
+  id: string | null;
+} {
+  const counterpart = toRecord(item.counterpart);
+  const recipient = toRecord(item.recipient);
+  const otherUser = toRecord(item.other_user);
+  const messagesPreview = Array.isArray(item.messages_preview) ? item.messages_preview : [];
   const previewFirst = toRecord(messagesPreview[0]);
   const previewCounterpart = toRecord(previewFirst?.counterpart);
   const previewRecipient = toRecord(previewFirst?.recipient);
+  const previewAuthor = toRecord(previewFirst?.author);
 
-  const preferredUsername = normalizeUsername(
+  const username = normalizeUsername(
     pickFirstPresent(
       counterpart?.username,
       recipient?.username,
       otherUser?.username,
       previewCounterpart?.username,
       previewRecipient?.username,
+      direction === "received" ? previewAuthor?.username : null,
     ) as string | null | undefined,
   );
-
-  const preferredDisplayName =
+  const displayName =
     (pickFirstPresent(
       counterpart?.display_name,
+      counterpart?.displayName,
       counterpart?.name,
       recipient?.display_name,
+      recipient?.displayName,
       recipient?.name,
       otherUser?.display_name,
+      otherUser?.displayName,
       otherUser?.name,
-      previewCounterpart?.display_name,
-      previewCounterpart?.name,
-      previewRecipient?.display_name,
-      previewRecipient?.name,
     ) as string | null | undefined)?.trim() || null;
-
-  const preferredId = normalizeId(
+  const id = normalizeId(
     pickFirstPresent(
       counterpart?.id as number | string | null | undefined,
       recipient?.id as number | string | null | undefined,
       otherUser?.id as number | string | null | undefined,
       previewCounterpart?.id as number | string | null | undefined,
       previewRecipient?.id as number | string | null | undefined,
+      direction === "received" ? (previewAuthor?.id as number | string | null | undefined) : null,
     ),
   );
+
+  return {
+    username,
+    displayName,
+    id,
+  };
+}
+
+function getConversationCounterpartContext(conversationRecord: Record<string, unknown>): ConversationCounterpartContext {
+  const resolvedUser = resolveDirectedConversationUser(conversationRecord, "received");
+  const messagesPreview = Array.isArray(conversationRecord.messages_preview) ? conversationRecord.messages_preview : [];
+  const previewFirst = toRecord(messagesPreview[0]);
 
   const fallbackMessageId = normalizeId(
     pickFirstPresent(
@@ -189,9 +208,9 @@ function getConversationCounterpartContext(conversationRecord: Record<string, un
   );
 
   return {
-    preferredId,
-    preferredUsername,
-    preferredDisplayName,
+    preferredId: resolvedUser.id,
+    preferredUsername: resolvedUser.username,
+    preferredDisplayName: resolvedUser.displayName,
     fallbackMessageId,
   };
 }
@@ -226,7 +245,7 @@ function buildCounterpartData(
   const hasExplicitCounterpart = Boolean(counterpartId || username);
   const displayName = isUsableDisplayName(message.counterpartName)
     ? String(message.counterpartName).trim()
-    : conversationContext?.preferredDisplayName ?? username ?? (hasExplicitCounterpart ? inferredUsername ?? "" : "Usuario");
+    : conversationContext?.preferredDisplayName ?? username ?? (hasExplicitCounterpart ? inferredUsername ?? "Usuario" : "Usuario");
 
   const conversationKey =
     counterpartId
@@ -287,7 +306,7 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
       ? existing?.otherDisplayName ?? ""
       : isUsableDisplayName(counterpart.displayName)
         ? counterpart.displayName
-        : hydratedUsername || "";
+        : hydratedUsername || "Usuario";
     const hydratedAvatar = existing?.otherAvatar ?? counterpart.avatar;
 
     const directionMessage: SocialComment = {
@@ -1180,13 +1199,13 @@ export default function MovieDetailPage() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={conversation.otherAvatar} alt={conversation.otherDisplayName} className="h-9 w-9 rounded-full object-cover" />
                           ) : (
-                            conversation.otherDisplayName.charAt(0).toUpperCase()
+                            (conversation.otherDisplayName || conversation.otherUsername || "Usuario").charAt(0).toUpperCase()
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName}</p>
+                          <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
                           <div className="flex items-center gap-2">
-                            <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p>
+                            {conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
                             <span className="rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[11px] text-zinc-300">
                               {conversation.messages.length}
                             </span>
