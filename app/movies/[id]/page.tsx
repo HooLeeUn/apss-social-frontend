@@ -147,18 +147,31 @@ function resolveDirectedConversationUser(
 } {
   const counterpart = toRecord(item.counterpart);
   const recipient = toRecord(item.recipient);
-  const otherUser = toRecord(item.other_user);
-  const messagesPreview = Array.isArray(item.messages_preview) ? item.messages_preview : [];
+  const otherUser = toRecord(pickFirstPresent(item.other_user, item.otherUser));
+  const messagesPreview = Array.isArray(item.messages_preview)
+    ? item.messages_preview
+    : Array.isArray(item.messagesPreview)
+      ? item.messagesPreview
+      : [];
   const previewFirst = toRecord(messagesPreview[0]);
   const previewCounterpart = toRecord(previewFirst?.counterpart);
   const previewRecipient = toRecord(previewFirst?.recipient);
   const previewAuthor = toRecord(previewFirst?.author);
+  const preferredUser = direction === "sent" ? pickFirstPresent(recipient, counterpart, otherUser) : pickFirstPresent(counterpart, otherUser, recipient);
+  const preferredPreviewUser =
+    direction === "sent" ? pickFirstPresent(previewRecipient, previewCounterpart) : pickFirstPresent(previewCounterpart, previewRecipient);
 
   const username = normalizeUsername(
     pickFirstPresent(
+      preferredUser?.username,
+      preferredUser?.user_name,
+      preferredUser?.userName,
       counterpart?.username,
       recipient?.username,
       otherUser?.username,
+      preferredPreviewUser?.username,
+      preferredPreviewUser?.user_name,
+      preferredPreviewUser?.userName,
       previewCounterpart?.username,
       previewRecipient?.username,
       direction === "received" ? previewAuthor?.username : null,
@@ -166,6 +179,9 @@ function resolveDirectedConversationUser(
   );
   const displayName =
     (pickFirstPresent(
+      preferredUser?.display_name,
+      preferredUser?.displayName,
+      preferredUser?.name,
       counterpart?.display_name,
       counterpart?.displayName,
       counterpart?.name,
@@ -175,12 +191,17 @@ function resolveDirectedConversationUser(
       otherUser?.display_name,
       otherUser?.displayName,
       otherUser?.name,
+      preferredPreviewUser?.display_name,
+      preferredPreviewUser?.displayName,
+      preferredPreviewUser?.name,
     ) as string | null | undefined)?.trim() || null;
   const id = normalizeId(
     pickFirstPresent(
+      preferredUser?.id as number | string | null | undefined,
       counterpart?.id as number | string | null | undefined,
       recipient?.id as number | string | null | undefined,
       otherUser?.id as number | string | null | undefined,
+      preferredPreviewUser?.id as number | string | null | undefined,
       previewCounterpart?.id as number | string | null | undefined,
       previewRecipient?.id as number | string | null | undefined,
       direction === "received" ? (previewAuthor?.id as number | string | null | undefined) : null,
@@ -195,8 +216,19 @@ function resolveDirectedConversationUser(
 }
 
 function getConversationCounterpartContext(conversationRecord: Record<string, unknown>): ConversationCounterpartContext {
-  const resolvedUser = resolveDirectedConversationUser(conversationRecord, "received");
-  const messagesPreview = Array.isArray(conversationRecord.messages_preview) ? conversationRecord.messages_preview : [];
+  const resolvedDirectionRaw = pickFirstPresent(
+    conversationRecord.direction,
+    conversationRecord.message_direction,
+    conversationRecord.messageDirection,
+  );
+  const normalizedDirection = typeof resolvedDirectionRaw === "string" ? resolvedDirectionRaw.trim().toLowerCase() : "";
+  const resolvedDirection = normalizedDirection === "sent" || normalizedDirection === "received" ? normalizedDirection : undefined;
+  const resolvedUser = resolveDirectedConversationUser(conversationRecord, resolvedDirection);
+  const messagesPreview = Array.isArray(conversationRecord.messages_preview)
+    ? conversationRecord.messages_preview
+    : Array.isArray(conversationRecord.messagesPreview)
+      ? conversationRecord.messagesPreview
+      : [];
   const previewFirst = toRecord(messagesPreview[0]);
 
   const fallbackMessageId = normalizeId(
@@ -265,17 +297,24 @@ function buildCounterpartData(
 
 function groupDirectedConversations(payload: unknown, authenticatedUsername: string, currentMovieId: string): DirectedConversation[] {
   const root = toRecord(payload);
+  const rootData = toRecord(root?.data);
   const explicitConversations =
     (Array.isArray(root?.conversations) ? root?.conversations : null) ||
+    (Array.isArray(rootData?.conversations) ? rootData?.conversations : null) ||
     (Array.isArray(root?.results) ? root?.results : null) ||
-    (Array.isArray(root?.items) ? root?.items : null);
+    (Array.isArray(rootData?.results) ? rootData?.results : null) ||
+    (Array.isArray(root?.items) ? root?.items : null) ||
+    (Array.isArray(rootData?.items) ? rootData?.items : null);
 
   const parsedMessagesFromConversations = Array.isArray(explicitConversations)
     ? explicitConversations.flatMap((entry) => {
         const record = toRecord(entry);
         if (!record) return [];
         const context = getConversationCounterpartContext(record);
-        const parsed = parseCommentsPage(record.messages ?? record.messages_preview ?? record, "directed").comments;
+        const parsed = parseCommentsPage(
+          pickFirstPresent(record.messages, record.messages_preview, record.messagesPreview, record) ?? record,
+          "directed",
+        ).comments;
         return parsed.map((message) => ({
           message,
           context,

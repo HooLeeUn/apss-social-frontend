@@ -161,8 +161,12 @@ export function parseFriends(payload: unknown): Friend[] {
 
 function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" | "directed"): SocialComment {
   const nestedAuthor = toRecord(pickFirst(raw.author, raw.user, raw.created_by, raw.sender, raw.from_user));
-  const nestedRecipient = toRecord(pickFirst(raw.recipient, raw.mentioned_user, raw.target_user, raw.receiver, raw.to_user));
-  const nestedCounterpart = toRecord(pickFirst(raw.counterpart, raw.conversation_user, raw.other_user));
+  const nestedRecipient = toRecord(
+    pickFirst(raw.recipient, raw.mentioned_user, raw.mentionedUser, raw.target_user, raw.targetUser, raw.receiver, raw.to_user, raw.toUser),
+  );
+  const nestedCounterpart = toRecord(
+    pickFirst(raw.counterpart, raw.conversation_user, raw.conversationUser, raw.other_user, raw.otherUser),
+  );
 
   const authorUsername =
     normalizeUsername(pickFirst(nestedAuthor?.username, raw.author_username, raw.username, raw.sender_username, nestedAuthor?.name)) ||
@@ -185,15 +189,22 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
       nestedRecipient?.username,
       nestedRecipient?.user_name,
       nestedRecipient?.userName,
+      nestedRecipient?.display_name,
+      nestedRecipient?.displayName,
       raw.recipient_username,
+      raw.recipientUsername,
       raw.recipient_name,
+      raw.recipientName,
       raw.target_user_username,
+      raw.targetUserUsername,
       raw.target_username,
       raw.mentioned_username,
       raw.mentioned_user_username,
       nestedCounterpart?.username,
       nestedCounterpart?.user_name,
+      nestedCounterpart?.userName,
       raw.counterpart_username,
+      raw.counterpartUsername,
     ),
   );
 
@@ -201,16 +212,26 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
     pickFirst(
       nestedCounterpart?.username,
       nestedCounterpart?.user_name,
+      nestedCounterpart?.userName,
       raw.counterpart_username,
+      raw.counterpartUsername,
       raw.other_username,
       raw.counterpartUserName,
     ),
   );
   const counterpartName = toStringOrNull(
-    pickFirst(nestedCounterpart?.display_name, nestedCounterpart?.name, raw.counterpart_name, raw.other_name),
+    pickFirst(
+      nestedCounterpart?.display_name,
+      nestedCounterpart?.displayName,
+      nestedCounterpart?.name,
+      raw.counterpart_name,
+      raw.counterpartName,
+      raw.other_name,
+      raw.otherName,
+    ),
   );
   const counterpartId =
-    (pickFirst(nestedCounterpart?.id, raw.counterpart_id, raw.counterpartId, raw.other_user_id) as
+    (pickFirst(nestedCounterpart?.id, raw.counterpart_id, raw.counterpartId, raw.other_user_id, raw.otherUserId) as
       | number
       | string
       | null
