@@ -89,6 +89,14 @@ function normalizeReaction(value: unknown): ReactionType {
   return null;
 }
 
+function normalizeDirection(value: unknown): "sent" | "received" | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "sent" || normalized === "enviado" || normalized === "outgoing") return "sent";
+  if (normalized === "received" || normalized === "recibido" || normalized === "incoming") return "received";
+  return undefined;
+}
+
 function getFriendsSource(payload: unknown): unknown[] {
   if (Array.isArray(payload)) return payload;
 
@@ -210,6 +218,7 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 
   const explicitType = toStringOrNull(pickFirst(raw.type, raw.comment_type, raw.visibility))?.toLowerCase();
   const type = explicitType === "directed" || explicitType === "private" ? "directed" : fallbackType;
+  const direction = normalizeDirection(pickFirst(raw.direction, raw.message_direction, raw.comment_direction));
 
   return {
     id: (pickFirst(raw.id, raw.comment_id, raw.uuid) || `comment-${Math.random().toString(36).slice(2, 10)}`) as number | string,
@@ -241,6 +250,7 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
     likesCount: toCount(pickFirst(raw.likes_count, raw.like_count, raw.likes, raw.reactions_like_count)),
     dislikesCount: toCount(pickFirst(raw.dislikes_count, raw.dislike_count, raw.dislikes, raw.reactions_dislike_count)),
     myReaction: normalizeReaction(pickFirst(raw.my_reaction, raw.user_reaction, raw.current_reaction)),
+    direction,
   };
 }
 
