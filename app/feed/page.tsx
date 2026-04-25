@@ -13,7 +13,7 @@ import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholde
 import AppLogo from "../../components/AppLogo";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
-import { getMyMessagesSummary, getMyNotificationsSummary, getMyProfile } from "../../lib/profile-feed/adapters";
+import { getMyMessagesSummary, getMyNotificationsSummary, getMyProfile, markNotificationAsRead } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import {
@@ -335,22 +335,20 @@ export default function FeedPage() {
     router.replace("/login");
   }, [router]);
 
-  const hasPendingActivityNotifications = useMemo(
-    () => notificationItems.some((item) => item.targetTab === "activity"),
-    [notificationItems],
-  );
-
   const handleBellClick = useCallback(() => {
-    if (hasPendingActivityNotifications) {
-      setIsNotificationPanelOpen((current) => !current);
-      return;
-    }
-
-    router.push("/profile-feed?tab=private_inbox");
-  }, [hasPendingActivityNotifications, router]);
+    setIsNotificationPanelOpen((current) => !current);
+  }, []);
 
   const handleNotificationItemClick = useCallback(
-    (item: MyNotificationItem) => {
+    async (item: MyNotificationItem) => {
+      try {
+        await markNotificationAsRead(item.id);
+      } catch (error) {
+        console.warn("No se pudo marcar la notificación como leída.", error);
+      }
+
+      setNotificationItems((current) => current.filter((notificationItem) => notificationItem.id !== item.id));
+      setUnreadNotificationsCount((current) => Math.max(0, current - 1));
       setIsNotificationPanelOpen(false);
       router.push(`/profile-feed?tab=${item.targetTab}`);
     },

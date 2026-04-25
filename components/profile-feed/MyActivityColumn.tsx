@@ -297,27 +297,29 @@ function ActivityRow({
 
 function MessageRow({ item }: { item: MyMessageItem }) {
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
-  const senderInitials = item.sender.username.slice(0, 2).toUpperCase();
+  const counterpart = item.direction === "sent" ? item.recipient || item.sender : item.sender;
+  const counterpartInitials = counterpart.username.slice(0, 2).toUpperCase();
 
   return (
     <article className="border-b border-white/5 py-3 last:border-b-0">
       <div className="mb-2 flex items-center gap-2.5">
-        {item.sender.avatarUrl ? (
+        {counterpart.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={item.sender.avatarUrl}
-            alt={`Avatar de ${item.sender.username}`}
+            src={counterpart.avatarUrl}
+            alt={`Avatar de ${counterpart.username}`}
             className="h-7 w-7 rounded-full border border-white/20 object-cover"
             loading="lazy"
             decoding="async"
           />
         ) : (
           <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-zinc-900 text-[10px] font-semibold text-zinc-200">
-            {senderInitials}
+            {counterpartInitials}
           </div>
         )}
         <p className="text-xs text-zinc-300">
-          De <span className="font-semibold text-zinc-100">@{item.sender.username}</span>
+          {item.direction === "sent" ? "Enviado a" : "De"}{" "}
+          <span className="font-semibold text-zinc-100">@{counterpart.username}</span>
         </p>
       </div>
 
@@ -411,7 +413,11 @@ export default function MyActivityColumn({
     const normalizedQuery = senderQuery.trim().toLocaleLowerCase();
     if (!normalizedQuery) return messages.items;
 
-    return messages.items.filter((message) => message.sender.username.toLocaleLowerCase().includes(normalizedQuery));
+    return messages.items.filter((message) => {
+      const senderMatch = message.sender.username.toLocaleLowerCase().includes(normalizedQuery);
+      const recipientMatch = message.recipient?.username.toLocaleLowerCase().includes(normalizedQuery) ?? false;
+      return senderMatch || recipientMatch;
+    });
   }, [messages.items, senderQuery]);
 
   const filteredActivityItems = useMemo(() => {
@@ -433,7 +439,15 @@ export default function MyActivityColumn({
   }, [activity.items, isOwnProfile, visitedActivityTab]);
 
   const ownActivityItems = useMemo(
-    () => activity.items.filter((item) => !(item.interactionType === "comment" && item.isDirectedComment)),
+    () => activity.items.filter((item) => item.scope !== "private_inbox"),
+    [activity.items],
+  );
+  const privateInboxReactionItems = useMemo(
+    () =>
+      activity.items.filter(
+        (item) =>
+          item.scope === "private_inbox" && (item.interactionType === "like" || item.interactionType === "dislike" || Boolean(item.isDirectedComment)),
+      ),
     [activity.items],
   );
 
@@ -712,12 +726,21 @@ export default function MyActivityColumn({
               </div>
             ) : null}
 
-            {!messages.loading && !messages.error && messages.items.length === 0 ? (
+            {!messages.loading && !messages.error && messages.items.length === 0 && privateInboxReactionItems.length === 0 ? (
               <p className="text-sm text-zinc-500">No tienes mensajes privados por ahora</p>
             ) : null}
 
             {!messages.loading && !messages.error && messages.items.length > 0 && filteredMessages.length === 0 ? (
               <p className="text-sm text-zinc-500">No se encontraron mensajes para ese usuario</p>
+            ) : null}
+
+            {!messages.loading && !messages.error && privateInboxReactionItems.length > 0 ? (
+              <div className="space-y-1 pb-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Actividad privada</p>
+                {privateInboxReactionItems.map((item) => (
+                  <ActivityRow key={item.id} item={item} isOwnProfile />
+                ))}
+              </div>
             ) : null}
 
             {!messages.loading && !messages.error

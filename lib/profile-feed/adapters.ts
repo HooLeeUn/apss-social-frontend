@@ -41,6 +41,10 @@ const PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_
 const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
 const PROFILE_ME_NOTIFICATIONS_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_ENDPOINT || "/me/notifications/";
+const PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_ENDPOINT_TEMPLATE || "/me/notifications/{id}/mark-read/";
+const PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT =
+  process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT || "/me/notifications/mark-as-read/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -72,6 +76,16 @@ function toNonNegativeInteger(value: unknown): number {
 
   const normalized = Math.round(numeric);
   return normalized > 0 ? normalized : 0;
+}
+
+function isTrueValue(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLocaleLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "si" || normalized === "sí";
+  }
+  return false;
 }
 
 function toBooleanOrNull(value: unknown): boolean | null {
@@ -320,7 +334,19 @@ function getDisplayMovieSecondaryTitle(movie: ProfileFeedActivityResponseItem["m
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
   const payload = toRecord(item.payload) ?? {};
   const movie = toRecord(item.movie) ?? {};
-  const isDirectedComment = item.activity_type === "directed_comment";
+  const normalizedActivityType = item.activity_type.trim().toLocaleLowerCase();
+  const payloadCommentType = safeTrim(pickFirst(payload.comment_type, payload.type, payload.comment_scope))?.toLocaleLowerCase();
+  const hasPrivatePayloadCommentType = payloadCommentType === "directed" || payloadCommentType === "private";
+  const isDirectedComment = normalizedActivityType === "directed_comment" || hasPrivatePayloadCommentType || isTrueValue(payload.is_directed);
+  const isReactionType =
+    normalizedActivityType.includes("reaction") || normalizedActivityType.includes("comment_like") || normalizedActivityType.includes("comment_dislike");
+  const isDislikeReaction =
+    normalizedActivityType.includes("dislike") || safeTrim(payload.reaction)?.toLocaleLowerCase() === "dislike";
+  const isPrivateReaction =
+    normalizedActivityType.includes("directed") ||
+    normalizedActivityType.includes("private") ||
+    hasPrivatePayloadCommentType ||
+    isTrueValue(payload.is_directed);
   const score = toNumberOrNull(payload.score);
   const commentText = toStringOrNull(pickFirst(payload.content, payload.text));
   const likedCommentSnippet = toStringOrNull(payload.comment_excerpt);
@@ -337,6 +363,19 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const followingRating = toNumberOrNull(pickFirst(movie.following_avg_rating, movie.following_rating));
   const followingRatingsCount = toNonNegativeInteger(pickFirst(movie.following_ratings_count, movie.following_rating_count));
   const myRating = toNumberOrNull(movie.my_rating);
+  const interactionType: SocialActivityItem["interactionType"] =
+    normalizedActivityType === "rating"
+      ? "rating"
+      : normalizedActivityType === "public_comment" || normalizedActivityType === "directed_comment"
+        ? "comment"
+        : isReactionType
+          ? isDislikeReaction
+            ? "dislike"
+            : "like"
+          : normalizedActivityType === "public_comment_dislike"
+            ? "dislike"
+            : "like";
+  const scope: NotificationTargetTab = isDirectedComment || (isReactionType && isPrivateReaction) ? "private_inbox" : "activity";
 
   return {
     id: item.id,
@@ -360,20 +399,15 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     followingRatingsCount: followingRatingsCount > 0 ? followingRatingsCount : undefined,
     myRating: myRating ?? undefined,
     createdAt: item.created_at,
-    interactionType:
-      item.activity_type === "rating"
-        ? "rating"
-        : item.activity_type === "public_comment" || item.activity_type === "directed_comment"
-          ? "comment"
-          : item.activity_type === "public_comment_dislike"
-            ? "dislike"
-            : "like",
+    interactionType,
     isDirectedComment: isDirectedComment || undefined,
     directedCommentTargetUsername: directedCommentTargetUsername ?? undefined,
     ratingValue: score ?? undefined,
     commentText: commentText ?? undefined,
     likedCommentSnippet: likedCommentSnippet ?? undefined,
     likedCommentAuthorUsername: likedCommentAuthorUsername ?? undefined,
+    scope,
+    reactionScope: interactionType === "like" || interactionType === "dislike" ? (isPrivateReaction ? "private" : "public") : undefined,
   };
 }
 
@@ -434,8 +468,12 @@ interface MyMessageApiItem {
   body?: string | null;
   content?: string | null;
   created_at?: string | null;
+  direction?: string | null;
+  is_sent?: boolean | null;
   author?: MyMessageApiSender | null;
   sender?: MyMessageApiSender | null;
+  recipient?: MyMessageApiSender | null;
+  receiver?: MyMessageApiSender | null;
   movie?: MyMessageApiMovie | null;
 }
 
@@ -447,6 +485,16 @@ function resolveMessageEntityId(value: unknown, fallback: string): string | numb
 
 function toMessageItem(item: MyMessageApiItem, index: number): MyMessageItem {
   const sender = item.author || item.sender;
+  const recipient = item.recipient || item.receiver;
+  const normalizedDirection = safeTrim(item.direction)?.toLocaleLowerCase();
+  const direction: MyMessageItem["direction"] =
+    normalizedDirection === "sent" || normalizedDirection === "outgoing"
+      ? "sent"
+      : normalizedDirection === "received" || normalizedDirection === "incoming"
+        ? "received"
+        : isTrueValue(item.is_sent)
+          ? "sent"
+          : "received";
   const movie = item.movie;
   const titleSpanish = safeTrim(movie?.title_spanish);
   const titleEnglish = safeTrim(movie?.title_english);
@@ -457,6 +505,7 @@ function toMessageItem(item: MyMessageApiItem, index: number): MyMessageItem {
 
   return {
     id: String(pickFirst(item.id, `message-${index}`)),
+    direction,
     sender: {
       id: String(pickFirst(sender?.id, `sender-${index}`)),
       username: safeTrim(sender?.username) || "usuario",
@@ -464,6 +513,15 @@ function toMessageItem(item: MyMessageApiItem, index: number): MyMessageItem {
       avatarUrl: safeTrim(sender?.avatar),
       followersCount: null,
     },
+    recipient: recipient
+      ? {
+          id: String(pickFirst(recipient.id, `recipient-${index}`)),
+          username: safeTrim(recipient.username) || "usuario",
+          displayName: null,
+          avatarUrl: safeTrim(recipient.avatar),
+          followersCount: null,
+        }
+      : null,
     movieId: resolveMessageEntityId(movie?.id, `movie-${index}`),
     movieTitle,
     movieSecondaryTitle,
@@ -477,10 +535,21 @@ function toMessageItem(item: MyMessageApiItem, index: number): MyMessageItem {
 
 function parseMyMessages(payload: unknown): PaginatedMyMessages {
   const root = toRecord(payload);
+  const data = toRecord(root?.data);
   const results = Array.isArray(payload)
     ? payload
     : Array.isArray(root?.results)
       ? root.results
+      : Array.isArray(root?.items)
+        ? root.items
+        : Array.isArray(root?.messages)
+          ? root.messages
+          : Array.isArray(data?.results)
+            ? data.results
+            : Array.isArray(data?.items)
+              ? data.items
+              : Array.isArray(data?.messages)
+                ? data.messages
       : [];
 
   const items = results
@@ -497,7 +566,7 @@ function parseMyMessages(payload: unknown): PaginatedMyMessages {
 
   return {
     items,
-    next: typeof root?.next === "string" ? root.next : null,
+    next: typeof root?.next === "string" ? root.next : typeof data?.next === "string" ? data.next : null,
   };
 }
 
@@ -1192,4 +1261,30 @@ function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
 export async function getMyNotificationsSummary(signal?: AbortSignal): Promise<MyNotificationsSummary> {
   const payload = await apiFetch(PROFILE_ME_NOTIFICATIONS_ENDPOINT, { signal });
   return parseNotificationsSummary(payload);
+}
+
+function buildNotificationMarkAsReadEndpoint(notificationId: string): string {
+  return PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(notificationId));
+}
+
+export async function markNotificationAsRead(notificationId: string, signal?: AbortSignal): Promise<number> {
+  const trimmedNotificationId = notificationId.trim();
+  if (!trimmedNotificationId) return 0;
+
+  const endpoints = [buildNotificationMarkAsReadEndpoint(trimmedNotificationId), PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT];
+  for (const endpoint of endpoints) {
+    try {
+      const payload = await apiFetch(endpoint, {
+        method: "POST",
+        body: JSON.stringify(endpoint === PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT ? { ids: [trimmedNotificationId] } : { id: trimmedNotificationId }),
+        signal,
+      });
+      return toNonNegativeInteger(toRecord(payload)?.updated || 1);
+    } catch (error) {
+      if (error instanceof ApiError && [400, 404, 405, 422].includes(error.status)) continue;
+      throw error;
+    }
+  }
+
+  return 0;
 }
