@@ -131,26 +131,28 @@ function buildCounterpartData(message: SocialComment, authenticatedUsername: str
   avatar: string | null;
   direction: "sent" | "received";
 } {
+  const explicitDirection = message.direction;
   const normalizedAuthenticatedUsername = normalizeUsername(authenticatedUsername)?.toLowerCase();
   const normalizedAuthorUsername = normalizeUsername(message.authorUsername)?.toLowerCase();
-  const isSentByMe = Boolean(
+  const inferredSentByMe = Boolean(
     normalizedAuthenticatedUsername && normalizedAuthorUsername && normalizedAuthorUsername === normalizedAuthenticatedUsername,
   );
+  const isSentByMe = explicitDirection ? explicitDirection === "sent" : inferredSentByMe;
 
   const normalizedAuthorId = normalizeId(message.authorId);
   const normalizedCounterpartId = normalizeId(message.counterpartId);
   const normalizedTargetUserId = normalizeId(message.targetUserId);
-  const counterpartId = isSentByMe
-    ? normalizedTargetUserId ?? normalizedCounterpartId
-    : normalizedCounterpartId ?? normalizedAuthorId;
-  const username = normalizeUsername(
-    isSentByMe ? message.recipientName ?? message.counterpartUsername : message.authorUsername ?? message.counterpartUsername,
-  );
-  const displayCandidate = isSentByMe ? message.recipientName ?? message.counterpartName : message.authorName;
-  const displayName = isUsableDisplayName(displayCandidate) ? String(displayCandidate).trim() : username || "Usuario";
+  const counterpartId = normalizedCounterpartId ?? (isSentByMe ? normalizedTargetUserId : normalizedAuthorId);
+  const counterpartUsername = normalizeUsername(message.counterpartUsername);
+  const inferredUsername = normalizeUsername(isSentByMe ? message.recipientName : message.authorUsername);
+  const username = counterpartUsername ?? inferredUsername;
+  const hasExplicitCounterpart = Boolean(normalizedCounterpartId || counterpartUsername);
+  const displayName = isUsableDisplayName(message.counterpartName)
+    ? String(message.counterpartName).trim()
+    : counterpartUsername ?? (hasExplicitCounterpart ? inferredUsername ?? "" : inferredUsername || "Usuario");
 
   return {
-    counterpartKey: counterpartId ? `id:${counterpartId}` : `username:${(username || "desconocido").toLowerCase()}`,
+    counterpartKey: counterpartId ? `id:${counterpartId}` : `username:${(counterpartUsername || username || "desconocido").toLowerCase()}`,
     username,
     displayName,
     avatar: isSentByMe ? null : message.authorAvatar,
@@ -190,10 +192,10 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
 
     const hydratedUsername = pickBestUserValue(existing?.otherUsername ?? null, counterpart.username);
     const hydratedDisplayName = isUsableDisplayName(existing?.otherDisplayName)
-      ? existing?.otherDisplayName ?? "Usuario"
+      ? existing?.otherDisplayName ?? ""
       : isUsableDisplayName(counterpart.displayName)
         ? counterpart.displayName
-        : hydratedUsername || "Usuario";
+        : hydratedUsername || "";
     const hydratedAvatar = existing?.otherAvatar ?? counterpart.avatar;
 
     const directionMessage: SocialComment = {
