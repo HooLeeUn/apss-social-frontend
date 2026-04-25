@@ -13,7 +13,7 @@ import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholde
 import AppLogo from "../../components/AppLogo";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
-import { getMyMessagesSummary, getMyNotificationsSummary, getMyProfile } from "../../lib/profile-feed/adapters";
+import { getMyMessagesSummary, getMyNotificationsSummary, getMyProfile, markNotificationAsRead } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import {
@@ -335,26 +335,28 @@ export default function FeedPage() {
     router.replace("/login");
   }, [router]);
 
-  const hasPendingActivityNotifications = useMemo(
-    () => notificationItems.some((item) => item.targetTab === "activity"),
-    [notificationItems],
-  );
-
   const handleBellClick = useCallback(() => {
-    if (hasPendingActivityNotifications) {
-      setIsNotificationPanelOpen((current) => !current);
-      return;
-    }
-
-    router.push("/profile-feed?tab=private_inbox");
-  }, [hasPendingActivityNotifications, router]);
+    setIsNotificationPanelOpen((current) => !current);
+  }, []);
 
   const handleNotificationItemClick = useCallback(
-    (item: MyNotificationItem) => {
+    async (item: MyNotificationItem) => {
+      const remainingItemsAfterRemoval = notificationItems.filter((notificationItem) => notificationItem.id !== item.id);
+      setNotificationItems(remainingItemsAfterRemoval);
+      setUnreadNotificationsCount((current) => Math.max(0, current - 1));
       setIsNotificationPanelOpen(false);
+
+      try {
+        await markNotificationAsRead(item.id);
+        const refreshedSummary = await getMyNotificationsSummary();
+        setNotificationItems(refreshedSummary.items);
+        setUnreadNotificationsCount(refreshedSummary.totalUnread);
+      } catch (error) {
+        console.warn("No se pudo marcar la notificación como leída.", error);
+      }
       router.push(`/profile-feed?tab=${item.targetTab}`);
     },
-    [router],
+    [notificationItems, router],
   );
 
   const updateWeeklyMovieRating = useCallback((movieId: Movie["id"], score: number, _payload?: unknown) => {
