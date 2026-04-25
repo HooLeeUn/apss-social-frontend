@@ -331,17 +331,68 @@ function getDisplayMovieSecondaryTitle(movie: ProfileFeedActivityResponseItem["m
   return resolveMovieSecondaryTitle(displayTitle, movie);
 }
 
+function toTimestamp(value: string): number {
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function compareByCreatedAtDesc(left: SocialActivityItem, right: SocialActivityItem): number {
+  return toTimestamp(right.createdAt) - toTimestamp(left.createdAt);
+}
+
+function pickMostRelevantReaction(current: SocialActivityItem, candidate: SocialActivityItem): SocialActivityItem {
+  if (!current.reactionId && candidate.reactionId) return candidate;
+  if (current.reactionId && !candidate.reactionId) return current;
+
+  const currentTimestamp = toTimestamp(current.createdAt);
+  const candidateTimestamp = toTimestamp(candidate.createdAt);
+  if (currentTimestamp !== candidateTimestamp) {
+    return candidateTimestamp > currentTimestamp ? candidate : current;
+  }
+
+  return String(candidate.id) > String(current.id) ? candidate : current;
+}
+
+function dedupeReactionItems(items: SocialActivityItem[]): SocialActivityItem[] {
+  const dedupedByCommentAndActor = new Map<string, SocialActivityItem>();
+  const passthrough: SocialActivityItem[] = [];
+
+  for (const item of items) {
+    const isReaction = item.interactionType === "like" || item.interactionType === "dislike";
+    if (!isReaction || !item.commentId || !item.actorId) {
+      passthrough.push(item);
+      continue;
+    }
+
+    const dedupeKey = `${item.commentId}::${item.actorId}`;
+    const current = dedupedByCommentAndActor.get(dedupeKey);
+    if (!current) {
+      dedupedByCommentAndActor.set(dedupeKey, item);
+      continue;
+    }
+
+    dedupedByCommentAndActor.set(dedupeKey, pickMostRelevantReaction(current, item));
+  }
+
+  return [...passthrough, ...dedupedByCommentAndActor.values()].sort(compareByCreatedAtDesc);
+}
+
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
+  const activityRecord = item as unknown as Record<string, unknown>;
+  const actor = toRecord(item.actor) ?? {};
   const payload = toRecord(item.payload) ?? {};
   const movie = toRecord(item.movie) ?? {};
-  const normalizedActivityType = item.activity_type.trim().toLocaleLowerCase();
+  const normalizedActivityType = safeTrim(item.activity_type)?.toLocaleLowerCase() || "";
   const payloadCommentType = safeTrim(pickFirst(payload.comment_type, payload.type, payload.comment_scope))?.toLocaleLowerCase();
   const hasPrivatePayloadCommentType = payloadCommentType === "directed" || payloadCommentType === "private";
-  const isDirectedComment = normalizedActivityType === "directed_comment" || hasPrivatePayloadCommentType || isTrueValue(payload.is_directed);
+  const isDirectedComment =
+    normalizedActivityType === "directed_comment" || normalizedActivityType === "private_message" || hasPrivatePayloadCommentType || isTrueValue(payload.is_directed);
   const isReactionType =
     normalizedActivityType.includes("reaction") || normalizedActivityType.includes("comment_like") || normalizedActivityType.includes("comment_dislike");
-  const isDislikeReaction =
-    normalizedActivityType.includes("dislike") || safeTrim(payload.reaction)?.toLocaleLowerCase() === "dislike";
+  const normalizedReactionValue = safeTrim(pickFirst(payload.reaction_value, payload.reactionValue, payload.reaction, payload.value))?.toLocaleLowerCase();
+  const reactionValue: "like" | "dislike" | undefined =
+    normalizedReactionValue === "like" || normalizedReactionValue === "dislike" ? normalizedReactionValue : undefined;
+  const isDislikeReaction = reactionValue === "dislike" || normalizedActivityType.includes("dislike");
   const isPrivateReaction =
     normalizedActivityType.includes("directed") ||
     normalizedActivityType.includes("private") ||
@@ -349,9 +400,24 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     isTrueValue(payload.is_directed);
   const score = toNumberOrNull(payload.score);
   const commentText = toStringOrNull(pickFirst(payload.content, payload.text));
+  const commentId = toStringOrNull(pickFirst(payload.comment_id, payload.commentId));
   const likedCommentSnippet = toStringOrNull(payload.comment_excerpt);
   const likedCommentAuthor = toRecord(payload.comment_author);
   const likedCommentAuthorUsername = toStringOrNull(likedCommentAuthor?.username);
+  const reactionActor = toRecord(payload.actor);
+  const reactionActorUsername = toStringOrNull(pickFirst(reactionActor?.username, actor.username));
+  const reactionId = toStringOrNull(pickFirst(payload.reaction_id, payload.reactionId, payload.active_reaction_id, payload.current_reaction_id));
+  const isGivenReaction = isTrueValue(
+    pickFirst(payload.is_given_reaction, payload.isGivenReaction, activityRecord.is_given_reaction, activityRecord.isGivenReaction),
+  );
+  const isReceivedReaction = isTrueValue(
+    pickFirst(
+      payload.is_received_reaction,
+      payload.isReceivedReaction,
+      activityRecord.is_received_reaction,
+      activityRecord.isReceivedReaction,
+    ),
+  );
   const directedTargetUser = toRecord(payload.target_user);
   const directedCommentTargetUsername = toStringOrNull(
     typeof payload.target_user === "string" ? payload.target_user : directedTargetUser?.username,
@@ -366,10 +432,12 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const interactionType: SocialActivityItem["interactionType"] =
     normalizedActivityType === "rating"
       ? "rating"
-      : normalizedActivityType === "public_comment" || normalizedActivityType === "directed_comment"
+      : normalizedActivityType === "public_comment" || normalizedActivityType === "directed_comment" || normalizedActivityType === "private_message"
         ? "comment"
         : isReactionType
-          ? isDislikeReaction
+          ? reactionValue === "like"
+            ? "like"
+            : isDislikeReaction
             ? "dislike"
             : "like"
           : normalizedActivityType === "public_comment_dislike"
@@ -380,17 +448,17 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   return {
     id: item.id,
     user: {
-      id: String(item.actor.id),
-      username: item.actor.username,
-      displayName: toStringOrNull(item.actor.display_name),
-      avatarUrl: item.actor.avatar,
+      id: String(pickFirst(actor.id, `actor-${item.id}`)),
+      username: toStringOrNull(actor.username) || "usuario",
+      displayName: toStringOrNull(actor.display_name),
+      avatarUrl: toStringOrNull(actor.avatar),
       followersCount: 0,
     },
-    userDisplayName: toStringOrNull(item.actor.display_name),
-    movieTitle: getDisplayMovieTitle(item.movie),
-    movieSecondaryTitle: getDisplayMovieSecondaryTitle(item.movie),
-    movieYear: item.movie.release_year,
-    movieId: item.movie.id,
+    userDisplayName: toStringOrNull(actor.display_name),
+    movieTitle: getDisplayMovieTitle(movie as unknown as ProfileFeedActivityResponseItem["movie"]) || "Título desconocido",
+    movieSecondaryTitle: getDisplayMovieSecondaryTitle(movie as unknown as ProfileFeedActivityResponseItem["movie"]),
+    movieYear: toNumberOrNull(movie.release_year),
+    movieId: pickFirst(movie.id, `movie-${item.id}`) as number | string,
     moviePosterUrl: (pickFirst(movie.image, movie.poster, movie.poster_url, movie.image_url) as string | null) ?? null,
     movieType: movieType ?? undefined,
     movieGenre,
@@ -406,8 +474,15 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     commentText: commentText ?? undefined,
     likedCommentSnippet: likedCommentSnippet ?? undefined,
     likedCommentAuthorUsername: likedCommentAuthorUsername ?? undefined,
+    reactionActorUsername: reactionActorUsername ?? undefined,
+    commentId: commentId ?? undefined,
+    reactionId: reactionId ?? undefined,
+    actorId: toStringOrNull(actor.id) ?? undefined,
+    isGivenReaction: isReactionType ? isGivenReaction : undefined,
+    isReceivedReaction: isReactionType ? isReceivedReaction : undefined,
     scope,
     reactionScope: interactionType === "like" || interactionType === "dislike" ? (isPrivateReaction ? "private" : "public") : undefined,
+    reactionValue: interactionType === "like" || interactionType === "dislike" ? interactionType : undefined,
   };
 }
 
@@ -439,12 +514,7 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
     .map((item) => toActivityItem(item as unknown as ProfileFeedActivityResponseItem));
 
   return {
-    items: mapped.sort((left, right) => {
-      const leftTs = new Date(left.createdAt).getTime();
-      const rightTs = new Date(right.createdAt).getTime();
-      if (Number.isNaN(leftTs) || Number.isNaN(rightTs)) return 0;
-      return rightTs - leftTs;
-    }),
+    items: dedupeReactionItems(mapped),
     next: typeof root?.next === "string" ? root.next : null,
   };
 }
