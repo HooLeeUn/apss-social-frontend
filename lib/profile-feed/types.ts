@@ -88,6 +88,12 @@ export interface SocialActivityItem {
   commentText?: string;
   likedCommentSnippet?: string;
   likedCommentAuthorUsername?: string;
+  reactionActorUsername?: string;
+  commentId?: string;
+  reactionId?: string;
+  actorId?: string;
+  isGivenReaction?: boolean;
+  isReceivedReaction?: boolean;
   scope?: NotificationTargetTab;
   reactionScope?: "public" | "private";
 }

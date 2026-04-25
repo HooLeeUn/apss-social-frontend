@@ -53,11 +53,26 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): stri
     return `${commentedVerb} ${safeMovieTitle}`;
   }
 
+  const reactionActor = item.reactionActorUsername || item.user.username || "otro usuario";
+  const commentAuthor = item.likedCommentAuthorUsername || "otro usuario";
+
   if (item.interactionType === "dislike") {
-    return `${isOwnProfile ? "No te gustó" : "No le gustó"} el comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+    if (item.isGivenReaction) {
+      return `No te gustó el comentario de ${commentAuthor}`;
+    }
+    if (item.isReceivedReaction) {
+      return `A ${reactionActor} no le gustó tu comentario`;
+    }
+    return `${isOwnProfile ? "No te gustó" : "No le gustó"} el comentario de ${commentAuthor}`;
   }
 
-  return `${isOwnProfile ? "Te gustó" : "Le gustó"} el comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+  if (item.isGivenReaction) {
+    return `Te gustó el comentario de ${commentAuthor}`;
+  }
+  if (item.isReceivedReaction) {
+    return `A ${reactionActor} le gustó tu comentario`;
+  }
+  return `${isOwnProfile ? "Te gustó" : "Le gustó"} el comentario de ${commentAuthor}`;
 }
 
 function getActivityDetail(item: SocialActivityItem): string | null {
@@ -317,7 +332,7 @@ function MessageRow({ item }: { item: MyMessageItem }) {
             {counterpartInitials}
           </div>
         )}
-        <p className="text-xs text-zinc-300">
+        <p className={`text-xs ${item.direction === "sent" ? "text-blue-300" : "text-zinc-300"}`}>
           {item.direction === "sent" ? "Enviado a" : "De"}{" "}
           <span className="font-semibold text-zinc-100">@{counterpart.username}</span>
         </p>
@@ -439,7 +454,12 @@ export default function MyActivityColumn({
   }, [activity.items, isOwnProfile, visitedActivityTab]);
 
   const ownActivityItems = useMemo(
-    () => activity.items.filter((item) => item.scope !== "private_inbox"),
+    () =>
+      activity.items.filter((item) => {
+        if (item.scope === "private_inbox") return false;
+        if (item.interactionType !== "like" && item.interactionType !== "dislike") return true;
+        return item.reactionScope === "public";
+      }),
     [activity.items],
   );
   const privateInboxReactionItems = useMemo(
