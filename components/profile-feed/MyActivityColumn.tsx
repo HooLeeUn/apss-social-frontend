@@ -338,7 +338,6 @@ function MessageRow({ item }: { item: MyMessageItem }) {
   const counterpart = item.direction === "sent" ? item.recipient || item.sender : item.sender;
   const counterpartUsername = counterpart?.username || "usuario";
   const counterpartInitials = counterpartUsername.slice(0, 2).toUpperCase();
-  const directionLabel = item.direction === "sent" ? "Enviado" : "Recibido";
   const directionPreposition = item.direction === "sent" ? "a" : "de";
 
   return (
@@ -359,7 +358,11 @@ function MessageRow({ item }: { item: MyMessageItem }) {
           </div>
         )}
         <p className="text-xs text-zinc-100">
-          <span className={item.direction === "received" ? "text-blue-50" : "text-zinc-100"}>{directionLabel}</span>{" "}
+          {item.direction === "received" ? (
+            <span className="text-base font-semibold text-blue-50">Recibido</span>
+          ) : (
+            <span className="text-base font-semibold text-white">Enviado</span>
+          )}{" "}
           {directionPreposition} <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
         </p>
       </div>
