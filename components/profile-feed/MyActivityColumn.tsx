@@ -338,6 +338,8 @@ function MessageRow({ item }: { item: MyMessageItem }) {
   const counterpart = item.direction === "sent" ? item.recipient || item.sender : item.sender;
   const counterpartUsername = counterpart?.username || "usuario";
   const counterpartInitials = counterpartUsername.slice(0, 2).toUpperCase();
+  const directionLabel = item.direction === "sent" ? "Enviado" : "Recibido";
+  const directionPreposition = item.direction === "sent" ? "a" : "de";
 
   return (
     <article className="border-b border-white/5 py-3 last:border-b-0">
@@ -356,8 +358,9 @@ function MessageRow({ item }: { item: MyMessageItem }) {
             {counterpartInitials}
           </div>
         )}
-        <p className={`text-xs ${item.direction === "sent" ? "text-blue-300" : "text-zinc-300"}`}>
-          <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
+        <p className="text-xs text-zinc-100">
+          <span className={item.direction === "received" ? "text-blue-50" : "text-zinc-100"}>{directionLabel}</span>{" "}
+          {directionPreposition} <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
         </p>
       </div>
 
