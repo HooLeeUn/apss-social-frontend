@@ -551,6 +551,9 @@ interface MyMessageApiItem {
   sender?: MyMessageApiSender | null;
   recipient?: MyMessageApiSender | null;
   receiver?: MyMessageApiSender | null;
+  target_user?: MyMessageApiSender | null;
+  targetUser?: MyMessageApiSender | null;
+  counterpart?: MyMessageApiSender | null;
   movie?: MyMessageApiMovie | null;
 }
 
@@ -577,6 +580,7 @@ function resolveMessageText(item: MyMessageApiItem): string | null {
 
 function isPrivateMessageType(item: MyMessageApiItem): boolean {
   const normalizedType = safeTrim(item.activity_type)?.toLocaleLowerCase();
+  if (!normalizedType) return true;
   return normalizedType === "private_message";
 }
 
@@ -648,7 +652,7 @@ function dedupeMessageCandidates(candidates: ParsedMessageCandidate[]): MyMessag
 
 function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: string): MyMessageItem {
   const sender = item.author || item.sender;
-  const recipient = item.recipient || item.receiver;
+  const recipient = item.recipient || item.receiver || item.target_user || item.targetUser || item.counterpart;
   const normalizedDirection = safeTrim(item.direction)?.toLocaleLowerCase();
   const direction: MyMessageItem["direction"] =
     normalizedDirection === "sent" || normalizedDirection === "outgoing"
@@ -720,6 +724,7 @@ function parseMyMessages(payload: unknown): PaginatedMyMessages {
     .map((entry) => toRecord(entry))
     .filter((entry): entry is Record<string, unknown> => Boolean(entry))
     .map((entry) => entry as MyMessageApiItem)
+    .filter((entry) => isPrivateMessageType(entry))
     .map((entry, index) => toParsedMessageCandidate(entry, index))
     .filter((entry): entry is ParsedMessageCandidate => Boolean(entry)),
   )
