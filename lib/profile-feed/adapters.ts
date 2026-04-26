@@ -545,12 +545,19 @@ interface MyMessageApiItem {
   created_at?: string | null;
   direction?: string | null;
   activity_type?: string | null;
+  event_type?: string | null;
+  type?: string | null;
   movie_id?: number | string | null;
   is_sent?: boolean | null;
+  likes_count?: number | null;
+  dislikes_count?: number | null;
+  my_reaction?: string | null;
   author?: MyMessageApiSender | null;
   sender?: MyMessageApiSender | null;
   recipient?: MyMessageApiSender | null;
   receiver?: MyMessageApiSender | null;
+  target_user?: MyMessageApiSender | null;
+  counterpart?: MyMessageApiSender | null;
   movie?: MyMessageApiMovie | null;
 }
 
@@ -580,6 +587,28 @@ function isPrivateMessageType(item: MyMessageApiItem): boolean {
   return normalizedType === "private_message";
 }
 
+function isReactionOrActivitySummary(item: MyMessageApiItem): boolean {
+  const normalizedType = safeTrim(pickFirst(item.activity_type, item.event_type, item.type))?.toLocaleLowerCase();
+  if (!normalizedType) return false;
+  return (
+    normalizedType.includes("reaction") ||
+    normalizedType.includes("like") ||
+    normalizedType.includes("dislike") ||
+    normalizedType.includes("activity")
+  );
+}
+
+function isReactionSummaryText(text: string): boolean {
+  const normalized = text.trim().toLocaleLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized.includes("le gustó tu mensaje") ||
+    normalized.includes("te gustó el mensaje de") ||
+    normalized.includes("no le gustó tu mensaje") ||
+    normalized.includes("no te gustó el mensaje de")
+  );
+}
+
 interface ParsedMessageCandidate {
   item: MyMessageItem;
   messageId: string | null;
@@ -597,6 +626,8 @@ function getMessageCounterpartUsername(item: MyMessageItem): string {
 function toParsedMessageCandidate(item: MyMessageApiItem, index: number): ParsedMessageCandidate | null {
   const text = resolveMessageText(item);
   if (!text) return null;
+  if (isReactionOrActivitySummary(item)) return null;
+  if (isReactionSummaryText(text)) return null;
 
   const mapped = toMessageItem(item, index, text);
   const normalizedContent = normalizeMessageContent(text);
@@ -647,8 +678,8 @@ function dedupeMessageCandidates(candidates: ParsedMessageCandidate[]): MyMessag
 }
 
 function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: string): MyMessageItem {
-  const sender = item.author || item.sender;
-  const recipient = item.recipient || item.receiver;
+  const sender = item.author || item.sender || item.counterpart || item.target_user;
+  const recipient = item.recipient || item.receiver || item.target_user || item.counterpart;
   const normalizedDirection = safeTrim(item.direction)?.toLocaleLowerCase();
   const direction: MyMessageItem["direction"] =
     normalizedDirection === "sent" || normalizedDirection === "outgoing"

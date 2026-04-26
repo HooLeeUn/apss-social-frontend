@@ -357,7 +357,6 @@ function MessageRow({ item }: { item: MyMessageItem }) {
           </div>
         )}
         <p className={`text-xs ${item.direction === "sent" ? "text-blue-300" : "text-zinc-300"}`}>
-          {item.direction === "sent" ? "Enviado a" : "De"}{" "}
           <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
         </p>
       </div>
@@ -451,8 +450,9 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
+  const activityEnabled = !isOwnProfile || activeTab === "activity";
 
-  const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown");
+  const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
   const messages = useInfiniteMyMessages(isOwnProfile);
   const reloadMessages = messages.reload;
 
@@ -494,14 +494,6 @@ export default function MyActivityColumn({
       }),
     [activity.items],
   );
-  const privateInboxReactionItems = useMemo(
-    () =>
-      activity.items.filter(
-        (item) => item.scope === "private_inbox" && (item.interactionType === "like" || item.interactionType === "dislike"),
-      ),
-    [activity.items],
-  );
-
   useEffect(() => {
     if (isOwnProfile) return;
     let cancelled = false;
@@ -777,21 +769,12 @@ export default function MyActivityColumn({
               </div>
             ) : null}
 
-            {!messages.loading && !messages.error && messages.items.length === 0 && privateInboxReactionItems.length === 0 ? (
+            {!messages.loading && !messages.error && messages.items.length === 0 ? (
               <p className="text-sm text-zinc-500">No tienes mensajes privados por ahora</p>
             ) : null}
 
             {!messages.loading && !messages.error && messages.items.length > 0 && filteredMessages.length === 0 ? (
               <p className="text-sm text-zinc-500">No se encontraron mensajes para ese usuario</p>
-            ) : null}
-
-            {!messages.loading && !messages.error && privateInboxReactionItems.length > 0 ? (
-              <div className="space-y-1 pb-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Actividad privada</p>
-                {privateInboxReactionItems.map((item) => (
-                  <ActivityRow key={item.id} item={item} isOwnProfile />
-                ))}
-              </div>
             ) : null}
 
             {!messages.loading && !messages.error

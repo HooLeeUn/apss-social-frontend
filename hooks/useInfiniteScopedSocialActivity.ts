@@ -14,7 +14,7 @@ interface UseInfiniteScopedSocialActivityResult {
   reload: () => void;
 }
 
-export function useInfiniteScopedSocialActivity(scope: SocialActivityScope): UseInfiniteScopedSocialActivityResult {
+export function useInfiniteScopedSocialActivity(scope: SocialActivityScope, enabled: boolean = true): UseInfiniteScopedSocialActivityResult {
   const [items, setItems] = useState<SocialActivityItem[]>([]);
   const [next, setNext] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -101,13 +101,27 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope): Use
   );
 
   useEffect(() => {
+    if (!enabled) {
+      abortControllerRef.current?.abort();
+      setItems([]);
+      setNext(null);
+      nextRef.current = null;
+      setError(null);
+      errorRef.current = null;
+      setLoading(false);
+      setLoadingMore(false);
+      loadingRef.current = false;
+      loadingMoreRef.current = false;
+      return;
+    }
+
     setItems([]);
     setNext(null);
     nextRef.current = null;
     setError(null);
     errorRef.current = null;
     void loadPage("reset");
-  }, [loadPage, scope]);
+  }, [enabled, loadPage, scope]);
 
   useEffect(
     () => () => {
@@ -117,17 +131,19 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope): Use
   );
 
   const loadMore = useCallback(async () => {
+    if (!enabled) return;
     await loadPage("append");
-  }, [loadPage]);
+  }, [enabled, loadPage]);
 
   const reload = useCallback(() => {
+    if (!enabled) return;
     setItems([]);
     setNext(null);
     nextRef.current = null;
     setError(null);
     errorRef.current = null;
     void loadPage("reset");
-  }, [loadPage]);
+  }, [enabled, loadPage]);
 
   return {
     items,
