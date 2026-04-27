@@ -185,6 +185,15 @@ function isPublicOwnActivityItem(item: SocialActivityItem): boolean {
   return false;
 }
 
+function isOwnRatingActivityItem(item: SocialActivityItem, myUsername?: string | null): boolean {
+  if (item.interactionType !== "rating") return false;
+
+  const normalizedMyUsername = myUsername?.trim().toLocaleLowerCase();
+  if (!normalizedMyUsername) return true;
+
+  return item.user.username.trim().toLocaleLowerCase() === normalizedMyUsername;
+}
+
 function ActivityRow({
   item,
   isOwnProfile,
@@ -225,6 +234,8 @@ function ActivityRow({
   const ownActivityIcon =
     item.interactionType === "comment" ? (
       <CommentBubbleIcon className={`${ownActivityIconClassName} text-blue-300/90`} />
+    ) : item.interactionType === "rating" ? (
+      <StarIcon className={`${ownActivityIconClassName} text-amber-300/90`} />
     ) : item.interactionType === "like" ? (
       <ThumbsUpIcon className={`${ownActivityIconClassName} text-emerald-300/90`} />
     ) : item.interactionType === "dislike" ? (
@@ -487,7 +498,7 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
-  const activityEnabled = !isOwnProfile || activeTab === "activity";
+  const activityEnabled = !isOwnProfile || activeTab === "activity" || activeTab === "rated";
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
   const messages = useInfiniteMyMessages(isOwnProfile);
@@ -528,15 +539,22 @@ export default function MyActivityColumn({
       .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   }, [activity.items]);
 
+  const ownRatedItems = useMemo(() => {
+    return activity.items
+      .filter((item) => isOwnRatingActivityItem(item, myUsername))
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  }, [activity.items, myUsername]);
+
   useEffect(() => {
-    if (!isOwnProfile || activeTab !== "activity") {
+    if (!isOwnProfile || (activeTab !== "activity" && activeTab !== "rated")) {
       autoLoadAttemptsRef.current = 0;
       return;
     }
 
     if (activity.loading || activity.loadingMore) return;
 
-    if (!activity.hasMore || ownActivityItems.length >= MIN_VISIBLE_OWN_ACTIVITY_ITEMS) {
+    const visibleItems = activeTab === "rated" ? ownRatedItems.length : ownActivityItems.length;
+    if (!activity.hasMore || visibleItems >= MIN_VISIBLE_OWN_ACTIVITY_ITEMS) {
       autoLoadAttemptsRef.current = 0;
       return;
     }
@@ -550,10 +568,10 @@ export default function MyActivityColumn({
     activity,
     isOwnProfile,
     ownActivityItems.length,
+    ownRatedItems.length,
   ]);
 
   useEffect(() => {
-    if (isOwnProfile) return;
     let cancelled = false;
 
     const loadMyUsername = async () => {
@@ -572,7 +590,7 @@ export default function MyActivityColumn({
     return () => {
       cancelled = true;
     };
-  }, [isOwnProfile]);
+  }, []);
 
   useEffect(() => {
     if (isOwnProfile || visitedActivityTab !== "reactions") return;
@@ -659,7 +677,11 @@ export default function MyActivityColumn({
         return;
       }
 
-      if (activeTab === "rated") return;
+      if (activeTab === "rated") {
+        if (!activity.hasMore || activity.loading || activity.loadingMore || activity.error) return;
+        void activity.loadMore();
+        return;
+      }
 
       if (!messages.hasMore || messages.loading || messages.loadingMore || messages.error) return;
       void messages.loadMore();
@@ -855,9 +877,42 @@ export default function MyActivityColumn({
             {messages.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más mensajes...</p> : null}
           </>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-zinc-900/35 p-4 text-sm text-zinc-300">
-            Próximamente verás aquí tus películas calificadas.
-          </div>
+          <>
+            {activity.loading ? <MyActivitySkeleton /> : null}
+
+            {!activity.loading && activity.error ? (
+              <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
+                <p>{activity.error || errorCopy}</p>
+                <button
+                  type="button"
+                  onClick={activity.reload}
+                  className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : null}
+
+            {!activity.loading && !activity.error && ownRatedItems.length === 0 ? (
+              <p className="text-sm text-zinc-500">Aún no tienes películas calificadas.</p>
+            ) : null}
+
+            {!activity.loading && !activity.error
+              ? ownRatedItems.map((item) => (
+                  <ActivityRow
+                    key={item.id}
+                    item={item}
+                    isOwnProfile={isOwnProfile}
+                    visitedActivityTab={undefined}
+                    viewedUsername={normalizedViewedUsername}
+                    myUsername={myUsername}
+                    authorCanVisitByUsername={authorCanVisitByUsername}
+                  />
+                ))
+              : null}
+
+            {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
+          </>
         )}
       </div>
     </section>

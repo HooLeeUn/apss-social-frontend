@@ -438,7 +438,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     isPrivateType ||
     hasPrivatePayloadCommentType ||
     isTrueValue(payload.is_directed);
-  const score = toNumberOrNull(payload.score);
+  const score = toNumberOrNull(pickFirst(payload.score, activityRecord.score, movie.my_rating));
   const commentText = toStringOrNull(
     pickFirst(payload.content, payload.text, activityRecord.comment_text),
   );
