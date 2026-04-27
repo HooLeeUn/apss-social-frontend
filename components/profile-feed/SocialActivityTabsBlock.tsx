@@ -78,8 +78,11 @@ export default function SocialActivityTabsBlock() {
           .map((value) => (value !== null && value !== undefined ? String(value).trim() : ""))
           .filter(Boolean);
 
-        const isOwnByUsername = Boolean(authenticatedUsername) && usernames.includes(authenticatedUsername);
-        const isOwnById = Boolean(authenticatedId) && ids.includes(authenticatedId);
+        const normalizedAuthenticatedUsername = authenticatedUsername?.trim().toLocaleLowerCase();
+        const normalizedAuthenticatedId = authenticatedId?.trim();
+
+        const isOwnByUsername = normalizedAuthenticatedUsername ? usernames.includes(normalizedAuthenticatedUsername) : false;
+        const isOwnById = normalizedAuthenticatedId ? ids.includes(normalizedAuthenticatedId) : false;
         return !isOwnByUsername && !isOwnById;
       }),
     [authenticatedId, authenticatedUsername, items],
