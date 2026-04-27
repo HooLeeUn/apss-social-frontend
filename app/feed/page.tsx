@@ -341,6 +341,7 @@ export default function FeedPage() {
 
   const handleNotificationItemClick = useCallback(
     async (item: MyNotificationItem) => {
+      console.log("[diagnostic] handleNotificationItemClick item:", item);
       const remainingItemsAfterRemoval = notificationItems.filter((notificationItem) => notificationItem.id !== item.id);
       setNotificationItems(remainingItemsAfterRemoval);
       setUnreadNotificationsCount((current) => Math.max(0, current - 1));
@@ -348,9 +349,16 @@ export default function FeedPage() {
       router.push(`/profile-feed?tab=${item.targetTab}`);
 
       try {
+        console.log("[diagnostic] handleNotificationItemClick id sent to markNotificationAsRead:", item.id);
         const updated = await markNotificationAsRead(item.id);
+        console.log("[diagnostic] handleNotificationItemClick updated:", updated);
         if (updated <= 0) return;
         const refreshedSummary = await getMyNotificationsSummary();
+        console.log("[diagnostic] handleNotificationItemClick getMyNotificationsSummary totalUnread:", refreshedSummary.totalUnread);
+        console.log(
+          "[diagnostic] handleNotificationItemClick getMyNotificationsSummary ids:",
+          refreshedSummary.items.map((notificationItem) => notificationItem.id),
+        );
         setNotificationItems(refreshedSummary.items);
         setUnreadNotificationsCount(refreshedSummary.totalUnread);
       } catch (error) {

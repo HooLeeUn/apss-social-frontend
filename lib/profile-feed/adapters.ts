@@ -1,4 +1,5 @@
-import { ApiError, apiFetch } from "../api";
+import { API_BASE_URL, ApiError, apiFetch } from "../api";
+import { clearToken, getToken } from "../auth";
 import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle, resolveMovieSecondaryTitle } from "../movies";
 import { favoriteMoviesMock } from "./mocks";
 import {
@@ -1557,16 +1558,62 @@ export async function markNotificationAsRead(notificationId: string, signal?: Ab
   const trimmedNotificationId = notificationId.trim();
   if (!trimmedNotificationId) return 0;
 
-  const payload = await apiFetch(PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT, {
+  const endpoint = PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT;
+  const payloadToSend = { ids: [trimmedNotificationId] };
+  const requestBody = JSON.stringify(payloadToSend);
+  const token = getToken();
+  const url = `${API_BASE_URL}${endpoint}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Token ${token}`;
+  }
+
+  console.log("[diagnostic] markNotificationAsRead notificationId:", trimmedNotificationId);
+  console.log("[diagnostic] markNotificationAsRead endpoint:", url);
+  console.log("[diagnostic] markNotificationAsRead payload:", payloadToSend);
+
+  const res = await fetch(url, {
     method: "POST",
-    body: JSON.stringify({ ids: [trimmedNotificationId] }),
+    body: requestBody,
     signal,
+    headers,
   });
+
+  console.log("[diagnostic] markNotificationAsRead HTTP status:", res.status);
+
+  const contentType = res.headers.get("content-type") || "";
+  const responseText = await res.text();
+  let payload: unknown = null;
+
+  if (contentType.includes("application/json") && responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      payload = responseText;
+    }
+  } else {
+    payload = responseText || null;
+  }
+
+  console.log("[diagnostic] markNotificationAsRead response body:", payload);
+
+  if (!res.ok) {
+    const message = (typeof payload === "string" && payload) || `HTTP ${res.status}`;
+    if (res.status === 401) {
+      clearToken();
+    }
+    throw new ApiError(res.status, message);
+  }
 
   const payloadRecord = toRecord(payload);
   const updatedNotifications = toNonNegativeInteger(payloadRecord?.updated_notifications);
   const updatedMessages = toNonNegativeInteger(payloadRecord?.updated_messages);
   const explicitUpdated = toNonNegativeInteger(payloadRecord?.updated);
+  const updated = explicitUpdated || updatedNotifications + updatedMessages;
+  console.log("[diagnostic] markNotificationAsRead updated:", updated);
 
-  return explicitUpdated || updatedNotifications + updatedMessages;
+  return updated;
 }
