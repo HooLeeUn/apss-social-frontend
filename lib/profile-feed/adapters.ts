@@ -1319,6 +1319,46 @@ export async function getSocialActivity(
   signal?: AbortSignal,
 ): Promise<PaginatedSocialActivity> {
   const usernameScope = parseUserScope(tab);
+  const isMyActivityScope = tab === "me";
+
+  if (isMyActivityScope && !nextEndpoint) {
+    let myUsername: string | null = null;
+    try {
+      myUsername = await getMyUsername();
+    } catch {
+      myUsername = null;
+    }
+
+    const attempts: string[] = [];
+    if (myUsername) {
+      attempts.push(buildUserActivityEndpoint(myUsername));
+    }
+    attempts.push(`${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ scope: "me" }).toString()}`);
+    attempts.push(PROFILE_FEED_ACTIVITY_ENDPOINT);
+
+    for (const endpoint of attempts) {
+      try {
+        const payload = await apiFetch(endpoint, { signal });
+        const parsed = parseSocialActivity(payload);
+        const scopedItems = myUsername ? filterUsernameScopedActivity(parsed.items, myUsername) : parsed.items;
+        if (scopedItems.length === 0) {
+          continue;
+        }
+
+        return {
+          items: scopedItems,
+          next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+        };
+      } catch (error) {
+        if (error instanceof ApiError && [400, 404, 405, 422].includes(error.status)) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    return { items: [], next: null };
+  }
 
   if (usernameScope && !nextEndpoint) {
     const attempts = [
@@ -1357,8 +1397,7 @@ export async function getSocialActivity(
   try {
     payload = await apiFetch(endpoint, { signal });
   } catch (error) {
-    const isMyActivity = tab === "me";
-    if (isMyActivity && error instanceof ApiError && [400, 404, 422].includes(error.status)) {
+    if (isMyActivityScope && error instanceof ApiError && [400, 404, 422].includes(error.status)) {
       return { items: [], next: null };
     }
     throw error;
