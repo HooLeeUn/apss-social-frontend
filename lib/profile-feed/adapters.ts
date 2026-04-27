@@ -495,6 +495,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
 
   return {
     id: item.id,
+    activityType: normalizedActivityType || undefined,
     user: {
       id: String(pickFirst(actor.id, `actor-${item.id}`)),
       username: toStringOrNull(actor.username) || "usuario",
