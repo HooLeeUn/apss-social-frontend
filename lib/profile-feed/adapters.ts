@@ -1510,7 +1510,7 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
   const record = toRecord(value);
   if (!record) return null;
 
-  const id = safeTrim(pickFirst(record.id, record.notification_id, record.uuid)) || `notification-${index}`;
+  const id = safeTrim(pickFirst(record.notification_id, record.id, record.uuid)) || `notification-${index}`;
   const text =
     safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
   const targetTab = toTargetTab(pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.tab));
