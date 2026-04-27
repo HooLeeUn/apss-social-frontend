@@ -221,6 +221,15 @@ function ActivityRow({
           ? `A ${viewedUsername || "este usuario"} no le gustó tu comentario`
           : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`
         : `A ${viewedUsername || "este usuario"} reaccionó al comentario de`;
+  const ownActivityIconClassName = "h-3.5 w-3.5 shrink-0";
+  const ownActivityIcon =
+    item.interactionType === "comment" ? (
+      <CommentBubbleIcon className={`${ownActivityIconClassName} text-blue-300/90`} />
+    ) : item.interactionType === "like" ? (
+      <ThumbsUpIcon className={`${ownActivityIconClassName} text-emerald-300/90`} />
+    ) : item.interactionType === "dislike" ? (
+      <ThumbsDownIcon className={`${ownActivityIconClassName} text-rose-300/90`} />
+    ) : null;
 
   return (
     <article
@@ -250,7 +259,12 @@ function ActivityRow({
       )}
 
       <div className="min-w-0">
-        {isOwnProfile ? <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p> : null}
+        {isOwnProfile ? (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-blue-200/85">
+            {ownActivityIcon}
+            <span>{getActivityTitle(item, isOwnProfile)}</span>
+          </p>
+        ) : null}
         {movieHref ? (
           <Link
           href={movieHref}
