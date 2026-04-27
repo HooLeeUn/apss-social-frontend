@@ -512,41 +512,6 @@ export default function MyActivityColumn({
     () => activity.items.filter((item) => isPublicOwnActivityItem(item)),
     [activity.items],
   );
-  const ownActivityInteractionCounts = useMemo(
-    () =>
-      activity.items.reduce<Record<string, number>>((acc, item) => {
-        const key = item.interactionType || "unknown";
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [activity.items],
-  );
-  const ownActivityScopeCounts = useMemo(
-    () =>
-      activity.items.reduce<Record<string, number>>((acc, item) => {
-        const key = item.scope || "undefined";
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [activity.items],
-  );
-  const ownActivityReactionScopeCounts = useMemo(
-    () =>
-      activity.items.reduce<Record<string, number>>((acc, item) => {
-        const key = item.reactionScope || "undefined";
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [activity.items],
-  );
-
-  if (process.env.NODE_ENV !== "production" && isOwnProfile) {
-    console.info("MY ACTIVITY raw items", activity.items);
-    console.info("MY ACTIVITY visible items", ownActivityItems);
-    console.info("MY ACTIVITY counts by interactionType", ownActivityInteractionCounts);
-    console.info("MY ACTIVITY counts by scope", ownActivityScopeCounts);
-    console.info("MY ACTIVITY counts by reactionScope", ownActivityReactionScopeCounts);
-  }
 
   useEffect(() => {
     if (isOwnProfile) return;
