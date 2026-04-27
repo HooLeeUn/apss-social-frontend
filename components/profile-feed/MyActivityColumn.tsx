@@ -499,8 +499,7 @@ export default function MyActivityColumn({
     () =>
       activity.items.filter((item) => {
         if (item.scope === "private_inbox") return false;
-        if (item.interactionType !== "like" && item.interactionType !== "dislike") return true;
-        return item.reactionScope === "public";
+        return true;
       }),
     [activity.items],
   );
