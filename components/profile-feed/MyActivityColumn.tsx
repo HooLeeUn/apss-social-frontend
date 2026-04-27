@@ -174,11 +174,9 @@ function isUserProfileVisitable(profileAccess?: string | null, canViewFullProfil
 function isPublicOwnActivityItem(item: SocialActivityItem): boolean {
   if (item.scope === "private_inbox") return false;
   if (item.isDirectedComment) return false;
-
-  if (item.interactionType === "rating") return true;
-  if (item.interactionType === "comment") return true;
+  if (item.interactionType === "comment") return item.scope === "activity";
   if (item.interactionType === "like" || item.interactionType === "dislike") {
-    return item.reactionScope !== "private";
+    return item.scope === "activity" && item.reactionScope === "public";
   }
 
   return false;
@@ -508,10 +506,11 @@ export default function MyActivityColumn({
     return [];
   }, [activity.items, isOwnProfile, visitedActivityTab]);
 
-  const ownActivityItems = useMemo(
-    () => activity.items.filter((item) => isPublicOwnActivityItem(item)),
-    [activity.items],
-  );
+  const ownActivityItems = useMemo(() => {
+    return activity.items
+      .filter((item) => isPublicOwnActivityItem(item))
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  }, [activity.items]);
 
   useEffect(() => {
     if (isOwnProfile) return;
