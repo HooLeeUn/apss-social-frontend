@@ -84,6 +84,8 @@ export interface SocialActivityItem {
   followingRatingsCount?: number;
   myRating?: number;
   createdAt: string;
+  updatedAt?: string;
+  activityAt?: string;
   interactionType: InteractionType;
   isDirectedComment?: boolean;
   directedCommentTargetUsername?: string;
@@ -200,7 +202,13 @@ export type ProfileFeedActivityPayload =
 export interface ProfileFeedActivityResponseItem {
   id: string;
   activity_type: SocialActivityType;
-  created_at: string;
+  type?: SocialActivityType;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+  activity_at?: string;
+  activityAt?: string;
   actor: ProfileFeedActivityActor;
   movie: ProfileFeedActivityMovie;
   payload: ProfileFeedActivityPayload;

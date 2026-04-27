@@ -37,6 +37,14 @@ function formatRelativeDate(iso: string): string {
   }).format(date);
 }
 
+function getActivityDateIso(item: SocialActivityItem): string {
+  return item.activityAt || item.updatedAt || item.createdAt;
+}
+
+function compareByActivityDateDesc(left: SocialActivityItem, right: SocialActivityItem): number {
+  return new Date(getActivityDateIso(right)).getTime() - new Date(getActivityDateIso(left)).getTime();
+}
+
 function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): string {
   const safeMovieTitle = item.movieTitle || "título";
   const ratedVerb = isOwnProfile ? "Calificaste" : "Calificó";
@@ -338,7 +346,7 @@ function ActivityRow({
           {formatMetadata(item.movieType, item.movieGenre, item.movieYear)}
         </p>
         {isOwnProfile && activityDetail ? <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p> : null}
-        {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p> : null}
+        {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(getActivityDateIso(item))}</p> : null}
       </div>
 
       {isVisitedProfile ? (
@@ -388,7 +396,7 @@ function ActivityRow({
               {item.likedCommentSnippet ? (
                 <p className="pl-7 text-sm leading-relaxed text-zinc-200 md:text-base">{item.likedCommentSnippet}</p>
               ) : null}
-              <p className="pl-7 text-xs text-zinc-500 md:text-sm">{formatRelativeDate(item.createdAt)}</p>
+              <p className="pl-7 text-xs text-zinc-500 md:text-sm">{formatRelativeDate(getActivityDateIso(item))}</p>
             </div>
           ) : null}
         </div>
@@ -578,7 +586,7 @@ export default function MyActivityColumn({
     if (isOwnProfile) return activity.items;
     if (!normalizedViewedUsername) return [];
 
-    const sortedItems = [...activity.items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+    const sortedItems = [...activity.items].sort(compareByActivityDateDesc);
     const actorScopedItems = sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
 
     if (visitedActivityTab === "public_comments") {
@@ -599,13 +607,13 @@ export default function MyActivityColumn({
   const ownActivityItems = useMemo(() => {
     return activity.items
       .filter((item) => isPublicOwnActivityItem(item))
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+      .sort(compareByActivityDateDesc);
   }, [activity.items]);
 
   const ownRatedItems = useMemo(() => {
     return activity.items
       .filter((item) => isOwnRatingActivityItem(item, myUsername))
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+      .sort(compareByActivityDateDesc);
   }, [activity.items, myUsername]);
 
   useEffect(() => {

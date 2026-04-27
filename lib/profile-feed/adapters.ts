@@ -352,16 +352,20 @@ function toTimestamp(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function getActivityTimestamp(item: Pick<SocialActivityItem, "activityAt" | "updatedAt" | "createdAt">): number {
+  return toTimestamp(item.activityAt || item.updatedAt || item.createdAt);
+}
+
 function compareByCreatedAtDesc(left: SocialActivityItem, right: SocialActivityItem): number {
-  return toTimestamp(right.createdAt) - toTimestamp(left.createdAt);
+  return getActivityTimestamp(right) - getActivityTimestamp(left);
 }
 
 function pickMostRelevantReaction(current: SocialActivityItem, candidate: SocialActivityItem): SocialActivityItem {
   if (!current.reactionId && candidate.reactionId) return candidate;
   if (current.reactionId && !candidate.reactionId) return current;
 
-  const currentTimestamp = toTimestamp(current.createdAt);
-  const candidateTimestamp = toTimestamp(candidate.createdAt);
+  const currentTimestamp = getActivityTimestamp(current);
+  const candidateTimestamp = getActivityTimestamp(candidate);
   if (currentTimestamp !== candidateTimestamp) {
     return candidateTimestamp > currentTimestamp ? candidate : current;
   }
@@ -482,6 +486,11 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const directedCommentTargetUsername = toStringOrNull(
     typeof payload.target_user === "string" ? payload.target_user : directedTargetUser?.username,
   );
+  const createdAt =
+    toStringOrNull(pickFirst(item.created_at, activityRecord.created_at, item.createdAt, activityRecord.createdAt)) ||
+    new Date().toISOString();
+  const updatedAt = toStringOrNull(pickFirst(item.updated_at, activityRecord.updated_at, item.updatedAt, activityRecord.updatedAt));
+  const activityAt = toStringOrNull(pickFirst(item.activity_at, activityRecord.activity_at, item.activityAt, activityRecord.activityAt));
 
   const movieType = toStringOrNull(movie.type);
   const movieGenre = toStringOrNull(movie.genre) || undefined;
@@ -531,7 +540,9 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     followingRating: followingRating ?? undefined,
     followingRatingsCount: followingRatingsCount > 0 ? followingRatingsCount : undefined,
     myRating: myRating ?? undefined,
-    createdAt: item.created_at,
+    createdAt,
+    updatedAt: updatedAt ?? undefined,
+    activityAt: activityAt ?? undefined,
     interactionType,
     isDirectedComment: isDirectedComment || undefined,
     directedCommentTargetUsername: directedCommentTargetUsername ?? undefined,
