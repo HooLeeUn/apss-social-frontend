@@ -41,10 +41,8 @@ const PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_
 const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
 const PROFILE_ME_NOTIFICATIONS_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_ENDPOINT || "/me/notifications/";
-const PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_ENDPOINT_TEMPLATE =
-  process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_ENDPOINT_TEMPLATE || "/me/notifications/{id}/mark-read/";
 const PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT =
-  process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT || "/me/notifications/mark-as-read/";
+  process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT || "/me/notifications/mark-read/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -1555,28 +1553,20 @@ export async function getMyNotificationsSummary(signal?: AbortSignal): Promise<M
   return parseNotificationsSummary(payload);
 }
 
-function buildNotificationMarkAsReadEndpoint(notificationId: string): string {
-  return PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(notificationId));
-}
-
 export async function markNotificationAsRead(notificationId: string, signal?: AbortSignal): Promise<number> {
   const trimmedNotificationId = notificationId.trim();
   if (!trimmedNotificationId) return 0;
 
-  const endpoints = [buildNotificationMarkAsReadEndpoint(trimmedNotificationId), PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT];
-  for (const endpoint of endpoints) {
-    try {
-      const payload = await apiFetch(endpoint, {
-        method: "POST",
-        body: JSON.stringify(endpoint === PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT ? { ids: [trimmedNotificationId] } : { id: trimmedNotificationId }),
-        signal,
-      });
-      return toNonNegativeInteger(toRecord(payload)?.updated || 1);
-    } catch (error) {
-      if (error instanceof ApiError && [400, 404, 405, 422].includes(error.status)) continue;
-      throw error;
-    }
-  }
+  const payload = await apiFetch(PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT, {
+    method: "POST",
+    body: JSON.stringify({ ids: [trimmedNotificationId] }),
+    signal,
+  });
 
-  return 0;
+  const payloadRecord = toRecord(payload);
+  const updatedNotifications = toNonNegativeInteger(payloadRecord?.updated_notifications);
+  const updatedMessages = toNonNegativeInteger(payloadRecord?.updated_messages);
+  const explicitUpdated = toNonNegativeInteger(payloadRecord?.updated);
+
+  return explicitUpdated || updatedNotifications + updatedMessages;
 }
