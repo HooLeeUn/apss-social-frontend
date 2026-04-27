@@ -10,6 +10,7 @@ import { formatAverageRating } from "../../lib/rating-format";
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
+const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
 const MAX_AUTO_LOAD_MORE_ATTEMPTS = 12;
 
 function formatRelativeDate(iso: string): string {
@@ -192,6 +193,33 @@ function isOwnRatingActivityItem(item: SocialActivityItem, myUsername?: string |
   if (!normalizedMyUsername) return true;
 
   return item.user.username.trim().toLocaleLowerCase() === normalizedMyUsername;
+}
+
+function normalizeUsername(value?: string | null): string {
+  return value?.trim().toLocaleLowerCase() || "";
+}
+
+function normalizeActivityType(item: SocialActivityItem): string {
+  return item.activityType?.trim().toLocaleLowerCase() || "";
+}
+
+function isVisitedActorItem(item: SocialActivityItem, viewedUsername: string): boolean {
+  const expected = normalizeUsername(viewedUsername);
+  if (!expected) return false;
+  return normalizeUsername(item.user.username) === expected;
+}
+
+function isVisitedPublicCommentItem(item: SocialActivityItem): boolean {
+  return normalizeActivityType(item) === "public_comment";
+}
+
+function isVisitedRatingItem(item: SocialActivityItem): boolean {
+  return normalizeActivityType(item) === "rating";
+}
+
+function isVisitedPublicReactionItem(item: SocialActivityItem): boolean {
+  const type = normalizeActivityType(item);
+  return type === "public_comment_reaction" || type === "public_comment_like" || type === "public_comment_dislike";
 }
 
 function ActivityRow({
@@ -548,21 +576,25 @@ export default function MyActivityColumn({
 
   const filteredActivityItems = useMemo(() => {
     if (isOwnProfile) return activity.items;
+    if (!normalizedViewedUsername) return [];
+
+    const sortedItems = [...activity.items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+    const actorScopedItems = sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
 
     if (visitedActivityTab === "public_comments") {
-      return activity.items.filter((item) => item.interactionType === "comment" && !item.isDirectedComment);
+      return actorScopedItems.filter((item) => isVisitedPublicCommentItem(item));
     }
 
     if (visitedActivityTab === "ratings") {
-      return activity.items.filter((item) => item.interactionType === "rating");
+      return actorScopedItems.filter((item) => isVisitedRatingItem(item));
     }
 
     if (visitedActivityTab === "reactions") {
-      return activity.items.filter((item) => item.interactionType === "like" || item.interactionType === "dislike");
+      return actorScopedItems.filter((item) => isVisitedPublicReactionItem(item));
     }
 
     return [];
-  }, [activity.items, isOwnProfile, visitedActivityTab]);
+  }, [activity.items, isOwnProfile, normalizedViewedUsername, visitedActivityTab]);
 
   const ownActivityItems = useMemo(() => {
     return activity.items
@@ -601,6 +633,25 @@ export default function MyActivityColumn({
     ownActivityItems.length,
     ownRatedItems.length,
   ]);
+
+  useEffect(() => {
+    if (isOwnProfile || activeTab !== "activity" || visitedActivityTab === "recommendations") {
+      autoLoadAttemptsRef.current = 0;
+      return;
+    }
+
+    if (activity.loading || activity.loadingMore) return;
+
+    if (!activity.hasMore || filteredActivityItems.length >= MIN_VISIBLE_VISITED_ACTIVITY_ITEMS) {
+      autoLoadAttemptsRef.current = 0;
+      return;
+    }
+
+    if (autoLoadAttemptsRef.current >= MAX_AUTO_LOAD_MORE_ATTEMPTS) return;
+
+    autoLoadAttemptsRef.current += 1;
+    void activity.loadMore();
+  }, [activeTab, activity, filteredActivityItems.length, isOwnProfile, visitedActivityTab]);
 
   useEffect(() => {
     let cancelled = false;

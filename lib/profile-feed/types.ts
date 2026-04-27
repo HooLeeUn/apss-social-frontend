@@ -69,6 +69,7 @@ export interface SocialUser {
 
 export interface SocialActivityItem {
   id: string;
+  activityType?: string;
   user: SocialUser;
   userDisplayName?: string | null;
   movieTitle: string;
