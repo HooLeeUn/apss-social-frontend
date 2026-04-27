@@ -115,6 +115,12 @@ function safeTrim(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function toIdentifier(value: unknown): string | null {
+  if (typeof value === "string") return safeTrim(value);
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
+
 function extractMovieInfo(rawFavorite: Record<string, unknown>, options?: { forVisitedProfile?: boolean }): FavoriteMovie {
   const nestedMovie = toRecord(rawFavorite.movie) ?? rawFavorite;
   const slot = toNumberOrNull(pickFirst(rawFavorite.slot, rawFavorite.position, rawFavorite.index, nestedMovie.slot)) ?? 1;
@@ -1505,14 +1511,19 @@ function toTargetTab(value: unknown): NotificationTargetTab | null {
   return null;
 }
 
-function toNotificationItem(value: unknown, index: number): MyNotificationItem | null {
+function toNotificationItem(value: unknown): MyNotificationItem | null {
   const record = toRecord(value);
   if (!record) return null;
 
-  const id = safeTrim(pickFirst(record.notification_id, record.id, record.uuid)) || `notification-${index}`;
+  const id = toIdentifier(pickFirst(record.notification_id, record.notificationId, record.id, record.uuid));
+  if (!id) {
+    console.warn("Notification item without real id skipped", record);
+    return null;
+  }
+
   const text =
     safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
-  const targetTab = toTargetTab(pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.tab));
+  const targetTab = toTargetTab(pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.destinationTab, record.tab));
 
   if (!targetTab) return null;
 
@@ -1539,7 +1550,7 @@ function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
     [],
   );
   const notifications = Array.isArray(notificationsRaw)
-    ? notificationsRaw.map((item, index) => toNotificationItem(item, index)).filter((item): item is MyNotificationItem => Boolean(item))
+    ? notificationsRaw.map((item) => toNotificationItem(item)).filter((item): item is MyNotificationItem => Boolean(item))
     : [];
 
   const totalUnread = toNonNegativeInteger(
