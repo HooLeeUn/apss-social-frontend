@@ -460,7 +460,7 @@ function MyActivitySkeleton() {
 interface MyActivityColumnProps {
   scope?: "me" | `user:${string}`;
   isOwnProfile?: boolean;
-  initialActiveTab?: "activity" | "messages";
+  initialActiveTab?: "activity" | "messages" | "rated";
   viewedUsername?: string;
   title?: string;
   emptyCopy?: string;
@@ -476,7 +476,7 @@ export default function MyActivityColumn({
   emptyCopy = "Aún no tienes actividad registrada.",
   errorCopy = "No se pudo cargar la actividad.",
 }: MyActivityColumnProps = {}) {
-  const [activeTab, setActiveTab] = useState<"activity" | "messages">(initialActiveTab);
+  const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialActiveTab);
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
     "public_comments",
   );
@@ -659,6 +659,8 @@ export default function MyActivityColumn({
         return;
       }
 
+      if (activeTab === "rated") return;
+
       if (!messages.hasMore || messages.loading || messages.loadingMore || messages.error) return;
       void messages.loadMore();
     },
@@ -690,6 +692,17 @@ export default function MyActivityColumn({
             }`}
           >
             Buzón Privado
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("rated")}
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+              activeTab === "rated"
+                ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+            }`}
+          >
+            Mis calificadas
           </button>
         </header>
       ) : (
@@ -810,7 +823,7 @@ export default function MyActivityColumn({
 
             {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
           </>
-        ) : (
+        ) : activeTab === "messages" ? (
           <>
             {messages.loading ? <MyActivitySkeleton /> : null}
 
@@ -841,6 +854,10 @@ export default function MyActivityColumn({
 
             {messages.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más mensajes...</p> : null}
           </>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-zinc-900/35 p-4 text-sm text-zinc-300">
+            Próximamente verás aquí tus películas calificadas.
+          </div>
         )}
       </div>
     </section>
