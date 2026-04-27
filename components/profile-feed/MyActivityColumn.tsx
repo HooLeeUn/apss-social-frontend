@@ -9,6 +9,9 @@ import { MyMessageItem, SocialActivityItem } from "../../lib/profile-feed/types"
 import { formatAverageRating } from "../../lib/rating-format";
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 
+const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
+const MAX_AUTO_LOAD_MORE_ATTEMPTS = 12;
+
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "Reciente";
@@ -468,6 +471,7 @@ export default function MyActivityColumn({
   const [senderQuery, setSenderQuery] = useState("");
   const [myUsername, setMyUsername] = useState<string | null>(null);
   const [authorCanVisitByUsername, setAuthorCanVisitByUsername] = useState<Record<string, boolean>>({});
+  const autoLoadAttemptsRef = useRef(0);
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
@@ -511,6 +515,30 @@ export default function MyActivityColumn({
       .filter((item) => isPublicOwnActivityItem(item))
       .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   }, [activity.items]);
+
+  useEffect(() => {
+    if (!isOwnProfile || activeTab !== "activity") {
+      autoLoadAttemptsRef.current = 0;
+      return;
+    }
+
+    if (activity.loading || activity.loadingMore) return;
+
+    if (!activity.hasMore || ownActivityItems.length >= MIN_VISIBLE_OWN_ACTIVITY_ITEMS) {
+      autoLoadAttemptsRef.current = 0;
+      return;
+    }
+
+    if (autoLoadAttemptsRef.current >= MAX_AUTO_LOAD_MORE_ATTEMPTS) return;
+
+    autoLoadAttemptsRef.current += 1;
+    void activity.loadMore();
+  }, [
+    activeTab,
+    activity,
+    isOwnProfile,
+    ownActivityItems.length,
+  ]);
 
   useEffect(() => {
     if (isOwnProfile) return;
