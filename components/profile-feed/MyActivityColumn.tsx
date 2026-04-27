@@ -376,14 +376,28 @@ function MessageRow({ item }: { item: MyMessageItem }) {
   const counterpartUsername = counterpart?.username || "usuario";
   const counterpartInitials = counterpartUsername.slice(0, 2).toUpperCase();
   const messageDirectionIcon = item.direction === "sent" ? (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 text-white/90" fill="none" stroke="currentColor" strokeWidth="1.9">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-7 w-7 text-white opacity-80 transition-opacity duration-200 hover:opacity-100"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+    >
       <rect x="3.5" y="6" width="14" height="11" rx="2" />
       <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 7 6 5.1L16.5 7" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 9.5a4.8 4.8 0 0 1-4.8 4.8" />
       <path strokeLinecap="round" strokeLinejoin="round" d="m12.6 13.2 2.6 1.1-1.1 2.6" />
     </svg>
   ) : (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" strokeWidth="1.9">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-7 w-7 text-blue-400 transition-all duration-200 hover:text-blue-300 hover:drop-shadow-[0_0_6px_rgba(59,130,246,0.8)]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+    >
       <rect x="4.5" y="4.5" width="15" height="11" rx="2" />
       <path strokeLinecap="round" strokeLinejoin="round" d="m5.5 5.5 6.5 5.2 6.5-5.2" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.8v5.2" />
@@ -422,7 +436,7 @@ function MessageRow({ item }: { item: MyMessageItem }) {
           )}
           <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
         </p>
-        <div className="pointer-events-none absolute right-0 top-0 flex h-7 items-center justify-center">{messageDirectionIcon}</div>
+        <div className="pointer-events-auto absolute right-0 top-0 flex h-7 items-center justify-center">{messageDirectionIcon}</div>
       </div>
 
       <div className="grid grid-cols-[52px_minmax(0,1fr)] gap-3">
