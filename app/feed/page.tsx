@@ -345,16 +345,17 @@ export default function FeedPage() {
       setNotificationItems(remainingItemsAfterRemoval);
       setUnreadNotificationsCount((current) => Math.max(0, current - 1));
       setIsNotificationPanelOpen(false);
+      router.push(`/profile-feed?tab=${item.targetTab}`);
 
       try {
-        await markNotificationAsRead(item.id);
+        const updated = await markNotificationAsRead(item.id);
+        if (updated <= 0) return;
         const refreshedSummary = await getMyNotificationsSummary();
         setNotificationItems(refreshedSummary.items);
         setUnreadNotificationsCount(refreshedSummary.totalUnread);
       } catch (error) {
         console.warn("No se pudo marcar la notificación como leída.", error);
       }
-      router.push(`/profile-feed?tab=${item.targetTab}`);
     },
     [notificationItems, router],
   );
