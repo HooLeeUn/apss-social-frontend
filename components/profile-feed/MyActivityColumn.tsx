@@ -221,7 +221,7 @@ function ActivityRow({
           ? `A ${viewedUsername || "este usuario"} no le gustó tu comentario`
           : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`
         : `A ${viewedUsername || "este usuario"} reaccionó al comentario de`;
-  const ownActivityIconClassName = "h-3.5 w-3.5 shrink-0";
+  const ownActivityIconClassName = "h-5 w-5 shrink-0";
   const ownActivityIcon =
     item.interactionType === "comment" ? (
       <CommentBubbleIcon className={`${ownActivityIconClassName} text-blue-300/90`} />
@@ -233,7 +233,7 @@ function ActivityRow({
 
   return (
     <article
-      className={`grid gap-3 py-3 last:border-b-0 ${
+      className={`grid gap-3 py-3 last:border-b-0 ${isOwnProfile ? "relative" : ""} ${
         isVisitedProfile
           ? "grid-cols-[52px_minmax(0,1fr)] border-b-2 border-white/15 md:grid-cols-[52px_minmax(0,1fr)_minmax(260px,1fr)] md:gap-x-9"
           : "grid-cols-[52px_minmax(0,1fr)] border-b border-white/5"
@@ -258,12 +258,10 @@ function ActivityRow({
         <div className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80" />
       )}
 
-      <div className="min-w-0">
+      <div className={`min-w-0 ${isOwnProfile ? "pr-10" : ""}`}>
+        {isOwnProfile ? <div className="absolute right-0 top-3">{ownActivityIcon}</div> : null}
         {isOwnProfile ? (
-          <p className="flex items-center gap-1.5 text-xs font-medium text-blue-200/85">
-            {ownActivityIcon}
-            <span>{getActivityTitle(item, isOwnProfile)}</span>
-          </p>
+          <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p>
         ) : null}
         {movieHref ? (
           <Link
