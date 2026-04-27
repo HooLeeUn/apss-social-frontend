@@ -341,18 +341,27 @@ export default function FeedPage() {
 
   const handleNotificationItemClick = useCallback(
     async (item: MyNotificationItem) => {
+      console.log("[diagnostic] handleNotificationItemClick item:", item);
       const remainingItemsAfterRemoval = notificationItems.filter((notificationItem) => notificationItem.id !== item.id);
       setNotificationItems(remainingItemsAfterRemoval);
       setUnreadNotificationsCount((current) => Math.max(0, current - 1));
       setIsNotificationPanelOpen(false);
-      router.push(`/profile-feed?tab=${item.targetTab}`);
 
       try {
+        console.log("[diagnostic] handleNotificationItemClick id sent to markNotificationAsRead:", item.id);
         const updated = await markNotificationAsRead(item.id);
-        if (updated <= 0) return;
-        const refreshedSummary = await getMyNotificationsSummary();
-        setNotificationItems(refreshedSummary.items);
-        setUnreadNotificationsCount(refreshedSummary.totalUnread);
+        console.log("[diagnostic] handleNotificationItemClick updated:", updated);
+        if (updated > 0) {
+          const refreshedSummary = await getMyNotificationsSummary();
+          console.log("[diagnostic] handleNotificationItemClick getMyNotificationsSummary totalUnread:", refreshedSummary.totalUnread);
+          console.log(
+            "[diagnostic] handleNotificationItemClick getMyNotificationsSummary ids:",
+            refreshedSummary.items.map((notificationItem) => notificationItem.id),
+          );
+          setNotificationItems(refreshedSummary.items);
+          setUnreadNotificationsCount(refreshedSummary.totalUnread);
+        }
+        router.push(`/profile-feed?tab=${item.targetTab}`);
       } catch (error) {
         console.warn("No se pudo marcar la notificación como leída.", error);
       }
