@@ -9,6 +9,9 @@ import { MyMessageItem, SocialActivityItem } from "../../lib/profile-feed/types"
 import { formatAverageRating } from "../../lib/rating-format";
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 
+const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
+const MAX_AUTO_LOAD_MORE_ATTEMPTS = 12;
+
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "Reciente";
@@ -174,11 +177,9 @@ function isUserProfileVisitable(profileAccess?: string | null, canViewFullProfil
 function isPublicOwnActivityItem(item: SocialActivityItem): boolean {
   if (item.scope === "private_inbox") return false;
   if (item.isDirectedComment) return false;
-
-  if (item.interactionType === "rating") return true;
-  if (item.interactionType === "comment") return true;
+  if (item.interactionType === "comment") return item.scope === "activity";
   if (item.interactionType === "like" || item.interactionType === "dislike") {
-    return item.reactionScope !== "private";
+    return item.scope === "activity" && item.reactionScope === "public";
   }
 
   return false;
@@ -220,10 +221,19 @@ function ActivityRow({
           ? `A ${viewedUsername || "este usuario"} no le gustó tu comentario`
           : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`
         : `A ${viewedUsername || "este usuario"} reaccionó al comentario de`;
+  const ownActivityIconClassName = "h-5 w-5 shrink-0";
+  const ownActivityIcon =
+    item.interactionType === "comment" ? (
+      <CommentBubbleIcon className={`${ownActivityIconClassName} text-blue-300/90`} />
+    ) : item.interactionType === "like" ? (
+      <ThumbsUpIcon className={`${ownActivityIconClassName} text-emerald-300/90`} />
+    ) : item.interactionType === "dislike" ? (
+      <ThumbsDownIcon className={`${ownActivityIconClassName} text-rose-300/90`} />
+    ) : null;
 
   return (
     <article
-      className={`grid gap-3 py-3 last:border-b-0 ${
+      className={`grid gap-3 py-3 last:border-b-0 ${isOwnProfile ? "relative" : ""} ${
         isVisitedProfile
           ? "grid-cols-[52px_minmax(0,1fr)] border-b-2 border-white/15 md:grid-cols-[52px_minmax(0,1fr)_minmax(260px,1fr)] md:gap-x-9"
           : "grid-cols-[52px_minmax(0,1fr)] border-b border-white/5"
@@ -248,8 +258,11 @@ function ActivityRow({
         <div className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80" />
       )}
 
-      <div className="min-w-0">
-        {isOwnProfile ? <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p> : null}
+      <div className={`min-w-0 ${isOwnProfile ? "pr-10" : ""}`}>
+        {isOwnProfile ? <div className="absolute right-0 top-3">{ownActivityIcon}</div> : null}
+        {isOwnProfile ? (
+          <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p>
+        ) : null}
         {movieHref ? (
           <Link
           href={movieHref}
@@ -470,6 +483,7 @@ export default function MyActivityColumn({
   const [senderQuery, setSenderQuery] = useState("");
   const [myUsername, setMyUsername] = useState<string | null>(null);
   const [authorCanVisitByUsername, setAuthorCanVisitByUsername] = useState<Record<string, boolean>>({});
+  const autoLoadAttemptsRef = useRef(0);
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
@@ -508,45 +522,35 @@ export default function MyActivityColumn({
     return [];
   }, [activity.items, isOwnProfile, visitedActivityTab]);
 
-  const ownActivityItems = useMemo(
-    () => activity.items.filter((item) => isPublicOwnActivityItem(item)),
-    [activity.items],
-  );
-  const ownActivityInteractionCounts = useMemo(
-    () =>
-      activity.items.reduce<Record<string, number>>((acc, item) => {
-        const key = item.interactionType || "unknown";
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [activity.items],
-  );
-  const ownActivityScopeCounts = useMemo(
-    () =>
-      activity.items.reduce<Record<string, number>>((acc, item) => {
-        const key = item.scope || "undefined";
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [activity.items],
-  );
-  const ownActivityReactionScopeCounts = useMemo(
-    () =>
-      activity.items.reduce<Record<string, number>>((acc, item) => {
-        const key = item.reactionScope || "undefined";
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [activity.items],
-  );
+  const ownActivityItems = useMemo(() => {
+    return activity.items
+      .filter((item) => isPublicOwnActivityItem(item))
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  }, [activity.items]);
 
-  if (process.env.NODE_ENV !== "production" && isOwnProfile) {
-    console.info("MY ACTIVITY raw items", activity.items);
-    console.info("MY ACTIVITY visible items", ownActivityItems);
-    console.info("MY ACTIVITY counts by interactionType", ownActivityInteractionCounts);
-    console.info("MY ACTIVITY counts by scope", ownActivityScopeCounts);
-    console.info("MY ACTIVITY counts by reactionScope", ownActivityReactionScopeCounts);
-  }
+  useEffect(() => {
+    if (!isOwnProfile || activeTab !== "activity") {
+      autoLoadAttemptsRef.current = 0;
+      return;
+    }
+
+    if (activity.loading || activity.loadingMore) return;
+
+    if (!activity.hasMore || ownActivityItems.length >= MIN_VISIBLE_OWN_ACTIVITY_ITEMS) {
+      autoLoadAttemptsRef.current = 0;
+      return;
+    }
+
+    if (autoLoadAttemptsRef.current >= MAX_AUTO_LOAD_MORE_ATTEMPTS) return;
+
+    autoLoadAttemptsRef.current += 1;
+    void activity.loadMore();
+  }, [
+    activeTab,
+    activity,
+    isOwnProfile,
+    ownActivityItems.length,
+  ]);
 
   useEffect(() => {
     if (isOwnProfile) return;
