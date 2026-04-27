@@ -1,4 +1,5 @@
-import { ApiError, apiFetch } from "../api";
+import { API_BASE_URL, ApiError, apiFetch } from "../api";
+import { clearToken, getToken } from "../auth";
 import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle, resolveMovieSecondaryTitle } from "../movies";
 import { favoriteMoviesMock } from "./mocks";
 import {
@@ -112,6 +113,12 @@ function safeTrim(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function toIdentifier(value: unknown): string | null {
+  if (typeof value === "string") return safeTrim(value);
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
 }
 
 function extractMovieInfo(rawFavorite: Record<string, unknown>, options?: { forVisitedProfile?: boolean }): FavoriteMovie {
@@ -1504,14 +1511,19 @@ function toTargetTab(value: unknown): NotificationTargetTab | null {
   return null;
 }
 
-function toNotificationItem(value: unknown, index: number): MyNotificationItem | null {
+function toNotificationItem(value: unknown): MyNotificationItem | null {
   const record = toRecord(value);
   if (!record) return null;
 
-  const id = safeTrim(pickFirst(record.notification_id, record.id, record.uuid)) || `notification-${index}`;
+  const id = toIdentifier(pickFirst(record.notification_id, record.notificationId, record.id, record.uuid));
+  if (!id) {
+    console.warn("Notification item without real id skipped", record);
+    return null;
+  }
+
   const text =
     safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
-  const targetTab = toTargetTab(pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.tab));
+  const targetTab = toTargetTab(pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.destinationTab, record.tab));
 
   if (!targetTab) return null;
 
@@ -1538,7 +1550,7 @@ function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
     [],
   );
   const notifications = Array.isArray(notificationsRaw)
-    ? notificationsRaw.map((item, index) => toNotificationItem(item, index)).filter((item): item is MyNotificationItem => Boolean(item))
+    ? notificationsRaw.map((item) => toNotificationItem(item)).filter((item): item is MyNotificationItem => Boolean(item))
     : [];
 
   const totalUnread = toNonNegativeInteger(
@@ -1557,16 +1569,62 @@ export async function markNotificationAsRead(notificationId: string, signal?: Ab
   const trimmedNotificationId = notificationId.trim();
   if (!trimmedNotificationId) return 0;
 
-  const payload = await apiFetch(PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT, {
+  const endpoint = PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT;
+  const payloadToSend = { ids: [trimmedNotificationId] };
+  const requestBody = JSON.stringify(payloadToSend);
+  const token = getToken();
+  const url = `${API_BASE_URL}${endpoint}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Token ${token}`;
+  }
+
+  console.log("[diagnostic] markNotificationAsRead notificationId:", trimmedNotificationId);
+  console.log("[diagnostic] markNotificationAsRead endpoint:", url);
+  console.log("[diagnostic] markNotificationAsRead payload:", payloadToSend);
+
+  const res = await fetch(url, {
     method: "POST",
-    body: JSON.stringify({ ids: [trimmedNotificationId] }),
+    body: requestBody,
     signal,
+    headers,
   });
+
+  console.log("[diagnostic] markNotificationAsRead HTTP status:", res.status);
+
+  const contentType = res.headers.get("content-type") || "";
+  const responseText = await res.text();
+  let payload: unknown = null;
+
+  if (contentType.includes("application/json") && responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      payload = responseText;
+    }
+  } else {
+    payload = responseText || null;
+  }
+
+  console.log("[diagnostic] markNotificationAsRead response body:", payload);
+
+  if (!res.ok) {
+    const message = (typeof payload === "string" && payload) || `HTTP ${res.status}`;
+    if (res.status === 401) {
+      clearToken();
+    }
+    throw new ApiError(res.status, message);
+  }
 
   const payloadRecord = toRecord(payload);
   const updatedNotifications = toNonNegativeInteger(payloadRecord?.updated_notifications);
   const updatedMessages = toNonNegativeInteger(payloadRecord?.updated_messages);
   const explicitUpdated = toNonNegativeInteger(payloadRecord?.updated);
+  const updated = explicitUpdated || updatedNotifications + updatedMessages;
+  console.log("[diagnostic] markNotificationAsRead updated:", updated);
 
-  return explicitUpdated || updatedNotifications + updatedMessages;
+  return updated;
 }
