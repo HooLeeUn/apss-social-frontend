@@ -183,7 +183,7 @@ function isUserProfileVisitable(profileAccess?: string | null, canViewFullProfil
   return !hasLimitedAccess;
 }
 
-function isPublicOwnActivityItem(item: SocialActivityItem, myUsername?: string | null): boolean {
+function isPublicOwnActivityItem(item: SocialActivityItem, activityOwnerUsername?: string | null): boolean {
   if (item.scope === "private_inbox") return false;
   if (item.isDirectedComment) return false;
   if (item.interactionType === "comment") return item.scope === "activity";
@@ -193,7 +193,7 @@ function isPublicOwnActivityItem(item: SocialActivityItem, myUsername?: string |
     const activityType = normalizeActivityType(item);
     if (activityType !== "public_comment_reaction") return true;
 
-    const normalizedCurrentUsername = normalizeUsername(myUsername);
+    const normalizedCurrentUsername = normalizeUsername(activityOwnerUsername);
     if (!normalizedCurrentUsername) return true;
 
     const normalizedActorUsername = normalizeUsername(item.user.username || item.reactionActorUsername);
@@ -236,9 +236,27 @@ function isVisitedRatingItem(item: SocialActivityItem): boolean {
   return normalizeActivityType(item) === "rating";
 }
 
-function isVisitedPublicReactionItem(item: SocialActivityItem): boolean {
+function isVisitedPublicReactionItem(item: SocialActivityItem, activityOwnerUsername: string): boolean {
   const type = normalizeActivityType(item);
-  return type === "public_comment_reaction" || type === "public_comment_like" || type === "public_comment_dislike";
+  if (!(type === "public_comment_reaction" || type === "public_comment_like" || type === "public_comment_dislike")) {
+    return false;
+  }
+
+  if (!activityOwnerUsername) return false;
+
+  if (type !== "public_comment_reaction") {
+    return normalizeUsername(item.user.username) === activityOwnerUsername;
+  }
+
+  const actorUsername = normalizeUsername(item.user.username || item.reactionActorUsername);
+  const commentAuthorUsername = normalizeUsername(item.likedCommentAuthorUsername);
+  const targetUsername = normalizeUsername(item.directedCommentTargetUsername);
+
+  return (
+    actorUsername === activityOwnerUsername ||
+    commentAuthorUsername === activityOwnerUsername ||
+    targetUsername === activityOwnerUsername
+  );
 }
 
 function ActivityRow({
@@ -576,6 +594,7 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
+  const activityOwnerUsername = normalizeUsername(isOwnProfile ? myUsername : normalizedViewedUsername);
   const activityEnabled = !isOwnProfile || activeTab === "activity" || activeTab === "rated";
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
@@ -595,31 +614,30 @@ export default function MyActivityColumn({
 
   const filteredActivityItems = useMemo(() => {
     if (isOwnProfile) return activity.items;
-    if (!normalizedViewedUsername) return [];
+    if (!activityOwnerUsername) return [];
 
     const sortedItems = [...activity.items].sort(compareByActivityDateDesc);
-    const actorScopedItems = sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
 
     if (visitedActivityTab === "public_comments") {
-      return actorScopedItems.filter((item) => isVisitedPublicCommentItem(item));
+      return sortedItems.filter((item) => isVisitedActorItem(item, activityOwnerUsername) && isVisitedPublicCommentItem(item));
     }
 
     if (visitedActivityTab === "ratings") {
-      return actorScopedItems.filter((item) => isVisitedRatingItem(item));
+      return sortedItems.filter((item) => isVisitedActorItem(item, activityOwnerUsername) && isVisitedRatingItem(item));
     }
 
     if (visitedActivityTab === "reactions") {
-      return actorScopedItems.filter((item) => isVisitedPublicReactionItem(item));
+      return sortedItems.filter((item) => isVisitedPublicReactionItem(item, activityOwnerUsername));
     }
 
     return [];
-  }, [activity.items, isOwnProfile, normalizedViewedUsername, visitedActivityTab]);
+  }, [activity.items, activityOwnerUsername, isOwnProfile, visitedActivityTab]);
 
   const ownActivityItems = useMemo(() => {
     return activity.items
-      .filter((item) => isPublicOwnActivityItem(item, myUsername))
+      .filter((item) => isPublicOwnActivityItem(item, activityOwnerUsername))
       .sort(compareByActivityDateDesc);
-  }, [activity.items, myUsername]);
+  }, [activity.items, activityOwnerUsername]);
 
   const ownRatedItems = useMemo(() => {
     return activity.items
