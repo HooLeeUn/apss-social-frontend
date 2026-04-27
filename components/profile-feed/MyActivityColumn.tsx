@@ -44,7 +44,7 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): stri
 
   if (item.interactionType === "rating") {
     const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : "sin nota";
-    return `${ratedVerb} con ${score} ${safeMovieTitle}`;
+    return `${ratedVerb} con ${score} esta película`;
   }
 
   if (item.interactionType === "comment") {
