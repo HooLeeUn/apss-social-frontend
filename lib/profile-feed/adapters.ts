@@ -382,27 +382,71 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const actor = toRecord(item.actor) ?? {};
   const payload = toRecord(item.payload) ?? {};
   const movie = toRecord(item.movie) ?? {};
-  const normalizedActivityType = safeTrim(item.activity_type)?.toLocaleLowerCase() || "";
+  const normalizedActivityType =
+    safeTrim(
+      pickFirst(
+        item.activity_type,
+        activityRecord.activity_type,
+        activityRecord.type,
+      ),
+    )?.toLocaleLowerCase() || "";
+  const isPublicCommentType = normalizedActivityType === "public_comment";
+  const isPublicReactionType =
+    normalizedActivityType === "public_comment_reaction" ||
+    normalizedActivityType === "public_comment_like" ||
+    normalizedActivityType === "public_comment_dislike";
+  const isPrivateType =
+    normalizedActivityType === "private_message" ||
+    normalizedActivityType === "directed_comment" ||
+    normalizedActivityType === "directed_comment_reaction" ||
+    normalizedActivityType === "directed_comment_like" ||
+    normalizedActivityType === "directed_comment_dislike" ||
+    normalizedActivityType === "private_comment_reaction";
   const payloadCommentType = safeTrim(pickFirst(payload.comment_type, payload.type, payload.comment_scope))?.toLocaleLowerCase();
   const hasPrivatePayloadCommentType = payloadCommentType === "directed" || payloadCommentType === "private";
   const isDirectedComment =
-    normalizedActivityType === "directed_comment" || normalizedActivityType === "private_message" || hasPrivatePayloadCommentType || isTrueValue(payload.is_directed);
+    isPrivateType || hasPrivatePayloadCommentType || isTrueValue(payload.is_directed);
   const isReactionType =
-    normalizedActivityType.includes("reaction") || normalizedActivityType.includes("comment_like") || normalizedActivityType.includes("comment_dislike");
-  const normalizedReactionValue = safeTrim(pickFirst(payload.reaction_value, payload.reactionValue, payload.reaction, payload.value))?.toLocaleLowerCase();
+    isPublicReactionType ||
+    normalizedActivityType.includes("reaction") ||
+    normalizedActivityType.includes("comment_like") ||
+    normalizedActivityType.includes("comment_dislike");
+  const normalizedReactionValue = safeTrim(
+    pickFirst(
+      payload.reaction_value,
+      payload.reactionValue,
+      payload.reaction_type,
+      payload.reactionType,
+      activityRecord.reaction_value,
+      activityRecord.reaction_type,
+      payload.reaction,
+      payload.value,
+    ),
+  )?.toLocaleLowerCase();
   const reactionValue: "like" | "dislike" | undefined =
-    normalizedReactionValue === "like" || normalizedReactionValue === "dislike" ? normalizedReactionValue : undefined;
-  const isDislikeReaction = reactionValue === "dislike" || normalizedActivityType.includes("dislike");
+    normalizedReactionValue === "like" || normalizedReactionValue === "thumbs_up"
+      ? "like"
+      : normalizedReactionValue === "dislike" || normalizedReactionValue === "thumbs_down"
+        ? "dislike"
+        : undefined;
+  const isDislikeReaction =
+    normalizedActivityType === "public_comment_dislike" ||
+    normalizedActivityType === "directed_comment_dislike" ||
+    reactionValue === "dislike" ||
+    normalizedActivityType.includes("dislike");
   const isPrivateReaction =
-    normalizedActivityType.includes("directed") ||
-    normalizedActivityType.includes("private") ||
+    isPrivateType ||
     hasPrivatePayloadCommentType ||
     isTrueValue(payload.is_directed);
   const score = toNumberOrNull(payload.score);
-  const commentText = toStringOrNull(pickFirst(payload.content, payload.text));
+  const commentText = toStringOrNull(
+    pickFirst(payload.content, payload.text, activityRecord.comment_text),
+  );
   const commentId = toStringOrNull(pickFirst(payload.comment_id, payload.commentId));
-  const likedCommentSnippet = toStringOrNull(payload.comment_excerpt);
-  const likedCommentAuthor = toRecord(payload.comment_author);
+  const likedCommentSnippet = toStringOrNull(
+    pickFirst(payload.comment_excerpt, activityRecord.comment_text, payload.content, payload.text),
+  );
+  const likedCommentAuthor = toRecord(pickFirst(payload.comment_author, activityRecord.comment_author));
   const likedCommentAuthorUsername = toStringOrNull(likedCommentAuthor?.username);
   const reactionActor = toRecord(payload.actor);
   const reactionActorUsername = toStringOrNull(pickFirst(reactionActor?.username, actor.username));
@@ -432,7 +476,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const interactionType: SocialActivityItem["interactionType"] =
     normalizedActivityType === "rating"
       ? "rating"
-      : normalizedActivityType === "public_comment" || normalizedActivityType === "directed_comment" || normalizedActivityType === "private_message"
+      : isPublicCommentType || normalizedActivityType === "directed_comment" || normalizedActivityType === "private_message"
         ? "comment"
         : isReactionType
           ? reactionValue === "like"
@@ -443,7 +487,11 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
           : normalizedActivityType === "public_comment_dislike"
             ? "dislike"
             : "like";
-  const scope: NotificationTargetTab = isDirectedComment || (isReactionType && isPrivateReaction) ? "private_inbox" : "activity";
+  const scope: NotificationTargetTab = isPublicCommentType || isPublicReactionType
+    ? "activity"
+    : isDirectedComment || (isReactionType && isPrivateReaction)
+      ? "private_inbox"
+      : "activity";
 
   return {
     id: item.id,
@@ -481,7 +529,14 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     isGivenReaction: isReactionType ? isGivenReaction : undefined,
     isReceivedReaction: isReactionType ? isReceivedReaction : undefined,
     scope,
-    reactionScope: interactionType === "like" || interactionType === "dislike" ? (isPrivateReaction ? "private" : "public") : undefined,
+    reactionScope:
+      interactionType === "like" || interactionType === "dislike"
+        ? isPublicReactionType
+          ? "public"
+          : isPrivateReaction
+            ? "private"
+            : "public"
+        : undefined,
     reactionValue: interactionType === "like" || interactionType === "dislike" ? interactionType : undefined,
   };
 }
@@ -1319,6 +1374,46 @@ export async function getSocialActivity(
   signal?: AbortSignal,
 ): Promise<PaginatedSocialActivity> {
   const usernameScope = parseUserScope(tab);
+  const isMyActivityScope = tab === "me";
+
+  if (isMyActivityScope && !nextEndpoint) {
+    let myUsername: string | null = null;
+    try {
+      myUsername = await getMyUsername();
+    } catch {
+      myUsername = null;
+    }
+
+    const attempts: string[] = [];
+    if (myUsername) {
+      attempts.push(buildUserActivityEndpoint(myUsername));
+    }
+    attempts.push(`${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ scope: "me" }).toString()}`);
+    attempts.push(PROFILE_FEED_ACTIVITY_ENDPOINT);
+
+    for (const endpoint of attempts) {
+      try {
+        const payload = await apiFetch(endpoint, { signal });
+        const parsed = parseSocialActivity(payload);
+        const scopedItems = myUsername ? filterUsernameScopedActivity(parsed.items, myUsername) : parsed.items;
+        if (scopedItems.length === 0) {
+          continue;
+        }
+
+        return {
+          items: scopedItems,
+          next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+        };
+      } catch (error) {
+        if (error instanceof ApiError && [400, 404, 405, 422].includes(error.status)) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    return { items: [], next: null };
+  }
 
   if (usernameScope && !nextEndpoint) {
     const attempts = [
@@ -1357,8 +1452,7 @@ export async function getSocialActivity(
   try {
     payload = await apiFetch(endpoint, { signal });
   } catch (error) {
-    const isMyActivity = tab === "me";
-    if (isMyActivity && error instanceof ApiError && [400, 404, 422].includes(error.status)) {
+    if (isMyActivityScope && error instanceof ApiError && [400, 404, 422].includes(error.status)) {
       return { items: [], next: null };
     }
     throw error;
