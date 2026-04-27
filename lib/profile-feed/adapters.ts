@@ -121,6 +121,17 @@ function toIdentifier(value: unknown): string | null {
   return null;
 }
 
+const FALLBACK_NOTIFICATION_ID_PREFIX = "notification-";
+
+export function isRealNotificationId(value: unknown): value is string {
+  const normalized = safeTrim(value);
+  if (!normalized) return false;
+  if (normalized.startsWith(FALLBACK_NOTIFICATION_ID_PREFIX)) return false;
+  if (/^\d+$/.test(normalized)) return true;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)) return true;
+  return /^[A-Za-z0-9][A-Za-z0-9:_-]{1,127}$/.test(normalized);
+}
+
 function extractMovieInfo(rawFavorite: Record<string, unknown>, options?: { forVisitedProfile?: boolean }): FavoriteMovie {
   const nestedMovie = toRecord(rawFavorite.movie) ?? rawFavorite;
   const slot = toNumberOrNull(pickFirst(rawFavorite.slot, rawFavorite.position, rawFavorite.index, nestedMovie.slot)) ?? 1;
@@ -1511,15 +1522,13 @@ function toTargetTab(value: unknown): NotificationTargetTab | null {
   return null;
 }
 
-function toNotificationItem(value: unknown): MyNotificationItem | null {
+function toNotificationItem(value: unknown, index: number): MyNotificationItem | null {
   const record = toRecord(value);
   if (!record) return null;
 
-  const id = toIdentifier(pickFirst(record.notification_id, record.notificationId, record.id, record.uuid));
-  if (!id) {
-    console.warn("Notification item without real id skipped", record);
-    return null;
-  }
+  const id =
+    toIdentifier(pickFirst(record.notification_id, record.notificationId, record.id, record.uuid)) ||
+    `${FALLBACK_NOTIFICATION_ID_PREFIX}${index}`;
 
   const text =
     safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
@@ -1550,7 +1559,9 @@ function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
     [],
   );
   const notifications = Array.isArray(notificationsRaw)
-    ? notificationsRaw.map((item) => toNotificationItem(item)).filter((item): item is MyNotificationItem => Boolean(item))
+    ? notificationsRaw
+        .map((item, index) => toNotificationItem(item, index))
+        .filter((item): item is MyNotificationItem => Boolean(item))
     : [];
 
   const totalUnread = toNonNegativeInteger(
@@ -1567,7 +1578,7 @@ export async function getMyNotificationsSummary(signal?: AbortSignal): Promise<M
 
 export async function markNotificationAsRead(notificationId: string, signal?: AbortSignal): Promise<number> {
   const trimmedNotificationId = notificationId.trim();
-  if (!trimmedNotificationId) return 0;
+  if (!isRealNotificationId(trimmedNotificationId)) return 0;
 
   const endpoint = PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT;
   const payloadToSend = { ids: [trimmedNotificationId] };
@@ -1582,18 +1593,12 @@ export async function markNotificationAsRead(notificationId: string, signal?: Ab
     headers.Authorization = `Token ${token}`;
   }
 
-  console.log("[diagnostic] markNotificationAsRead notificationId:", trimmedNotificationId);
-  console.log("[diagnostic] markNotificationAsRead endpoint:", url);
-  console.log("[diagnostic] markNotificationAsRead payload:", payloadToSend);
-
   const res = await fetch(url, {
     method: "POST",
     body: requestBody,
     signal,
     headers,
   });
-
-  console.log("[diagnostic] markNotificationAsRead HTTP status:", res.status);
 
   const contentType = res.headers.get("content-type") || "";
   const responseText = await res.text();
@@ -1609,8 +1614,6 @@ export async function markNotificationAsRead(notificationId: string, signal?: Ab
     payload = responseText || null;
   }
 
-  console.log("[diagnostic] markNotificationAsRead response body:", payload);
-
   if (!res.ok) {
     const message = (typeof payload === "string" && payload) || `HTTP ${res.status}`;
     if (res.status === 401) {
@@ -1624,7 +1627,6 @@ export async function markNotificationAsRead(notificationId: string, signal?: Ab
   const updatedMessages = toNonNegativeInteger(payloadRecord?.updated_messages);
   const explicitUpdated = toNonNegativeInteger(payloadRecord?.updated);
   const updated = explicitUpdated || updatedNotifications + updatedMessages;
-  console.log("[diagnostic] markNotificationAsRead updated:", updated);
 
   return updated;
 }
