@@ -85,15 +85,17 @@ textarea,
   font-size: 26px;
   line-height: 1;
   color: #fff;
+  border: 1.5px solid transparent;
+  background: transparent;
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.28);
 }
 
 .interaction-icon--up {
-  background: #8b5cf6;
-  box-shadow: 0 0 11px rgba(139, 92, 246, 0.45), 0 6px 14px rgba(15, 23, 42, 0.28);
+  border-color: rgba(139, 92, 246, 0.9);
+  box-shadow: 0 0 11px rgba(139, 92, 246, 0.3), 0 6px 14px rgba(15, 23, 42, 0.28);
 }
 
 .interaction-icon--ok {
-  background: #3b82f6;
-  box-shadow: 0 0 11px rgba(59, 130, 246, 0.45), 0 6px 14px rgba(15, 23, 42, 0.28);
+  border-color: rgba(59, 130, 246, 0.9);
+  box-shadow: 0 0 11px rgba(59, 130, 246, 0.3), 0 6px 14px rgba(15, 23, 42, 0.28);
 }

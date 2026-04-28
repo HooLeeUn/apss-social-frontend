@@ -207,8 +207,15 @@ function MovieCard({
             )}
           </div>
           {isFeed ? (
-            <div className="relative ml-auto">
-              <div className="interaction-icons pointer-events-none absolute -left-[4.9rem] -top-5 z-10" aria-hidden="true">
+            <div className={`relative ml-auto ${highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
+              <div
+                className={`interaction-icons pointer-events-none absolute z-10 ${
+                  highlightMyRatingSlot
+                    ? "left-1/2 top-1 -translate-x-1/2"
+                    : "-left-[4.9rem] -top-8"
+                }`}
+                aria-hidden="true"
+              >
                 <span className="interaction-icon interaction-icon--up">☝️</span>
                 <span className="interaction-icon interaction-icon--ok">👌</span>
               </div>
