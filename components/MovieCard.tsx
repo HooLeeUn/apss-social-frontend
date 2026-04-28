@@ -12,6 +12,7 @@ interface MovieCardProps {
   variant?: "large" | "compact" | "feed";
   linkToDetail?: boolean;
   showExtendedMetadata?: boolean;
+  highlightMyRatingSlot?: boolean;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
 }
 
@@ -23,7 +24,14 @@ function formatContentType(contentType: string) {
   return contentType;
 }
 
-function MovieCard({ movie, variant = "compact", linkToDetail = true, showExtendedMetadata = false, onRated }: MovieCardProps) {
+function MovieCard({
+  movie,
+  variant = "compact",
+  linkToDetail = true,
+  showExtendedMetadata = false,
+  highlightMyRatingSlot = false,
+  onRated,
+}: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
@@ -158,7 +166,17 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, showExtend
               </>
             )}
           </div>
-          <div className={isFeed ? "flex items-center gap-1 text-sm font-semibold" : ""}>
+          <div
+            className={
+              isFeed
+                ? `flex items-center gap-1 rounded-md border px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
+                    highlightMyRatingSlot
+                      ? "border-blue-400/65 bg-blue-950/40 shadow-[0_4px_12px_rgba(59,130,246,0.24)] hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_8px_16px_rgba(59,130,246,0.3)]"
+                      : "border-transparent"
+                  }`
+                : ""
+            }
+          >
             {isFeed ? (
               onRated ? (
                 <RatingPopover
@@ -167,11 +185,18 @@ function MovieCard({ movie, variant = "compact", linkToDetail = true, showExtend
                   onRated={(score, payload) => onRated(movie.id, score, payload)}
                   nullLabel="—"
                   ariaLabel="Mi calificación"
+                  className={
+                    highlightMyRatingSlot
+                      ? "[&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
+                      : ""
+                  }
                 />
               ) : (
                 <>
-                  <span aria-hidden="true">🙋</span>
-                  <span aria-label="Mi calificación">{formatMyRating(movie.myRating)}</span>
+                  <span aria-hidden="true" className={highlightMyRatingSlot ? "text-blue-100" : ""}>🙋</span>
+                  <span aria-label="Mi calificación" className={highlightMyRatingSlot ? "text-blue-100" : ""}>
+                    {formatMyRating(movie.myRating)}
+                  </span>
                 </>
               )
             ) : (
