@@ -1365,6 +1365,34 @@ function logFollowingDebug(label: string, value: unknown): void {
   console.info(label, value);
 }
 
+function logActivityDebug(label: string, value: unknown): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.info(label, value);
+}
+
+function getPublicCommentReactionItems(items: SocialActivityItem[]): SocialActivityItem[] {
+  return items.filter((item) => {
+    const normalizedActivityType = item.activityType?.trim().toLocaleLowerCase() || "";
+    return normalizedActivityType === "public_comment_reaction";
+  });
+}
+
+function logPublicCommentReactionDebug(label: string, items: SocialActivityItem[]): void {
+  const reactionItems = getPublicCommentReactionItems(items);
+  logActivityDebug(label, {
+    count: reactionItems.length,
+    items: reactionItems.map((item) => ({
+      id: item.id,
+      userUsername: item.user.username,
+      reactionActorUsername: item.reactionActorUsername ?? null,
+      likedCommentAuthorUsername: item.likedCommentAuthorUsername ?? null,
+      isGivenReaction: item.isGivenReaction ?? null,
+      isReceivedReaction: item.isReceivedReaction ?? null,
+      activityType: item.activityType ?? null,
+    })),
+  });
+}
+
 async function getMyUsername(): Promise<string | null> {
   const payload = await apiFetch(PROFILE_ME_ENDPOINT);
   const me = toRecord(payload);
@@ -1420,21 +1448,25 @@ export async function getSocialActivity(
     }
 
     const attempts: string[] = [];
+    attempts.push(`${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ scope: "me" }).toString()}`);
+    attempts.push(PROFILE_FEED_ACTIVITY_ENDPOINT);
     if (myUsername) {
       attempts.push(buildUserActivityEndpoint(myUsername));
     }
-    attempts.push(`${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ scope: "me" }).toString()}`);
-    attempts.push(PROFILE_FEED_ACTIVITY_ENDPOINT);
 
     for (const endpoint of attempts) {
       try {
         const payload = await apiFetch(endpoint, { signal });
         const parsed = parseSocialActivity(payload);
+        logPublicCommentReactionDebug("MY ACTIVITY public_comment_reaction BEFORE filterUsernameScopedActivity", parsed.items);
         const scopedItems = myUsername ? filterUsernameScopedActivity(parsed.items, myUsername) : parsed.items;
+        logPublicCommentReactionDebug("MY ACTIVITY public_comment_reaction AFTER filterUsernameScopedActivity", scopedItems);
         if (scopedItems.length === 0) {
+          logActivityDebug("MY ACTIVITY ENDPOINT had no scoped items, trying next endpoint:", endpoint);
           continue;
         }
 
+        logActivityDebug("MY ACTIVITY ENDPOINT USED:", endpoint);
         return {
           items: scopedItems,
           next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
@@ -1461,7 +1493,9 @@ export async function getSocialActivity(
       try {
         const payload = await apiFetch(endpoint, { signal });
         const parsed = parseSocialActivity(payload);
+        logPublicCommentReactionDebug("USERNAME SCOPED ACTIVITY public_comment_reaction BEFORE filterUsernameScopedActivity", parsed.items);
         const scopedItems = filterUsernameScopedActivity(parsed.items, usernameScope);
+        logPublicCommentReactionDebug("USERNAME SCOPED ACTIVITY public_comment_reaction AFTER filterUsernameScopedActivity", scopedItems);
         if (scopedItems.length === 0) {
           continue;
         }
