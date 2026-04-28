@@ -37,6 +37,10 @@ function formatRelativeDate(iso: string): string {
   }).format(date);
 }
 
+function getActivityRelativeDate(item: SocialActivityItem): string {
+  return item.activityAt ?? item.updatedAt ?? item.createdAt;
+}
+
 function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): string {
   const safeMovieTitle = item.movieTitle || "título";
   const ratedVerb = isOwnProfile ? "Calificaste" : "Calificó";
@@ -358,7 +362,7 @@ function ActivityRow({
           {formatMetadata(item.movieType, item.movieGenre, item.movieYear)}
         </p>
         {isOwnProfile && activityDetail ? <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p> : null}
-        {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p> : null}
+        {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(getActivityRelativeDate(item))}</p> : null}
       </div>
 
       {isVisitedProfile ? (
@@ -408,7 +412,7 @@ function ActivityRow({
               {item.likedCommentSnippet ? (
                 <p className="pl-7 text-sm leading-relaxed text-zinc-200 md:text-base">{item.likedCommentSnippet}</p>
               ) : null}
-              <p className="pl-7 text-xs text-zinc-500 md:text-sm">{formatRelativeDate(item.createdAt)}</p>
+              <p className="pl-7 text-xs text-zinc-500 md:text-sm">{formatRelativeDate(getActivityRelativeDate(item))}</p>
             </div>
           ) : null}
         </div>
