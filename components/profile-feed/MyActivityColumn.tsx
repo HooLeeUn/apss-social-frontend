@@ -175,9 +175,29 @@ function isUserProfileVisitable(profileAccess?: string | null, canViewFullProfil
   return !hasLimitedAccess;
 }
 
-function isPublicOwnActivityItem(item: SocialActivityItem): boolean {
+function isPublicOwnActivityItem(item: SocialActivityItem, myUsername?: string | null): boolean {
   if (item.scope === "private_inbox") return false;
   if (item.isDirectedComment) return false;
+
+  const activityType = normalizeActivityType(item);
+  if (
+    activityType === "public_comment_reaction" ||
+    activityType === "public_comment_like" ||
+    activityType === "public_comment_dislike"
+  ) {
+    const normalizedMyUsername = normalizeUsername(myUsername);
+    if (!normalizedMyUsername) return false;
+
+    return (
+      normalizeUsername(item.user.username) === normalizedMyUsername ||
+      normalizeUsername(item.reactionActorUsername) === normalizedMyUsername ||
+      normalizeUsername(item.likedCommentAuthorUsername) === normalizedMyUsername ||
+      normalizeUsername(item.directedCommentTargetUsername) === normalizedMyUsername ||
+      item.isGivenReaction === true ||
+      item.isReceivedReaction === true
+    );
+  }
+
   if (item.interactionType === "comment") return item.scope === "activity";
   if (item.interactionType === "like" || item.interactionType === "dislike") {
     return item.scope === "activity" && item.reactionScope === "public";
@@ -598,9 +618,11 @@ export default function MyActivityColumn({
 
   const ownActivityItems = useMemo(() => {
     return activity.items
-      .filter((item) => isPublicOwnActivityItem(item))
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-  }, [activity.items]);
+      .filter((item) => isPublicOwnActivityItem(item, myUsername))
+      .sort(
+        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      );
+  }, [activity.items, myUsername]);
 
   const ownRatedItems = useMemo(() => {
     return activity.items
