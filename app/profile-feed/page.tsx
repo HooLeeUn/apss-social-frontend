@@ -7,7 +7,7 @@ import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
 import ProfileIdentityCard from "../../components/profile-feed/ProfileIdentityCard";
 import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivityTabsBlock";
 import TopUsersSection from "../../components/profile-feed/TopUsersSection";
-import { getMyProfile, getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
+import { getMyProfile, getTopFollowing, getTopFriends, markNotificationsContextRead } from "../../lib/profile-feed/adapters";
 import { SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
 import { useAppBranding } from "../../hooks/useAppBranding";
@@ -83,6 +83,22 @@ export default function ProfileFeedPage() {
 
     void loadOwnProfileData();
   }, []);
+
+  useEffect(() => {
+    const normalizedTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "private_inbox" : requestedTab === "activity" ? "activity" : null;
+    if (!normalizedTab) return;
+
+    const markContextAsRead = async () => {
+      try {
+        await markNotificationsContextRead(normalizedTab);
+        window.dispatchEvent(new CustomEvent("notifications:refresh-requested"));
+      } catch (error) {
+        console.warn("No se pudo marcar el contexto de notificaciones como leído.", error);
+      }
+    };
+
+    void markContextAsRead();
+  }, [requestedTab]);
 
   return (
     <main className="min-h-screen bg-black text-zinc-100">
