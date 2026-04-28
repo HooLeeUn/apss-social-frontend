@@ -378,10 +378,13 @@ export default function FeedPage() {
 
   const handleNotificationItemClick = useCallback(
     async (item: MyNotificationItem) => {
-      const remainingItemsAfterRemoval = notificationItems.filter((notificationItem) => notificationItem.id !== item.id);
-      setNotificationItems(remainingItemsAfterRemoval);
-      setUnreadNotificationsCount((current) => Math.max(0, current - 1));
       setIsNotificationPanelOpen(false);
+      const targetRoute =
+        item.movieId !== null && item.movieId !== ""
+          ? `/movies/${item.movieId}`
+          : item.targetTab === "private_inbox"
+            ? "/profile-feed?tab=private_inbox"
+            : "/profile-feed?tab=activity";
 
       try {
         if (isRealNotificationId(item.id)) {
@@ -390,12 +393,16 @@ export default function FeedPage() {
           console.warn("Notification without real id, skipping mark-read");
         }
 
-        router.push(`/profile-feed?tab=${item.targetTab}`);
+        setNotificationItems((current) => current.filter((notificationItem) => notificationItem.id !== item.id));
+        setUnreadNotificationsCount((current) => Math.max(0, current - 1));
+        await refreshNotifications();
       } catch (error) {
         console.warn("No se pudo marcar la notificación como leída.", error);
+      } finally {
+        router.push(targetRoute);
       }
     },
-    [notificationItems, router],
+    [refreshNotifications, router],
   );
 
   const handleMarkAllNotificationsAsRead = useCallback(async () => {
@@ -465,6 +472,17 @@ export default function FeedPage() {
     };
   }, [isNotificationPanelOpen]);
 
+  useEffect(() => {
+    const onNotificationsRefreshRequested = () => {
+      void refreshNotifications();
+    };
+
+    window.addEventListener("notifications:refresh-requested", onNotificationsRefreshRequested);
+    return () => {
+      window.removeEventListener("notifications:refresh-requested", onNotificationsRefreshRequested);
+    };
+  }, [refreshNotifications]);
+
   if (loading) {
     return <div className="p-6 text-zinc-100">Cargando feed principal...</div>;
   }
@@ -527,7 +545,7 @@ export default function FeedPage() {
                       {notificationItems.length > 0 ? (
                         notificationItems.map((item) => (
                           <button
-                            key={item.id}
+                            key={String(item.id)}
                             type="button"
                             onClick={() => handleNotificationItemClick(item)}
                             className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-left transition hover:border-blue-300/50 hover:bg-zinc-800"

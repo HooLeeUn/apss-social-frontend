@@ -1,5 +1,4 @@
-import { API_BASE_URL, ApiError, apiFetch } from "../api";
-import { clearToken, getToken } from "../auth";
+import { ApiError, apiFetch } from "../api";
 import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle, resolveMovieSecondaryTitle } from "../movies";
 import { favoriteMoviesMock } from "./mocks";
 import {
@@ -15,6 +14,7 @@ import {
   MyMessagesSummary,
   MyNotificationsSummary,
   MyNotificationItem,
+  NotificationContext,
   NotificationTargetTab,
 } from "./types";
 
@@ -42,12 +42,12 @@ const PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_
 const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
 const PROFILE_ME_NOTIFICATIONS_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_ENDPOINT || "/me/notifications/";
-const PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT =
-  process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT || "/me/notifications/mark-read/";
 const NOTIFICATIONS_MARK_ALL_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_ALL_READ_ENDPOINT || "/api/notifications/mark-all-read/";
 const NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT =
   process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT || "/api/notifications/mark-read-batch/";
+const NOTIFICATIONS_MARK_CONTEXT_READ_ENDPOINT =
+  process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_CONTEXT_READ_ENDPOINT || "/api/notifications/mark-context-read/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -119,21 +119,33 @@ function safeTrim(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function toIdentifier(value: unknown): string | null {
-  if (typeof value === "string") return safeTrim(value);
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  return null;
-}
-
 const FALLBACK_NOTIFICATION_ID_PREFIX = "notification-";
 
-export function isRealNotificationId(value: unknown): value is string {
+function normalizeNotificationId(value: unknown): string | number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Number.isInteger(value) ? value : null;
+  }
+
   const normalized = safeTrim(value);
-  if (!normalized) return false;
-  if (normalized.startsWith(FALLBACK_NOTIFICATION_ID_PREFIX)) return false;
-  if (/^\d+$/.test(normalized)) return true;
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)) return true;
-  return /^[A-Za-z0-9][A-Za-z0-9:_-]{1,127}$/.test(normalized);
+  if (!normalized) return null;
+  if (normalized.startsWith(FALLBACK_NOTIFICATION_ID_PREFIX)) return null;
+  if (/^\d+$/.test(normalized)) return normalized;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)) return normalized;
+  return /^[A-Za-z0-9][A-Za-z0-9:_-]{1,127}$/.test(normalized) ? normalized : null;
+}
+
+export function isRealNotificationId(value: unknown): value is string | number {
+  return normalizeNotificationId(value) !== null;
+}
+
+function toNotificationMovieId(record: Record<string, unknown>): string | number | null {
+  const objectRecord = toRecord(record.object);
+  const movieRecord = toRecord(objectRecord?.movie) ?? toRecord(record.movie);
+  const rawMovieId = pickFirst(movieRecord?.id, movieRecord?.movie_id, objectRecord?.movie_id, record.movie_id);
+
+  if (typeof rawMovieId === "number" && Number.isFinite(rawMovieId)) return rawMovieId;
+  const movieIdAsString = safeTrim(rawMovieId);
+  return movieIdAsString || null;
 }
 
 function extractMovieInfo(rawFavorite: Record<string, unknown>, options?: { forVisitedProfile?: boolean }): FavoriteMovie {
@@ -1584,13 +1596,22 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
   const record = toRecord(value);
   if (!record) return null;
 
-  const id =
-    toIdentifier(pickFirst(record.notification_id, record.notificationId, record.id, record.uuid)) ||
-    `${FALLBACK_NOTIFICATION_ID_PREFIX}${index}`;
+  const rawId = pickFirst(record.notification_id, record.notificationId, record.id, record.uuid);
+  const id = normalizeNotificationId(rawId) ?? `${FALLBACK_NOTIFICATION_ID_PREFIX}${index}`;
+  const normalizedActivityType = safeTrim(pickFirst(record.activity_type, record.activityType, record.type, record.notification_type))?.toLocaleLowerCase();
 
   const text =
     safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
-  const targetTab = toTargetTab(pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.destinationTab, record.tab));
+  const targetTabFromPayload = toTargetTab(
+    pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.destinationTab, record.tab),
+  );
+  const targetTab =
+    targetTabFromPayload ||
+    (normalizedActivityType === "private_message" || normalizedActivityType === "private_comment_reaction"
+      ? "private_inbox"
+      : normalizedActivityType === "public_comment_reaction"
+        ? "activity"
+        : null);
 
   if (!targetTab) return null;
 
@@ -1598,6 +1619,7 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
     id,
     text,
     targetTab,
+    movieId: toNotificationMovieId(record),
     createdAt: safeTrim(pickFirst(record.created_at, record.createdAt, record.timestamp)),
   };
 }
@@ -1652,63 +1674,10 @@ export async function getMyNotificationsSummary(signal?: AbortSignal): Promise<M
   return parseNotificationsSummary(payload);
 }
 
-export async function markNotificationAsRead(notificationId: string, signal?: AbortSignal): Promise<number> {
-  const trimmedNotificationId = notificationId.trim();
-  if (!isRealNotificationId(trimmedNotificationId)) return 0;
-
-  const endpoint = PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT;
-  const payloadToSend = { ids: [trimmedNotificationId] };
-  const requestBody = JSON.stringify(payloadToSend);
-  const token = getToken();
-  const url = `${API_BASE_URL}${endpoint}`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  if (token) {
-    headers.Authorization = `Token ${token}`;
-  }
-
-  const res = await fetch(url, {
-    method: "POST",
-    body: requestBody,
-    signal,
-    headers,
-  });
-
-  const contentType = res.headers.get("content-type") || "";
-  const responseText = await res.text();
-  let payload: unknown = null;
-
-  if (contentType.includes("application/json") && responseText) {
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      payload = responseText;
-    }
-  } else {
-    payload = responseText || null;
-  }
-
-  if (!res.ok) {
-    const message = (typeof payload === "string" && payload) || `HTTP ${res.status}`;
-    if (res.status === 401) {
-      clearToken();
-    }
-    throw new ApiError(res.status, message);
-  }
-
-  const payloadRecord = toRecord(payload);
-  const updatedNotifications = toNonNegativeInteger(payloadRecord?.updated_notifications);
-  const updatedMessages = toNonNegativeInteger(payloadRecord?.updated_messages);
-  const explicitUpdated = toNonNegativeInteger(payloadRecord?.updated);
-  const updated = explicitUpdated || updatedNotifications + updatedMessages;
-
-  return updated;
-}
-
-export async function markNotificationsAsReadBatch(notificationIds: string[], signal?: AbortSignal): Promise<number> {
-  const validIds = notificationIds.map((id) => id.trim()).filter((id) => isRealNotificationId(id));
+export async function markNotificationsAsReadBatch(notificationIds: Array<string | number>, signal?: AbortSignal): Promise<number> {
+  const validIds = notificationIds
+    .map((id) => normalizeNotificationId(id))
+    .filter((id): id is string | number => id !== null);
   if (validIds.length === 0) return 0;
 
   const payload = await apiFetch(NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT, {
@@ -1722,6 +1691,20 @@ export async function markNotificationsAsReadBatch(notificationIds: string[], si
   const updatedNotifications = toNonNegativeInteger(payloadRecord?.updated_notifications);
 
   return explicitUpdated || updatedNotifications || validIds.length;
+}
+
+export async function markNotificationsContextRead(context: NotificationContext, signal?: AbortSignal): Promise<number> {
+  const payload = await apiFetch(NOTIFICATIONS_MARK_CONTEXT_READ_ENDPOINT, {
+    method: "POST",
+    body: JSON.stringify({ context }),
+    signal,
+  });
+
+  const payloadRecord = toRecord(payload);
+  const explicitUpdated = toNonNegativeInteger(payloadRecord?.updated);
+  const updatedNotifications = toNonNegativeInteger(payloadRecord?.updated_notifications);
+
+  return explicitUpdated || updatedNotifications;
 }
 
 export async function markAllNotificationsAsRead(signal?: AbortSignal): Promise<number> {

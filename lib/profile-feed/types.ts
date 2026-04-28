@@ -136,11 +136,14 @@ export interface MyMessagesSummary {
 }
 
 export type NotificationTargetTab = "activity" | "private_inbox";
+export type NotificationId = string | number;
+export type NotificationContext = "activity" | "private_inbox";
 
 export interface MyNotificationItem {
-  id: string;
+  id: NotificationId;
   text: string;
   targetTab: NotificationTargetTab;
+  movieId: number | string | null;
   createdAt: string | null;
 }
 
