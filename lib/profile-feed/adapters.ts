@@ -44,6 +44,10 @@ const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
 const PROFILE_ME_NOTIFICATIONS_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_ENDPOINT || "/me/notifications/";
 const PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_MARK_AS_READ_BULK_ENDPOINT || "/me/notifications/mark-read/";
+const NOTIFICATIONS_MARK_ALL_READ_ENDPOINT =
+  process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_ALL_READ_ENDPOINT || "/api/notifications/mark-all-read/";
+const NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT =
+  process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT || "/api/notifications/mark-read-batch/";
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -1598,6 +1602,23 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
   };
 }
 
+function isNotificationUnread(value: unknown): boolean {
+  const record = toRecord(value);
+  if (!record) return false;
+
+  const unreadCandidate = pickFirst(record.unread, record.is_unread, record.isUnread);
+  if (typeof unreadCandidate === "boolean") {
+    return unreadCandidate;
+  }
+
+  const readCandidate = pickFirst(record.read, record.is_read, record.isRead, record.was_read, record.wasRead);
+  if (typeof readCandidate === "boolean") {
+    return !readCandidate;
+  }
+
+  return true;
+}
+
 function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
   const root = toRecord(payload);
   const data = toRecord(root?.data);
@@ -1614,6 +1635,7 @@ function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
   );
   const notifications = Array.isArray(notificationsRaw)
     ? notificationsRaw
+        .filter((item) => isNotificationUnread(item))
         .map((item, index) => toNotificationItem(item, index))
         .filter((item): item is MyNotificationItem => Boolean(item))
     : [];
@@ -1683,4 +1705,34 @@ export async function markNotificationAsRead(notificationId: string, signal?: Ab
   const updated = explicitUpdated || updatedNotifications + updatedMessages;
 
   return updated;
+}
+
+export async function markNotificationsAsReadBatch(notificationIds: string[], signal?: AbortSignal): Promise<number> {
+  const validIds = notificationIds.map((id) => id.trim()).filter((id) => isRealNotificationId(id));
+  if (validIds.length === 0) return 0;
+
+  const payload = await apiFetch(NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT, {
+    method: "POST",
+    body: JSON.stringify({ ids: validIds }),
+    signal,
+  });
+
+  const payloadRecord = toRecord(payload);
+  const explicitUpdated = toNonNegativeInteger(payloadRecord?.updated);
+  const updatedNotifications = toNonNegativeInteger(payloadRecord?.updated_notifications);
+
+  return explicitUpdated || updatedNotifications || validIds.length;
+}
+
+export async function markAllNotificationsAsRead(signal?: AbortSignal): Promise<number> {
+  const payload = await apiFetch(NOTIFICATIONS_MARK_ALL_READ_ENDPOINT, {
+    method: "POST",
+    signal,
+  });
+
+  const payloadRecord = toRecord(payload);
+  const explicitUpdated = toNonNegativeInteger(payloadRecord?.updated);
+  const updatedNotifications = toNonNegativeInteger(payloadRecord?.updated_notifications);
+
+  return explicitUpdated || updatedNotifications;
 }
