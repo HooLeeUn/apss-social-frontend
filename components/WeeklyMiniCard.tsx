@@ -53,6 +53,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
 
   return (
     <article className="relative h-full pl-4">
+      <span aria-hidden="true" className="pointer-events-none absolute right-2 top-[52%] z-10 text-xs text-violet-200/85 drop-shadow-[0_0_7px_rgba(167,139,250,0.45)]">☝️</span>
       {topUserHref ? (
         <Link
           href={topUserHref}

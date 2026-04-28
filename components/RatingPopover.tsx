@@ -184,8 +184,8 @@ export default function RatingPopover({
                       onClick={() => void submitRating(score)}
                       className={`rounded-md border px-0 py-1.5 text-sm font-medium transition-all duration-150 ${
                         isActive
-                          ? "border-yellow-400/80 bg-yellow-400/20 text-yellow-200"
-                          : "border-white/10 bg-zinc-900 text-zinc-300 hover:border-white/30 hover:bg-zinc-800"
+                          ? "border-violet-400/80 bg-violet-500/20 text-violet-100"
+                          : "border-white/10 bg-zinc-900 text-zinc-300 hover:border-violet-300/70 hover:bg-violet-900/30"
                       } ${isSaving ? "cursor-not-allowed opacity-70" : "hover:scale-[1.03]"}`}
                     >
                       {score}

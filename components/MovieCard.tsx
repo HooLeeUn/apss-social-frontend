@@ -206,7 +206,12 @@ function MovieCard({
               </>
             )}
           </div>
-          {isFeed ? <CommentDetailButton href={detailHref} title={displayTitle} className="ml-auto h-8 w-8 shrink-0" /> : null}
+          {isFeed ? (
+            <div className="relative ml-auto">
+              <span aria-hidden="true" className="pointer-events-none absolute -top-4 right-1 text-xs text-violet-200/85 drop-shadow-[0_0_7px_rgba(167,139,250,0.45)]">☝️</span>
+              <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
+            </div>
+          ) : null}
         </div>
       </div>
     </article>
