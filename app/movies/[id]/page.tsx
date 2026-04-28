@@ -1258,7 +1258,7 @@ export default function MovieDetailPage() {
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">{movieError}</div>
         ) : null}
         {!movieLoading && !movieError && movie ? (
-          <MovieCard movie={movie} variant="feed" linkToDetail={false} showExtendedMetadata onRated={handleMovieRated} />
+          <MovieCard movie={movie} variant="feed" linkToDetail={false} showExtendedMetadata highlightMyRatingSlot onRated={handleMovieRated} />
         ) : null}
 
         <CommentComposer friends={friends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} />
