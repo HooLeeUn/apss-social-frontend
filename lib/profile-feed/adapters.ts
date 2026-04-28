@@ -41,13 +41,20 @@ const PROFILE_ME_MESSAGES_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES
 const PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT || "/me/messages/summary/";
 const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
-const PROFILE_ME_NOTIFICATIONS_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_ENDPOINT || "/me/notifications/";
+function normalizeApiEndpoint(endpoint: string): string {
+  if (!endpoint) return endpoint;
+  return endpoint.startsWith("/api/") ? endpoint.slice(4) : endpoint;
+}
+
+const PROFILE_ME_NOTIFICATIONS_ENDPOINT = normalizeApiEndpoint(
+  process.env.NEXT_PUBLIC_PROFILE_ME_NOTIFICATIONS_ENDPOINT || "/me/notifications/",
+);
 const NOTIFICATIONS_MARK_ALL_READ_ENDPOINT =
-  process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_ALL_READ_ENDPOINT || "/api/notifications/mark-all-read/";
+  normalizeApiEndpoint(process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_ALL_READ_ENDPOINT || "/notifications/mark-all-read/");
 const NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT =
-  process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT || "/api/notifications/mark-read-batch/";
+  normalizeApiEndpoint(process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT || "/notifications/mark-read-batch/");
 const NOTIFICATIONS_MARK_CONTEXT_READ_ENDPOINT =
-  process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_CONTEXT_READ_ENDPOINT || "/api/notifications/mark-context-read/";
+  normalizeApiEndpoint(process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_CONTEXT_READ_ENDPOINT || "/notifications/mark-context-read/");
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
