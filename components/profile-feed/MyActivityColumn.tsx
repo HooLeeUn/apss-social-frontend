@@ -41,6 +41,11 @@ function getActivityRelativeDate(item: SocialActivityItem): string {
   return item.activityAt ?? item.updatedAt ?? item.createdAt;
 }
 
+function getActivitySortTimestamp(item: SocialActivityItem): number {
+  const sortDate = item.activityAt ?? item.updatedAt ?? item.createdAt;
+  return new Date(sortDate).getTime();
+}
+
 function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): string {
   const safeMovieTitle = item.movieTitle || "título";
   const ratedVerb = isOwnProfile ? "Calificaste" : "Calificó";
@@ -623,9 +628,7 @@ export default function MyActivityColumn({
   const ownActivityItems = useMemo(() => {
     return activity.items
       .filter((item) => isPublicOwnActivityItem(item, myUsername))
-      .sort(
-        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
-      );
+      .sort((left, right) => getActivitySortTimestamp(right) - getActivitySortTimestamp(left));
   }, [activity.items, myUsername]);
 
   const ownRatedItems = useMemo(() => {
