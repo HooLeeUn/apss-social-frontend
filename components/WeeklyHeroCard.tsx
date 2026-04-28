@@ -112,8 +112,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                 </p>
               </div>
               <div className="interaction-icons pointer-events-none absolute right-12 top-2.5 z-10" aria-hidden="true">
-                <span className="interaction-icon interaction-icon--up px-[5px] py-[3px] text-[23px]">☝️</span>
-                <span className="interaction-icon interaction-icon--ok px-[5px] py-[3px] text-[23px]">👌</span>
+                <span className="interaction-icon interaction-icon--up px-[4px] py-[2px] text-[20px]">☝️</span>
+                <span className="interaction-icon interaction-icon--ok px-[4px] py-[2px] text-[20px]">👌</span>
               </div>
               <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0" />
             </div>

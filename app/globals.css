@@ -76,6 +76,10 @@ textarea,
   gap: 6px;
 }
 
+.interaction-icons--feed-top {
+  gap: 9px;
+}
+
 .interaction-icon {
   display: flex;
   align-items: center;
@@ -104,6 +108,11 @@ textarea,
 .interaction-icon--compact {
   padding: 3px 5px;
   font-size: 20px;
+}
+
+.interaction-icon--feed-top {
+  padding: 2px 4px;
+  font-size: 17px;
 }
 
 .interaction-icon--mini {

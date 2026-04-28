@@ -129,11 +129,11 @@ function MovieCard({
           ) : null}
           {isFeed && highlightMyRatingSlot && !showExtendedMetadata ? (
             <div
-              className="interaction-icons pointer-events-none absolute right-[3.2rem] top-[3.65rem] z-10"
+              className="interaction-icons interaction-icons--feed-top pointer-events-none absolute right-[3.2rem] top-[3.65rem] z-10"
               aria-hidden="true"
             >
-              <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
-              <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
+              <span className="interaction-icon interaction-icon--compact interaction-icon--feed-top interaction-icon--up">☝️</span>
+              <span className="interaction-icon interaction-icon--compact interaction-icon--feed-top interaction-icon--ok">👌</span>
             </div>
           ) : null}
         </div>
