@@ -211,21 +211,21 @@ function MovieCard({
               <div
                 className={`interaction-icons pointer-events-none absolute z-10 ${
                   highlightMyRatingSlot
-                    ? "left-1/2 top-1 -translate-x-1/2"
-                    : "-left-[4.9rem] -top-8"
+                    ? "left-[44%] top-0 -translate-x-1/2"
+                    : "right-10 -top-9"
                 }`}
                 aria-hidden="true"
               >
-                <span className="interaction-icon interaction-icon--up">☝️</span>
-                <span className="interaction-icon interaction-icon--ok">👌</span>
+                <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
+                <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
               </div>
               <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
             </div>
           ) : (
             <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
               <div className="interaction-icons">
-                <span className="interaction-icon interaction-icon--up">☝️</span>
-                <span className="interaction-icon interaction-icon--ok">👌</span>
+                <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
+                <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
               </div>
             </div>
           )}

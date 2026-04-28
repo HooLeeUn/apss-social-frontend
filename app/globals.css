@@ -99,3 +99,9 @@ textarea,
   border-color: rgba(59, 130, 246, 0.9);
   box-shadow: 0 0 11px rgba(59, 130, 246, 0.3), 0 6px 14px rgba(15, 23, 42, 0.28);
 }
+
+
+.interaction-icon--compact {
+  padding: 3px 5px;
+  font-size: 20px;
+}
