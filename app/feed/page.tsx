@@ -630,6 +630,7 @@ export default function FeedPage() {
                   key={movie.id}
                   movie={movie}
                   variant="feed"
+                  highlightMyRatingSlot
                   onRated={handlePersonalizedRated}
                 />
               ))}
