@@ -169,10 +169,10 @@ function MovieCard({
           <div
             className={
               isFeed
-                ? `flex items-center gap-1 rounded-md border px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
-                    highlightMyRatingSlot
+                ? `flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
+                    highlightMyRatingSlot && !onRated
                       ? "border-blue-400/65 bg-blue-950/40 shadow-[0_4px_12px_rgba(59,130,246,0.24)] hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_8px_16px_rgba(59,130,246,0.3)]"
-                      : "border-transparent"
+                      : ""
                   }`
                 : ""
             }
