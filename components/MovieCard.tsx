@@ -217,19 +217,6 @@ function MovieCard({
           </div>
           {isFeed ? (
             <div className={`relative ml-auto ${highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
-              <div
-                className={`interaction-icons pointer-events-none absolute z-10 ${
-                  highlightMyRatingSlot
-                    ? showExtendedMetadata
-                      ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2"
-                      : "hidden"
-                    : "right-10 -top-9"
-                }`}
-                aria-hidden="true"
-              >
-                <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
-                <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
-              </div>
               <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
             </div>
           ) : (
