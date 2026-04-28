@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
-import { getMyProfile } from "../../lib/profile-feed/adapters";
+import { getMyProfile, getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
 import { SocialTab } from "../../lib/profile-feed/types";
 import SocialActivityCard from "./SocialActivityCard";
 
@@ -34,6 +34,10 @@ export default function SocialActivityTabsBlock() {
   const [activeTab, setActiveTab] = useState<SocialTab>("following");
   const [authenticatedUsername, setAuthenticatedUsername] = useState<string | null>(null);
   const [authenticatedId, setAuthenticatedId] = useState<string | null>(null);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [followingUsernames, setFollowingUsernames] = useState<Set<string>>(new Set());
+  const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
+  const [friendUsernames, setFriendUsernames] = useState<Set<string>>(new Set());
   const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activeTab);
   const activeTabMeta = tabs.find((tab) => tab.value === activeTab) || tabs[0];
 
@@ -45,6 +49,19 @@ export default function SocialActivityTabsBlock() {
     };
 
     void loadAuthenticatedUser();
+  }, []);
+
+  useEffect(() => {
+    const loadRelationshipSets = async () => {
+      const [following, friends] = await Promise.all([getTopFollowing().catch(() => []), getTopFriends().catch(() => [])]);
+
+      setFollowingIds(new Set(following.map((user) => String(user?.id ?? "").trim()).filter(Boolean)));
+      setFollowingUsernames(new Set(following.map((user) => user?.username?.trim().toLocaleLowerCase() || "").filter(Boolean)));
+      setFriendIds(new Set(friends.map((user) => String(user?.id ?? "").trim()).filter(Boolean)));
+      setFriendUsernames(new Set(friends.map((user) => user?.username?.trim().toLocaleLowerCase() || "").filter(Boolean)));
+    };
+
+    void loadRelationshipSets();
   }, []);
 
   const visibleItems = useMemo(
@@ -83,9 +100,18 @@ export default function SocialActivityTabsBlock() {
 
         const isOwnByUsername = normalizedAuthenticatedUsername ? usernames.includes(normalizedAuthenticatedUsername) : false;
         const isOwnById = normalizedAuthenticatedId ? ids.includes(normalizedAuthenticatedId) : false;
-        return !isOwnByUsername && !isOwnById;
+        if (isOwnByUsername || isOwnById) return false;
+
+        const belongsToFollowing =
+          usernames.some((username) => followingUsernames.has(username)) || ids.some((id) => followingIds.has(id));
+        const belongsToFriends = usernames.some((username) => friendUsernames.has(username)) || ids.some((id) => friendIds.has(id));
+
+        if (activeTab === "following") return belongsToFollowing;
+        if (activeTab === "friends") return belongsToFriends;
+
+        return false;
       }),
-    [authenticatedId, authenticatedUsername, items],
+    [activeTab, authenticatedId, authenticatedUsername, followingIds, followingUsernames, friendIds, friendUsernames, items],
   );
 
   return (
