@@ -166,8 +166,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                 <p className="text-[10px] text-zinc-500">{formatFollowingRatingsCount(movie?.followingRatingsCount)}</p>
               ) : null}
             </div>
-            <div className="rounded-lg border border-blue-500/35 bg-zinc-900/60 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-300">MI CALIF.</p>
+            <div className="rounded-lg border border-blue-400/60 bg-blue-950/35 px-3 py-2 shadow-[0_4px_12px_rgba(59,130,246,0.22)] transition-all duration-150 hover:-translate-y-px hover:border-blue-300/80 hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
+              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">MI CALIF.</p>
               <div className="mt-1">
                 {movie && onRated ? (
                   <RatingPopover
@@ -176,10 +176,10 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                     onRated={(score, payload) => onRated(movie.id, score, payload)}
                     nullLabel="—"
                     ariaLabel="Mi calificación"
-                    className="w-full [&_button]:w-full [&_button]:justify-between [&_button]:border-blue-500/40 [&_button]:text-blue-200 [&_button:hover]:border-blue-400/80"
+                    className="w-full [&_button]:w-full [&_button]:justify-between [&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/50 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
                   />
                 ) : (
-                  <p className="text-base font-semibold text-blue-200">🙋 {formatMyRating(movie?.myRating)}</p>
+                  <p className="text-base font-semibold text-blue-100">🙋 {formatMyRating(movie?.myRating)}</p>
                 )}
               </div>
             </div>

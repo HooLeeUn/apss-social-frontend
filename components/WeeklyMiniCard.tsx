@@ -160,11 +160,11 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                       onRated={(score, payload) => onRated(movie.id, score, payload)}
                       nullLabel="—"
                       ariaLabel="Mi calificación"
-                      className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:border-blue-500/35 [&_button]:bg-zinc-950/80 [&_button]:px-1 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-200"
+                      className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:px-1 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-100 [&_button]:shadow-[0_3px_10px_rgba(59,130,246,0.24)] [&_button:hover]:-translate-y-px [&_button:hover]:border-blue-300/90 [&_button:hover]:shadow-[0_7px_15px_rgba(59,130,246,0.3)]"
                     />
                   ) : (
-                    <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-blue-500/35 bg-zinc-950/80 px-1 py-1 text-center">
-                      <span className="text-[10px] font-semibold text-blue-200">🙋 {formatMyRating(movie?.myRating)}</span>
+                    <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-blue-400/65 bg-blue-950/45 px-1 py-1 text-center shadow-[0_3px_10px_rgba(59,130,246,0.24)] transition-all duration-150 hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_7px_15px_rgba(59,130,246,0.3)]">
+                      <span className="text-[10px] font-semibold text-blue-100">🙋 {formatMyRating(movie?.myRating)}</span>
                     </span>
                   )}
                 </div>
