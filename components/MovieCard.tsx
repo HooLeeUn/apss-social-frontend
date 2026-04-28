@@ -53,7 +53,7 @@ function MovieCard({
     <article
       className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
-      } ${isLarge || isFeed ? "flex" : ""}`}
+      } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative" : ""}`}
     >
       <div
         className={`group relative flex-shrink-0 ${isFeed ? "h-[164px] w-[108px] bg-zinc-900 sm:h-[172px] sm:w-[114px]" : "bg-gray-200"} ${
@@ -125,6 +125,15 @@ function MovieCard({
                   <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>Casting:</span> {castPreview.join(" · ")}
                 </p>
               ) : null}
+            </div>
+          ) : null}
+          {isFeed && highlightMyRatingSlot && !showExtendedMetadata ? (
+            <div
+              className="interaction-icons pointer-events-none absolute right-[3.2rem] top-[3.65rem] z-10"
+              aria-hidden="true"
+            >
+              <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
+              <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
             </div>
           ) : null}
         </div>
@@ -211,7 +220,9 @@ function MovieCard({
               <div
                 className={`interaction-icons pointer-events-none absolute z-10 ${
                   highlightMyRatingSlot
-                    ? "left-[44%] top-0 -translate-x-1/2"
+                    ? showExtendedMetadata
+                      ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2"
+                      : "hidden"
                     : "right-10 -top-9"
                 }`}
                 aria-hidden="true"
