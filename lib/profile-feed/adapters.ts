@@ -532,6 +532,8 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     followingRatingsCount: followingRatingsCount > 0 ? followingRatingsCount : undefined,
     myRating: myRating ?? undefined,
     createdAt: item.created_at,
+    activityAt: toStringOrNull(pickFirst(activityRecord.activity_at, item.activity_at)),
+    updatedAt: toStringOrNull(pickFirst(activityRecord.updated_at, item.updated_at)),
     interactionType,
     isDirectedComment: isDirectedComment || undefined,
     directedCommentTargetUsername: directedCommentTargetUsername ?? undefined,

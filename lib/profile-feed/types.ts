@@ -84,6 +84,8 @@ export interface SocialActivityItem {
   followingRatingsCount?: number;
   myRating?: number;
   createdAt: string;
+  activityAt?: string | null;
+  updatedAt?: string | null;
   interactionType: InteractionType;
   isDirectedComment?: boolean;
   directedCommentTargetUsername?: string;
@@ -201,6 +203,8 @@ export interface ProfileFeedActivityResponseItem {
   id: string;
   activity_type: SocialActivityType;
   created_at: string;
+  updated_at?: string | null;
+  activity_at?: string | null;
   actor: ProfileFeedActivityActor;
   movie: ProfileFeedActivityMovie;
   payload: ProfileFeedActivityPayload;
