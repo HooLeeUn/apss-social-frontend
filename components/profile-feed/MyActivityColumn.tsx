@@ -192,7 +192,9 @@ function isPublicOwnActivityItem(item: SocialActivityItem, myUsername?: string |
       normalizeUsername(item.user.username) === normalizedMyUsername ||
       normalizeUsername(item.reactionActorUsername) === normalizedMyUsername ||
       normalizeUsername(item.likedCommentAuthorUsername) === normalizedMyUsername ||
-      normalizeUsername(item.directedCommentTargetUsername) === normalizedMyUsername
+      normalizeUsername(item.directedCommentTargetUsername) === normalizedMyUsername ||
+      item.isGivenReaction === true ||
+      item.isReceivedReaction === true
     );
   }
 

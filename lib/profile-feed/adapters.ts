@@ -873,7 +873,25 @@ function filterUsernameScopedActivity(items: SocialActivityItem[], username: str
   const normalizedExpected = username.trim().toLocaleLowerCase();
   if (!normalizedExpected || items.length === 0) return items;
 
-  return items.filter((item) => item.user.username.toLocaleLowerCase() === normalizedExpected);
+  return items.filter((item) => {
+    const normalizedActivityType = item.activityType?.trim().toLocaleLowerCase() || "";
+    const isPublicCommentReactionType =
+      normalizedActivityType === "public_comment_reaction" ||
+      normalizedActivityType === "public_comment_like" ||
+      normalizedActivityType === "public_comment_dislike";
+
+    if (!isPublicCommentReactionType) {
+      return item.user.username.toLocaleLowerCase() === normalizedExpected;
+    }
+
+    return (
+      item.user.username.toLocaleLowerCase() === normalizedExpected ||
+      item.reactionActorUsername?.toLocaleLowerCase() === normalizedExpected ||
+      item.likedCommentAuthorUsername?.toLocaleLowerCase() === normalizedExpected ||
+      item.isGivenReaction === true ||
+      item.isReceivedReaction === true
+    );
+  });
 }
 
 function buildActivityScopeEndpoint(scope: SocialActivityScope): string {
