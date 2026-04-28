@@ -53,7 +53,10 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
 
   return (
     <article className="relative h-full pl-4">
-      <span aria-hidden="true" className="pointer-events-none absolute right-2 top-[52%] z-10 text-xs text-violet-200/85 drop-shadow-[0_0_7px_rgba(167,139,250,0.45)]">☝️</span>
+      <div className="interaction-icons pointer-events-none absolute left-10 top-[59%] z-10" aria-hidden="true">
+        <span className="interaction-icon interaction-icon--up">☝️</span>
+        <span className="interaction-icon interaction-icon--ok">👌</span>
+      </div>
       {topUserHref ? (
         <Link
           href={topUserHref}

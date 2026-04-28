@@ -208,10 +208,20 @@ function MovieCard({
           </div>
           {isFeed ? (
             <div className="relative ml-auto">
-              <span aria-hidden="true" className="pointer-events-none absolute -top-4 right-1 text-xs text-violet-200/85 drop-shadow-[0_0_7px_rgba(167,139,250,0.45)]">☝️</span>
+              <div className="interaction-icons pointer-events-none absolute -left-[4.9rem] -top-5 z-10" aria-hidden="true">
+                <span className="interaction-icon interaction-icon--up">☝️</span>
+                <span className="interaction-icon interaction-icon--ok">👌</span>
+              </div>
               <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
             </div>
-          ) : null}
+          ) : (
+            <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
+              <div className="interaction-icons">
+                <span className="interaction-icon interaction-icon--up">☝️</span>
+                <span className="interaction-icon interaction-icon--ok">👌</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </article>
