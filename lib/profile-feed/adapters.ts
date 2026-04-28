@@ -1448,11 +1448,11 @@ export async function getSocialActivity(
     }
 
     const attempts: string[] = [];
+    attempts.push(`${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ scope: "me" }).toString()}`);
+    attempts.push(PROFILE_FEED_ACTIVITY_ENDPOINT);
     if (myUsername) {
       attempts.push(buildUserActivityEndpoint(myUsername));
     }
-    attempts.push(`${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ scope: "me" }).toString()}`);
-    attempts.push(PROFILE_FEED_ACTIVITY_ENDPOINT);
 
     for (const endpoint of attempts) {
       try {
