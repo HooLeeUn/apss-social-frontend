@@ -189,10 +189,10 @@ function isPublicOwnActivityItem(item: SocialActivityItem, myUsername?: string |
     if (!normalizedMyUsername) return false;
 
     return (
-      normalizeUsername(item.actor?.username) === normalizedMyUsername ||
+      normalizeUsername(item.user.username) === normalizedMyUsername ||
+      normalizeUsername(item.reactionActorUsername) === normalizedMyUsername ||
       normalizeUsername(item.likedCommentAuthorUsername) === normalizedMyUsername ||
-      normalizeUsername(item.payload?.comment_author?.username) === normalizedMyUsername ||
-      normalizeUsername(item.targetUser?.username) === normalizedMyUsername
+      normalizeUsername(item.directedCommentTargetUsername) === normalizedMyUsername
     );
   }
 
@@ -618,9 +618,7 @@ export default function MyActivityColumn({
     return activity.items
       .filter((item) => isPublicOwnActivityItem(item, myUsername))
       .sort(
-        (left, right) =>
-          new Date(right.activityAt ?? right.updatedAt ?? right.createdAt).getTime() -
-          new Date(left.activityAt ?? left.updatedAt ?? left.createdAt).getTime(),
+        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
       );
   }, [activity.items, myUsername]);
 
