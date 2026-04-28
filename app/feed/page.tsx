@@ -18,7 +18,8 @@ import {
   getMyNotificationsSummary,
   getMyProfile,
   isRealNotificationId,
-  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  markNotificationsAsReadBatch,
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
@@ -115,6 +116,7 @@ export default function FeedPage() {
   const personalizedLoadMoreAbortControllerRef = useRef<AbortController | null>(null);
   const excludedRatedIdsRef = useRef<Set<string>>(new Set());
   const notificationContainerRef = useRef<HTMLDivElement | null>(null);
+  const isRefreshingNotificationsRef = useRef(false);
 
   useEffect(() => {
     const token = getToken();
@@ -162,29 +164,39 @@ export default function FeedPage() {
     loadFeed();
   }, [router]);
 
+  const refreshNotifications = useCallback(async () => {
+    if (isRefreshingNotificationsRef.current) return;
+    isRefreshingNotificationsRef.current = true;
+
+    try {
+      const notificationsSummary = await getMyNotificationsSummary().catch(async () => {
+        const fallbackMessagesSummary = await getMyMessagesSummary();
+        return {
+          totalUnread: fallbackMessagesSummary.unreadCount,
+          items: [] as MyNotificationItem[],
+        };
+      });
+      setUnreadNotificationsCount(notificationsSummary.totalUnread);
+      setNotificationItems(notificationsSummary.items);
+    } catch (notificationError) {
+      console.warn("No se pudo refrescar notificaciones.", notificationError);
+    } finally {
+      isRefreshingNotificationsRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     const token = getToken();
     if (!token) return;
 
     const loadProfileContext = async () => {
       try {
-        const [personalData, profile, notificationsSummary] = await Promise.all([
-          getPersonalData(),
-          getMyProfile(),
-          getMyNotificationsSummary().catch(async () => {
-            const fallbackMessagesSummary = await getMyMessagesSummary();
-            return {
-              totalUnread: fallbackMessagesSummary.unreadCount,
-              items: [] as MyNotificationItem[],
-            };
-          }),
-        ]);
+        const [personalData, profile] = await Promise.all([getPersonalData(), getMyProfile()]);
         setProfileAvatarUrl(personalData.avatar);
         setCurrentUserId(profile?.id ?? null);
-        setUnreadNotificationsCount(notificationsSummary.totalUnread);
-        setNotificationItems(notificationsSummary.items);
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
+        await refreshNotifications();
       } catch (avatarError) {
         console.warn("No se pudo cargar el avatar del perfil para feed:", avatarError);
         setProfileAvatarUrl(null);
@@ -195,7 +207,20 @@ export default function FeedPage() {
     };
 
     void loadProfileContext();
-  }, []);
+  }, [refreshNotifications]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const intervalId = window.setInterval(() => {
+      void refreshNotifications();
+    }, 60000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [refreshNotifications]);
 
   const fetchPersonalizedMovies = useCallback(
     async (genres: string[]) => {
@@ -342,8 +367,14 @@ export default function FeedPage() {
   }, [router]);
 
   const handleBellClick = useCallback(() => {
-    setIsNotificationPanelOpen((current) => !current);
-  }, []);
+    setIsNotificationPanelOpen((current) => {
+      const nextState = !current;
+      if (nextState) {
+        void refreshNotifications();
+      }
+      return nextState;
+    });
+  }, [refreshNotifications]);
 
   const handleNotificationItemClick = useCallback(
     async (item: MyNotificationItem) => {
@@ -354,12 +385,7 @@ export default function FeedPage() {
 
       try {
         if (isRealNotificationId(item.id)) {
-          const updated = await markNotificationAsRead(item.id);
-          if (updated > 0) {
-            const refreshedSummary = await getMyNotificationsSummary();
-            setNotificationItems(refreshedSummary.items);
-            setUnreadNotificationsCount(refreshedSummary.totalUnread);
-          }
+          await markNotificationsAsReadBatch([item.id]);
         } else {
           console.warn("Notification without real id, skipping mark-read");
         }
@@ -371,6 +397,30 @@ export default function FeedPage() {
     },
     [notificationItems, router],
   );
+
+  const handleMarkAllNotificationsAsRead = useCallback(async () => {
+    const visibleNotificationIds = notificationItems.map((item) => item.id).filter((id) => isRealNotificationId(id));
+    setNotificationItems([]);
+    setUnreadNotificationsCount(0);
+
+    try {
+      await markAllNotificationsAsRead();
+    } catch (markAllError) {
+      if (visibleNotificationIds.length > 0) {
+        try {
+          await markNotificationsAsReadBatch(visibleNotificationIds);
+        } catch (batchError) {
+          console.warn("No se pudo marcar notificaciones en lote.", batchError);
+          await refreshNotifications();
+          return;
+        }
+      } else {
+        console.warn("No se pudo marcar todas las notificaciones como leídas.", markAllError);
+        await refreshNotifications();
+        return;
+      }
+    }
+  }, [notificationItems, refreshNotifications]);
 
   const updateWeeklyMovieRating = useCallback((movieId: Movie["id"], score: number, _payload?: unknown) => {
     void _payload;
@@ -461,7 +511,18 @@ export default function FeedPage() {
                     ref={notificationContainerRef}
                     className="absolute right-14 top-0 z-[70] w-[310px] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md md:right-16"
                   >
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">Notificaciones</p>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">Notificaciones</p>
+                      {notificationItems.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={handleMarkAllNotificationsAsRead}
+                          className="text-[11px] font-semibold text-blue-300 transition hover:text-blue-200"
+                        >
+                          Marcar todo como leído
+                        </button>
+                      ) : null}
+                    </div>
                     <div className="activity-scrollbar max-h-[300px] space-y-2 overflow-y-auto pr-1">
                       {notificationItems.length > 0 ? (
                         notificationItems.map((item) => (
