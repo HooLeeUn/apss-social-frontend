@@ -114,7 +114,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                 )}
                 <span className="sr-only">{topUsername}</span>
               </div>
-              <div className="interaction-icons pointer-events-none absolute right-12 top-2.5 z-10" aria-hidden="true">
+              <div className="interaction-icons pointer-events-none absolute right-12 top-0.5 z-10" aria-hidden="true">
                 <img src="/icons/tag.png" alt="" className="interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg" />
                 <img src="/icons/Ticket.png" alt="" className="interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg" />
               </div>
