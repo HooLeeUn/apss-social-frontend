@@ -255,7 +255,7 @@ export default function SearchPage() {
             <div className="mx-auto w-full max-w-[860px] rounded-2xl bg-zinc-950/45 px-3 py-3 sm:px-4 sm:py-4">
               <div className="grid gap-3 md:grid-cols-2">
                 {movies.map((movie) => (
-                  <MovieCard key={movie.id} movie={movie} variant="feed" />
+                  <MovieCard key={movie.id} movie={movie} variant="feed" enlargeInteractionIcons />
                 ))}
               </div>
             </div>
