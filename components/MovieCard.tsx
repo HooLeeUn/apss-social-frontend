@@ -134,8 +134,8 @@ function MovieCard({
               className="interaction-icons pointer-events-none absolute right-2 top-[4.85rem] z-10"
               aria-hidden="true"
             >
-              <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--up">☝️</span>
-              <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--ok">👌</span>
+              <img src="/icons/tag-icon.svg" alt="" className="interaction-icon interaction-icon--compact interaction-icon--feed-sm" />
+              <img src="/icons/ticket-icon.svg" alt="" className="interaction-icon interaction-icon--compact interaction-icon--feed-sm" />
             </div>
           ) : null}
         </div>
@@ -230,8 +230,8 @@ function MovieCard({
                   }`}
                   aria-hidden="true"
                 >
-                  <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--up">☝️</span>
-                  <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--ok">👌</span>
+                  <img src="/icons/tag-icon.svg" alt="" className="interaction-icon interaction-icon--compact interaction-icon--feed-sm" />
+                  <img src="/icons/ticket-icon.svg" alt="" className="interaction-icon interaction-icon--compact interaction-icon--feed-sm" />
                 </div>
               ) : null}
               <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
@@ -239,8 +239,8 @@ function MovieCard({
           ) : (
             <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
               <div className="interaction-icons">
-                <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
-                <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
+                <img src="/icons/tag-icon.svg" alt="" className="interaction-icon interaction-icon--compact" />
+                <img src="/icons/ticket-icon.svg" alt="" className="interaction-icon interaction-icon--compact" />
               </div>
             </div>
           )}
