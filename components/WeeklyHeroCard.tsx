@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { memo, useState } from "react";
 import { Movie } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
@@ -112,8 +113,12 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                 </p>
               </div>
               <div className="interaction-icons pointer-events-none absolute right-12 top-2.5 z-10" aria-hidden="true">
-                <span className="interaction-icon interaction-icon--hero-sm interaction-icon--up">☝️</span>
-                <span className="interaction-icon interaction-icon--hero-sm interaction-icon--ok">👌</span>
+                <span className="interaction-icon interaction-icon--hero-sm interaction-icon--up">
+                  <Image src="/icons/interaction-tag-icon.svg" alt="" width={26} height={26} className="h-full w-full object-contain" />
+                </span>
+                <span className="interaction-icon interaction-icon--hero-sm interaction-icon--ok">
+                  <Image src="/icons/interaction-popcorn-icon.svg" alt="" width={26} height={26} className="h-full w-full object-contain" />
+                </span>
               </div>
               <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0" />
             </div>

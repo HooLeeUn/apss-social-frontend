@@ -632,6 +632,7 @@ export default function FeedPage() {
                   variant="feed"
                   highlightMyRatingSlot
                   showBottomInteractionIcons={false}
+                  useInteractionPictograms
                   onRated={handlePersonalizedRated}
                 />
               ))}

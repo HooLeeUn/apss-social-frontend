@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { memo, useState } from "react";
 import { Movie } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
@@ -54,8 +55,12 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
   return (
     <article className="relative h-full pl-4">
       <div className="interaction-icons pointer-events-none absolute left-10 top-[59%] z-10" aria-hidden="true">
-        <span className="interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--up">☝️</span>
-        <span className="interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--ok">👌</span>
+        <span className="interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--up">
+          <Image src="/icons/interaction-tag-icon.svg" alt="" width={22} height={22} className="h-full w-full object-contain" />
+        </span>
+        <span className="interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--ok">
+          <Image src="/icons/interaction-popcorn-icon.svg" alt="" width={22} height={22} className="h-full w-full object-contain" />
+        </span>
       </div>
       {topUserHref ? (
         <Link
