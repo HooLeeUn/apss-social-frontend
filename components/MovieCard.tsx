@@ -17,6 +17,7 @@ interface MovieCardProps {
   showBottomInteractionIcons?: boolean;
   enlargeInteractionIcons?: boolean;
   pinInteractionIconsToMetadataRow?: boolean;
+  compactRatingsRow?: boolean;
 }
 
 function formatContentType(contentType: string) {
@@ -37,6 +38,7 @@ function MovieCard({
   showBottomInteractionIcons = true,
   enlargeInteractionIcons: _enlargeInteractionIcons = false,
   pinInteractionIconsToMetadataRow = false,
+  compactRatingsRow = false,
 }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -149,11 +151,11 @@ function MovieCard({
         <div
           className={`mt-2 rounded-lg border ${
             isFeed
-              ? "flex items-center gap-2 border-white/10 bg-black/35 px-2.5 py-2 text-zinc-200"
+              ? `flex items-center border-white/10 bg-black/35 px-2.5 py-2 text-zinc-200 ${compactRatingsRow ? "gap-3 sm:gap-4" : "gap-2"}`
               : "grid grid-cols-3 gap-1.5 border-gray-200 bg-gray-50 px-2 py-2 text-center text-gray-700"
           }`}
         >
-          <div className={isFeed ? "flex items-center gap-1 text-sm font-semibold" : ""}>
+          <div className={isFeed ? `flex items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
             {isFeed ? (
               <>
                 <span aria-hidden="true">⭐</span>
@@ -166,11 +168,14 @@ function MovieCard({
               </>
             )}
           </div>
-          <div className={isFeed ? "flex items-center gap-1 text-sm font-semibold" : ""}>
+          <div className={isFeed ? `flex items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
             {isFeed ? (
-              <div className="flex flex-col leading-tight">
+              <div
+                className="flex leading-tight"
+                title={formatFollowingRatingsCount(movie.followingRatingsCount) || undefined}
+              >
                 <span className="font-semibold" aria-label="Calificación de seguidos">👥 {formatFollowingRating(movie.followingAvgRating)}</span>
-                {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
+                {!compactRatingsRow && formatFollowingRatingsCount(movie.followingRatingsCount) ? (
                   <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</span>
                 ) : null}
               </div>
@@ -187,7 +192,7 @@ function MovieCard({
           <div
             className={
               isFeed
-                ? `flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
+                ? `flex items-center ${compactRatingsRow ? "gap-1.5" : "gap-1"} rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
                     highlightMyRatingSlot && !onRated
                       ? "border-blue-400/65 bg-blue-950/40 shadow-[0_4px_12px_rgba(59,130,246,0.24)] hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_8px_16px_rgba(59,130,246,0.3)]"
                       : ""

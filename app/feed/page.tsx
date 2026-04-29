@@ -633,6 +633,7 @@ export default function FeedPage() {
                   enlargeInteractionIcons
                   highlightMyRatingSlot
                   showBottomInteractionIcons={false}
+                  compactRatingsRow
                   onRated={handlePersonalizedRated}
                 />
               ))}
