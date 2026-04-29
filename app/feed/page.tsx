@@ -631,6 +631,7 @@ export default function FeedPage() {
                   movie={movie}
                   variant="feed"
                   highlightMyRatingSlot
+                  showBottomInteractionIcons={false}
                   onRated={handlePersonalizedRated}
                 />
               ))}

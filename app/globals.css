@@ -105,3 +105,18 @@ textarea,
   padding: 3px 5px;
   font-size: 20px;
 }
+
+.interaction-icon--mini {
+  padding: 2px 4px;
+  font-size: 16px;
+}
+
+.interaction-icon--hero-sm {
+  padding: 3px 5px;
+  font-size: 21px;
+}
+
+.interaction-icon--feed-sm {
+  padding: 2px 4px;
+  font-size: 17px;
+}
