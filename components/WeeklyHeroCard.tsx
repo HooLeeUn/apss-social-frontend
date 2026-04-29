@@ -74,6 +74,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                   <Link
                     href={topUserHref}
                     aria-label={`Ir al perfil de ${topUsername}`}
+                    title={topUsername}
                     className="flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white/25 bg-zinc-800 text-xs font-semibold text-zinc-100"
                   >
                     {topUserAvatar && !hasAvatarError ? (
@@ -91,7 +92,11 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                     )}
                   </Link>
                 ) : (
-                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/25 bg-zinc-800 text-xs font-semibold text-zinc-100">
+                  <div
+                    title={topUsername}
+                    aria-label={`Top user: ${topUsername}`}
+                    className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/25 bg-zinc-800 text-xs font-semibold text-zinc-100"
+                  >
                     {topUserAvatar && !hasAvatarError ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -107,9 +112,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                     )}
                   </div>
                 )}
-                <p className="max-w-[150px] truncate text-left text-[11px] uppercase tracking-[0.15em] text-zinc-400">
-                  {topUsername}
-                </p>
+                <span className="sr-only">{topUsername}</span>
               </div>
               <div className="interaction-icons pointer-events-none absolute right-12 top-2.5 z-10" aria-hidden="true">
                 <img src="/icons/tag.png" alt="" className="interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg" />
