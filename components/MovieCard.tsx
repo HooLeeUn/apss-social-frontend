@@ -16,6 +16,7 @@ interface MovieCardProps {
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
   showBottomInteractionIcons?: boolean;
   enlargeInteractionIcons?: boolean;
+  pinInteractionIconsToMetadataRow?: boolean;
 }
 
 function formatContentType(contentType: string) {
@@ -35,6 +36,7 @@ function MovieCard({
   onRated,
   showBottomInteractionIcons = true,
   enlargeInteractionIcons: _enlargeInteractionIcons = false,
+  pinInteractionIconsToMetadataRow = false,
 }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -134,7 +136,7 @@ function MovieCard({
               ) : null}
             </div>
           ) : null}
-          {isFeed && highlightMyRatingSlot && !showExtendedMetadata ? (
+          {isFeed && (highlightMyRatingSlot || pinInteractionIconsToMetadataRow) && !showExtendedMetadata ? (
             <div
               className="interaction-icons pointer-events-none absolute right-2 top-[4.85rem] z-10"
               aria-hidden="true"
