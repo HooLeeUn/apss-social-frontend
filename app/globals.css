@@ -84,21 +84,41 @@ textarea,
 
 
 .interaction-icon--compact {
+  width: 25px;
+  height: 25px;
+}
+
+.interaction-icon--mini {
   width: 20px;
   height: 20px;
 }
 
-.interaction-icon--mini {
-  width: 16px;
-  height: 16px;
+.interaction-icon--hero-sm {
+  width: 26px;
+  height: 26px;
 }
 
-.interaction-icon--hero-sm {
+.interaction-icon--feed-sm {
   width: 21px;
   height: 21px;
 }
 
-.interaction-icon--feed-sm {
-  width: 17px;
-  height: 17px;
+.interaction-icon--compact-lg {
+  width: 44px;
+  height: 44px;
+}
+
+.interaction-icon--mini-lg {
+  width: 38px;
+  height: 38px;
+}
+
+.interaction-icon--hero-lg {
+  width: 50px;
+  height: 50px;
+}
+
+.interaction-icon--feed-lg {
+  width: 40px;
+  height: 40px;
 }
