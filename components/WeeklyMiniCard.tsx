@@ -61,6 +61,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
         <Link
           href={topUserHref}
           aria-label={`Ir al perfil de ${topUsername}`}
+          title={topUsername}
           className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]"
         >
           {topUserAvatar && !hasAvatarError ? (
@@ -78,7 +79,11 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
           )}
         </Link>
       ) : (
-        <div className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]">
+        <div
+          title={topUsername}
+          aria-label={`Top user: ${topUsername}`}
+          className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]"
+        >
           {topUserAvatar && !hasAvatarError ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
