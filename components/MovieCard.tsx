@@ -131,11 +131,11 @@ function MovieCard({
           ) : null}
           {isFeed && highlightMyRatingSlot && !showExtendedMetadata ? (
             <div
-              className="interaction-icons pointer-events-none absolute right-[3.2rem] top-[3.65rem] z-10"
+              className="interaction-icons pointer-events-none absolute right-2 top-[4.85rem] z-10"
               aria-hidden="true"
             >
-              <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
-              <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
+              <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--up">☝️</span>
+              <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--ok">👌</span>
             </div>
           ) : null}
         </div>
@@ -226,12 +226,12 @@ function MovieCard({
                       ? showExtendedMetadata
                         ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2"
                         : "hidden"
-                      : "right-10 -top-9"
+                        : "right-10 -top-7"
                   }`}
                   aria-hidden="true"
                 >
-                  <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
-                  <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
+                  <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--up">☝️</span>
+                  <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--ok">👌</span>
                 </div>
               ) : null}
               <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
