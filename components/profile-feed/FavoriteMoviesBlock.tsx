@@ -69,6 +69,10 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
     <div className="group relative isolate h-[180px] overflow-visible">
       <article className="relative h-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5.5 py-3.5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(7%_0%,100%_0%,93%_100%,0%_100%)]">
         <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-blue-300/10 opacity-80" />
+        <div className="interaction-icons pointer-events-none absolute left-2 top-[56%] z-20 -translate-y-1/2" aria-hidden="true">
+          <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
+          <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
+        </div>
         <div className="relative flex h-full min-w-0 pr-8">
           <div className="flex min-w-0 flex-1 flex-col justify-between">
             {movie ? (

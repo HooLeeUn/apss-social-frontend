@@ -68,7 +68,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
           </div>
 
           <div className="py-2">
-            <div className="flex items-start justify-between gap-4">
+            <div className="relative flex items-start justify-between gap-4">
               <div className="flex min-w-0 flex-col items-start gap-1">
                 {topUserHref ? (
                   <Link
@@ -110,6 +110,10 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                 <p className="max-w-[150px] truncate text-left text-[11px] uppercase tracking-[0.15em] text-zinc-400">
                   {topUsername}
                 </p>
+              </div>
+              <div className="interaction-icons pointer-events-none absolute right-12 top-2.5 z-10" aria-hidden="true">
+                <span className="interaction-icon interaction-icon--hero-sm interaction-icon--up">☝️</span>
+                <span className="interaction-icon interaction-icon--hero-sm interaction-icon--ok">👌</span>
               </div>
               <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0" />
             </div>
