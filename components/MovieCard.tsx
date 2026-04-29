@@ -14,6 +14,7 @@ interface MovieCardProps {
   showExtendedMetadata?: boolean;
   highlightMyRatingSlot?: boolean;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
+  showBottomInteractionIcons?: boolean;
 }
 
 function formatContentType(contentType: string) {
@@ -31,6 +32,7 @@ function MovieCard({
   showExtendedMetadata = false,
   highlightMyRatingSlot = false,
   onRated,
+  showBottomInteractionIcons = true,
 }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -217,19 +219,21 @@ function MovieCard({
           </div>
           {isFeed ? (
             <div className={`relative ml-auto ${highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
-              <div
-                className={`interaction-icons pointer-events-none absolute z-10 ${
-                  highlightMyRatingSlot
-                    ? showExtendedMetadata
-                      ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2"
-                      : "hidden"
-                    : "right-10 -top-9"
-                }`}
-                aria-hidden="true"
-              >
-                <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
-                <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
-              </div>
+              {showBottomInteractionIcons ? (
+                <div
+                  className={`interaction-icons pointer-events-none absolute z-10 ${
+                    highlightMyRatingSlot
+                      ? showExtendedMetadata
+                        ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2"
+                        : "hidden"
+                      : "right-10 -top-9"
+                  }`}
+                  aria-hidden="true"
+                >
+                  <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
+                  <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
+                </div>
+              ) : null}
               <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
             </div>
           ) : (
