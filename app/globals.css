@@ -88,6 +88,14 @@ textarea,
   height: 25px;
 }
 
+.interaction-icon--action {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  flex-shrink: 0;
+}
+
 .interaction-icon--mini {
   width: 20px;
   height: 20px;

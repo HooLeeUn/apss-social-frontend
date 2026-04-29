@@ -16,6 +16,7 @@ interface MovieCardProps {
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
   showBottomInteractionIcons?: boolean;
   enlargeInteractionIcons?: boolean;
+  pinInteractionIconsToMetadataRow?: boolean;
 }
 
 function formatContentType(contentType: string) {
@@ -34,7 +35,8 @@ function MovieCard({
   highlightMyRatingSlot = false,
   onRated,
   showBottomInteractionIcons = true,
-  enlargeInteractionIcons = false,
+  enlargeInteractionIcons: _enlargeInteractionIcons = false,
+  pinInteractionIconsToMetadataRow = false,
 }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -52,12 +54,9 @@ function MovieCard({
   const titleLinkClassName = `inline-block max-w-full truncate transition-colors duration-150 ${
     isFeed ? "cursor-pointer hover:text-blue-100 focus-visible:text-blue-100" : "cursor-pointer hover:text-sky-700 focus-visible:text-sky-700"
   } focus-visible:outline-none`;
-  const feedInteractionIconClassName = `interaction-icon interaction-icon--compact interaction-icon--feed-sm ${
-    enlargeInteractionIcons ? "interaction-icon--feed-lg" : ""
-  }`;
-  const compactInteractionIconClassName = `interaction-icon interaction-icon--compact ${
-    enlargeInteractionIcons ? "interaction-icon--compact-lg" : ""
-  }`;
+  const feedInteractionIconClassName = "interaction-icon interaction-icon--action";
+  const compactInteractionIconClassName = "interaction-icon interaction-icon--action";
+  void _enlargeInteractionIcons;
 
   const cardContent = (
     <article
@@ -137,7 +136,7 @@ function MovieCard({
               ) : null}
             </div>
           ) : null}
-          {isFeed && highlightMyRatingSlot && !showExtendedMetadata ? (
+          {isFeed && (highlightMyRatingSlot || pinInteractionIconsToMetadataRow) && !showExtendedMetadata ? (
             <div
               className="interaction-icons pointer-events-none absolute right-2 top-[4.85rem] z-10"
               aria-hidden="true"
