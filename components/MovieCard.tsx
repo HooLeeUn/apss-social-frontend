@@ -14,6 +14,7 @@ interface MovieCardProps {
   showExtendedMetadata?: boolean;
   highlightMyRatingSlot?: boolean;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
+  showBottomInteractionIcons?: boolean;
 }
 
 function formatContentType(contentType: string) {
@@ -31,6 +32,7 @@ function MovieCard({
   showExtendedMetadata = false,
   highlightMyRatingSlot = false,
   onRated,
+  showBottomInteractionIcons = true,
 }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -53,7 +55,7 @@ function MovieCard({
     <article
       className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
-      } ${isLarge || isFeed ? "flex" : ""}`}
+      } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative" : ""}`}
     >
       <div
         className={`group relative flex-shrink-0 ${isFeed ? "h-[164px] w-[108px] bg-zinc-900 sm:h-[172px] sm:w-[114px]" : "bg-gray-200"} ${
@@ -125,6 +127,15 @@ function MovieCard({
                   <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>Casting:</span> {castPreview.join(" · ")}
                 </p>
               ) : null}
+            </div>
+          ) : null}
+          {isFeed && highlightMyRatingSlot && !showExtendedMetadata ? (
+            <div
+              className="interaction-icons pointer-events-none absolute right-2 top-[4.85rem] z-10"
+              aria-hidden="true"
+            >
+              <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--up">☝️</span>
+              <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--ok">👌</span>
             </div>
           ) : null}
         </div>
@@ -207,11 +218,32 @@ function MovieCard({
             )}
           </div>
           {isFeed ? (
-            <div className="relative ml-auto">
-              <span aria-hidden="true" className="pointer-events-none absolute -top-4 right-1 text-xs text-violet-200/85 drop-shadow-[0_0_7px_rgba(167,139,250,0.45)]">☝️</span>
+            <div className={`relative ml-auto ${highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
+              {showBottomInteractionIcons ? (
+                <div
+                  className={`interaction-icons pointer-events-none absolute z-10 ${
+                    highlightMyRatingSlot
+                      ? showExtendedMetadata
+                        ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2"
+                        : "hidden"
+                        : "right-10 -top-7"
+                  }`}
+                  aria-hidden="true"
+                >
+                  <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--up">☝️</span>
+                  <span className="interaction-icon interaction-icon--compact interaction-icon--feed-sm interaction-icon--ok">👌</span>
+                </div>
+              ) : null}
               <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
             </div>
-          ) : null}
+          ) : (
+            <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
+              <div className="interaction-icons">
+                <span className="interaction-icon interaction-icon--compact interaction-icon--up">☝️</span>
+                <span className="interaction-icon interaction-icon--compact interaction-icon--ok">👌</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </article>
