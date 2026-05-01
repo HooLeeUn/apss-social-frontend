@@ -27,7 +27,7 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, onRated }: 
           </div>
         </div>
 
-        <div className="h-full rounded-2xl border border-white/35 bg-zinc-950/50 p-3 md:p-4 lg:border-l-2 lg:pl-5">
+        <div className="h-full rounded-2xl border border-transparent bg-zinc-950/50 p-3 md:p-4 lg:border-l-2 lg:pl-5">
           <div className="grid h-full grid-cols-2 gap-3 lg:grid-rows-3 lg:auto-rows-fr">
             {miniMovies.map((movie, index) => (
               <div key={movie?.id ?? `weekly-mini-${index}`} className="h-full">
