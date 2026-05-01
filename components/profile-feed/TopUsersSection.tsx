@@ -86,7 +86,7 @@ function Block({
   onNavigateUser?: (clickedUser: SocialUser) => void;
 }) {
   return (
-    <section className="flex h-[30rem] flex-col rounded-3xl border border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
+    <section className="flex h-[30rem] flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
         <input

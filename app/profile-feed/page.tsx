@@ -103,7 +103,7 @@ export default function ProfileFeedPage() {
   return (
     <main className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 md:px-8">
-        <section className="rounded-3xl border border-white/10 bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
+        <section className="rounded-3xl border-2 border-white/10 bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
           <div className="grid items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
             <div className="flex">
               <ProfileIdentityCard
@@ -128,7 +128,7 @@ export default function ProfileFeedPage() {
         </section>
 
         <section className="w-full">
-          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(80px,1.5fr)]">
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(260px,1fr)]">
             <TopUsersSection
               friends={friends}
               following={following}
@@ -140,7 +140,10 @@ export default function ProfileFeedPage() {
               onRetryFollowing={() => void loadFollowing()}
             />
             <MyActivityColumn key={`my-activity-${initialActivityTab}`} isOwnProfile initialActiveTab={initialActivityTab} />
-            <div className="hidden xl:block" aria-hidden="true" />
+            <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
+              <h2 className="text-center text-base font-semibold text-zinc-100">Mi Lista</h2>
+              <div className="mt-4 flex-1" aria-hidden="true" />
+            </section>
           </div>
         </section>
 
