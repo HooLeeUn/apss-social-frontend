@@ -188,10 +188,10 @@ export default function ProfileFeedPage() {
                   aria-label="Seleccionar lista"
                   value={activeListView}
                   onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
-                  className="appearance-none rounded-2xl border border-white/15 bg-zinc-900/80 px-4 py-2.5 pr-9 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus-visible:ring-2 focus-visible:ring-blue-300/60"
+                  className="appearance-none overflow-hidden rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
                 >
-                  <option value="my-list" className="bg-zinc-950 text-zinc-100">Mi Lista</option>
-                  <option value="recommended" className="bg-zinc-950 text-zinc-100">Mis recomendadas</option>
+                  <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">Mi Lista</option>
+                  <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">Mis recomendadas</option>
                 </select>
                 <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
               </div>
