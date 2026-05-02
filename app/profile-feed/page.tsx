@@ -161,26 +161,26 @@ export default function ProfileFeedPage() {
             <MyActivityColumn key={`my-activity-${initialActivityTab}`} isOwnProfile initialActiveTab={initialActivityTab} />
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
               <h2 className="text-center text-base font-semibold text-zinc-100">Mi Lista</h2>
-              <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+              <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-1">
                 {loadingMyList ? <p className="text-center text-xs text-zinc-400">Cargando lista…</p> : null}
                 {!loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">Sin películas en tu lista.</p> : null}
                 {myListMovies.map((movie) => {
                   const displayTitle = movie.titleSpanish || movie.displayTitle || movie.title;
                   const englishTitle = movie.titleEnglish || movie.displaySecondaryTitle || "";
                   return (
-                    <article key={String(movie.id)} className="rounded-xl border border-white/10 bg-zinc-900/40 p-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="mx-auto w-[108px] shrink-0">
+                    <article key={String(movie.id)} className="rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
+                      <div className="relative flex justify-center">
+                        <div className="mx-auto w-[96px] shrink-0">
                           {movie.posterUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={movie.posterUrl} alt={`Poster de ${displayTitle}`} className="mx-auto h-[152px] w-[108px] rounded-md object-cover" loading="lazy" decoding="async" />
+                            <img src={movie.posterUrl} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
                           ) : (
-                            <div className="mx-auto flex h-[152px] w-[108px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">Sin poster</div>
+                            <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">Sin poster</div>
                           )}
                         </div>
-                        <button type="button" className="ml-auto self-start text-base leading-none text-zinc-400" aria-label="Quitar de Mi Lista (próximamente)">✕</button>
+                        <button type="button" className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label="Quitar de Mi Lista (próximamente)">✕</button>
                       </div>
-                      <div className="mt-2 text-center">
+                      <div className="mt-1.5 text-center">
                         <p className="truncate text-sm font-semibold text-zinc-100">{displayTitle}</p>
                         {englishTitle ? <p className="truncate text-xs text-zinc-400">{englishTitle}</p> : null}
                       </div>

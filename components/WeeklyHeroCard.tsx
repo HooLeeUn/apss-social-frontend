@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { memo, useState } from "react";
-import { Movie } from "../lib/movies";
+import { addMovieToMyList, Movie, removeMovieFromMyList } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
@@ -12,6 +12,8 @@ interface WeeklyHeroCardProps {
   fallbackLabel: string;
   currentUserId?: string | number | null;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
+  isInMyList?: boolean;
+  onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
 }
 
 function getAvatarFallback(username?: string | null): string {
@@ -23,7 +25,7 @@ function getAvatarFallback(username?: string | null): string {
   return initials || "★";
 }
 
-function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: WeeklyHeroCardProps) {
+function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList }: WeeklyHeroCardProps) {
   const title = movie?.displayTitle ?? movie?.title ?? fallbackLabel;
   const secondaryTitle = movie?.displaySecondaryTitle ?? null;
   const genre = movie?.genres?.[0] ?? "Sin género";
@@ -45,6 +47,18 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
       ? "/profile-feed"
       : `/users/${encodeURIComponent(topUsername)}`
     : null;
+  const handleToggleMyList = async () => {
+    if (!movie) return;
+    const nextValue = !isInMyList;
+    try {
+      if (onToggleMyList) await onToggleMyList(movie.id, nextValue);
+      else if (nextValue) await addMovieToMyList(movie.id);
+      else await removeMovieFromMyList(movie.id);
+    } catch (error) {
+      console.warn("No se pudo actualizar Mi Lista.", error);
+    }
+  };
+  const tagIconClassName = `interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
     <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
@@ -114,8 +128,10 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
                 )}
                 <span className="sr-only">{topUsername}</span>
               </div>
-              <div className="interaction-icons pointer-events-none absolute right-12 top-0.5 z-10" aria-hidden="true">
-                <img src="/icons/tag.png" alt="" className="interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg" />
+              <div className="interaction-icons absolute right-12 top-0.5 z-10">
+                <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                  <img src="/icons/tag.png" alt="" className={tagIconClassName} />
+                </button>
                 <img src="/icons/Ticket.png" alt="" className="interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg" />
               </div>
               <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0" />

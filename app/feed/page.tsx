@@ -24,8 +24,11 @@ import {
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import {
+  addMovieToMyList,
+  getMyMovieList,
   Movie,
   MOVIES_FEED_ENDPOINT,
+  removeMovieFromMyList,
   WEEKLY_MOVIES_FEED_ENDPOINT,
   parseMovieList,
   parseMoviePagination,
@@ -105,6 +108,7 @@ export default function FeedPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [notificationItems, setNotificationItems] = useState<MyNotificationItem[]>([]);
+  const [listedMovieIds, setListedMovieIds] = useState<Set<string>>(new Set());
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -144,9 +148,17 @@ export default function FeedPage() {
           throw weeklyResult.error;
         }
 
-        const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload) : [];
+        const [normalizedWeekly, myListMovies] = await Promise.all([
+          Promise.resolve(weeklyResult.ok ? parseMovieList(weeklyResult.payload) : []),
+          getMyMovieList().catch(() => []),
+        ]);
+        const backendListSet = new Set(myListMovies.map((movie) => String(movie.id)));
+        normalizedWeekly.forEach((movie) => {
+          if (movie.isInMyList) backendListSet.add(String(movie.id));
+        });
 
         setWeeklyMovies(normalizedWeekly);
+        setListedMovieIds(backendListSet);
       } catch (loadError) {
         console.error("Feed load error:", loadError);
 
@@ -443,10 +455,47 @@ export default function FeedPage() {
     setPersonalizedMovies((current) => sanitizePersonalizedMovies(current, excludedRatedIdsRef.current));
   }, []);
 
+  const handleToggleMyList = useCallback(async (movieId: Movie["id"], nextValue: boolean) => {
+    const movieIdKey = String(movieId);
+    setListedMovieIds((current) => {
+      const next = new Set(current);
+      if (nextValue) next.add(movieIdKey);
+      else next.delete(movieIdKey);
+      return next;
+    });
+
+    try {
+      if (nextValue) await addMovieToMyList(movieId);
+      else await removeMovieFromMyList(movieId);
+    } catch (error) {
+      setListedMovieIds((current) => {
+        const rollback = new Set(current);
+        if (nextValue) rollback.delete(movieIdKey);
+        else rollback.add(movieIdKey);
+        return rollback;
+      });
+      throw error;
+    }
+  }, []);
+
   const visiblePersonalizedMovies = useMemo(
     () => sanitizePersonalizedMovies(filterBySelectedGenres(personalizedMovies, selectedGenres), excludedRatedIdsRef.current),
     [personalizedMovies, selectedGenres],
   );
+
+  useEffect(() => {
+    setListedMovieIds((current) => {
+      const next = new Set(current);
+      let changed = false;
+      [...weeklyMovies, ...personalizedMovies].forEach((movie) => {
+        if (movie.isInMyList && !next.has(String(movie.id))) {
+          next.add(String(movie.id));
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [weeklyMovies, personalizedMovies]);
 
   useEffect(
     () => () => {
@@ -611,7 +660,7 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} onRated={updateWeeklyMovieRating} />
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">
@@ -635,6 +684,8 @@ export default function FeedPage() {
                   showBottomInteractionIcons={false}
                   compactRatingsRow
                   onRated={handlePersonalizedRated}
+                  isInMyListOverride={listedMovieIds.has(String(movie.id))}
+                  onToggleMyList={handleToggleMyList}
                 />
               ))}
               </div>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { memo, useState } from "react";
-import { Movie } from "../lib/movies";
+import { addMovieToMyList, Movie, removeMovieFromMyList } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
@@ -12,6 +12,8 @@ interface WeeklyMiniCardProps {
   fallbackLabel: string;
   currentUserId?: string | number | null;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
+  isInMyList?: boolean;
+  onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
 }
 
 function getAvatarFallback(username?: string | null): string {
@@ -23,7 +25,7 @@ function getAvatarFallback(username?: string | null): string {
   return initials || "★";
 }
 
-function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: WeeklyMiniCardProps) {
+function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList }: WeeklyMiniCardProps) {
   const title = movie?.displayTitle ?? movie?.title ?? fallbackLabel;
   const secondaryTitle = movie?.displaySecondaryTitle ?? null;
   const genres = movie?.genres?.filter(Boolean) ?? [];
@@ -50,11 +52,25 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated }: Weekly
   const followingRatingsTitle = followingRatingsCount > 0
     ? `${followingRatingsCount} ${followingRatingsCount === 1 ? "calificación" : "calificaciones"} de usuarios seguidos`
     : "Sin calificaciones de usuarios seguidos";
+  const handleToggleMyList = async () => {
+    if (!movie) return;
+    const nextValue = !isInMyList;
+    try {
+      if (onToggleMyList) await onToggleMyList(movie.id, nextValue);
+      else if (nextValue) await addMovieToMyList(movie.id);
+      else await removeMovieFromMyList(movie.id);
+    } catch (error) {
+      console.warn("No se pudo actualizar Mi Lista.", error);
+    }
+  };
+  const tagIconClassName = `interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
     <article className="relative h-full pl-4">
-      <div className="interaction-icons pointer-events-none absolute left-10 top-[59%] z-10" aria-hidden="true">
-        <img src="/icons/tag.png" alt="" className="interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg" />
+      <div className="interaction-icons absolute left-10 top-[59%] z-10">
+        <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+          <img src="/icons/tag.png" alt="" className={tagIconClassName} />
+        </button>
         <img src="/icons/Ticket.png" alt="" className="interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg" />
       </div>
       {topUserHref ? (

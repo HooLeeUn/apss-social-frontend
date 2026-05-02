@@ -18,6 +18,8 @@ interface MovieCardProps {
   enlargeInteractionIcons?: boolean;
   pinInteractionIconsToMetadataRow?: boolean;
   compactRatingsRow?: boolean;
+  isInMyListOverride?: boolean;
+  onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
 }
 
 function formatContentType(contentType: string) {
@@ -39,6 +41,8 @@ function MovieCard({
   enlargeInteractionIcons: _enlargeInteractionIcons = false,
   pinInteractionIconsToMetadataRow = false,
   compactRatingsRow = false,
+  isInMyListOverride,
+  onToggleMyList,
 }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -59,21 +63,24 @@ function MovieCard({
   const feedInteractionIconClassName = "interaction-icon interaction-icon--action";
   const compactInteractionIconClassName = "interaction-icon interaction-icon--action";
   void _enlargeInteractionIcons;
-  const [isInMyList, setIsInMyList] = useState(Boolean(movie.isInMyList));
+  const [localIsInMyList, setLocalIsInMyList] = useState<boolean | null>(null);
+  const isInMyList = localIsInMyList ?? Boolean(isInMyListOverride ?? movie.isInMyList);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
-    setIsInMyList(nextValue);
+    if (!onToggleMyList) setLocalIsInMyList(nextValue);
 
     try {
-      if (nextValue) {
+      if (onToggleMyList) {
+        await onToggleMyList(movie.id, nextValue);
+      } else if (nextValue) {
         await addMovieToMyList(movie.id);
       } else {
         await removeMovieFromMyList(movie.id);
       }
     } catch (error) {
       console.warn("No se pudo actualizar Mi Lista.", error);
-      setIsInMyList(!nextValue);
+      if (!onToggleMyList) setLocalIsInMyList(!nextValue);
     }
   };
 
