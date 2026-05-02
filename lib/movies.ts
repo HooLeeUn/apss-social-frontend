@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "./api";
+import { apiFetch } from "./api";
 
 export interface MovieTopUser {
   id: number | null;
@@ -25,6 +26,7 @@ export interface Movie {
   followingAvgRating: number | null;
   followingRatingsCount: number;
   topUser: MovieTopUser | null;
+  isInMyList: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -55,6 +57,7 @@ export const MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES = (
   .filter((endpoint) => endpoint !== MOVIE_DETAIL_ENDPOINT_TEMPLATE);
 export const GENRES_ENDPOINT = process.env.NEXT_PUBLIC_GENRES_ENDPOINT || "/movies/genres/";
 export const SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_SEARCH_ENDPOINT || "/movies/search/";
+export const MY_MOVIE_LIST_ENDPOINT = process.env.NEXT_PUBLIC_MY_MOVIE_LIST_ENDPOINT || "/me/movie-list/";
 
 export function buildMovieDetailEndpoint(movieId: string, template: string = MOVIE_DETAIL_ENDPOINT_TEMPLATE): string {
   return template.replace("{id}", encodeURIComponent(movieId));
@@ -352,7 +355,21 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
       ),
     ),
     topUser: parseTopUser(raw),
+    isInMyList: Boolean(pickFirst(raw.is_in_my_list, nestedMovie?.is_in_my_list, raw.isInMyList, nestedMovie?.isInMyList)),
   };
+}
+
+export async function getMyMovieList(): Promise<Movie[]> {
+  const payload = await apiFetch(MY_MOVIE_LIST_ENDPOINT);
+  return parseMovieList(payload);
+}
+
+export async function addMovieToMyList(movieId: Movie["id"]): Promise<void> {
+  await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/list/`, { method: "POST" });
+}
+
+export async function removeMovieFromMyList(movieId: Movie["id"]): Promise<void> {
+  await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/list/`, { method: "DELETE" });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

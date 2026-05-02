@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { memo } from "react";
-import { Movie } from "../lib/movies";
+import { memo, useState } from "react";
+import { addMovieToMyList, Movie, removeMovieFromMyList } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
@@ -59,6 +59,25 @@ function MovieCard({
   const feedInteractionIconClassName = "interaction-icon interaction-icon--action";
   const compactInteractionIconClassName = "interaction-icon interaction-icon--action";
   void _enlargeInteractionIcons;
+  const [isInMyList, setIsInMyList] = useState(Boolean(movie.isInMyList));
+
+  const handleToggleMyList = async () => {
+    const nextValue = !isInMyList;
+    setIsInMyList(nextValue);
+
+    try {
+      if (nextValue) {
+        await addMovieToMyList(movie.id);
+      } else {
+        await removeMovieFromMyList(movie.id);
+      }
+    } catch (error) {
+      console.warn("No se pudo actualizar Mi Lista.", error);
+      setIsInMyList(!nextValue);
+    }
+  };
+
+  const tagIconClassName = `interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   const cardContent = (
     <article
@@ -140,10 +159,11 @@ function MovieCard({
           ) : null}
           {isFeed && (highlightMyRatingSlot || pinInteractionIconsToMetadataRow) && !showExtendedMetadata ? (
             <div
-              className="interaction-icons pointer-events-none absolute right-2 top-[4.85rem] z-10"
-              aria-hidden="true"
+              className="interaction-icons absolute right-2 top-[4.85rem] z-10"
             >
-              <img src="/icons/tag.png" alt="" className={feedInteractionIconClassName} />
+              <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+              </button>
               <img src="/icons/Ticket.png" alt="" className={feedInteractionIconClassName} />
             </div>
           ) : null}
@@ -233,16 +253,17 @@ function MovieCard({
             <div className={`relative ml-auto ${highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
               {showBottomInteractionIcons ? (
                 <div
-                  className={`interaction-icons pointer-events-none absolute z-10 ${
+                  className={`interaction-icons absolute z-10 ${
                     highlightMyRatingSlot
                       ? showExtendedMetadata
                         ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2"
                         : "hidden"
                         : "right-10 -top-7"
                   }`}
-                  aria-hidden="true"
                 >
-                  <img src="/icons/tag.png" alt="" className={feedInteractionIconClassName} />
+                  <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+              </button>
                   <img src="/icons/Ticket.png" alt="" className={feedInteractionIconClassName} />
                 </div>
               ) : null}
@@ -251,7 +272,9 @@ function MovieCard({
           ) : (
             <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
               <div className="interaction-icons">
-                <img src="/icons/tag.png" alt="" className={compactInteractionIconClassName} />
+                <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <img src="/icons/tag.png" alt="" className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
+              </button>
                 <img src="/icons/Ticket.png" alt="" className={compactInteractionIconClassName} />
               </div>
             </div>

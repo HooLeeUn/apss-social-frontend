@@ -130,3 +130,15 @@ textarea,
   width: 40px;
   height: 40px;
 }
+
+.interaction-icon-tag {
+  transition: filter 150ms ease, opacity 150ms ease;
+}
+
+.interaction-icon-tag--inactive {
+  filter: brightness(0) invert(1);
+}
+
+.interaction-icon-tag--active {
+  filter: brightness(0) saturate(100%) invert(45%) sepia(96%) saturate(2107%) hue-rotate(196deg) brightness(101%) contrast(101%);
+}
