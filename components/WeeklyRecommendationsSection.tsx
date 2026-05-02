@@ -7,9 +7,11 @@ interface WeeklyRecommendationsSectionProps {
   weeklyMovies: Movie[];
   currentUserId?: string | number | null;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
+  listedMovieIds?: Set<string>;
+  onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
 }
 
-function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, onRated }: WeeklyRecommendationsSectionProps) {
+function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, onRated, listedMovieIds, onToggleMyList }: WeeklyRecommendationsSectionProps) {
   const heroMovies = useMemo(() => [weeklyMovies[0], weeklyMovies[1]], [weeklyMovies]);
   const miniMovies = useMemo(() => Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]), [weeklyMovies]);
 
@@ -20,10 +22,10 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, onRated }: 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-stretch lg:gap-8">
         <div className="grid grid-cols-1 gap-4 lg:h-full lg:grid-cols-2 lg:auto-rows-fr">
           <div className="h-full">
-            <WeeklyHeroCard movie={heroMovies[0]} fallbackLabel="Recomendación destacada #1" currentUserId={currentUserId} onRated={onRated} />
+            <WeeklyHeroCard movie={heroMovies[0]} fallbackLabel="Recomendación destacada #1" currentUserId={currentUserId} onRated={onRated} isInMyList={Boolean(heroMovies[0] && listedMovieIds?.has(String(heroMovies[0].id)))} onToggleMyList={onToggleMyList} />
           </div>
           <div className="h-full">
-            <WeeklyHeroCard movie={heroMovies[1]} fallbackLabel="Recomendación destacada #2" currentUserId={currentUserId} onRated={onRated} />
+            <WeeklyHeroCard movie={heroMovies[1]} fallbackLabel="Recomendación destacada #2" currentUserId={currentUserId} onRated={onRated} isInMyList={Boolean(heroMovies[1] && listedMovieIds?.has(String(heroMovies[1].id)))} onToggleMyList={onToggleMyList} />
           </div>
         </div>
 
@@ -31,7 +33,7 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, onRated }: 
           <div className="grid h-full grid-cols-2 gap-3 lg:grid-rows-3 lg:auto-rows-fr">
             {miniMovies.map((movie, index) => (
               <div key={movie?.id ?? `weekly-mini-${index}`} className="h-full">
-                <WeeklyMiniCard movie={movie} fallbackLabel={`Top #${index + 3}`} currentUserId={currentUserId} onRated={onRated} />
+                <WeeklyMiniCard movie={movie} fallbackLabel={`Top #${index + 3}`} currentUserId={currentUserId} onRated={onRated} isInMyList={Boolean(movie && listedMovieIds?.has(String(movie.id)))} onToggleMyList={onToggleMyList} />
               </div>
             ))}
           </div>
