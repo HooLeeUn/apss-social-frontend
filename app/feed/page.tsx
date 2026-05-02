@@ -35,6 +35,8 @@ import {
   normalizeNextEndpoint,
 } from "../../lib/movies";
 
+const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
+
 function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
   const merged = [...existing];
   const seenIds = new Set(existing.map((movie) => String(movie.id)));
@@ -153,12 +155,12 @@ export default function FeedPage() {
           getMyMovieList().catch(() => []),
         ]);
         const backendListSet = new Set(myListMovies.map((movie) => String(movie.id)));
-        normalizedWeekly.forEach((movie) => {
-          if (movie.isInMyList) backendListSet.add(String(movie.id));
-        });
 
         setWeeklyMovies(normalizedWeekly);
         setListedMovieIds(backendListSet);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(MY_LIST_IDS_STORAGE_KEY, JSON.stringify(Array.from(backendListSet)));
+        }
       } catch (loadError) {
         console.error("Feed load error:", loadError);
 
@@ -175,6 +177,19 @@ export default function FeedPage() {
 
     loadFeed();
   }, [router]);
+
+  const syncMyListIds = useCallback(async () => {
+    try {
+      const myListMovies = await getMyMovieList();
+      const syncedIds = new Set(myListMovies.map((movie) => String(movie.id)));
+      setListedMovieIds(syncedIds);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(MY_LIST_IDS_STORAGE_KEY, JSON.stringify(Array.from(syncedIds)));
+      }
+    } catch (syncError) {
+      console.warn("No se pudo sincronizar Mi Lista en feed.", syncError);
+    }
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (isRefreshingNotificationsRef.current) return;
@@ -467,6 +482,13 @@ export default function FeedPage() {
     try {
       if (nextValue) await addMovieToMyList(movieId);
       else await removeMovieFromMyList(movieId);
+      if (typeof window !== "undefined") {
+        const stored = window.localStorage.getItem(MY_LIST_IDS_STORAGE_KEY);
+        const ids = new Set<string>(stored ? JSON.parse(stored) : []);
+        if (nextValue) ids.add(movieIdKey);
+        else ids.delete(movieIdKey);
+        window.localStorage.setItem(MY_LIST_IDS_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+      }
     } catch (error) {
       setListedMovieIds((current) => {
         const rollback = new Set(current);
@@ -484,18 +506,37 @@ export default function FeedPage() {
   );
 
   useEffect(() => {
-    setListedMovieIds((current) => {
-      const next = new Set(current);
-      let changed = false;
-      [...weeklyMovies, ...personalizedMovies].forEach((movie) => {
-        if (movie.isInMyList && !next.has(String(movie.id))) {
-          next.add(String(movie.id));
-          changed = true;
-        }
-      });
-      return changed ? next : current;
-    });
-  }, [weeklyMovies, personalizedMovies]);
+    if (typeof window === "undefined") return;
+    const cached = window.localStorage.getItem(MY_LIST_IDS_STORAGE_KEY);
+    if (!cached) return;
+    try {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) {
+        setListedMovieIds(new Set(parsed.map((id) => String(id))));
+      }
+    } catch {
+      window.localStorage.removeItem(MY_LIST_IDS_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onMyListChanged = () => {
+      void syncMyListIds();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void syncMyListIds();
+      }
+    };
+    window.addEventListener("my-list:changed", onMyListChanged);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onMyListChanged);
+    return () => {
+      window.removeEventListener("my-list:changed", onMyListChanged);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onMyListChanged);
+    };
+  }, [syncMyListIds]);
 
   useEffect(
     () => () => {

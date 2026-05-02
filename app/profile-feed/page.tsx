@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
 import ProfileIdentityCard from "../../components/profile-feed/ProfileIdentityCard";
@@ -11,7 +12,9 @@ import { getMyProfile, getTopFollowing, getTopFriends, markNotificationsContextR
 import { SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
 import { useAppBranding } from "../../hooks/useAppBranding";
-import { getMyMovieList, Movie } from "../../lib/movies";
+import { getMyMovieList, Movie, removeMovieFromMyList } from "../../lib/movies";
+
+const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
 export default function ProfileFeedPage() {
   const searchParams = useSearchParams();
@@ -26,6 +29,7 @@ export default function ProfileFeedPage() {
   const requestedTab = searchParams.get("tab");
   const [myListMovies, setMyListMovies] = useState<Movie[]>([]);
   const [loadingMyList, setLoadingMyList] = useState(true);
+  const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
   const initialActivityTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "messages" : "activity";
 
   const loadFollowing = useCallback(async () => {
@@ -86,6 +90,25 @@ export default function ProfileFeedPage() {
 
     void loadOwnProfileData();
   }, []);
+
+  const handleRemoveFromMyList = useCallback(async (movieId: Movie["id"]) => {
+    const previousMovies = myListMovies;
+    setMyListMovies((current) => current.filter((movie) => String(movie.id) !== String(movieId)));
+
+    try {
+      await removeMovieFromMyList(movieId);
+      if (typeof window !== "undefined") {
+        const stored = window.localStorage.getItem(MY_LIST_IDS_STORAGE_KEY);
+        const ids = new Set<string>(stored ? JSON.parse(stored) : []);
+        ids.delete(String(movieId));
+        window.localStorage.setItem(MY_LIST_IDS_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+        window.dispatchEvent(new CustomEvent("my-list:changed", { detail: { movieId: String(movieId), isInMyList: false } }));
+      }
+    } catch (error) {
+      console.warn("No se pudo quitar la película de Mi Lista.", error);
+      setMyListMovies(previousMovies);
+    }
+  }, [myListMovies]);
 
   useEffect(() => {
     const normalizedTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "private_inbox" : requestedTab === "activity" ? "activity" : null;
@@ -160,29 +183,42 @@ export default function ProfileFeedPage() {
             />
             <MyActivityColumn key={`my-activity-${initialActivityTab}`} isOwnProfile initialActiveTab={initialActivityTab} />
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
-              <h2 className="text-center text-base font-semibold text-zinc-100">Mi Lista</h2>
-              <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-1">
-                {loadingMyList ? <p className="text-center text-xs text-zinc-400">Cargando lista…</p> : null}
-                {!loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">Sin películas en tu lista.</p> : null}
-                {myListMovies.map((movie) => {
+              <div className="relative mx-auto w-fit">
+                <select
+                  aria-label="Seleccionar lista"
+                  value={activeListView}
+                  onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
+                  className="appearance-none overflow-hidden rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
+                >
+                  <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">Mi Lista</option>
+                  <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">Mis recomendadas</option>
+                </select>
+                <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
+              </div>
+              <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
+                {activeListView === "recommended" ? <p className="text-center text-xs text-zinc-500">Sin películas en esta lista por ahora.</p> : null}
+                {activeListView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">Cargando lista…</p> : null}
+                {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">Sin películas en tu lista.</p> : null}
+                {activeListView === "my-list" && myListMovies.map((movie) => {
                   const displayTitle = movie.titleSpanish || movie.displayTitle || movie.title;
                   const englishTitle = movie.titleEnglish || movie.displaySecondaryTitle || "";
+                  const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
                   return (
-                    <article key={String(movie.id)} className="rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
+                    <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
                       <div className="relative flex justify-center">
-                        <div className="mx-auto w-[96px] shrink-0">
+                        <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
                           {movie.posterUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={movie.posterUrl} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
                           ) : (
                             <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">Sin poster</div>
                           )}
-                        </div>
-                        <button type="button" className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label="Quitar de Mi Lista (próximamente)">✕</button>
+                        </Link>
+                        <button type="button" onClick={() => void handleRemoveFromMyList(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={`Quitar ${displayTitle} de Mi Lista`}>✕</button>
                       </div>
                       <div className="mt-1.5 text-center">
-                        <p className="truncate text-sm font-semibold text-zinc-100">{displayTitle}</p>
-                        {englishTitle ? <p className="truncate text-xs text-zinc-400">{englishTitle}</p> : null}
+                        <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
+                        {englishTitle ? <p className="truncate text-xs text-zinc-400"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{englishTitle}</Link></p> : null}
                       </div>
                     </article>
                   );
