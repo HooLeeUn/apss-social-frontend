@@ -4,8 +4,8 @@ import Link from "next/link";
 import { UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteMyMessages } from "../../hooks/useInfiniteMyMessages";
 import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSocialActivity";
-import { getMyProfile, getUserProfileByUsername, markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
-import { MyMessageItem, SocialActivityItem } from "../../lib/profile-feed/types";
+import { getMyProfile, getUserMovieRecommendationsByUsername, getUserProfileByUsername, markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
+import { MyMessageItem, SocialActivityItem, UserMovieRecommendation } from "../../lib/profile-feed/types";
 import { formatAverageRating } from "../../lib/rating-format";
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 
@@ -577,11 +577,15 @@ export default function MyActivityColumn({
 }: MyActivityColumnProps = {}) {
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialActiveTab);
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
-    "public_comments",
+    "recommendations",
   );
   const [senderQuery, setSenderQuery] = useState("");
   const [myUsername, setMyUsername] = useState<string | null>(null);
   const [authorCanVisitByUsername, setAuthorCanVisitByUsername] = useState<Record<string, boolean>>({});
+  const [userRecommendations, setUserRecommendations] = useState<UserMovieRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState(false);
+  const [recommendationsLoadedFor, setRecommendationsLoadedFor] = useState<string | null>(null);
   const autoLoadAttemptsRef = useRef(0);
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
@@ -748,6 +752,45 @@ export default function MyActivityColumn({
   }, [filteredActivityItems, isOwnProfile, visitedActivityTab]);
 
   useEffect(() => {
+    if (isOwnProfile) return;
+    if (!normalizedViewedUsername) return;
+    if (visitedActivityTab !== "recommendations") return;
+    if (recommendationsLoadedFor === normalizedViewedUsername) return;
+
+    let cancelled = false;
+    setRecommendationsLoading(true);
+    setRecommendationsError(false);
+
+    const loadRecommendations = async () => {
+      try {
+        const recommendations = await getUserMovieRecommendationsByUsername(normalizedViewedUsername);
+        if (cancelled) return;
+        setUserRecommendations(recommendations);
+        setRecommendationsLoadedFor(normalizedViewedUsername);
+      } catch {
+        if (cancelled) return;
+        setRecommendationsError(true);
+      } finally {
+        if (cancelled) return;
+        setRecommendationsLoading(false);
+      }
+    };
+
+    void loadRecommendations();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwnProfile, normalizedViewedUsername, recommendationsLoadedFor, visitedActivityTab]);
+
+  useEffect(() => {
+    if (isOwnProfile) return;
+    setUserRecommendations([]);
+    setRecommendationsLoading(false);
+    setRecommendationsError(false);
+    setRecommendationsLoadedFor(null);
+  }, [isOwnProfile, normalizedViewedUsername]);
+
+  useEffect(() => {
     setActiveTab(initialActiveTab);
   }, [initialActiveTab]);
 
@@ -844,6 +887,17 @@ export default function MyActivityColumn({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={() => setVisitedActivityTab("recommendations")}
+              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
+                visitedActivityTab === "recommendations"
+                  ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                  : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+              }`}
+            >
+              Recomendaciones
+            </button>
+            <button
+              type="button"
               onClick={() => setVisitedActivityTab("public_comments")}
               className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "public_comments"
@@ -874,17 +928,6 @@ export default function MyActivityColumn({
               }`}
             >
               Me gusta/No me gusta
-            </button>
-            <button
-              type="button"
-              onClick={() => setVisitedActivityTab("recommendations")}
-              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
-                visitedActivityTab === "recommendations"
-                  ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
-                  : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
-              }`}
-            >
-              Recomendaciones
             </button>
           </div>
         </div>
@@ -928,10 +971,37 @@ export default function MyActivityColumn({
               </div>
             ) : null}
 
-            {!activity.loading && !activity.error && !isOwnProfile && visitedActivityTab === "recommendations" ? (
-              <div className="rounded-2xl border border-white/10 bg-zinc-900/35 p-4 text-sm text-zinc-300">
-                Próximamente verás aquí las recomendaciones de este usuario.
-              </div>
+            {!isOwnProfile && visitedActivityTab === "recommendations" ? (
+              <>
+                {recommendationsLoading ? <p className="text-sm text-zinc-400">Cargando recomendaciones...</p> : null}
+                {!recommendationsLoading && recommendationsError ? (
+                  <p className="text-sm text-zinc-400">No pudimos cargar las recomendaciones de este usuario.</p>
+                ) : null}
+                {!recommendationsLoading && !recommendationsError && userRecommendations.length === 0 ? (
+                  <p className="text-sm text-zinc-500">Este usuario aún no ha compartido recomendaciones.</p>
+                ) : null}
+                {!recommendationsLoading && !recommendationsError && userRecommendations.length > 0
+                  ? userRecommendations.map((movie) => (
+                      <article key={movie.id} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 border-b border-white/10 py-3">
+                        <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="h-[108px] w-[72px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
+                          {movie.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={movie.image} alt={`Poster de ${movie.titleSpanish}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">Sin poster</span>
+                          )}
+                        </Link>
+                        <div className="min-w-0 space-y-1">
+                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-lg font-semibold text-zinc-100 hover:text-blue-200">{movie.titleSpanish}</Link>
+                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-sm text-zinc-400 hover:text-blue-200">{movie.titleEnglish}</Link>
+                          <p className="text-xs text-zinc-300">{movie.genre} · {movie.type} · {movie.releaseYear}</p>
+                          <p className="text-xs text-zinc-400">Director: {movie.director}</p>
+                          <p className="line-clamp-2 text-xs text-zinc-500">Casting: {movie.castMembers}</p>
+                        </div>
+                      </article>
+                    ))
+                  : null}
+              </>
             ) : null}
 
             {!activity.loading &&
