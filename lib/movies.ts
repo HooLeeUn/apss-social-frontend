@@ -27,6 +27,7 @@ export interface Movie {
   followingRatingsCount: number;
   topUser: MovieTopUser | null;
   isInMyList: boolean;
+  isInMyRecommendations: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -58,6 +59,7 @@ export const MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES = (
 export const GENRES_ENDPOINT = process.env.NEXT_PUBLIC_GENRES_ENDPOINT || "/movies/genres/";
 export const SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_SEARCH_ENDPOINT || "/movies/search/";
 export const MY_MOVIE_LIST_ENDPOINT = process.env.NEXT_PUBLIC_MY_MOVIE_LIST_ENDPOINT || "/me/movie-list/";
+export const MY_MOVIE_RECOMMENDATIONS_ENDPOINT = process.env.NEXT_PUBLIC_MY_MOVIE_RECOMMENDATIONS_ENDPOINT || "/me/movie-recommendations/";
 
 export function buildMovieDetailEndpoint(movieId: string, template: string = MOVIE_DETAIL_ENDPOINT_TEMPLATE): string {
   return template.replace("{id}", encodeURIComponent(movieId));
@@ -356,12 +358,26 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     ),
     topUser: parseTopUser(raw),
     isInMyList: Boolean(pickFirst(raw.is_in_my_list, nestedMovie?.is_in_my_list, raw.isInMyList, nestedMovie?.isInMyList)),
+    isInMyRecommendations: Boolean(pickFirst(raw.is_in_my_recommendations, nestedMovie?.is_in_my_recommendations, raw.isInMyRecommendations, nestedMovie?.isInMyRecommendations)),
   };
 }
 
 export async function getMyMovieList(): Promise<Movie[]> {
   const payload = await apiFetch(MY_MOVIE_LIST_ENDPOINT);
   return parseMovieList(payload);
+}
+
+export async function getMyMovieRecommendations(): Promise<Movie[]> {
+  const payload = await apiFetch(MY_MOVIE_RECOMMENDATIONS_ENDPOINT);
+  return parseMovieList(payload);
+}
+
+export async function addMovieToMyRecommendations(movieId: Movie["id"]): Promise<void> {
+  await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/recommendation/`, { method: "POST" });
+}
+
+export async function removeMovieFromMyRecommendations(movieId: Movie["id"]): Promise<void> {
+  await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/recommendation/`, { method: "DELETE" });
 }
 
 export async function addMovieToMyList(movieId: Movie["id"]): Promise<void> {
