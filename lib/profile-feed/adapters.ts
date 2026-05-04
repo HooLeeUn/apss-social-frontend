@@ -11,6 +11,7 @@ import {
   MyMessageItem,
   SocialUser,
   FavoriteMovieSearchResult,
+  UserMovieRecommendation,
   MyMessagesSummary,
   MyNotificationsSummary,
   MyNotificationItem,
@@ -41,6 +42,8 @@ const PROFILE_ME_MESSAGES_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES
 const PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT || "/me/messages/summary/";
 const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
+const PROFILE_USER_MOVIE_RECOMMENDATIONS_ENDPOINT_TEMPLATE =
+  process.env.NEXT_PUBLIC_PROFILE_USER_MOVIE_RECOMMENDATIONS_ENDPOINT_TEMPLATE || "/users/{username}/movie-recommendations/";
 function normalizeApiEndpoint(endpoint: string): string {
   if (!endpoint) return endpoint;
   return endpoint.startsWith("/api/") ? endpoint.slice(4) : endpoint;
@@ -1070,6 +1073,37 @@ export async function getFavoriteMoviesByUsername(username: string): Promise<Fav
   }
 
   return [];
+}
+
+function parseUserMovieRecommendations(payload: unknown): UserMovieRecommendation[] {
+  const asRecord = toRecord(payload);
+  const collection = Array.isArray(payload)
+    ? payload
+    : Array.isArray(asRecord?.results)
+      ? asRecord.results
+      : [];
+
+  return collection
+    .map((item) => toRecord(item))
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .map((item) => ({
+      id: String(pickFirst(item.id, item.movie_id, "")),
+      titleSpanish: safeTrim(item.title_spanish) || "Sin título",
+      titleEnglish: safeTrim(item.title_english) || "Sin título en inglés",
+      image: safeTrim(item.image),
+      genre: safeTrim(item.genre) || "-",
+      type: safeTrim(item.type) || "-",
+      releaseYear: String(pickFirst(safeTrim(item.release_year), safeTrim(item.year), "-")),
+      director: safeTrim(item.director) || "-",
+      castMembers: safeTrim(item.cast_members) || "-",
+    }))
+    .filter((item) => item.id.trim() !== "");
+}
+
+export async function getUserMovieRecommendationsByUsername(username: string): Promise<UserMovieRecommendation[]> {
+  const endpoint = PROFILE_USER_MOVIE_RECOMMENDATIONS_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username.trim()));
+  const payload = await apiFetch(endpoint);
+  return parseUserMovieRecommendations(payload);
 }
 
 export async function setFavoriteMovie(slot: number, movieId: string | number): Promise<void> {

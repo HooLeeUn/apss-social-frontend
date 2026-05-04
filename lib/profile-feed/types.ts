@@ -51,6 +51,18 @@ export interface FavoriteMovieSearchResult {
   myRating: number | null;
 }
 
+export interface UserMovieRecommendation {
+  id: string;
+  titleSpanish: string;
+  titleEnglish: string;
+  image: string | null;
+  genre: string;
+  type: string;
+  releaseYear: string;
+  director: string;
+  castMembers: string;
+}
+
 export interface SocialUser {
   id: string;
   username: string;
