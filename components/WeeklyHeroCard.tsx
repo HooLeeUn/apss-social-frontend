@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { memo, useState } from "react";
-import { addMovieToMyList, Movie, removeMovieFromMyList } from "../lib/movies";
+import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
@@ -14,6 +14,8 @@ interface WeeklyHeroCardProps {
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
   isInMyList?: boolean;
   onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
+  isInMyRecommendations?: boolean;
+  onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
 }
 
 function getAvatarFallback(username?: string | null): string {
@@ -25,7 +27,7 @@ function getAvatarFallback(username?: string | null): string {
   return initials || "★";
 }
 
-function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList }: WeeklyHeroCardProps) {
+function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations }: WeeklyHeroCardProps) {
   const title = movie?.displayTitle ?? movie?.title ?? fallbackLabel;
   const secondaryTitle = movie?.displaySecondaryTitle ?? null;
   const genre = movie?.genres?.[0] ?? "Sin género";
@@ -56,6 +58,17 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
       else await removeMovieFromMyList(movie.id);
     } catch (error) {
       console.warn("No se pudo actualizar Mi Lista.", error);
+    }
+  };
+  const handleToggleMyRecommendations = async () => {
+    if (!movie) return;
+    const nextValue = !isInMyRecommendations;
+    try {
+      if (onToggleMyRecommendations) await onToggleMyRecommendations(movie.id, nextValue);
+      else if (nextValue) await addMovieToMyRecommendations(movie.id);
+      else await removeMovieFromMyRecommendations(movie.id);
+    } catch (error) {
+      console.warn("No se pudo actualizar Mis recomendadas.", error);
     }
   };
   const tagIconClassName = `interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
@@ -132,7 +145,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                   <img src="/icons/tag.png" alt="" className={tagIconClassName} />
                 </button>
-                <img src="/icons/Ticket.png" alt="" className="interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg" />
+                <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button>
               </div>
               <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0" />
             </div>

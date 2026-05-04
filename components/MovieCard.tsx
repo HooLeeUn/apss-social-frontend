@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { memo, useState } from "react";
-import { addMovieToMyList, Movie, removeMovieFromMyList } from "../lib/movies";
+import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
@@ -20,6 +20,8 @@ interface MovieCardProps {
   compactRatingsRow?: boolean;
   isInMyListOverride?: boolean;
   onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
+  isInMyRecommendationsOverride?: boolean;
+  onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
 }
 
 function formatContentType(contentType: string) {
@@ -43,6 +45,8 @@ function MovieCard({
   compactRatingsRow = false,
   isInMyListOverride,
   onToggleMyList,
+  isInMyRecommendationsOverride,
+  onToggleMyRecommendations,
 }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -64,7 +68,9 @@ function MovieCard({
   const compactInteractionIconClassName = "interaction-icon interaction-icon--action";
   void _enlargeInteractionIcons;
   const [localIsInMyList, setLocalIsInMyList] = useState<boolean | null>(null);
+  const [localIsInMyRecommendations, setLocalIsInMyRecommendations] = useState<boolean | null>(null);
   const isInMyList = localIsInMyList ?? Boolean(isInMyListOverride ?? movie.isInMyList);
+  const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
@@ -81,6 +87,18 @@ function MovieCard({
     } catch (error) {
       console.warn("No se pudo actualizar Mi Lista.", error);
       if (!onToggleMyList) setLocalIsInMyList(!nextValue);
+    }
+  };
+  const handleToggleMyRecommendations = async () => {
+    const nextValue = !isInMyRecommendations;
+    if (!onToggleMyRecommendations) setLocalIsInMyRecommendations(nextValue);
+    try {
+      if (onToggleMyRecommendations) await onToggleMyRecommendations(movie.id, nextValue);
+      else if (nextValue) await addMovieToMyRecommendations(movie.id);
+      else await removeMovieFromMyRecommendations(movie.id);
+    } catch (error) {
+      console.warn("No se pudo actualizar Mis recomendadas.", error);
+      if (!onToggleMyRecommendations) setLocalIsInMyRecommendations(!nextValue);
     }
   };
 
@@ -171,7 +189,9 @@ function MovieCard({
               <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                 <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
               </button>
-              <img src="/icons/Ticket.png" alt="" className={feedInteractionIconClassName} />
+              <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+              </button>
             </div>
           ) : null}
         </div>
@@ -271,7 +291,9 @@ function MovieCard({
                   <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                 <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
               </button>
-                  <img src="/icons/Ticket.png" alt="" className={feedInteractionIconClassName} />
+                  <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                    <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+                  </button>
                 </div>
               ) : null}
               <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
@@ -282,7 +304,9 @@ function MovieCard({
                 <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                 <img src="/icons/tag.png" alt="" className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
               </button>
-                <img src="/icons/Ticket.png" alt="" className={compactInteractionIconClassName} />
+                <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                  <img src="/icons/Ticket.png" alt="" className={`${compactInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+                </button>
               </div>
             </div>
           )}

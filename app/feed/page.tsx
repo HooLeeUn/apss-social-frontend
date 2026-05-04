@@ -25,10 +25,13 @@ import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import {
   addMovieToMyList,
+  addMovieToMyRecommendations,
   getMyMovieList,
+  getMyMovieRecommendations,
   Movie,
   MOVIES_FEED_ENDPOINT,
   removeMovieFromMyList,
+  removeMovieFromMyRecommendations,
   WEEKLY_MOVIES_FEED_ENDPOINT,
   parseMovieList,
   parseMoviePagination,
@@ -111,6 +114,7 @@ export default function FeedPage() {
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [notificationItems, setNotificationItems] = useState<MyNotificationItem[]>([]);
   const [listedMovieIds, setListedMovieIds] = useState<Set<string>>(new Set());
+  const [recommendedMovieIds, setRecommendedMovieIds] = useState<Set<string>>(new Set());
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -150,14 +154,17 @@ export default function FeedPage() {
           throw weeklyResult.error;
         }
 
-        const [normalizedWeekly, myListMovies] = await Promise.all([
+        const [normalizedWeekly, myListMovies, myRecommendedMovies] = await Promise.all([
           Promise.resolve(weeklyResult.ok ? parseMovieList(weeklyResult.payload) : []),
           getMyMovieList().catch(() => []),
+          getMyMovieRecommendations().catch(() => []),
         ]);
         const backendListSet = new Set(myListMovies.map((movie) => String(movie.id)));
+        const backendRecommendationsSet = new Set(myRecommendedMovies.map((movie) => String(movie.id)));
 
         setWeeklyMovies(normalizedWeekly);
         setListedMovieIds(backendListSet);
+        setRecommendedMovieIds(backendRecommendationsSet);
         if (typeof window !== "undefined") {
           window.localStorage.setItem(MY_LIST_IDS_STORAGE_KEY, JSON.stringify(Array.from(backendListSet)));
         }
@@ -188,6 +195,29 @@ export default function FeedPage() {
       }
     } catch (syncError) {
       console.warn("No se pudo sincronizar Mi Lista en feed.", syncError);
+    }
+  }, []);
+
+  const handleToggleMyRecommendations = useCallback(async (movieId: Movie["id"], nextValue: boolean) => {
+    const movieIdKey = String(movieId);
+    setRecommendedMovieIds((current) => {
+      const next = new Set(current);
+      if (nextValue) next.add(movieIdKey);
+      else next.delete(movieIdKey);
+      return next;
+    });
+
+    try {
+      if (nextValue) await addMovieToMyRecommendations(movieId);
+      else await removeMovieFromMyRecommendations(movieId);
+    } catch (error) {
+      console.warn("No se pudo actualizar Mis recomendadas.", error);
+      setRecommendedMovieIds((current) => {
+        const rollback = new Set(current);
+        if (nextValue) rollback.delete(movieIdKey);
+        else rollback.add(movieIdKey);
+        return rollback;
+      });
     }
   }, []);
 
@@ -701,7 +731,7 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} />
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">
@@ -727,6 +757,8 @@ export default function FeedPage() {
                   onRated={handlePersonalizedRated}
                   isInMyListOverride={listedMovieIds.has(String(movie.id))}
                   onToggleMyList={handleToggleMyList}
+                  isInMyRecommendationsOverride={recommendedMovieIds.has(String(movie.id))}
+                  onToggleMyRecommendations={handleToggleMyRecommendations}
                 />
               ))}
               </div>

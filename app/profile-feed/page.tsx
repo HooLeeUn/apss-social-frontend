@@ -12,7 +12,7 @@ import { getMyProfile, getTopFollowing, getTopFriends, markNotificationsContextR
 import { SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
 import { useAppBranding } from "../../hooks/useAppBranding";
-import { getMyMovieList, Movie, removeMovieFromMyList } from "../../lib/movies";
+import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../../lib/movies";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
@@ -29,6 +29,8 @@ export default function ProfileFeedPage() {
   const requestedTab = searchParams.get("tab");
   const [myListMovies, setMyListMovies] = useState<Movie[]>([]);
   const [loadingMyList, setLoadingMyList] = useState(true);
+  const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
+  const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
   const initialActivityTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "messages" : "activity";
 
@@ -110,6 +112,19 @@ export default function ProfileFeedPage() {
     }
   }, [myListMovies]);
 
+  const handleRemoveFromRecommended = useCallback(async (movieId: Movie["id"]) => {
+    const previousMovies = recommendedMovies;
+    setRecommendedMovies((current) => current.filter((movie) => String(movie.id) !== String(movieId)));
+
+    try {
+      await removeMovieFromMyRecommendations(movieId);
+      window.dispatchEvent(new CustomEvent("my-recommendations:changed", { detail: { movieId: String(movieId), isInMyRecommendations: false } }));
+    } catch (error) {
+      console.warn("No se pudo quitar la película de Mis recomendadas.", error);
+      setRecommendedMovies(previousMovies);
+    }
+  }, [recommendedMovies]);
+
   useEffect(() => {
     const normalizedTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "private_inbox" : requestedTab === "activity" ? "activity" : null;
     if (!normalizedTab) return;
@@ -139,7 +154,20 @@ export default function ProfileFeedPage() {
       }
     };
 
+    const loadRecommendations = async () => {
+      setLoadingRecommendedMovies(true);
+      try {
+        const movies = await getMyMovieRecommendations();
+        setRecommendedMovies(movies);
+      } catch {
+        setRecommendedMovies([]);
+      } finally {
+        setLoadingRecommendedMovies(false);
+      }
+    };
+
     void loadMyList();
+    void loadRecommendations();
   }, []);
 
   return (
@@ -196,7 +224,8 @@ export default function ProfileFeedPage() {
                 <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
               </div>
               <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
-                {activeListView === "recommended" ? <p className="text-center text-xs text-zinc-500">Sin películas en esta lista por ahora.</p> : null}
+                {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">Cargando lista…</p> : null}
+                {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">Sin películas en esta lista por ahora.</p> : null}
                 {activeListView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">Cargando lista…</p> : null}
                 {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">Sin películas en tu lista.</p> : null}
                 {activeListView === "my-list" && myListMovies.map((movie) => {
@@ -215,6 +244,31 @@ export default function ProfileFeedPage() {
                           )}
                         </Link>
                         <button type="button" onClick={() => void handleRemoveFromMyList(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={`Quitar ${displayTitle} de Mi Lista`}>✕</button>
+                      </div>
+                      <div className="mt-1.5 text-center">
+                        <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
+                        {englishTitle ? <p className="truncate text-xs text-zinc-400"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{englishTitle}</Link></p> : null}
+                      </div>
+                    </article>
+                  );
+                })}
+
+                {activeListView === "recommended" && recommendedMovies.map((movie) => {
+                  const displayTitle = movie.titleSpanish || movie.displayTitle || movie.title;
+                  const englishTitle = movie.titleEnglish || movie.displaySecondaryTitle || "";
+                  const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
+                  return (
+                    <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
+                      <div className="relative flex justify-center">
+                        <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
+                          {movie.posterUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={movie.posterUrl} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
+                          ) : (
+                            <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">Sin poster</div>
+                          )}
+                        </Link>
+                        <button type="button" onClick={() => void handleRemoveFromRecommended(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={`Quitar ${displayTitle} de Mis recomendadas`}>✕</button>
                       </div>
                       <div className="mt-1.5 text-center">
                         <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
