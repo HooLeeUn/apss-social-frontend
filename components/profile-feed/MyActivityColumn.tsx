@@ -577,7 +577,7 @@ export default function MyActivityColumn({
 }: MyActivityColumnProps = {}) {
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialActiveTab);
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
-    "public_comments",
+    "recommendations",
   );
   const [senderQuery, setSenderQuery] = useState("");
   const [myUsername, setMyUsername] = useState<string | null>(null);
@@ -982,8 +982,8 @@ export default function MyActivityColumn({
                 ) : null}
                 {!recommendationsLoading && !recommendationsError && userRecommendations.length > 0
                   ? userRecommendations.map((movie) => (
-                      <article key={movie.id} className="grid grid-cols-[52px_minmax(0,1fr)] gap-4 border-b border-white/10 py-3">
-                        <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="h-[78px] w-[52px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
+                      <article key={movie.id} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 border-b border-white/10 py-3">
+                        <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="h-[108px] w-[72px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
                           {movie.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={movie.image} alt={`Poster de ${movie.titleSpanish}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
@@ -992,8 +992,8 @@ export default function MyActivityColumn({
                           )}
                         </Link>
                         <div className="min-w-0 space-y-1">
-                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-sm font-semibold text-zinc-100 hover:text-blue-200">{movie.titleSpanish}</Link>
-                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-xs text-zinc-400 hover:text-blue-200">{movie.titleEnglish}</Link>
+                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-lg font-semibold text-zinc-100 hover:text-blue-200">{movie.titleSpanish}</Link>
+                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-sm text-zinc-400 hover:text-blue-200">{movie.titleEnglish}</Link>
                           <p className="text-xs text-zinc-300">{movie.genre} · {movie.type} · {movie.releaseYear}</p>
                           <p className="text-xs text-zinc-400">Director: {movie.director}</p>
                           <p className="line-clamp-2 text-xs text-zinc-500">Casting: {movie.castMembers}</p>
