@@ -69,8 +69,11 @@ function MovieCard({
   void _enlargeInteractionIcons;
   const [localIsInMyList, setLocalIsInMyList] = useState<boolean | null>(null);
   const [localIsInMyRecommendations, setLocalIsInMyRecommendations] = useState<boolean | null>(null);
+  const [posterFailedSrc, setPosterFailedSrc] = useState<string | null>(null);
   const isInMyList = localIsInMyList ?? Boolean(isInMyListOverride ?? movie.isInMyList);
   const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
+  const posterSrc = movie.image || movie.posterUrl;
+  const hasPosterError = Boolean(posterSrc && posterFailedSrc === posterSrc);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
@@ -115,14 +118,15 @@ function MovieCard({
           isLarge ? "h-72 md:h-auto md:w-48" : isFeed ? "" : "h-56"
         }`}
       >
-        {movie.posterUrl ? (
+        {posterSrc && !hasPosterError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={movie.posterUrl}
+            src={posterSrc}
             alt={`Poster de ${displayTitle}`}
             className="h-full w-full object-cover"
             loading={isFeed ? "lazy" : "eager"}
             decoding="async"
+            onError={() => setPosterFailedSrc(posterSrc)}
           />
         ) : (
           <div

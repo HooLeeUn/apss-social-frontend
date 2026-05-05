@@ -21,6 +21,7 @@ export interface FavoriteMovie {
   id: string;
   slot: number;
   title: string;
+  image?: string | null;
   displaySecondaryTitle?: string | null;
   titleSpanish?: string | null;
   titleEnglish?: string | null;
