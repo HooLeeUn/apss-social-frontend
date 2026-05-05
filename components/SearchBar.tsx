@@ -185,7 +185,7 @@ export default function SearchBar({
 
       {inlineAutocomplete && isOpen ? (
         <div className="absolute left-0 right-0 top-full z-40 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur">
-          <div className="max-h-[336px] overflow-y-auto overscroll-contain py-1">
+          <div className="search-dropdown-scrollbar max-h-[336px] overflow-y-auto overscroll-contain py-1">
             {results.map((movie) => (
               <button
                 key={movie.id}
