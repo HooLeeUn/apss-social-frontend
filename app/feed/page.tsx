@@ -706,10 +706,10 @@ export default function FeedPage() {
           </div>
 
           <SearchBar
-            className="mx-auto w-full max-w-2xl gap-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
-            inputClassName="rounded-l-full rounded-r-none border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
-            buttonClassName="rounded-l-none rounded-r-full border-2 border-l-0 border-white/60 bg-zinc-100 px-6 text-zinc-900 hover:bg-zinc-300"
+            className="mx-auto w-full max-w-2xl rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
+            inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
             showSearchIcon
+            inlineAutocomplete
           />
 
           <GenreChips
