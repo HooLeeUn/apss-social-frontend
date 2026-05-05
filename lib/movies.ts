@@ -21,6 +21,7 @@ export interface Movie {
   director: string | null;
   castMembers: string[];
   posterUrl: string | null;
+  image?: string | null;
   displayRating: number | null;
   myRating: number | null;
   followingAvgRating: number | null;
@@ -341,6 +342,14 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
           nestedMovie?.image,
           nestedMovie?.poster,
           nestedMovie?.poster_url,
+          raw.image_url,
+        ),
+      ),
+    image:
+      resolveBackendAssetUrl(
+        pickFirst(
+          raw.image,
+          nestedMovie?.image,
           raw.image_url,
         ),
       ),

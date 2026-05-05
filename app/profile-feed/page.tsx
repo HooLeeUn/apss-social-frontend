@@ -236,9 +236,9 @@ export default function ProfileFeedPage() {
                     <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
                       <div className="relative flex justify-center">
                         <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
-                          {movie.posterUrl ? (
+                          {movie.image || movie.posterUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={movie.posterUrl} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
+                            <img src={movie.image || movie.posterUrl || ""} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
                           ) : (
                             <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">Sin poster</div>
                           )}
@@ -261,9 +261,9 @@ export default function ProfileFeedPage() {
                     <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
                       <div className="relative flex justify-center">
                         <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
-                          {movie.posterUrl ? (
+                          {movie.image || movie.posterUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={movie.posterUrl} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
+                            <img src={movie.image || movie.posterUrl || ""} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
                           ) : (
                             <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">Sin poster</div>
                           )}

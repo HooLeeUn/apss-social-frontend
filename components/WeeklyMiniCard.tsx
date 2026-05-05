@@ -39,8 +39,11 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const topUserId = movie?.topUser?.id;
   const topUserAvatar = movie?.topUser?.avatar ?? null;
   const [avatarFailedSrc, setAvatarFailedSrc] = useState<string | null>(null);
+  const [posterFailedSrc, setPosterFailedSrc] = useState<string | null>(null);
+  const posterSrc = movie?.image || movie?.posterUrl || null;
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
   const hasAvatarError = Boolean(topUserAvatar && avatarFailedSrc === topUserAvatar);
+  const hasPosterError = Boolean(posterSrc && posterFailedSrc === posterSrc);
   const hasTopUserNavigationData = Boolean(topUsername && topUserId !== null && topUserId !== undefined);
   const isCurrentUser = hasTopUserNavigationData && currentUserId !== null && currentUserId !== undefined
     ? String(topUserId) === String(currentUserId)
@@ -212,14 +215,15 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
 
           <div className="w-[34%] min-w-[72px] max-w-[92px] border-l border-white/10 bg-zinc-950">
             <div className="h-full w-full">
-              {movie?.posterUrl ? (
+              {posterSrc && !hasPosterError ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={movie.posterUrl}
+                  src={posterSrc}
                   alt={`Poster de ${title}`}
                   className="h-full w-full object-cover"
                   loading="lazy"
                   decoding="async"
+                  onError={() => setPosterFailedSrc(posterSrc)}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-2 text-center text-[10px] text-zinc-400">
