@@ -1,9 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "../lib/api";
-import { Movie, normalizeMovie } from "../lib/movies";
+import { API_BASE_URL, apiFetch } from "../lib/api";
+import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../lib/movies";
+
+const AUTOCOMPLETE_LIMIT = 10;
+const AUTOCOMPLETE_SCROLL_THRESHOLD_PX = 96;
 
 interface SearchBarProps {
   initialQuery?: string;
@@ -12,6 +15,24 @@ interface SearchBarProps {
   buttonClassName?: string;
   showSearchIcon?: boolean;
   inlineAutocomplete?: boolean;
+}
+
+function buildAutocompleteEndpoint(query: string, page: number): string {
+  return `/movies/?${new URLSearchParams({
+    autocomplete: "true",
+    q: query,
+    limit: String(AUTOCOMPLETE_LIMIT),
+    page: String(page),
+  }).toString()}`;
+}
+
+function collectUniqueMovies(movies: Movie[], seenIds: Set<string>): Movie[] {
+  return movies.filter((movie) => {
+    const id = String(movie.id);
+    if (seenIds.has(id)) return false;
+    seenIds.add(id);
+    return true;
+  });
 }
 
 export default function SearchBar({
@@ -25,13 +46,19 @@ export default function SearchBar({
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [nextEndpoint, setNextEndpoint] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [canLoadMore, setCanLoadMore] = useState(false);
 
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const debounceTimeoutRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loadMoreAbortControllerRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
+  const resultIdsRef = useRef<Set<string>>(new Set());
 
   const trimmedQuery = useMemo(() => query.trim(), [query]);
 
@@ -61,10 +88,17 @@ export default function SearchBar({
 
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
+    loadMoreAbortControllerRef.current?.abort();
+    loadMoreAbortControllerRef.current = null;
+    resultIdsRef.current = new Set();
+    setResults([]);
+    setNextEndpoint(null);
+    setCurrentPage(1);
+    setCanLoadMore(false);
+    setIsLoadingMore(false);
 
     if (trimmedQuery.length < 2) {
       requestIdRef.current += 1;
-      setResults([]);
       setIsOpen(false);
       setIsLoading(false);
       return;
@@ -79,30 +113,30 @@ export default function SearchBar({
     debounceTimeoutRef.current = window.setTimeout(() => {
       requestController = new AbortController();
       abortControllerRef.current = requestController;
-      const endpoint = `/movies/?${new URLSearchParams({ search: trimmedQuery, page: "1", page_size: "10" }).toString()}`;
+      const endpoint = buildAutocompleteEndpoint(trimmedQuery, 1);
 
       void apiFetch(endpoint, { signal: requestController.signal })
         .then((payload) => {
           if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
 
-          const rawResults =
-            typeof payload === "object" && payload !== null && "results" in payload && Array.isArray((payload as { results?: unknown }).results)
-              ? ((payload as { results: unknown[] }).results as Record<string, unknown>[])
-              : [];
+          const parsed = parseMovieList(payload);
+          const pagination = parseMoviePagination(payload);
 
-          const parsed = rawResults
-            .filter((movie): movie is Record<string, unknown> => typeof movie === "object" && movie !== null)
-            .map((movie, index) => normalizeMovie(movie, index))
-            .slice(0, 10);
-
+          resultIdsRef.current = new Set(parsed.map((movie) => String(movie.id)));
           setResults(parsed);
+          setNextEndpoint(pagination.next);
+          setCurrentPage(1);
+          setCanLoadMore(Boolean(pagination.next) || parsed.length >= AUTOCOMPLETE_LIMIT);
           setIsOpen(true);
         })
         .catch((error) => {
           if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
           if (error instanceof DOMException && error.name === "AbortError") return;
 
+          resultIdsRef.current = new Set();
           setResults([]);
+          setNextEndpoint(null);
+          setCanLoadMore(false);
           setIsOpen(true);
         })
         .finally(() => {
@@ -120,6 +154,60 @@ export default function SearchBar({
       requestController?.abort();
     };
   }, [inlineAutocomplete, trimmedQuery]);
+
+
+  const loadMoreResults = useCallback(() => {
+    if (!inlineAutocomplete || !canLoadMore || isLoading || isLoadingMore || trimmedQuery.length < 2) return;
+
+    const requestId = requestIdRef.current;
+    const requestQuery = trimmedQuery;
+    const nextPage = currentPage + 1;
+    const endpoint = nextEndpoint ? normalizeNextEndpoint(nextEndpoint, API_BASE_URL) : buildAutocompleteEndpoint(requestQuery, nextPage);
+    const requestController = new AbortController();
+
+    loadMoreAbortControllerRef.current?.abort();
+    loadMoreAbortControllerRef.current = requestController;
+    setIsLoadingMore(true);
+
+    void apiFetch(endpoint, { signal: requestController.signal })
+      .then((payload) => {
+        if (requestIdRef.current !== requestId || trimmedQuery !== requestQuery || requestController.signal.aborted) return;
+
+        const parsed = parseMovieList(payload);
+        const pagination = parseMoviePagination(payload);
+
+        const uniqueMovies = collectUniqueMovies(parsed, resultIdsRef.current);
+
+        setResults((currentResults) => (uniqueMovies.length ? [...currentResults, ...uniqueMovies] : currentResults));
+        setNextEndpoint(pagination.next);
+        setCurrentPage(nextPage);
+        setCanLoadMore(Boolean(pagination.next) || (uniqueMovies.length > 0 && parsed.length >= AUTOCOMPLETE_LIMIT));
+      })
+      .catch((error) => {
+        if (requestIdRef.current !== requestId || trimmedQuery !== requestQuery || requestController.signal.aborted) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+
+        setCanLoadMore(false);
+      })
+      .finally(() => {
+        if (loadMoreAbortControllerRef.current === requestController) {
+          loadMoreAbortControllerRef.current = null;
+        }
+
+        if (requestIdRef.current === requestId && trimmedQuery === requestQuery) {
+          setIsLoadingMore(false);
+        }
+      });
+  }, [canLoadMore, currentPage, inlineAutocomplete, isLoading, isLoadingMore, nextEndpoint, trimmedQuery]);
+
+  const handleResultsScroll = (event: UIEvent<HTMLDivElement>) => {
+    const listbox = event.currentTarget;
+    const distanceToBottom = listbox.scrollHeight - listbox.scrollTop - listbox.clientHeight;
+
+    if (distanceToBottom <= AUTOCOMPLETE_SCROLL_THRESHOLD_PX) {
+      loadMoreResults();
+    }
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -185,7 +273,7 @@ export default function SearchBar({
 
       {inlineAutocomplete && isOpen ? (
         <div className="absolute left-0 right-0 top-full z-40 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur">
-          <div className="search-dropdown-scrollbar max-h-[336px] overflow-y-auto overscroll-contain py-1">
+          <div className="search-dropdown-scrollbar max-h-[336px] overflow-y-auto overscroll-contain py-1" onScroll={handleResultsScroll}>
             {results.map((movie) => (
               <button
                 key={movie.id}
@@ -215,7 +303,8 @@ export default function SearchBar({
                 </div>
               </button>
             ))}
-            {isLoading ? <p className="px-3 py-3 text-xs text-zinc-400">Buscando...</p> : null}
+            {isLoading && results.length === 0 ? <p className="px-3 py-3 text-xs text-zinc-400">Buscando...</p> : null}
+            {isLoadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
             {!isLoading && results.length === 0 ? <p className="px-3 py-3 text-xs text-zinc-400">Sin coincidencias.</p> : null}
           </div>
         </div>
