@@ -49,6 +49,29 @@ textarea,
   background: transparent;
 }
 
+.search-dropdown-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3a #0f0f0f;
+}
+
+.search-dropdown-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.search-dropdown-scrollbar::-webkit-scrollbar-track {
+  background: #0f0f0f;
+  border-radius: 8px;
+}
+
+.search-dropdown-scrollbar::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 8px;
+}
+
+.search-dropdown-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+}
+
 .scrollbar-dark {
   scrollbar-width: thin;
   scrollbar-color: #2a2a2a #0f0f0f;
