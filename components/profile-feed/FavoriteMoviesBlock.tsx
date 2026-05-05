@@ -41,6 +41,8 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
   const displaySecondaryTitle = movie?.displaySecondaryTitle ?? null;
   const firstLetter = displayTitle.charAt(0)?.toUpperCase() ?? "—";
   const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const movieImage = movie?.image || movie?.posterUrl || null;
 
   const handleOptimisticRate = (score: number) => {
     if (!movie) return;
@@ -74,9 +76,21 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
             {movie ? (
               <>
                 <div className="grid min-w-0 grid-cols-[60px_minmax(0,1fr)] items-center gap-3.5">
-                  <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
-                    <span className="text-lg">{firstLetter}</span>
-                  </div>
+                  {movieImage && movieImage !== failedImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={movieImage}
+                      alt={`Poster de ${displayTitle}`}
+                      className="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 object-cover shadow-inner shadow-black/30"
+                      loading="lazy"
+                      decoding="async"
+                      onError={() => setFailedImageUrl(movieImage)}
+                    />
+                  ) : (
+                    <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
+                      <span className="text-lg">{firstLetter}</span>
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <h3 className="truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">
                       {detailHref ? (
