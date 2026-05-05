@@ -22,6 +22,7 @@ interface MovieCardProps {
   onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   isInMyRecommendationsOverride?: boolean;
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
+  stretchPosterColumn?: boolean;
 }
 
 function formatContentType(contentType: string) {
@@ -47,6 +48,7 @@ function MovieCard({
   onToggleMyList,
   isInMyRecommendationsOverride,
   onToggleMyRecommendations,
+  stretchPosterColumn = false,
 }: MovieCardProps) {
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -111,12 +113,14 @@ function MovieCard({
     <article
       className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
-      } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative" : ""}`}
+      } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}
     >
       <div
-        className={`group relative flex-shrink-0 ${isFeed ? "h-[164px] w-[108px] bg-zinc-900 sm:h-[172px] sm:w-[114px]" : "bg-gray-200"} ${
-          isLarge ? "h-72 md:h-auto md:w-48" : isFeed ? "" : "h-56"
-        }`}
+        className={`group relative flex-shrink-0 ${
+          isFeed
+            ? `${stretchPosterColumn ? "h-auto self-stretch" : "h-[164px] sm:h-[172px]"} w-[108px] bg-zinc-900 sm:w-[114px]`
+            : "bg-gray-200"
+        } ${isLarge ? "h-72 md:h-auto md:w-48" : isFeed ? "" : "h-56"}`}
       >
         {posterSrc && !hasPosterError ? (
           // eslint-disable-next-line @next/next/no-img-element

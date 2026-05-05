@@ -759,6 +759,7 @@ export default function FeedPage() {
                   onToggleMyList={handleToggleMyList}
                   isInMyRecommendationsOverride={recommendedMovieIds.has(String(movie.id))}
                   onToggleMyRecommendations={handleToggleMyRecommendations}
+                  stretchPosterColumn
                 />
               ))}
               </div>
