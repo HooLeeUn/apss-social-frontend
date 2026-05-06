@@ -10,10 +10,11 @@ import {
   blockUser,
   BlockedUser,
   getBlockedUsers,
-  getProfileVisibility,
+  getProfilePrivacySettings,
   ProfileVisibility,
   searchUsersToRestrict,
   unblockUser,
+  updateFriendRequestsRestriction,
   updateProfileVisibility,
 } from "../../lib/privacy";
 
@@ -24,6 +25,7 @@ const privacyDisclaimer = [
   "Si cambias tu perfil a privado, perderás tus seguidores actuales, pero conservarás los perfiles que ya sigues.",
   "Tus comentarios públicos seguirán siendo visibles aunque tu perfil sea privado.",
   "Si restringes a un usuario, esa persona no podrá acceder a tu perfil ni al contenido que el backend le oculte por restricción.",
+  "El perfil público que restrinja solicitudes de amistad conservará sus seguidores y seguidos, pero perderá todas sus amistades actuales. Si vuelve a permitir solicitudes, esas amistades no se recuperarán automáticamente.",
 ];
 
 export default function PrivacySecurityPage() {
@@ -35,6 +37,11 @@ export default function PrivacySecurityPage() {
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [visibilityMessage, setVisibilityMessage] = useState("");
   const [showConfirmPrivate, setShowConfirmPrivate] = useState(false);
+
+  const [friendRequestsRestricted, setFriendRequestsRestricted] = useState(false);
+  const [savingFriendRequestsRestriction, setSavingFriendRequestsRestriction] = useState(false);
+  const [friendRequestsRestrictionMessage, setFriendRequestsRestrictionMessage] = useState("");
+  const [showConfirmFriendRequestsRestriction, setShowConfirmFriendRequestsRestriction] = useState(false);
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [blockedUsersLoading, setBlockedUsersLoading] = useState(true);
@@ -49,9 +56,13 @@ export default function PrivacySecurityPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [loadedVisibility, loadedBlockedUsers] = await Promise.all([getProfileVisibility(), getBlockedUsers()]);
+        const [loadedPrivacySettings, loadedBlockedUsers] = await Promise.all([
+          getProfilePrivacySettings(),
+          getBlockedUsers(),
+        ]);
 
-        setVisibility(loadedVisibility);
+        setVisibility(loadedPrivacySettings.visibility);
+        setFriendRequestsRestricted(loadedPrivacySettings.friendRequestsRestricted);
         setBlockedUsers(loadedBlockedUsers);
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
@@ -106,6 +117,34 @@ export default function PrivacySecurityPage() {
     } finally {
       setSavingVisibility(false);
     }
+  };
+
+  const handleFriendRequestsRestrictionUpdate = async (nextValue: boolean) => {
+    setSavingFriendRequestsRestriction(true);
+    setFriendRequestsRestrictionMessage("");
+
+    try {
+      const updatedValue = await updateFriendRequestsRestriction(nextValue);
+      setFriendRequestsRestricted(updatedValue);
+      setFriendRequestsRestrictionMessage("Configuración de solicitudes de amistad actualizada correctamente.");
+    } catch {
+      setFriendRequestsRestrictionMessage("No se pudo actualizar la restricción de solicitudes. Inténtalo de nuevo.");
+    } finally {
+      setSavingFriendRequestsRestriction(false);
+    }
+  };
+
+  const handleFriendRequestsRestrictionChange = (nextValue: boolean) => {
+    if (savingFriendRequestsRestriction || nextValue === friendRequestsRestricted) return;
+
+    setFriendRequestsRestrictionMessage("");
+
+    if (nextValue) {
+      setShowConfirmFriendRequestsRestriction(true);
+      return;
+    }
+
+    void handleFriendRequestsRestrictionUpdate(false);
   };
 
   const handleVisibilityChange = async (nextVisibility: ProfileVisibility) => {
@@ -267,108 +306,176 @@ export default function PrivacySecurityPage() {
           {visibilityMessage ? <p className="mt-3 text-sm text-zinc-300">{visibilityMessage}</p> : null}
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
-          <h2 className="text-lg font-semibold text-zinc-100">Restringir usuarios</h2>
+        {!loadingVisibility && visibility === "public" ? (
+          <>
+            <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-100">Restringir solicitudes de amistad</h2>
+                  <p className="mt-1 text-sm leading-6 text-zinc-300">
+                    Controla si otros usuarios pueden enviarte solicitudes de amistad.
+                  </p>
+                </div>
+                <select
+                  value={friendRequestsRestricted ? "yes" : "no"}
+                  disabled={savingFriendRequestsRestriction}
+                  onChange={(event) => handleFriendRequestsRestrictionChange(event.target.value === "yes")}
+                  className="min-w-28 rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-300/70 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Restringir solicitudes de amistad"
+                >
+                  <option value="no">NO</option>
+                  <option value="yes">SÍ</option>
+                </select>
+              </div>
 
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setSearchQuery(nextValue);
+              {savingFriendRequestsRestriction ? (
+                <p className="mt-3 text-sm text-zinc-300">Guardando cambios...</p>
+              ) : null}
+              {friendRequestsRestrictionMessage ? (
+                <p className="mt-3 text-sm text-zinc-300">{friendRequestsRestrictionMessage}</p>
+              ) : null}
+            </section>
 
-                if (!normalizeSearchQuery(nextValue)) {
-                  setHasSearched(false);
-                  setSearchResults([]);
-                  setDismissedSearchResultIds(new Set());
-                  setSearchMessage("");
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void handleSearchUsers();
-                }
-              }}
-              placeholder="Buscar usuario por nombre"
-              className="w-full rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-300/70"
-            />
-            <button
-              type="button"
-              onClick={() => void handleSearchUsers()}
-              disabled={searchingUsers}
-              className="rounded-2xl border border-white/40 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {searchingUsers ? "Buscando..." : "Buscar"}
-            </button>
-          </div>
+            <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
+              <h2 className="text-lg font-semibold text-zinc-100">Restringir usuarios</h2>
 
-          {hasSearchQuery ? (
-            <div className="mt-4 space-y-2">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Resultados</p>
-              {visibleSearchResults.length === 0 ? (
-                <p className="text-sm text-zinc-500">
-                  {searchingUsers ? "Buscando usuarios..." : hasSearched ? searchMessage || "Sin resultados" : ""}
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {visibleSearchResults.map((user) => (
-                    <li
-                      key={String(user.id)}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-2"
-                    >
-                      <span className="text-sm text-zinc-200">@{user.username}</span>
-                      <div className="flex items-center gap-2">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setSearchQuery(nextValue);
+
+                    if (!normalizeSearchQuery(nextValue)) {
+                      setHasSearched(false);
+                      setSearchResults([]);
+                      setDismissedSearchResultIds(new Set());
+                      setSearchMessage("");
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void handleSearchUsers();
+                    }
+                  }}
+                  placeholder="Buscar usuario por nombre"
+                  className="w-full rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-300/70"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleSearchUsers()}
+                  disabled={searchingUsers}
+                  className="rounded-2xl border border-white/40 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {searchingUsers ? "Buscando..." : "Buscar"}
+                </button>
+              </div>
+
+              {hasSearchQuery ? (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Resultados</p>
+                  {visibleSearchResults.length === 0 ? (
+                    <p className="text-sm text-zinc-500">
+                      {searchingUsers ? "Buscando usuarios..." : hasSearched ? searchMessage || "Sin resultados" : ""}
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {visibleSearchResults.map((user) => (
+                        <li
+                          key={String(user.id)}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-2"
+                        >
+                          <span className="text-sm text-zinc-200">@{user.username}</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleBlockUser(user)}
+                              className="rounded-full border border-red-300/50 px-3 py-1 text-xs font-medium text-red-200 transition hover:border-red-200"
+                            >
+                              Agregar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelSearchResult(user.id)}
+                              className="rounded-full border border-white/30 px-3 py-1 text-xs font-medium text-zinc-100 transition hover:border-white"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+
+              <div className="mt-5 space-y-2">
+                <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Usuarios restringidos</p>
+                {blockedUsersLoading ? (
+                  <p className="text-sm text-zinc-400">Cargando usuarios restringidos...</p>
+                ) : blockedUsers.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No tienes usuarios restringidos actualmente.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {blockedUsers.map((user) => (
+                      <li
+                        key={String(user.id)}
+                        className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-2"
+                      >
+                        <span className="text-sm text-zinc-200">@{user.username}</span>
                         <button
                           type="button"
-                          onClick={() => void handleBlockUser(user)}
-                          className="rounded-full border border-red-300/50 px-3 py-1 text-xs font-medium text-red-200 transition hover:border-red-200"
+                          onClick={() => void handleUnblockUser(user)}
+                          className="rounded-full border border-white/40 px-3 py-1 text-xs font-medium text-zinc-100 transition hover:border-white"
                         >
-                          Agregar
+                          Quitar restricción
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCancelSearchResult(user.id)}
-                          className="rounded-full border border-white/30 px-3 py-1 text-xs font-medium text-zinc-100 transition hover:border-white"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-          <div className="mt-5 space-y-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Usuarios restringidos</p>
-            {blockedUsersLoading ? (
-              <p className="text-sm text-zinc-400">Cargando usuarios restringidos...</p>
-            ) : blockedUsers.length === 0 ? (
-              <p className="text-sm text-zinc-500">No tienes usuarios restringidos actualmente.</p>
-            ) : (
-              <ul className="space-y-2">
-                {blockedUsers.map((user) => (
-                  <li key={String(user.id)} className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-2">
-                    <span className="text-sm text-zinc-200">@{user.username}</span>
-                    <button
-                      type="button"
-                      onClick={() => void handleUnblockUser(user)}
-                      className="rounded-full border border-white/40 px-3 py-1 text-xs font-medium text-zinc-100 transition hover:border-white"
-                    >
-                      Quitar restricción
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {blockedUsersMessage ? <p className="mt-4 text-sm text-zinc-300">{blockedUsersMessage}</p> : null}
-        </section>
+              {blockedUsersMessage ? <p className="mt-4 text-sm text-zinc-300">{blockedUsersMessage}</p> : null}
+            </section>
+          </>
+        ) : null}
       </div>
+
+
+      {showConfirmFriendRequestsRestriction ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-[0_25px_55px_rgba(0,0,0,0.5)]">
+            <h3 className="text-lg font-semibold text-zinc-100">Restringir solicitudes de amistad</h3>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              Al restringir las solicitudes de amistad, se eliminarán todas tus amistades actuales. Podrás volver a
+              permitir solicitudes más adelante, pero las amistades eliminadas no se recuperarán automáticamente; tendrás
+              que agregarlas nuevamente una por una.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmFriendRequestsRestriction(false)}
+                className="rounded-full border border-white/30 px-4 py-2 text-sm text-zinc-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmFriendRequestsRestriction(false);
+                  void handleFriendRequestsRestrictionUpdate(true);
+                }}
+                className="rounded-full border border-blue-300/70 bg-blue-500/20 px-4 py-2 text-sm font-medium text-blue-100"
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showConfirmPrivate ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4">
