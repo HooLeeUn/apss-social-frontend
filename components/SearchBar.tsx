@@ -90,8 +90,6 @@ export default function SearchBar({
     abortControllerRef.current = null;
     loadMoreAbortControllerRef.current?.abort();
     loadMoreAbortControllerRef.current = null;
-    resultIdsRef.current = new Set();
-    setResults([]);
     setNextEndpoint(null);
     setCurrentPage(1);
     setCanLoadMore(false);
@@ -99,6 +97,8 @@ export default function SearchBar({
 
     if (trimmedQuery.length < 2) {
       requestIdRef.current += 1;
+      resultIdsRef.current = new Set();
+      setResults([]);
       setIsOpen(false);
       setIsLoading(false);
       return;
@@ -133,8 +133,6 @@ export default function SearchBar({
           if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
           if (error instanceof DOMException && error.name === "AbortError") return;
 
-          resultIdsRef.current = new Set();
-          setResults([]);
           setNextEndpoint(null);
           setCanLoadMore(false);
           setIsOpen(true);
@@ -310,6 +308,7 @@ export default function SearchBar({
               </button>
             ))}
             {isLoading && results.length === 0 ? <p className="px-3 py-3 text-xs text-zinc-400">Buscando...</p> : null}
+            {isLoading && results.length > 0 ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Buscando...</p> : null}
             {isLoadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
             {!isLoading && results.length === 0 ? <p className="px-3 py-3 text-xs text-zinc-400">Sin coincidencias.</p> : null}
           </div>
