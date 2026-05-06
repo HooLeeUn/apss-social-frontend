@@ -31,8 +31,8 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, onRated, li
           </div>
         </div>
 
-        <div className="h-full rounded-2xl border border-transparent bg-zinc-950/50 p-3 md:p-4 lg:border-l-2 lg:pl-5">
-          <div className="grid h-full grid-cols-2 gap-3 lg:grid-rows-3 lg:auto-rows-fr">
+        <div className="h-full rounded-2xl border border-transparent bg-zinc-950/50 p-3 md:p-4 lg:w-[calc(100%+1rem)] lg:border-l-2 lg:pl-5 xl:w-[calc(100%+1.5rem)]">
+          <div className="grid h-full grid-cols-2 gap-3 lg:gap-x-2 lg:grid-rows-3 lg:auto-rows-fr">
             {miniMovies.map((movie, index) => (
               <div key={movie?.id ?? `weekly-mini-${index}`} className="h-full">
                 <WeeklyMiniCard movie={movie} fallbackLabel={`Top #${index + 3}`} currentUserId={currentUserId} onRated={onRated} isInMyList={Boolean(movie && listedMovieIds?.has(String(movie.id)))} onToggleMyList={onToggleMyList} isInMyRecommendations={Boolean(movie && recommendedMovieIds?.has(String(movie.id)))} onToggleMyRecommendations={onToggleMyRecommendations} />
