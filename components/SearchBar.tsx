@@ -6,6 +6,7 @@ import { API_BASE_URL, apiFetch } from "../lib/api";
 import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../lib/movies";
 
 const AUTOCOMPLETE_LIMIT = 10;
+const AUTOCOMPLETE_DEBOUNCE_MS = 200;
 const AUTOCOMPLETE_SCROLL_THRESHOLD_PX = 96;
 
 interface SearchBarProps {
@@ -143,7 +144,7 @@ export default function SearchBar({
             setIsLoading(false);
           }
         });
-    }, 250);
+    }, AUTOCOMPLETE_DEBOUNCE_MS);
 
     return () => {
       if (debounceTimeoutRef.current) {
@@ -229,6 +230,7 @@ export default function SearchBar({
 
   const rootClassName = inlineAutocomplete ? `relative ${className ?? "w-full"}`.trim() : "relative w-full";
   const formClassName = inlineAutocomplete ? "flex w-full" : `flex w-full gap-2 ${className ?? ""}`.trim();
+  const shouldShowAutocompleteResults = inlineAutocomplete && isOpen && (results.length > 0 || !isLoading);
 
   return (
     <div ref={containerRef} className={rootClassName}>
@@ -269,7 +271,7 @@ export default function SearchBar({
         ) : null}
       </form>
 
-      {inlineAutocomplete && isOpen ? (
+      {shouldShowAutocompleteResults ? (
         <div className="absolute left-0 right-0 top-full z-40 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur">
           <div className="search-dropdown-scrollbar max-h-[336px] overflow-y-auto overscroll-contain py-1" onScroll={handleResultsScroll}>
             {results.map((movie) => (
@@ -307,8 +309,6 @@ export default function SearchBar({
                 </div>
               </button>
             ))}
-            {isLoading && results.length === 0 ? <p className="px-3 py-3 text-xs text-zinc-400">Buscando...</p> : null}
-            {isLoading && results.length > 0 ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Buscando...</p> : null}
             {isLoadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
             {!isLoading && results.length === 0 ? <p className="px-3 py-3 text-xs text-zinc-400">Sin coincidencias.</p> : null}
           </div>
