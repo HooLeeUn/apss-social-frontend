@@ -285,12 +285,14 @@ export default function SearchBar({
                   {movie.posterUrl ? (
                     <img src={movie.posterUrl} alt={movie.displayTitle} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] text-zinc-500">Sin póster</div>
+                    <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
                   )}
                 </div>
                 <div className="min-w-0 text-xs text-zinc-200">
-                  <p className="line-clamp-2 min-w-0 break-words font-semibold leading-snug text-zinc-100">{movie.titleSpanish ?? "-"}</p>
-                  <p className="line-clamp-2 min-w-0 break-words leading-snug text-zinc-400">{movie.titleEnglish ?? "-"}</p>
+                  <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
+                    {movie.titleSpanish ?? "-"}
+                  </p>
+                  <p className="truncate text-[11px] leading-snug text-zinc-400">{movie.titleEnglish ?? "-"}</p>
                   <p className="mt-0.5 truncate text-[11px] text-zinc-500">{movie.year || "-"}</p>
                 </div>
                 <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
@@ -298,8 +300,12 @@ export default function SearchBar({
                   <p className="truncate text-zinc-500">{movie.genres.length ? movie.genres.join(", ") : "-"}</p>
                 </div>
                 <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
-                  <p className="truncate">Dir: {movie.director ?? "-"}</p>
-                  <p className="truncate text-zinc-500">Cast: {movie.castMembers.length ? movie.castMembers.join(", ") : "-"}</p>
+                  <p className="truncate text-zinc-400">
+                    <span className="font-medium text-blue-300">Dir:</span> {movie.director ?? "-"}
+                  </p>
+                  <p className="line-clamp-3 break-words text-zinc-500">
+                    <span className="font-medium text-blue-300">Cast:</span> {movie.castMembers.length ? movie.castMembers.join(", ") : "-"}
+                  </p>
                 </div>
               </button>
             ))}

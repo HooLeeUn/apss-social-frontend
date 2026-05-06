@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApiError } from "../../lib/api";
+import { UIEvent, useCallback, useEffect, useRef, useState } from "react";
+import { API_BASE_URL, apiFetch } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
 import {
   getFavoriteMovies,
   getFavoriteMoviesByUsername,
   rateFavoriteMovie,
-  searchFavoriteMovieCandidates,
   setFavoriteMovie,
 } from "../../lib/profile-feed/adapters";
-import { FavoriteMovie, FavoriteMovieSearchResult } from "../../lib/profile-feed/types";
+import { FavoriteMovie } from "../../lib/profile-feed/types";
+import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount } from "../../lib/rating-format";
 
 interface FavoriteMovieItemProps {
@@ -194,152 +194,326 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
   );
 }
 
+const FAVORITE_AUTOCOMPLETE_LIMIT = 10;
+const FAVORITE_AUTOCOMPLETE_SCROLL_THRESHOLD_PX = 96;
+const FAVORITE_AUTOCOMPLETE_DEBOUNCE_MS = 250;
+
+function buildFavoriteAutocompleteEndpoint(query: string, page: number): string {
+  return `/movies/?${new URLSearchParams({
+    autocomplete: "true",
+    q: query,
+    limit: String(FAVORITE_AUTOCOMPLETE_LIMIT),
+    page: String(page),
+  }).toString()}`;
+}
+
+function collectUniqueMovies(movies: Movie[], seenIds: Set<string>): Movie[] {
+  return movies.filter((movie) => {
+    const id = String(movie.id);
+    if (seenIds.has(id)) return false;
+    seenIds.add(id);
+    return true;
+  });
+}
+
+function compactMetadataValue(value: string | null | undefined, fallback = "—") {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : fallback;
+}
+
 function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchModalProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<FavoriteMovieSearchResult[]>([]);
-  const [selectedMovieId, setSelectedMovieId] = useState<string>("");
+  const [results, setResults] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [savingMovieId, setSavingMovieId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [nextEndpoint, setNextEndpoint] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [canLoadMore, setCanLoadMore] = useState(false);
 
-  const selectedMovie = useMemo(() => results.find((item) => item.id === selectedMovieId) ?? null, [results, selectedMovieId]);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const debounceTimeoutRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const loadMoreAbortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+  const resultIdsRef = useRef<Set<string>>(new Set());
+  const trimmedQuery = query.trim();
+
+  const resetSearchState = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      window.clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    loadMoreAbortControllerRef.current?.abort();
+    loadMoreAbortControllerRef.current = null;
+    requestIdRef.current += 1;
+    resultIdsRef.current = new Set();
+    setQuery("");
+    setResults([]);
+    setLoading(false);
+    setLoadingMore(false);
+    setSavingMovieId(null);
+    setFeedback("");
+    setNextEndpoint(null);
+    setCurrentPage(1);
+    setCanLoadMore(false);
+  }, []);
 
   useEffect(() => {
     if (!open) {
-      setQuery("");
-      setResults([]);
-      setSelectedMovieId("");
-      setLoading(false);
-      setSaving(false);
-      setFeedback("");
-    }
-  }, [open]);
-
-  const handleSearch = async (event?: FormEvent) => {
-    event?.preventDefault();
-
-    if (!query.trim()) {
-      setResults([]);
-      setSelectedMovieId("");
-      setFeedback("Escribe un término para buscar.");
+      resetSearchState();
       return;
     }
 
-    try {
-      setLoading(true);
-      setFeedback("");
-      const found = await searchFavoriteMovieCandidates(query);
-      setResults(found);
-      setSelectedMovieId(found[0]?.id ?? "");
-      if (found.length === 0) {
-        setFeedback("No encontramos coincidencias.");
+    const focusTimeout = window.setTimeout(() => inputRef.current?.focus(), 0);
+    return () => window.clearTimeout(focusTimeout);
+  }, [open, resetSearchState]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
       }
-    } catch {
-      setResults([]);
-      setSelectedMovieId("");
-      setFeedback("No se pudo completar la búsqueda.");
-    } finally {
+    };
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!modalRef.current?.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [onClose, open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (debounceTimeoutRef.current) {
+      window.clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    loadMoreAbortControllerRef.current?.abort();
+    loadMoreAbortControllerRef.current = null;
+    resultIdsRef.current = new Set();
+    setResults([]);
+    setNextEndpoint(null);
+    setCurrentPage(1);
+    setCanLoadMore(false);
+    setLoadingMore(false);
+    setFeedback("");
+
+    if (trimmedQuery.length < 2) {
+      requestIdRef.current += 1;
       setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const currentRequestId = requestIdRef.current + 1;
+    requestIdRef.current = currentRequestId;
+    let requestController: AbortController | null = null;
+
+    debounceTimeoutRef.current = window.setTimeout(() => {
+      requestController = new AbortController();
+      abortControllerRef.current = requestController;
+      const endpoint = buildFavoriteAutocompleteEndpoint(trimmedQuery, 1);
+
+      void apiFetch(endpoint, { signal: requestController.signal })
+        .then((payload) => {
+          if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
+
+          const parsed = parseMovieList(payload);
+          const pagination = parseMoviePagination(payload);
+
+          resultIdsRef.current = new Set(parsed.map((movie) => String(movie.id)));
+          setResults(parsed);
+          setNextEndpoint(pagination.next);
+          setCurrentPage(1);
+          setCanLoadMore(Boolean(pagination.next) || parsed.length >= FAVORITE_AUTOCOMPLETE_LIMIT);
+          setFeedback(parsed.length === 0 ? "No encontramos coincidencias." : "");
+        })
+        .catch((error) => {
+          if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
+          if (error instanceof DOMException && error.name === "AbortError") return;
+
+          resultIdsRef.current = new Set();
+          setResults([]);
+          setNextEndpoint(null);
+          setCanLoadMore(false);
+          setFeedback("No se pudo completar la búsqueda.");
+        })
+        .finally(() => {
+          if (requestIdRef.current === currentRequestId && abortControllerRef.current === requestController) {
+            abortControllerRef.current = null;
+            setLoading(false);
+          }
+        });
+    }, FAVORITE_AUTOCOMPLETE_DEBOUNCE_MS);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        window.clearTimeout(debounceTimeoutRef.current);
+      }
+      requestController?.abort();
+    };
+  }, [open, trimmedQuery]);
+
+  const loadMoreResults = useCallback(() => {
+    if (!open || !canLoadMore || loading || loadingMore || trimmedQuery.length < 2) return;
+
+    const requestId = requestIdRef.current;
+    const requestQuery = trimmedQuery;
+    const nextPage = currentPage + 1;
+    const endpoint = nextEndpoint ? normalizeNextEndpoint(nextEndpoint, API_BASE_URL) : buildFavoriteAutocompleteEndpoint(requestQuery, nextPage);
+    const requestController = new AbortController();
+
+    loadMoreAbortControllerRef.current?.abort();
+    loadMoreAbortControllerRef.current = requestController;
+    setLoadingMore(true);
+
+    void apiFetch(endpoint, { signal: requestController.signal })
+      .then((payload) => {
+        if (requestIdRef.current !== requestId || trimmedQuery !== requestQuery || requestController.signal.aborted) return;
+
+        const parsed = parseMovieList(payload);
+        const pagination = parseMoviePagination(payload);
+        const uniqueMovies = collectUniqueMovies(parsed, resultIdsRef.current);
+
+        setResults((currentResults) => (uniqueMovies.length ? [...currentResults, ...uniqueMovies] : currentResults));
+        setNextEndpoint(pagination.next);
+        setCurrentPage(nextPage);
+        setCanLoadMore(Boolean(pagination.next) || (uniqueMovies.length > 0 && parsed.length >= FAVORITE_AUTOCOMPLETE_LIMIT));
+      })
+      .catch((error) => {
+        if (requestIdRef.current !== requestId || trimmedQuery !== requestQuery || requestController.signal.aborted) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+
+        setCanLoadMore(false);
+      })
+      .finally(() => {
+        if (loadMoreAbortControllerRef.current === requestController) {
+          loadMoreAbortControllerRef.current = null;
+        }
+
+        if (requestIdRef.current === requestId && trimmedQuery === requestQuery) {
+          setLoadingMore(false);
+        }
+      });
+  }, [canLoadMore, currentPage, loading, loadingMore, nextEndpoint, open, trimmedQuery]);
+
+  const handleResultsScroll = (event: UIEvent<HTMLDivElement>) => {
+    const listbox = event.currentTarget;
+    const distanceToBottom = listbox.scrollHeight - listbox.scrollTop - listbox.clientHeight;
+
+    if (distanceToBottom <= FAVORITE_AUTOCOMPLETE_SCROLL_THRESHOLD_PX) {
+      loadMoreResults();
     }
   };
 
-  const handleConfirm = async () => {
-    if (!selectedMovie) {
-      setFeedback("Selecciona una película antes de confirmar.");
-      return;
-    }
+  const handleMovieSelect = async (movie: Movie) => {
+    const movieId = String(movie.id);
+    if (savingMovieId) return;
 
     try {
-      setSaving(true);
+      setSavingMovieId(movieId);
       setFeedback("");
-      await setFavoriteMovie(slot, selectedMovie.id);
+      await setFavoriteMovie(slot, movieId);
       await onSaved();
       onClose();
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 400) {
-        setFeedback("Esta película ya está ocupando otro slot.");
-      } else {
-        setFeedback("No se pudo guardar la favorita. Inténtalo de nuevo.");
-      }
+    } catch {
+      setFeedback("No se pudo guardar la favorita. Inténtalo de nuevo.");
     } finally {
-      setSaving(false);
+      setSavingMovieId(null);
     }
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-zinc-950/95 p-4 shadow-[0_28px_55px_rgba(0,0,0,0.6)]">
-        <div className="mb-3">
-          <h3 className="text-base font-semibold text-zinc-100">¿Cuál es tu Película Favorita {slot}?</h3>
-        </div>
+    <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/60 p-4 pt-[14vh]" role="dialog" aria-modal="true">
+      <div ref={modalRef} className="w-full max-w-3xl rounded-2xl border border-white/20 bg-zinc-950/95 p-3 shadow-[0_28px_55px_rgba(0,0,0,0.6)] backdrop-blur">
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={`Buscar película favorita ${slot} por título, año, género, director o cast`}
+          aria-label={`Buscar película favorita ${slot}`}
+          className="w-full rounded-xl border border-white/15 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-blue-300/70 focus:outline-none focus:ring-2 focus:ring-blue-400/15"
+        />
 
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por título, director o cast"
-            className="w-full rounded-xl border border-white/15 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-blue-300/70 focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-xl border border-white/20 px-4 py-2 text-sm text-zinc-100 transition hover:border-white/45 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Buscando..." : "Buscar"}
-          </button>
-        </form>
+        <div
+          role="listbox"
+          aria-label={`Resultados para película favorita ${slot}`}
+          className="search-dropdown-scrollbar mt-3 max-h-[360px] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-zinc-900/60 p-1"
+          onScroll={handleResultsScroll}
+        >
+          {results.map((movie) => {
+            const movieId = String(movie.id);
+            const castPreview = movie.castMembers.join(", ");
+            const posterSrc = movie.posterUrl || movie.image || null;
+            const isSaving = savingMovieId === movieId;
 
-        <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-white/10 bg-zinc-900/60 p-2">
-          {loading ? <p className="p-2 text-sm text-zinc-400">Cargando resultados…</p> : null}
-          {!loading && results.length > 0
-            ? results.map((movie) => {
-                const isSelected = movie.id === selectedMovieId;
-
-                return (
-                  <button
-                    key={movie.id}
-                    type="button"
-                    onClick={() => setSelectedMovieId(movie.id)}
-                    className={`mb-2 w-full rounded-lg border px-3 py-2 text-left transition last:mb-0 ${
-                      isSelected
-                        ? "border-blue-300/60 bg-blue-400/10 text-zinc-100"
-                        : "border-white/10 bg-zinc-900 text-zinc-300 hover:border-white/30"
-                    }`}
-                  >
-                    <p className="truncate text-sm font-medium">{movie.displayTitle || movie.title}</p>
-                    {movie.displaySecondaryTitle ? (
-                      <p className="truncate text-[11px] text-blue-200/80">{movie.displaySecondaryTitle}</p>
-                    ) : null}
-                    <p className="text-xs text-zinc-500">
-                      {movie.year} · {movie.genre} · {movie.type}
-                    </p>
-                  </button>
-                );
-              })
-            : null}
-          {!loading && results.length === 0 && !feedback ? <p className="p-2 text-sm text-zinc-500">Busca para ver resultados.</p> : null}
-        </div>
-
-        {feedback ? <p className="mt-2 text-xs text-zinc-400">{feedback}</p> : null}
-
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-white/15 px-4 py-2 text-sm text-zinc-300 transition hover:border-white/40 hover:text-zinc-100"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={saving || !selectedMovie}
-            className="rounded-xl border border-blue-300/50 bg-blue-500/10 px-4 py-2 text-sm text-blue-100 transition hover:border-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving ? "Guardando..." : "Aceptar"}
-          </button>
+            return (
+              <button
+                key={movieId}
+                type="button"
+                role="option"
+                aria-selected="false"
+                onClick={() => void handleMovieSelect(movie)}
+                disabled={Boolean(savingMovieId)}
+                className="grid w-full grid-cols-[44px_minmax(0,1.25fr)_minmax(0,0.78fr)_minmax(0,1fr)] items-start gap-2 rounded-lg border border-transparent px-2.5 py-2 text-left text-xs text-zinc-300 transition hover:border-blue-300/35 hover:bg-white/10 focus:border-blue-300/50 focus:bg-white/10 focus:outline-none disabled:cursor-wait disabled:opacity-70"
+              >
+                <div className="h-[62px] w-[44px] overflow-hidden rounded-md border border-white/15 bg-zinc-900">
+                  {posterSrc ? (
+                    <img src={posterSrc} alt={movie.displayTitle} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
+                  )}
+                </div>
+                <div className="min-w-0 text-xs text-zinc-200">
+                  <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
+                    {compactMetadataValue(movie.titleSpanish ?? movie.displayTitle)}
+                  </p>
+                  <p className="truncate text-[11px] leading-snug text-zinc-400">
+                    {compactMetadataValue(movie.titleEnglish ?? movie.displaySecondaryTitle)}
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] text-zinc-500">{compactMetadataValue(movie.year)}</p>
+                </div>
+                <div className="min-w-0 text-[11px] leading-snug">
+                  <p className="truncate font-medium text-zinc-200">{compactMetadataValue(movie.contentType)}</p>
+                  <p className="truncate text-zinc-500">{movie.genres.length ? movie.genres.join(", ") : "—"}</p>
+                </div>
+                <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
+                  <p className="truncate text-zinc-400">
+                    <span className="font-medium text-blue-300">Dir:</span> {compactMetadataValue(movie.director)}
+                  </p>
+                  <p className="line-clamp-3 break-words text-zinc-500">
+                    <span className="font-medium text-blue-300">Cast:</span> {isSaving ? "Guardando…" : castPreview || "—"}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+          {loading ? <p className="px-3 py-3 text-xs text-zinc-400">Buscando...</p> : null}
+          {loadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
+          {!loading && trimmedQuery.length < 2 ? <p className="px-3 py-3 text-xs text-zinc-500">Escribe al menos 2 caracteres.</p> : null}
+          {!loading && feedback ? <p className="px-3 py-3 text-xs text-zinc-400">{feedback}</p> : null}
         </div>
       </div>
     </div>
