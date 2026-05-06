@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { UIEvent, useCallback, useEffect, useRef, useState } from "react";
+import { memo, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, apiFetch } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
 import {
@@ -196,7 +196,20 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
 
 const FAVORITE_AUTOCOMPLETE_LIMIT = 10;
 const FAVORITE_AUTOCOMPLETE_SCROLL_THRESHOLD_PX = 96;
-const FAVORITE_AUTOCOMPLETE_DEBOUNCE_MS = 200;
+const FAVORITE_AUTOCOMPLETE_DEBOUNCE_MS = 400;
+const NUMERIC_QUERY_PATTERN = /^\d+$/;
+
+function shouldRunAutocomplete(query: string): boolean {
+  return query.length >= 3 || NUMERIC_QUERY_PATTERN.test(query);
+}
+
+function haveSameMovieIds(left: Movie[], right: Movie[]): boolean {
+  return left.length === right.length && left.every((movie, index) => String(movie.id) === String(right[index]?.id));
+}
+
+function updateResultIds(movies: Movie[], targetRef: { current: Set<string> }) {
+  targetRef.current = new Set(movies.map((movie) => String(movie.id)));
+}
 
 function buildFavoriteAutocompleteEndpoint(query: string, page: number): string {
   return `/movies/?${new URLSearchParams({
@@ -221,6 +234,61 @@ function compactMetadataValue(value: string | null | undefined, fallback = "—"
   return trimmed ? trimmed : fallback;
 }
 
+
+interface FavoriteSearchResultRowProps {
+  movie: Movie;
+  savingMovieId: string | null;
+  onSelect: (movie: Movie) => void;
+}
+
+const FavoriteSearchResultRow = memo(function FavoriteSearchResultRow({ movie, savingMovieId, onSelect }: FavoriteSearchResultRowProps) {
+  const movieId = String(movie.id);
+  const castPreview = movie.castMembers.join(", ");
+  const posterSrc = movie.posterUrl || movie.image || null;
+  const isSaving = savingMovieId === movieId;
+
+  return (
+    <button
+      key={movieId}
+      type="button"
+      role="option"
+      aria-selected="false"
+      onClick={() => onSelect(movie)}
+      disabled={Boolean(savingMovieId)}
+      className="grid w-full grid-cols-[44px_minmax(0,1.25fr)_minmax(0,0.78fr)_minmax(0,1fr)] items-start gap-2 rounded-lg border border-transparent px-2.5 py-2 text-left text-xs text-zinc-300 transition hover:border-blue-300/35 hover:bg-white/10 focus:border-blue-300/50 focus:bg-white/10 focus:outline-none disabled:cursor-wait disabled:opacity-70"
+    >
+      <div className="h-[62px] w-[44px] overflow-hidden rounded-md border border-white/15 bg-zinc-900">
+        {posterSrc ? (
+          <img src={posterSrc} alt={movie.displayTitle} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
+        )}
+      </div>
+      <div className="min-w-0 text-xs text-zinc-200">
+        <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
+          {compactMetadataValue(movie.titleSpanish ?? movie.displayTitle)}
+        </p>
+        <p className="truncate text-[11px] leading-snug text-zinc-400">
+          {compactMetadataValue(movie.titleEnglish ?? movie.displaySecondaryTitle)}
+        </p>
+        <p className="mt-0.5 truncate text-[11px] text-zinc-500">{compactMetadataValue(movie.year)}</p>
+      </div>
+      <div className="min-w-0 text-[11px] leading-snug">
+        <p className="truncate font-medium text-zinc-200">{compactMetadataValue(movie.contentType)}</p>
+        <p className="truncate text-zinc-500">{movie.genres.length ? movie.genres.join(", ") : "—"}</p>
+      </div>
+      <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
+        <p className="truncate text-zinc-400">
+          <span className="font-medium text-blue-300">Dir:</span> {compactMetadataValue(movie.director)}
+        </p>
+        <p className="line-clamp-3 break-words text-zinc-500">
+          <span className="font-medium text-blue-300">Cast:</span> {isSaving ? "Guardando…" : castPreview || "—"}
+        </p>
+      </div>
+    </button>
+  );
+});
+
 function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchModalProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Movie[]>([]);
@@ -239,7 +307,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
   const loadMoreAbortControllerRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
   const resultIdsRef = useRef<Set<string>>(new Set());
-  const trimmedQuery = query.trim();
+  const trimmedQuery = useMemo(() => query.trim(), [query]);
 
   const resetSearchState = useCallback(() => {
     if (debounceTimeoutRef.current) {
@@ -316,7 +384,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
     setLoadingMore(false);
     setFeedback("");
 
-    if (trimmedQuery.length < 2) {
+    if (!shouldRunAutocomplete(trimmedQuery)) {
       requestIdRef.current += 1;
       resultIdsRef.current = new Set();
       setResults([]);
@@ -327,39 +395,41 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
     setLoading(true);
     const currentRequestId = requestIdRef.current + 1;
     requestIdRef.current = currentRequestId;
-    let requestController: AbortController | null = null;
-
     debounceTimeoutRef.current = window.setTimeout(() => {
-      requestController = new AbortController();
+      const requestController = new AbortController();
       abortControllerRef.current = requestController;
       const endpoint = buildFavoriteAutocompleteEndpoint(trimmedQuery, 1);
 
       void apiFetch(endpoint, { signal: requestController.signal })
         .then((payload) => {
-          if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
+          if (requestIdRef.current !== currentRequestId || requestController.signal.aborted) return;
 
           const parsed = parseMovieList(payload);
           const pagination = parseMoviePagination(payload);
 
-          resultIdsRef.current = new Set(parsed.map((movie) => String(movie.id)));
-          setResults(parsed);
-          setNextEndpoint(pagination.next);
-          setCurrentPage(1);
-          setCanLoadMore(Boolean(pagination.next) || parsed.length >= FAVORITE_AUTOCOMPLETE_LIMIT);
-          setFeedback(parsed.length === 0 ? "No encontramos coincidencias." : "");
+          updateResultIds(parsed, resultIdsRef);
+          setResults((currentResults) => (haveSameMovieIds(currentResults, parsed) ? currentResults : parsed));
+          setNextEndpoint((currentNextEndpoint) => (currentNextEndpoint === pagination.next ? currentNextEndpoint : pagination.next));
+          setCurrentPage((currentPageValue) => (currentPageValue === 1 ? currentPageValue : 1));
+          const nextCanLoadMore = Boolean(pagination.next) || parsed.length >= FAVORITE_AUTOCOMPLETE_LIMIT;
+          setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore === nextCanLoadMore ? currentCanLoadMore : nextCanLoadMore));
+          const nextFeedback = parsed.length === 0 ? "No encontramos coincidencias." : "";
+          setFeedback((currentFeedback) => (currentFeedback === nextFeedback ? currentFeedback : nextFeedback));
         })
         .catch((error) => {
-          if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
+          if (requestIdRef.current !== currentRequestId || requestController.signal.aborted) return;
           if (error instanceof DOMException && error.name === "AbortError") return;
 
           setNextEndpoint(null);
-          setCanLoadMore(false);
-          setFeedback("No se pudo completar la búsqueda.");
+          setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore ? false : currentCanLoadMore));
+          setFeedback((currentFeedback) => (currentFeedback === "No se pudo completar la búsqueda." ? currentFeedback : "No se pudo completar la búsqueda."));
         })
         .finally(() => {
           if (requestIdRef.current === currentRequestId && abortControllerRef.current === requestController) {
             abortControllerRef.current = null;
-            setLoading(false);
+            if (!requestController.signal.aborted) {
+              setLoading(false);
+            }
           }
         });
     }, FAVORITE_AUTOCOMPLETE_DEBOUNCE_MS);
@@ -368,12 +438,12 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
       if (debounceTimeoutRef.current) {
         window.clearTimeout(debounceTimeoutRef.current);
       }
-      requestController?.abort();
+      abortControllerRef.current?.abort();
     };
   }, [open, trimmedQuery]);
 
   const loadMoreResults = useCallback(() => {
-    if (!open || !canLoadMore || loading || loadingMore || trimmedQuery.length < 2) return;
+    if (!open || !canLoadMore || loading || loadingMore || loadMoreAbortControllerRef.current || !shouldRunAutocomplete(trimmedQuery)) return;
 
     const requestId = requestIdRef.current;
     const requestQuery = trimmedQuery;
@@ -381,7 +451,6 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
     const endpoint = nextEndpoint ? normalizeNextEndpoint(nextEndpoint, API_BASE_URL) : buildFavoriteAutocompleteEndpoint(requestQuery, nextPage);
     const requestController = new AbortController();
 
-    loadMoreAbortControllerRef.current?.abort();
     loadMoreAbortControllerRef.current = requestController;
     setLoadingMore(true);
 
@@ -394,22 +463,23 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
         const uniqueMovies = collectUniqueMovies(parsed, resultIdsRef.current);
 
         setResults((currentResults) => (uniqueMovies.length ? [...currentResults, ...uniqueMovies] : currentResults));
-        setNextEndpoint(pagination.next);
-        setCurrentPage(nextPage);
-        setCanLoadMore(Boolean(pagination.next) || (uniqueMovies.length > 0 && parsed.length >= FAVORITE_AUTOCOMPLETE_LIMIT));
+        setNextEndpoint((currentNextEndpoint) => (currentNextEndpoint === pagination.next ? currentNextEndpoint : pagination.next));
+        setCurrentPage((currentPageValue) => (currentPageValue === nextPage ? currentPageValue : nextPage));
+        const nextCanLoadMore = Boolean(pagination.next) || (uniqueMovies.length > 0 && parsed.length >= FAVORITE_AUTOCOMPLETE_LIMIT);
+        setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore === nextCanLoadMore ? currentCanLoadMore : nextCanLoadMore));
       })
       .catch((error) => {
         if (requestIdRef.current !== requestId || trimmedQuery !== requestQuery || requestController.signal.aborted) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
 
-        setCanLoadMore(false);
+        setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore ? false : currentCanLoadMore));
       })
       .finally(() => {
         if (loadMoreAbortControllerRef.current === requestController) {
           loadMoreAbortControllerRef.current = null;
         }
 
-        if (requestIdRef.current === requestId && trimmedQuery === requestQuery) {
+        if (requestIdRef.current === requestId && trimmedQuery === requestQuery && !requestController.signal.aborted) {
           setLoadingMore(false);
         }
       });
@@ -424,7 +494,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
     }
   };
 
-  const handleMovieSelect = async (movie: Movie) => {
+  const handleMovieSelect = useCallback(async (movie: Movie) => {
     const movieId = String(movie.id);
     if (savingMovieId) return;
 
@@ -439,7 +509,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
     } finally {
       setSavingMovieId(null);
     }
-  };
+  }, [onClose, onSaved, savingMovieId, slot]);
 
   if (!open) return null;
 
@@ -461,55 +531,16 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
           className="search-dropdown-scrollbar mt-3 max-h-[360px] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-zinc-900/60 p-1"
           onScroll={handleResultsScroll}
         >
-          {results.map((movie) => {
-            const movieId = String(movie.id);
-            const castPreview = movie.castMembers.join(", ");
-            const posterSrc = movie.posterUrl || movie.image || null;
-            const isSaving = savingMovieId === movieId;
-
-            return (
-              <button
-                key={movieId}
-                type="button"
-                role="option"
-                aria-selected="false"
-                onClick={() => void handleMovieSelect(movie)}
-                disabled={Boolean(savingMovieId)}
-                className="grid w-full grid-cols-[44px_minmax(0,1.25fr)_minmax(0,0.78fr)_minmax(0,1fr)] items-start gap-2 rounded-lg border border-transparent px-2.5 py-2 text-left text-xs text-zinc-300 transition hover:border-blue-300/35 hover:bg-white/10 focus:border-blue-300/50 focus:bg-white/10 focus:outline-none disabled:cursor-wait disabled:opacity-70"
-              >
-                <div className="h-[62px] w-[44px] overflow-hidden rounded-md border border-white/15 bg-zinc-900">
-                  {posterSrc ? (
-                    <img src={posterSrc} alt={movie.displayTitle} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
-                  )}
-                </div>
-                <div className="min-w-0 text-xs text-zinc-200">
-                  <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
-                    {compactMetadataValue(movie.titleSpanish ?? movie.displayTitle)}
-                  </p>
-                  <p className="truncate text-[11px] leading-snug text-zinc-400">
-                    {compactMetadataValue(movie.titleEnglish ?? movie.displaySecondaryTitle)}
-                  </p>
-                  <p className="mt-0.5 truncate text-[11px] text-zinc-500">{compactMetadataValue(movie.year)}</p>
-                </div>
-                <div className="min-w-0 text-[11px] leading-snug">
-                  <p className="truncate font-medium text-zinc-200">{compactMetadataValue(movie.contentType)}</p>
-                  <p className="truncate text-zinc-500">{movie.genres.length ? movie.genres.join(", ") : "—"}</p>
-                </div>
-                <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
-                  <p className="truncate text-zinc-400">
-                    <span className="font-medium text-blue-300">Dir:</span> {compactMetadataValue(movie.director)}
-                  </p>
-                  <p className="line-clamp-3 break-words text-zinc-500">
-                    <span className="font-medium text-blue-300">Cast:</span> {isSaving ? "Guardando…" : castPreview || "—"}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
+          {results.map((movie) => (
+            <FavoriteSearchResultRow key={movie.id} movie={movie} savingMovieId={savingMovieId} onSelect={handleMovieSelect} />
+          ))}
           {loadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
-          {!loading && trimmedQuery.length < 2 ? <p className="px-3 py-3 text-xs text-zinc-500">Escribe al menos 2 caracteres.</p> : null}
+          {loading ? (
+            <div className="flex justify-center px-3 py-2" aria-label="Cargando resultados">
+              <span className="h-3 w-3 animate-spin rounded-full border border-blue-200/30 border-t-blue-200" />
+            </div>
+          ) : null}
+          {!loading && !shouldRunAutocomplete(trimmedQuery) ? <p className="px-3 py-3 text-xs text-zinc-500">Escribe al menos 3 caracteres.</p> : null}
           {!loading && feedback ? <p className="px-3 py-3 text-xs text-zinc-400">{feedback}</p> : null}
         </div>
       </div>
