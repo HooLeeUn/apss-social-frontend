@@ -465,7 +465,8 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
         >
           {results.map((movie) => {
             const movieId = String(movie.id);
-            const castPreview = movie.castMembers.slice(0, 3).join(", ");
+            const castPreview = movie.castMembers.join(", ");
+            const posterSrc = movie.posterUrl || movie.image || null;
             const isSaving = savingMovieId === movieId;
 
             return (
@@ -476,25 +477,36 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
                 aria-selected="false"
                 onClick={() => void handleMovieSelect(movie)}
                 disabled={Boolean(savingMovieId)}
-                className="grid w-full grid-cols-[minmax(0,1.25fr)_88px_minmax(0,0.8fr)_minmax(0,0.95fr)_minmax(0,1.15fr)] items-start gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-xs text-zinc-300 transition hover:border-blue-300/35 hover:bg-white/10 focus:border-blue-300/50 focus:bg-white/10 focus:outline-none disabled:cursor-wait disabled:opacity-70"
+                className="grid w-full grid-cols-[44px_minmax(0,1.25fr)_minmax(0,0.78fr)_minmax(0,1fr)] items-start gap-2 rounded-lg border border-transparent px-2.5 py-2 text-left text-xs text-zinc-300 transition hover:border-blue-300/35 hover:bg-white/10 focus:border-blue-300/50 focus:bg-white/10 focus:outline-none disabled:cursor-wait disabled:opacity-70"
               >
-                <div className="min-w-0">
-                  <p className="line-clamp-2 min-w-0 break-words font-semibold leading-snug text-zinc-100">
+                <div className="h-[62px] w-[44px] overflow-hidden rounded-md border border-white/15 bg-zinc-900">
+                  {posterSrc ? (
+                    <img src={posterSrc} alt={movie.displayTitle} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
+                  )}
+                </div>
+                <div className="min-w-0 text-xs text-zinc-200">
+                  <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
                     {compactMetadataValue(movie.titleSpanish ?? movie.displayTitle)}
                   </p>
-                  <p className="line-clamp-2 min-w-0 break-words leading-snug text-blue-200/75">
+                  <p className="truncate text-[11px] leading-snug text-zinc-400">
                     {compactMetadataValue(movie.titleEnglish ?? movie.displaySecondaryTitle)}
                   </p>
+                  <p className="mt-0.5 truncate text-[11px] text-zinc-500">{compactMetadataValue(movie.year)}</p>
                 </div>
-                <p className="min-w-0 truncate text-[11px] font-medium text-zinc-400">{compactMetadataValue(movie.year)}</p>
                 <div className="min-w-0 text-[11px] leading-snug">
                   <p className="truncate font-medium text-zinc-200">{compactMetadataValue(movie.contentType)}</p>
                   <p className="truncate text-zinc-500">{movie.genres.length ? movie.genres.join(", ") : "—"}</p>
                 </div>
-                <p className="min-w-0 truncate text-[11px] leading-snug text-zinc-400">Dir: {compactMetadataValue(movie.director)}</p>
-                <p className="min-w-0 truncate text-[11px] leading-snug text-zinc-500">
-                  {isSaving ? "Guardando…" : `Cast: ${castPreview || "—"}`}
-                </p>
+                <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
+                  <p className="truncate text-zinc-400">
+                    <span className="font-medium text-blue-300">Dir:</span> {compactMetadataValue(movie.director)}
+                  </p>
+                  <p className="line-clamp-3 break-words text-zinc-500">
+                    <span className="font-medium text-blue-300">Cast:</span> {isSaving ? "Guardando…" : castPreview || "—"}
+                  </p>
+                </div>
               </button>
             );
           })}
