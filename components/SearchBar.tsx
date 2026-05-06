@@ -1,13 +1,26 @@
 "use client";
 
-import { FormEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, memo, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, apiFetch } from "../lib/api";
 import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../lib/movies";
 
 const AUTOCOMPLETE_LIMIT = 10;
-const AUTOCOMPLETE_DEBOUNCE_MS = 200;
+const AUTOCOMPLETE_DEBOUNCE_MS = 400;
 const AUTOCOMPLETE_SCROLL_THRESHOLD_PX = 96;
+const NUMERIC_QUERY_PATTERN = /^\d+$/;
+
+function shouldRunAutocomplete(query: string): boolean {
+  return query.length >= 3 || NUMERIC_QUERY_PATTERN.test(query);
+}
+
+function haveSameMovieIds(left: Movie[], right: Movie[]): boolean {
+  return left.length === right.length && left.every((movie, index) => String(movie.id) === String(right[index]?.id));
+}
+
+function updateResultIds(movies: Movie[], targetRef: { current: Set<string> }) {
+  targetRef.current = new Set(movies.map((movie) => String(movie.id)));
+}
 
 interface SearchBarProps {
   initialQuery?: string;
@@ -35,6 +48,48 @@ function collectUniqueMovies(movies: Movie[], seenIds: Set<string>): Movie[] {
     return true;
   });
 }
+
+interface AutocompleteMovieRowProps {
+  movie: Movie;
+  onSelect: (movieId: Movie["id"]) => void;
+}
+
+const AutocompleteMovieRow = memo(function AutocompleteMovieRow({ movie, onSelect }: AutocompleteMovieRowProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(movie.id)}
+      className="grid w-full grid-cols-[44px_minmax(0,1.25fr)_minmax(0,0.78fr)_minmax(0,1fr)] items-start gap-2 border-b border-white/10 px-2.5 py-2 text-left transition last:border-b-0 hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+    >
+      <div className="h-[62px] w-[44px] overflow-hidden rounded-md border border-white/15 bg-zinc-900">
+        {movie.posterUrl ? (
+          <img src={movie.posterUrl} alt={movie.displayTitle} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
+        )}
+      </div>
+      <div className="min-w-0 text-xs text-zinc-200">
+        <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
+          {movie.titleSpanish ?? "-"}
+        </p>
+        <p className="truncate text-[11px] leading-snug text-zinc-400">{movie.titleEnglish ?? "-"}</p>
+        <p className="mt-0.5 truncate text-[11px] text-zinc-500">{movie.year || "-"}</p>
+      </div>
+      <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
+        <p className="truncate font-medium text-zinc-200">{movie.contentType || "-"}</p>
+        <p className="truncate text-zinc-500">{movie.genres.length ? movie.genres.join(", ") : "-"}</p>
+      </div>
+      <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
+        <p className="truncate text-zinc-400">
+          <span className="font-medium text-blue-300">Dir:</span> {movie.director ?? "-"}
+        </p>
+        <p className="line-clamp-3 break-words text-zinc-500">
+          <span className="font-medium text-blue-300">Cast:</span> {movie.castMembers.length ? movie.castMembers.join(", ") : "-"}
+        </p>
+      </div>
+    </button>
+  );
+});
 
 export default function SearchBar({
   initialQuery = "",
@@ -96,7 +151,7 @@ export default function SearchBar({
     setCanLoadMore(false);
     setIsLoadingMore(false);
 
-    if (trimmedQuery.length < 2) {
+    if (!shouldRunAutocomplete(trimmedQuery)) {
       requestIdRef.current += 1;
       resultIdsRef.current = new Set();
       setResults([]);
@@ -109,39 +164,40 @@ export default function SearchBar({
     setIsOpen(true);
     const currentRequestId = requestIdRef.current + 1;
     requestIdRef.current = currentRequestId;
-    let requestController: AbortController | null = null;
-
     debounceTimeoutRef.current = window.setTimeout(() => {
-      requestController = new AbortController();
+      const requestController = new AbortController();
       abortControllerRef.current = requestController;
       const endpoint = buildAutocompleteEndpoint(trimmedQuery, 1);
 
       void apiFetch(endpoint, { signal: requestController.signal })
         .then((payload) => {
-          if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
+          if (requestIdRef.current !== currentRequestId || requestController.signal.aborted) return;
 
           const parsed = parseMovieList(payload);
           const pagination = parseMoviePagination(payload);
 
-          resultIdsRef.current = new Set(parsed.map((movie) => String(movie.id)));
-          setResults(parsed);
-          setNextEndpoint(pagination.next);
-          setCurrentPage(1);
-          setCanLoadMore(Boolean(pagination.next) || parsed.length >= AUTOCOMPLETE_LIMIT);
+          updateResultIds(parsed, resultIdsRef);
+          setResults((currentResults) => (haveSameMovieIds(currentResults, parsed) ? currentResults : parsed));
+          setNextEndpoint((currentNextEndpoint) => (currentNextEndpoint === pagination.next ? currentNextEndpoint : pagination.next));
+          setCurrentPage((currentPageValue) => (currentPageValue === 1 ? currentPageValue : 1));
+          const nextCanLoadMore = Boolean(pagination.next) || parsed.length >= AUTOCOMPLETE_LIMIT;
+          setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore === nextCanLoadMore ? currentCanLoadMore : nextCanLoadMore));
           setIsOpen(true);
         })
         .catch((error) => {
-          if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
+          if (requestIdRef.current !== currentRequestId || requestController.signal.aborted) return;
           if (error instanceof DOMException && error.name === "AbortError") return;
 
           setNextEndpoint(null);
-          setCanLoadMore(false);
+          setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore ? false : currentCanLoadMore));
           setIsOpen(true);
         })
         .finally(() => {
           if (requestIdRef.current === currentRequestId && abortControllerRef.current === requestController) {
             abortControllerRef.current = null;
-            setIsLoading(false);
+            if (!requestController.signal.aborted) {
+              setIsLoading(false);
+            }
           }
         });
     }, AUTOCOMPLETE_DEBOUNCE_MS);
@@ -150,13 +206,13 @@ export default function SearchBar({
       if (debounceTimeoutRef.current) {
         window.clearTimeout(debounceTimeoutRef.current);
       }
-      requestController?.abort();
+      abortControllerRef.current?.abort();
     };
   }, [inlineAutocomplete, trimmedQuery]);
 
 
   const loadMoreResults = useCallback(() => {
-    if (!inlineAutocomplete || !canLoadMore || isLoading || isLoadingMore || trimmedQuery.length < 2) return;
+    if (!inlineAutocomplete || !canLoadMore || isLoading || isLoadingMore || loadMoreAbortControllerRef.current || !shouldRunAutocomplete(trimmedQuery)) return;
 
     const requestId = requestIdRef.current;
     const requestQuery = trimmedQuery;
@@ -164,7 +220,6 @@ export default function SearchBar({
     const endpoint = nextEndpoint ? normalizeNextEndpoint(nextEndpoint, API_BASE_URL) : buildAutocompleteEndpoint(requestQuery, nextPage);
     const requestController = new AbortController();
 
-    loadMoreAbortControllerRef.current?.abort();
     loadMoreAbortControllerRef.current = requestController;
     setIsLoadingMore(true);
 
@@ -178,22 +233,23 @@ export default function SearchBar({
         const uniqueMovies = collectUniqueMovies(parsed, resultIdsRef.current);
 
         setResults((currentResults) => (uniqueMovies.length ? [...currentResults, ...uniqueMovies] : currentResults));
-        setNextEndpoint(pagination.next);
-        setCurrentPage(nextPage);
-        setCanLoadMore(Boolean(pagination.next) || (uniqueMovies.length > 0 && parsed.length >= AUTOCOMPLETE_LIMIT));
+        setNextEndpoint((currentNextEndpoint) => (currentNextEndpoint === pagination.next ? currentNextEndpoint : pagination.next));
+        setCurrentPage((currentPageValue) => (currentPageValue === nextPage ? currentPageValue : nextPage));
+        const nextCanLoadMore = Boolean(pagination.next) || (uniqueMovies.length > 0 && parsed.length >= AUTOCOMPLETE_LIMIT);
+        setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore === nextCanLoadMore ? currentCanLoadMore : nextCanLoadMore));
       })
       .catch((error) => {
         if (requestIdRef.current !== requestId || trimmedQuery !== requestQuery || requestController.signal.aborted) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
 
-        setCanLoadMore(false);
+        setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore ? false : currentCanLoadMore));
       })
       .finally(() => {
         if (loadMoreAbortControllerRef.current === requestController) {
           loadMoreAbortControllerRef.current = null;
         }
 
-        if (requestIdRef.current === requestId && trimmedQuery === requestQuery) {
+        if (requestIdRef.current === requestId && trimmedQuery === requestQuery && !requestController.signal.aborted) {
           setIsLoadingMore(false);
         }
       });
@@ -223,14 +279,14 @@ export default function SearchBar({
     router.push(`/search?${params.toString()}`);
   };
 
-  const handleMovieClick = (movieId: Movie["id"]) => {
+  const handleMovieClick = useCallback((movieId: Movie["id"]) => {
     setIsOpen(false);
     router.push(`/movies/${movieId}`);
-  };
+  }, [router]);
 
   const rootClassName = inlineAutocomplete ? `relative ${className ?? "w-full"}`.trim() : "relative w-full";
   const formClassName = inlineAutocomplete ? "flex w-full" : `flex w-full gap-2 ${className ?? ""}`.trim();
-  const shouldShowAutocompleteResults = inlineAutocomplete && isOpen && (results.length > 0 || !isLoading);
+  const shouldShowAutocompleteResults = inlineAutocomplete && isOpen && (results.length > 0 || shouldRunAutocomplete(trimmedQuery));
 
   return (
     <div ref={containerRef} className={rootClassName}>
@@ -253,7 +309,7 @@ export default function SearchBar({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => {
-              if (inlineAutocomplete && trimmedQuery.length >= 2) setIsOpen(true);
+              if (inlineAutocomplete && shouldRunAutocomplete(trimmedQuery)) setIsOpen(true);
             }}
             placeholder="Buscar películas, género o año"
             className={`w-full rounded-[999px] border border-gray-300 bg-white px-3 py-2 text-sm ${
@@ -275,41 +331,14 @@ export default function SearchBar({
         <div className="absolute left-0 right-0 top-full z-40 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur">
           <div className="search-dropdown-scrollbar max-h-[336px] overflow-y-auto overscroll-contain py-1" onScroll={handleResultsScroll}>
             {results.map((movie) => (
-              <button
-                key={movie.id}
-                type="button"
-                onClick={() => handleMovieClick(movie.id)}
-                className="grid w-full grid-cols-[44px_minmax(0,1.25fr)_minmax(0,0.78fr)_minmax(0,1fr)] items-start gap-2 border-b border-white/10 px-2.5 py-2 text-left transition last:border-b-0 hover:bg-white/10 focus:bg-white/10 focus:outline-none"
-              >
-                <div className="h-[62px] w-[44px] overflow-hidden rounded-md border border-white/15 bg-zinc-900">
-                  {movie.posterUrl ? (
-                    <img src={movie.posterUrl} alt={movie.displayTitle} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
-                  )}
-                </div>
-                <div className="min-w-0 text-xs text-zinc-200">
-                  <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
-                    {movie.titleSpanish ?? "-"}
-                  </p>
-                  <p className="truncate text-[11px] leading-snug text-zinc-400">{movie.titleEnglish ?? "-"}</p>
-                  <p className="mt-0.5 truncate text-[11px] text-zinc-500">{movie.year || "-"}</p>
-                </div>
-                <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
-                  <p className="truncate font-medium text-zinc-200">{movie.contentType || "-"}</p>
-                  <p className="truncate text-zinc-500">{movie.genres.length ? movie.genres.join(", ") : "-"}</p>
-                </div>
-                <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
-                  <p className="truncate text-zinc-400">
-                    <span className="font-medium text-blue-300">Dir:</span> {movie.director ?? "-"}
-                  </p>
-                  <p className="line-clamp-3 break-words text-zinc-500">
-                    <span className="font-medium text-blue-300">Cast:</span> {movie.castMembers.length ? movie.castMembers.join(", ") : "-"}
-                  </p>
-                </div>
-              </button>
+              <AutocompleteMovieRow key={movie.id} movie={movie} onSelect={handleMovieClick} />
             ))}
             {isLoadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
+            {isLoading ? (
+              <div className="flex justify-center px-3 py-2" aria-label="Cargando resultados">
+                <span className="h-3 w-3 animate-spin rounded-full border border-blue-200/30 border-t-blue-200" />
+              </div>
+            ) : null}
             {!isLoading && results.length === 0 ? <p className="px-3 py-3 text-xs text-zinc-400">Sin coincidencias.</p> : null}
           </div>
         </div>
