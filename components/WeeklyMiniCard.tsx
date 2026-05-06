@@ -132,7 +132,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
         </div>
       )}
 
-      <div className="absolute right-[calc(34%+0.35rem)] top-1/2 z-10 -translate-y-1/2">
+      <div className="absolute right-[calc(34%+0.35rem)] top-[calc(59%+19px)] z-10 -translate-y-1/2">
         <CommentDetailButton href={detailHref} title={title} className="h-[30px] w-[30px]" />
       </div>
 
