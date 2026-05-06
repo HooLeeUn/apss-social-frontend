@@ -196,7 +196,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
 
 const FAVORITE_AUTOCOMPLETE_LIMIT = 10;
 const FAVORITE_AUTOCOMPLETE_SCROLL_THRESHOLD_PX = 96;
-const FAVORITE_AUTOCOMPLETE_DEBOUNCE_MS = 250;
+const FAVORITE_AUTOCOMPLETE_DEBOUNCE_MS = 200;
 
 function buildFavoriteAutocompleteEndpoint(query: string, page: number): string {
   return `/movies/?${new URLSearchParams({
@@ -310,8 +310,6 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
     abortControllerRef.current = null;
     loadMoreAbortControllerRef.current?.abort();
     loadMoreAbortControllerRef.current = null;
-    resultIdsRef.current = new Set();
-    setResults([]);
     setNextEndpoint(null);
     setCurrentPage(1);
     setCanLoadMore(false);
@@ -320,6 +318,8 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
 
     if (trimmedQuery.length < 2) {
       requestIdRef.current += 1;
+      resultIdsRef.current = new Set();
+      setResults([]);
       setLoading(false);
       return;
     }
@@ -352,8 +352,6 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
           if (requestIdRef.current !== currentRequestId || requestController?.signal.aborted) return;
           if (error instanceof DOMException && error.name === "AbortError") return;
 
-          resultIdsRef.current = new Set();
-          setResults([]);
           setNextEndpoint(null);
           setCanLoadMore(false);
           setFeedback("No se pudo completar la búsqueda.");
@@ -510,7 +508,6 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
               </button>
             );
           })}
-          {loading ? <p className="px-3 py-3 text-xs text-zinc-400">Buscando...</p> : null}
           {loadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
           {!loading && trimmedQuery.length < 2 ? <p className="px-3 py-3 text-xs text-zinc-500">Escribe al menos 2 caracteres.</p> : null}
           {!loading && feedback ? <p className="px-3 py-3 text-xs text-zinc-400">{feedback}</p> : null}
