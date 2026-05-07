@@ -8,8 +8,17 @@ import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
 import ProfileIdentityCard from "../../components/profile-feed/ProfileIdentityCard";
 import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivityTabsBlock";
 import TopUsersSection from "../../components/profile-feed/TopUsersSection";
-import { getMyProfile, getTopFollowing, getTopFriends, markNotificationsContextRead } from "../../lib/profile-feed/adapters";
-import { SocialUser } from "../../lib/profile-feed/types";
+import {
+  acceptFriendship,
+  cancelFriendRequest,
+  getMyFriendRequests,
+  getMyProfile,
+  getTopFollowing,
+  getTopFriends,
+  markNotificationsContextRead,
+  rejectFriendship,
+} from "../../lib/profile-feed/adapters";
+import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
 import { getProfilePrivacySettings } from "../../lib/privacy";
 import { useAppBranding } from "../../hooks/useAppBranding";
@@ -22,10 +31,13 @@ export default function ProfileFeedPage() {
   const branding = useAppBranding();
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [loadingFollowing, setLoadingFollowing] = useState(true);
+  const [loadingPendingRequests, setLoadingPendingRequests] = useState(true);
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [followingError, setFollowingError] = useState<string | null>(null);
+  const [pendingRequestsError, setPendingRequestsError] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
   const requestedTab = searchParams.get("tab");
   const [myListMovies, setMyListMovies] = useState<Movie[]>([]);
@@ -67,10 +79,25 @@ export default function ProfileFeedPage() {
     }
   }, []);
 
+  const loadPendingRequests = useCallback(async () => {
+    setLoadingPendingRequests(true);
+    setPendingRequestsError(null);
+    try {
+      const requests = await getMyFriendRequests();
+      setPendingRequests(requests);
+    } catch {
+      setPendingRequests([]);
+      setPendingRequestsError("No se pudieron cargar tus solicitudes pendientes.");
+    } finally {
+      setLoadingPendingRequests(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadFollowing();
     void loadFriends();
-  }, [loadFollowing, loadFriends]);
+    void loadPendingRequests();
+  }, [loadFollowing, loadFriends, loadPendingRequests]);
 
   useEffect(() => {
     const loadOwnProfileData = async () => {
@@ -119,6 +146,35 @@ export default function ProfileFeedPage() {
     };
 
     void loadOwnProfileData();
+  }, []);
+
+  const handleAcceptFriendRequest = useCallback(async (request: FriendRequest) => {
+    setPendingRequests((current) => current.filter((item) => item.id !== request.id));
+    setFriends((current) => [request.user, ...current.filter((user) => user.username !== request.user.username)]);
+    try {
+      await acceptFriendship(request.id);
+    } catch {
+      setFriends((current) => current.filter((user) => user.username !== request.user.username));
+      setPendingRequests((current) => [request, ...current]);
+    }
+  }, []);
+
+  const handleRejectFriendRequest = useCallback(async (request: FriendRequest) => {
+    setPendingRequests((current) => current.filter((item) => item.id !== request.id));
+    try {
+      await rejectFriendship(request.id);
+    } catch {
+      setPendingRequests((current) => [request, ...current]);
+    }
+  }, []);
+
+  const handleCancelFriendRequest = useCallback(async (request: FriendRequest) => {
+    setPendingRequests((current) => current.filter((item) => item.id !== request.id));
+    try {
+      await cancelFriendRequest(request.user.username);
+    } catch {
+      setPendingRequests((current) => [request, ...current]);
+    }
   }, []);
 
   const handleRemoveFromMyList = useCallback(async (movieId: Movie["id"]) => {
@@ -230,12 +286,21 @@ export default function ProfileFeedPage() {
             <TopUsersSection
               friends={friends}
               following={following}
+              pendingRequests={pendingRequests}
               loadingFriends={loadingFriends}
               loadingFollowing={loadingFollowing}
+              loadingPendingRequests={loadingPendingRequests}
               friendsError={friendsError}
               followingError={followingError}
+              pendingRequestsError={pendingRequestsError}
               onRetryFriends={() => void loadFriends()}
               onRetryFollowing={() => void loadFollowing()}
+              onRetryPendingRequests={() => void loadPendingRequests()}
+              onAcceptFriendRequest={(request) => void handleAcceptFriendRequest(request)}
+              onRejectFriendRequest={(request) => void handleRejectFriendRequest(request)}
+              onCancelFriendRequest={(request) => void handleCancelFriendRequest(request)}
+              authenticatedUsername={profileUser?.username ?? undefined}
+              redirectOwnClicksToProfileFeed
               friendRequestsRestricted={shouldShowRestrictedFriendsEmptyState}
             />
             <MyActivityColumn

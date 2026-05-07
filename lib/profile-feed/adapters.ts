@@ -10,6 +10,8 @@ import {
   SocialActivityScope,
   MyMessageItem,
   SocialUser,
+  FriendshipStatus,
+  FriendRequest,
   FavoriteMovieSearchResult,
   UserMovieRecommendation,
   MyMessagesSummary,
@@ -58,6 +60,13 @@ const NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT =
   normalizeApiEndpoint(process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_READ_BATCH_ENDPOINT || "/notifications/mark-read-batch/");
 const NOTIFICATIONS_MARK_CONTEXT_READ_ENDPOINT =
   normalizeApiEndpoint(process.env.NEXT_PUBLIC_NOTIFICATIONS_MARK_CONTEXT_READ_ENDPOINT || "/notifications/mark-context-read/");
+
+const USER_FOLLOW_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/users/{username}/follow/");
+const USER_FRIEND_REQUEST_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/users/{username}/friend-request/");
+const ME_FRIEND_REQUESTS_ENDPOINT = normalizeApiEndpoint("/api/me/friend-requests/");
+const FRIENDSHIP_ACCEPT_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/friendships/{id}/accept/");
+const FRIENDSHIP_REJECT_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/friendships/{id}/reject/");
+const FRIENDSHIP_DELETE_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/friendships/{id}/");
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -126,6 +135,15 @@ function normalizeProfileVisibility(value: unknown): "public" | "private" | null
   return null;
 }
 
+function normalizeFriendshipStatus(value: unknown): FriendshipStatus | null {
+  const normalized = safeTrim(value)?.toLocaleLowerCase();
+  if (!normalized) return null;
+  if (["none", "sent_pending", "received_pending", "friends", "self"].includes(normalized)) {
+    return normalized as FriendshipStatus;
+  }
+  return null;
+}
+
 function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
   for (const value of values) {
     if (value !== null && value !== undefined) return value;
@@ -138,6 +156,11 @@ function safeTrim(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalId(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return safeTrim(value);
 }
 
 const FALLBACK_NOTIFICATION_ID_PREFIX = "notification-";
@@ -979,6 +1002,7 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
   if (!username) return null;
   const profile = toRecord(user.profile);
   const personalData = toRecord(user.personal_data);
+  const friendship = toRecord(user.friendship) || toRecord(profile?.friendship);
 
   return {
     id: String(pickFirst(user.id, user.user_id, fallbackId)),
@@ -1007,6 +1031,30 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
     ),
     canViewFullProfile: toBooleanOrNull(pickFirst(user.can_view_full_profile, user.canViewFullProfile, profile?.can_view_full_profile)),
     profileAccess: safeTrim(pickFirst(user.profile_access, user.profileAccess, profile?.profile_access)),
+    isFollowing: toBooleanOrNull(pickFirst(user.is_following, user.isFollowing, profile?.is_following, profile?.isFollowing)),
+    canFollow: toBooleanOrNull(pickFirst(user.can_follow, user.canFollow, profile?.can_follow, profile?.canFollow)),
+    friendshipStatus: normalizeFriendshipStatus(pickFirst(user.friendship_status, user.friendshipStatus, profile?.friendship_status, profile?.friendshipStatus)),
+    friendshipId: normalizeOptionalId(
+      pickFirst(
+        user.friendship_id,
+        user.friendshipId,
+        friendship?.id,
+        profile?.friendship_id,
+        profile?.friendshipId,
+      ),
+    ),
+    canSendFriendRequest: toBooleanOrNull(
+      pickFirst(user.can_send_friend_request, user.canSendFriendRequest, profile?.can_send_friend_request, profile?.canSendFriendRequest),
+    ),
+    isPrivateProfile: toBooleanOrNull(pickFirst(user.is_private_profile, user.isPrivateProfile, profile?.is_private_profile, profile?.isPrivateProfile)),
+    isRestrictedByVisitedUser: toBooleanOrNull(
+      pickFirst(
+        user.is_restricted_by_visited_user,
+        user.isRestrictedByVisitedUser,
+        profile?.is_restricted_by_visited_user,
+        profile?.isRestrictedByVisitedUser,
+      ),
+    ),
     profileVisibility: normalizeProfileVisibility(
       pickFirst(
         user.visibility,
@@ -1097,6 +1145,14 @@ export async function getUserProfileByUsername(username: string): Promise<Social
         genderIdentityVisible: normalized.genderIdentityVisible ?? mergedProfile.genderIdentityVisible ?? null,
         canViewFullProfile: normalized.canViewFullProfile ?? mergedProfile.canViewFullProfile ?? null,
         profileAccess: normalized.profileAccess ?? mergedProfile.profileAccess ?? null,
+        isFollowing: normalized.isFollowing ?? mergedProfile.isFollowing ?? null,
+        canFollow: normalized.canFollow ?? mergedProfile.canFollow ?? null,
+        friendshipStatus: normalized.friendshipStatus ?? mergedProfile.friendshipStatus ?? null,
+        friendshipId: normalized.friendshipId ?? mergedProfile.friendshipId ?? null,
+        canSendFriendRequest: normalized.canSendFriendRequest ?? mergedProfile.canSendFriendRequest ?? null,
+        friendRequestsRestricted: normalized.friendRequestsRestricted ?? mergedProfile.friendRequestsRestricted ?? null,
+        isPrivateProfile: normalized.isPrivateProfile ?? mergedProfile.isPrivateProfile ?? null,
+        isRestrictedByVisitedUser: normalized.isRestrictedByVisitedUser ?? mergedProfile.isRestrictedByVisitedUser ?? null,
       };
     } catch (error) {
       if (error instanceof ApiError && [404, 405, 422].includes(error.status)) {
@@ -1213,6 +1269,111 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
       myRating: normalized.myRating,
     };
   });
+}
+
+function buildUserFollowEndpoint(username: string): string {
+  return USER_FOLLOW_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username.trim()));
+}
+
+function buildUserFriendRequestEndpoint(username: string): string {
+  return USER_FRIEND_REQUEST_ENDPOINT_TEMPLATE.replace("{username}", encodeURIComponent(username.trim()));
+}
+
+function buildFriendshipAcceptEndpoint(id: string | number): string {
+  return FRIENDSHIP_ACCEPT_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(id)));
+}
+
+function buildFriendshipRejectEndpoint(id: string | number): string {
+  return FRIENDSHIP_REJECT_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(id)));
+}
+
+function buildFriendshipDeleteEndpoint(id: string | number): string {
+  return FRIENDSHIP_DELETE_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(id)));
+}
+
+function parseFriendRequestUser(entry: Record<string, unknown>, direction: "sent" | "received", index: number): SocialUser | null {
+  const user =
+    (direction === "sent"
+      ? toRecord(pickFirst(entry.receiver, entry.to_user, entry.addressee, entry.friend, entry.other_user, entry.user))
+      : toRecord(pickFirst(entry.sender, entry.from_user, entry.requester, entry.friend, entry.other_user, entry.user))) ||
+    toRecord(entry.profile) ||
+    entry;
+
+  return toSocialUser(user, `friend-request-${index + 1}`);
+}
+
+function parseFriendRequestDirection(entry: Record<string, unknown>): "sent" | "received" | null {
+  const rawDirection = safeTrim(pickFirst(entry.direction, entry.request_direction, entry.type, entry.kind))?.toLocaleLowerCase();
+  if (rawDirection) {
+    if (["sent", "outgoing", "sent_pending", "outbound"].includes(rawDirection)) return "sent";
+    if (["received", "incoming", "received_pending", "inbound"].includes(rawDirection)) return "received";
+  }
+
+  const status = normalizeFriendshipStatus(pickFirst(entry.friendship_status, entry.status, entry.request_status, entry.state));
+  if (status === "sent_pending") return "sent";
+  if (status === "received_pending") return "received";
+  return null;
+}
+
+function getFriendRequestEntries(payload: unknown): Record<string, unknown>[] {
+  const root = toRecord(payload);
+  const data = toRecord(root?.data);
+  const explicitEntries = getCollection(payload).map((item) => toRecord(item)).filter((item): item is Record<string, unknown> => Boolean(item));
+  const sent = pickFirst(root?.sent, root?.sent_requests, root?.outgoing, data?.sent, data?.sent_requests, data?.outgoing);
+  const received = pickFirst(root?.received, root?.received_requests, root?.incoming, data?.received, data?.received_requests, data?.incoming);
+  const directionalEntries = [
+    ...(Array.isArray(sent) ? sent.map((item) => ({ ...(toRecord(item) ?? {}), direction: "sent" })) : []),
+    ...(Array.isArray(received) ? received.map((item) => ({ ...(toRecord(item) ?? {}), direction: "received" })) : []),
+  ];
+
+  return directionalEntries.length > 0 ? directionalEntries : explicitEntries;
+}
+
+function parseFriendRequests(payload: unknown): FriendRequest[] {
+  return getFriendRequestEntries(payload)
+    .map((entry, index): FriendRequest | null => {
+      const direction = parseFriendRequestDirection(entry);
+      if (!direction) return null;
+      const id = pickFirst(entry.id, entry.friendship_id, entry.request_id);
+      if (id === null) return null;
+      const user = parseFriendRequestUser(entry, direction, index);
+      if (!user) return null;
+      return { id: String(id), direction, user };
+    })
+    .filter((request): request is FriendRequest => Boolean(request));
+}
+
+export async function followUser(username: string): Promise<void> {
+  await apiFetch(buildUserFollowEndpoint(username), { method: "POST" });
+}
+
+export async function unfollowUser(username: string): Promise<void> {
+  await apiFetch(buildUserFollowEndpoint(username), { method: "DELETE" });
+}
+
+export async function sendFriendRequest(username: string): Promise<void> {
+  await apiFetch(buildUserFriendRequestEndpoint(username), { method: "POST" });
+}
+
+export async function cancelFriendRequest(username: string): Promise<void> {
+  await apiFetch(buildUserFriendRequestEndpoint(username), { method: "DELETE" });
+}
+
+export async function getMyFriendRequests(): Promise<FriendRequest[]> {
+  const payload = await apiFetch(ME_FRIEND_REQUESTS_ENDPOINT);
+  return parseFriendRequests(payload);
+}
+
+export async function acceptFriendship(friendshipId: string | number): Promise<void> {
+  await apiFetch(buildFriendshipAcceptEndpoint(friendshipId), { method: "POST" });
+}
+
+export async function rejectFriendship(friendshipId: string | number): Promise<void> {
+  await apiFetch(buildFriendshipRejectEndpoint(friendshipId), { method: "POST" });
+}
+
+export async function deleteAcceptedFriendship(friendshipId: string | number): Promise<void> {
+  await apiFetch(buildFriendshipDeleteEndpoint(friendshipId), { method: "DELETE" });
 }
 
 export async function getTopFriends(): Promise<SocialUser[]> {

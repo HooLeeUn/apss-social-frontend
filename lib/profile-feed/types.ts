@@ -64,6 +64,8 @@ export interface UserMovieRecommendation {
   castMembers: string;
 }
 
+export type FriendshipStatus = "none" | "sent_pending" | "received_pending" | "friends" | "self";
+
 export interface SocialUser {
   id: string;
   username: string;
@@ -79,7 +81,20 @@ export interface SocialUser {
   canViewFullProfile?: boolean | null;
   profileAccess?: string | null;
   profileVisibility?: "public" | "private" | null;
+  isFollowing?: boolean | null;
+  canFollow?: boolean | null;
+  friendshipStatus?: FriendshipStatus | null;
+  friendshipId?: string | null;
+  canSendFriendRequest?: boolean | null;
   friendRequestsRestricted?: boolean | null;
+  isPrivateProfile?: boolean | null;
+  isRestrictedByVisitedUser?: boolean | null;
+}
+
+export interface FriendRequest {
+  id: string;
+  direction: "sent" | "received";
+  user: SocialUser;
 }
 
 export interface SocialActivityItem {
