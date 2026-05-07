@@ -48,7 +48,11 @@ function SocialActions({
     if (pendingAction || (profileUser.isFollowing !== true && profileUser.canFollow !== true)) return;
     const previousUser = profileUser;
     const nextIsFollowing = !profileUser.isFollowing;
-    onProfileUserChange({ ...profileUser, isFollowing: nextIsFollowing });
+    onProfileUserChange({
+      ...profileUser,
+      isFollowing: nextIsFollowing,
+      canFollow: nextIsFollowing ? profileUser.canFollow : true,
+    });
     setPendingAction("follow");
 
     try {
@@ -181,12 +185,9 @@ export default function UserProfileFeedPage() {
 
   const normalizedProfileAccess = profileUser?.profileAccess?.trim().toLocaleLowerCase();
   const hasLimitedAccess =
-    profileUser?.canViewFullProfile === false ||
-    profileUser?.isPrivateProfile === true ||
-    profileUser?.isRestrictedByVisitedUser === true ||
-    normalizedProfileAccess === "restricted" ||
-    normalizedProfileAccess === "limited" ||
-    normalizedProfileAccess === "private";
+    normalizedProfileAccess === "restricted" &&
+    profileUser?.friendshipStatus !== "friends" &&
+    profileUser?.canViewFullProfile !== true;
 
   useEffect(() => {
     const loadAuthenticatedPrivacy = async () => {
