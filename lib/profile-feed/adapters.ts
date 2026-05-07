@@ -66,6 +66,7 @@ const USER_FRIEND_REQUEST_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/users/{
 const ME_FRIEND_REQUESTS_ENDPOINT = normalizeApiEndpoint("/api/me/friend-requests/");
 const FRIENDSHIP_ACCEPT_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/friendships/{id}/accept/");
 const FRIENDSHIP_REJECT_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/friendships/{id}/reject/");
+const FRIENDSHIP_DELETE_ENDPOINT_TEMPLATE = normalizeApiEndpoint("/api/friendships/{id}/");
 
 function sortUsersByFollowersDesc(users: SocialUser[]): SocialUser[] {
   return [...users].sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
@@ -155,6 +156,11 @@ function safeTrim(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalId(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return safeTrim(value);
 }
 
 const FALLBACK_NOTIFICATION_ID_PREFIX = "notification-";
@@ -996,6 +1002,7 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
   if (!username) return null;
   const profile = toRecord(user.profile);
   const personalData = toRecord(user.personal_data);
+  const friendship = toRecord(user.friendship) || toRecord(profile?.friendship);
 
   return {
     id: String(pickFirst(user.id, user.user_id, fallbackId)),
@@ -1027,6 +1034,15 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
     isFollowing: toBooleanOrNull(pickFirst(user.is_following, user.isFollowing, profile?.is_following, profile?.isFollowing)),
     canFollow: toBooleanOrNull(pickFirst(user.can_follow, user.canFollow, profile?.can_follow, profile?.canFollow)),
     friendshipStatus: normalizeFriendshipStatus(pickFirst(user.friendship_status, user.friendshipStatus, profile?.friendship_status, profile?.friendshipStatus)),
+    friendshipId: normalizeOptionalId(
+      pickFirst(
+        user.friendship_id,
+        user.friendshipId,
+        friendship?.id,
+        profile?.friendship_id,
+        profile?.friendshipId,
+      ),
+    ),
     canSendFriendRequest: toBooleanOrNull(
       pickFirst(user.can_send_friend_request, user.canSendFriendRequest, profile?.can_send_friend_request, profile?.canSendFriendRequest),
     ),
@@ -1132,6 +1148,7 @@ export async function getUserProfileByUsername(username: string): Promise<Social
         isFollowing: normalized.isFollowing ?? mergedProfile.isFollowing ?? null,
         canFollow: normalized.canFollow ?? mergedProfile.canFollow ?? null,
         friendshipStatus: normalized.friendshipStatus ?? mergedProfile.friendshipStatus ?? null,
+        friendshipId: normalized.friendshipId ?? mergedProfile.friendshipId ?? null,
         canSendFriendRequest: normalized.canSendFriendRequest ?? mergedProfile.canSendFriendRequest ?? null,
         friendRequestsRestricted: normalized.friendRequestsRestricted ?? mergedProfile.friendRequestsRestricted ?? null,
         isPrivateProfile: normalized.isPrivateProfile ?? mergedProfile.isPrivateProfile ?? null,
@@ -1270,6 +1287,10 @@ function buildFriendshipRejectEndpoint(id: string | number): string {
   return FRIENDSHIP_REJECT_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(id)));
 }
 
+function buildFriendshipDeleteEndpoint(id: string | number): string {
+  return FRIENDSHIP_DELETE_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(id)));
+}
+
 function parseFriendRequestUser(entry: Record<string, unknown>, direction: "sent" | "received", index: number): SocialUser | null {
   const user =
     (direction === "sent"
@@ -1349,6 +1370,10 @@ export async function acceptFriendship(friendshipId: string | number): Promise<v
 
 export async function rejectFriendship(friendshipId: string | number): Promise<void> {
   await apiFetch(buildFriendshipRejectEndpoint(friendshipId), { method: "POST" });
+}
+
+export async function deleteAcceptedFriendship(friendshipId: string | number): Promise<void> {
+  await apiFetch(buildFriendshipDeleteEndpoint(friendshipId), { method: "DELETE" });
 }
 
 export async function getTopFriends(): Promise<SocialUser[]> {

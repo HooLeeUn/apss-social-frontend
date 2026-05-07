@@ -84,6 +84,7 @@ export interface SocialUser {
   isFollowing?: boolean | null;
   canFollow?: boolean | null;
   friendshipStatus?: FriendshipStatus | null;
+  friendshipId?: string | null;
   canSendFriendRequest?: boolean | null;
   friendRequestsRestricted?: boolean | null;
   isPrivateProfile?: boolean | null;
