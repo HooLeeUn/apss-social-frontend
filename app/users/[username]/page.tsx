@@ -8,12 +8,14 @@ import MyActivityColumn from "../../../components/profile-feed/MyActivityColumn"
 import ProfileIdentityCard from "../../../components/profile-feed/ProfileIdentityCard";
 import {
   cancelFriendRequest,
+  deleteAcceptedFriendship,
   followUser,
   getUserProfileByUsername,
   sendFriendRequest,
   unfollowUser,
 } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
+import { getProfilePrivacySettings } from "../../../lib/privacy";
 import { useAppBranding } from "../../../hooks/useAppBranding";
 
 function resolveUsernameParam(rawValue: string | string[] | undefined): string {
@@ -28,14 +30,22 @@ function resolveUsernameParam(rawValue: string | string[] | undefined): string {
 }
 
 
-function SocialActions({ profileUser, onProfileUserChange }: { profileUser: SocialUser; onProfileUserChange: (user: SocialUser) => void }) {
+function SocialActions({
+  profileUser,
+  authenticatedFriendRequestsRestricted,
+  onProfileUserChange,
+}: {
+  profileUser: SocialUser;
+  authenticatedFriendRequestsRestricted: boolean | null;
+  onProfileUserChange: (user: SocialUser) => void;
+}) {
   const [pendingAction, setPendingAction] = useState<"follow" | "friend" | null>(null);
   const isSelf = profileUser.friendshipStatus === "self";
 
   if (isSelf) return null;
 
   const handleFollowToggle = async () => {
-    if (pendingAction || !profileUser.canFollow) return;
+    if (pendingAction || (profileUser.isFollowing !== true && profileUser.canFollow !== true)) return;
     const previousUser = profileUser;
     const nextIsFollowing = !profileUser.isFollowing;
     onProfileUserChange({ ...profileUser, isFollowing: nextIsFollowing });
@@ -55,7 +65,7 @@ function SocialActions({ profileUser, onProfileUserChange }: { profileUser: Soci
   };
 
   const handleFriendRequest = async () => {
-    if (pendingAction) return;
+    if (pendingAction || authenticatedFriendRequestsRestricted !== false) return;
     const previousUser = profileUser;
     setPendingAction("friend");
 
@@ -74,12 +84,47 @@ function SocialActions({ profileUser, onProfileUserChange }: { profileUser: Soci
     }
   };
 
-  const canShowFollow = profileUser.canFollow === true;
+  const handleRemoveFriend = async () => {
+    if (pendingAction || profileUser.friendshipStatus !== "friends") return;
+
+    const confirmed = window.confirm(
+      "Si dejas de ser amigo de este usuario, no podrás enviarle ni recibir mensajes privados con él. ¿Quieres continuar?",
+    );
+    if (!confirmed) return;
+
+    const previousUser = profileUser;
+    const nextCanSendFriendRequest = authenticatedFriendRequestsRestricted === false && profileUser.friendRequestsRestricted !== true;
+    setPendingAction("friend");
+
+    if (!profileUser.friendshipId) {
+      // Backend pendiente: GET /api/users/<username>/ debe exponer el id real del registro Friendship para eliminar amistades aceptadas.
+      window.alert("No se puede eliminar la amistad todavía: falta el friendship_id en la respuesta del perfil.");
+      setPendingAction(null);
+      return;
+    }
+
+    try {
+      await deleteAcceptedFriendship(profileUser.friendshipId);
+      onProfileUserChange({
+        ...profileUser,
+        friendshipStatus: "none",
+        friendshipId: null,
+        canSendFriendRequest: nextCanSendFriendRequest,
+      });
+    } catch {
+      onProfileUserChange(previousUser);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const canShowFollow = profileUser.isFollowing === true || profileUser.canFollow === true;
   const canShowFriendButton =
     profileUser.friendshipStatus === "friends" ||
-    profileUser.friendshipStatus === "sent_pending" ||
-    profileUser.friendshipStatus === "received_pending" ||
-    (profileUser.friendshipStatus === "none" && profileUser.canSendFriendRequest === true);
+    (authenticatedFriendRequestsRestricted === false &&
+      (profileUser.friendshipStatus === "sent_pending" ||
+        profileUser.friendshipStatus === "received_pending" ||
+        (profileUser.friendshipStatus === "none" && profileUser.canSendFriendRequest === true)));
 
   if (!canShowFollow && !canShowFriendButton) return null;
 
@@ -88,7 +133,7 @@ function SocialActions({ profileUser, onProfileUserChange }: { profileUser: Soci
       case "sent_pending":
         return { label: "Enviada", className: "border-blue-300/50 bg-blue-600/90 text-white hover:bg-blue-500", disabled: false };
       case "friends":
-        return { label: "Amigos", className: "border-violet-300/50 bg-violet-600/90 text-white", disabled: true };
+        return { label: "Amigos", className: "border-violet-300/50 bg-violet-600/90 text-white hover:bg-violet-500", disabled: false };
       case "received_pending":
         return { label: "Solicitud recibida", className: "border-amber-300/50 bg-amber-500/15 text-amber-100", disabled: true };
       case "none":
@@ -104,7 +149,11 @@ function SocialActions({ profileUser, onProfileUserChange }: { profileUser: Soci
           type="button"
           onClick={handleFollowToggle}
           disabled={pendingAction === "follow"}
-          className="rounded-full border border-white/15 bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-blue-100 disabled:cursor-wait disabled:opacity-70"
+          className={`rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-70 ${
+            profileUser.isFollowing
+              ? "border-violet-300/50 bg-violet-600/90 text-white hover:bg-violet-500"
+              : "border-white/15 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+          }`}
         >
           {profileUser.isFollowing ? "Siguiendo" : "Seguir"}
         </button>
@@ -112,7 +161,7 @@ function SocialActions({ profileUser, onProfileUserChange }: { profileUser: Soci
       {canShowFriendButton ? (
         <button
           type="button"
-          onClick={handleFriendRequest}
+          onClick={profileUser.friendshipStatus === "friends" ? handleRemoveFriend : handleFriendRequest}
           disabled={friendButtonConfig.disabled || pendingAction === "friend"}
           className={`rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-default disabled:opacity-85 ${friendButtonConfig.className}`}
         >
@@ -128,6 +177,7 @@ export default function UserProfileFeedPage() {
   const branding = useAppBranding();
   const routeUsername = resolveUsernameParam(params?.username);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
+  const [authenticatedFriendRequestsRestricted, setAuthenticatedFriendRequestsRestricted] = useState<boolean | null>(null);
 
   const normalizedProfileAccess = profileUser?.profileAccess?.trim().toLocaleLowerCase();
   const hasLimitedAccess =
@@ -137,6 +187,19 @@ export default function UserProfileFeedPage() {
     normalizedProfileAccess === "restricted" ||
     normalizedProfileAccess === "limited" ||
     normalizedProfileAccess === "private";
+
+  useEffect(() => {
+    const loadAuthenticatedPrivacy = async () => {
+      try {
+        const privacySettings = await getProfilePrivacySettings();
+        setAuthenticatedFriendRequestsRestricted(privacySettings.friendRequestsRestricted);
+      } catch {
+        setAuthenticatedFriendRequestsRestricted(true);
+      }
+    };
+
+    void loadAuthenticatedPrivacy();
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -187,7 +250,13 @@ export default function UserProfileFeedPage() {
             />
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
-              {profileUser ? <SocialActions profileUser={profileUser} onProfileUserChange={setProfileUser} /> : null}
+              {profileUser ? (
+                <SocialActions
+                  profileUser={profileUser}
+                  authenticatedFriendRequestsRestricted={authenticatedFriendRequestsRestricted}
+                  onProfileUserChange={setProfileUser}
+                />
+              ) : null}
               {!hasLimitedAccess ? <FavoriteMoviesBlock title={`Favoritas de ${profileTitleName}`} readOnly viewedUsername={routeUsername} /> : null}
             </div>
           </div>
