@@ -1011,11 +1011,17 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
         user.profile_visibility,
         user.profileVisibility,
         user.privacy_visibility,
+        user.profile_type,
+        user.profileType,
+        user.public_visibility,
         user.is_public,
         profile?.visibility,
         profile?.profile_visibility,
         profile?.profileVisibility,
         profile?.privacy_visibility,
+        profile?.profile_type,
+        profile?.profileType,
+        profile?.public_visibility,
         profile?.is_public,
       ),
     ),
@@ -1035,7 +1041,18 @@ export async function getMyProfile(): Promise<SocialUser | null> {
   const record = toRecord(payload);
   if (!record) return null;
 
-  const source = { ...record, ...(toRecord(record.user) || toRecord(record.profile) || toRecord(record.data) || {}) };
+  const data = toRecord(record.data);
+  const nestedUser = toRecord(record.user) ?? toRecord(data?.user);
+  const nestedProfile = toRecord(record.profile) ?? toRecord(data?.profile);
+  const nestedPersonalData = toRecord(record.personal_data) ?? toRecord(data?.personal_data);
+  const source = {
+    ...record,
+    ...(data ?? {}),
+    ...(nestedUser ?? {}),
+    profile: nestedProfile,
+    personal_data: nestedPersonalData,
+  };
+
   return toSocialUser(source, "me");
 }
 
