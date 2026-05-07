@@ -236,7 +236,12 @@ export default function ProfileFeedPage() {
               onRetryFollowing={() => void loadFollowing()}
               friendRequestsRestricted={shouldShowRestrictedFriendsEmptyState}
             />
-            <MyActivityColumn key={`my-activity-${initialActivityTab}`} isOwnProfile initialActiveTab={initialActivityTab} />
+            <MyActivityColumn
+              key={`my-activity-${initialActivityTab}`}
+              isOwnProfile
+              initialActiveTab={initialActivityTab}
+              friendRequestsRestricted={profileUser?.friendRequestsRestricted === true}
+            />
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
               <div className="relative mx-auto w-fit">
                 <select

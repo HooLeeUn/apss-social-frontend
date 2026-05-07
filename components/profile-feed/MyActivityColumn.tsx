@@ -564,6 +564,7 @@ interface MyActivityColumnProps {
   title?: string;
   emptyCopy?: string;
   errorCopy?: string;
+  friendRequestsRestricted?: boolean;
 }
 
 export default function MyActivityColumn({
@@ -574,8 +575,11 @@ export default function MyActivityColumn({
   title = "Mi actividad",
   emptyCopy = "Aún no tienes actividad registrada.",
   errorCopy = "No se pudo cargar la actividad.",
+  friendRequestsRestricted = false,
 }: MyActivityColumnProps = {}) {
-  const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialActiveTab);
+  const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(
+    initialActiveTab === "messages" && friendRequestsRestricted ? "activity" : initialActiveTab,
+  );
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
     "recommendations",
   );
@@ -590,8 +594,10 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
-  const activityEnabled = !isOwnProfile || activeTab === "activity" || activeTab === "rated";
-  const messagesEnabled = isOwnProfile && activeTab === "messages";
+  const shouldShowPrivateInbox = isOwnProfile && !friendRequestsRestricted;
+  const visibleActiveTab = activeTab === "messages" && !shouldShowPrivateInbox ? "activity" : activeTab;
+  const activityEnabled = !isOwnProfile || visibleActiveTab === "activity" || visibleActiveTab === "rated";
+  const messagesEnabled = shouldShowPrivateInbox && visibleActiveTab === "messages";
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
   const messages = useInfiniteMyMessages(messagesEnabled);
@@ -643,14 +649,14 @@ export default function MyActivityColumn({
   }, [activity.items, myUsername]);
 
   useEffect(() => {
-    if (!isOwnProfile || (activeTab !== "activity" && activeTab !== "rated")) {
+    if (!isOwnProfile || (visibleActiveTab !== "activity" && visibleActiveTab !== "rated")) {
       autoLoadAttemptsRef.current = 0;
       return;
     }
 
     if (activity.loading || activity.loadingMore) return;
 
-    const visibleItems = activeTab === "rated" ? ownRatedItems.length : ownActivityItems.length;
+    const visibleItems = visibleActiveTab === "rated" ? ownRatedItems.length : ownActivityItems.length;
     if (!activity.hasMore || visibleItems >= MIN_VISIBLE_OWN_ACTIVITY_ITEMS) {
       autoLoadAttemptsRef.current = 0;
       return;
@@ -661,7 +667,7 @@ export default function MyActivityColumn({
     autoLoadAttemptsRef.current += 1;
     void activity.loadMore();
   }, [
-    activeTab,
+    visibleActiveTab,
     activity,
     isOwnProfile,
     ownActivityItems.length,
@@ -669,7 +675,7 @@ export default function MyActivityColumn({
   ]);
 
   useEffect(() => {
-    if (isOwnProfile || activeTab !== "activity" || visitedActivityTab === "recommendations") {
+    if (isOwnProfile || visibleActiveTab !== "activity" || visitedActivityTab === "recommendations") {
       autoLoadAttemptsRef.current = 0;
       return;
     }
@@ -685,7 +691,7 @@ export default function MyActivityColumn({
 
     autoLoadAttemptsRef.current += 1;
     void activity.loadMore();
-  }, [activeTab, activity, filteredActivityItems.length, isOwnProfile, visitedActivityTab]);
+  }, [activity, filteredActivityItems.length, isOwnProfile, visitedActivityTab, visibleActiveTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -796,7 +802,13 @@ export default function MyActivityColumn({
   }, [initialActiveTab]);
 
   useEffect(() => {
-    if (!isOwnProfile || activeTab !== "messages") return;
+    if (activeTab === "messages" && friendRequestsRestricted) {
+      setActiveTab("activity");
+    }
+  }, [activeTab, friendRequestsRestricted]);
+
+  useEffect(() => {
+    if (!isOwnProfile || !shouldShowPrivateInbox || visibleActiveTab !== "messages") return;
 
     markAsReadAbortControllerRef.current?.abort();
     const abortController = new AbortController();
@@ -817,7 +829,7 @@ export default function MyActivityColumn({
     return () => {
       abortController.abort();
     };
-  }, [activeTab, isOwnProfile, reloadMessages]);
+  }, [isOwnProfile, reloadMessages, shouldShowPrivateInbox, visibleActiveTab]);
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
@@ -825,14 +837,14 @@ export default function MyActivityColumn({
       const remainingDistance = target.scrollHeight - target.scrollTop - target.clientHeight;
       if (remainingDistance >= 160) return;
 
-      if (activeTab === "activity") {
+      if (visibleActiveTab === "activity") {
         if (!isOwnProfile && visitedActivityTab === "recommendations") return;
         if (!activity.hasMore || activity.loading || activity.loadingMore || activity.error) return;
         void activity.loadMore();
         return;
       }
 
-      if (activeTab === "rated") {
+      if (visibleActiveTab === "rated") {
         if (!activity.hasMore || activity.loading || activity.loadingMore || activity.error) return;
         void activity.loadMore();
         return;
@@ -841,7 +853,7 @@ export default function MyActivityColumn({
       if (!messages.hasMore || messages.loading || messages.loadingMore || messages.error) return;
       void messages.loadMore();
     },
-    [activeTab, activity, isOwnProfile, messages, visitedActivityTab],
+    [activity, isOwnProfile, messages, visibleActiveTab, visitedActivityTab],
   );
 
   return (
@@ -852,29 +864,31 @@ export default function MyActivityColumn({
             type="button"
             onClick={() => setActiveTab("activity")}
             className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-              activeTab === "activity"
+              visibleActiveTab === "activity"
                 ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                 : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
             }`}
           >
             Mi actividad
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("messages")}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-              activeTab === "messages"
-                ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
-                : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
-            }`}
-          >
-            Buzón Privado
-          </button>
+          {shouldShowPrivateInbox ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("messages")}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                visibleActiveTab === "messages"
+                  ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                  : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+              }`}
+            >
+              Buzón Privado
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setActiveTab("rated")}
             className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-              activeTab === "rated"
+              visibleActiveTab === "rated"
                 ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                 : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
             }`}
@@ -934,7 +948,7 @@ export default function MyActivityColumn({
         </div>
       )}
 
-      {isOwnProfile && activeTab === "messages" ? (
+      {shouldShowPrivateInbox && visibleActiveTab === "messages" ? (
         <div className="mt-3 flex items-center justify-start">
           <input
             type="search"
@@ -951,7 +965,7 @@ export default function MyActivityColumn({
         className="activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
         onScroll={handleScroll}
       >
-        {activeTab === "activity" ? (
+        {visibleActiveTab === "activity" ? (
           <>
             {!isOwnProfile && !normalizedViewedUsername ? (
               <p className="text-sm text-zinc-500">No se pudo resolver el usuario para cargar actividad.</p>
@@ -1027,7 +1041,7 @@ export default function MyActivityColumn({
 
             {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
           </>
-        ) : activeTab === "messages" ? (
+        ) : shouldShowPrivateInbox && visibleActiveTab === "messages" ? (
           <>
             {messages.loading ? <MyActivitySkeleton /> : null}
 
