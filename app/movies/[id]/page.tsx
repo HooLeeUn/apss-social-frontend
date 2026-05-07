@@ -32,6 +32,7 @@ import {
 } from "../../../lib/social";
 import { useAppBranding } from "../../../hooks/useAppBranding";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
+import { getProfilePrivacySettings } from "../../../lib/privacy";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -569,6 +570,7 @@ export default function MovieDetailPage() {
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [authenticatedUsername, setAuthenticatedUsername] = useState("");
+  const [friendRequestsRestricted, setFriendRequestsRestricted] = useState<boolean | null>(null);
 
   const [publicComments, setPublicComments] = useState<SocialComment[]>([]);
   const [publicNext, setPublicNext] = useState<string | null>(null);
@@ -592,6 +594,8 @@ export default function MovieDetailPage() {
   const [savingEditCommentId, setSavingEditCommentId] = useState<string | null>(null);
   const [deletingCommentIds, setDeletingCommentIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const canShowDirectedComments = friendRequestsRestricted === false;
 
   const fetchMovieDetail = useCallback(async () => {
     if (!movieId) return null;
@@ -659,6 +663,9 @@ export default function MovieDetailPage() {
       setMovieError("");
       setPublicError("");
       setDirectedError("");
+      setFriendRequestsRestricted(null);
+      setDirectedConversations([]);
+      setExpandedConversationKey(null);
 
       try {
         const normalizedMovie = await fetchMovieDetail();
@@ -680,10 +687,8 @@ export default function MovieDetailPage() {
       }
 
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
-      const directedEndpoints = buildMovieDirectedFetchEndpoints(movieId);
-      const directedEndpoint = directedEndpoints[0];
 
-      const [friendsResult, meResult, publicResult, directedReceivedResult] = await Promise.all([
+      const [friendsResult, meResult, publicResult, privacyResult] = await Promise.all([
         fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
           ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
           (error) => ({ ok: false as const, error }),
@@ -705,26 +710,10 @@ export default function MovieDetailPage() {
             return { ok: false as const, error };
           }
         })(),
-        (async () => {
-          console.log("[movie-comments-debug] directed GET url", joinApiUrl(directedEndpoint));
-          const response = await fetchWithFallbacks<unknown>(directedEndpoints, "[movie-detail-debug]").then(
-            ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
-            (error) => ({ ok: false as const, error }),
-          );
-
-          if (response.ok) {
-            console.log("[movie-comments-debug] directed GET endpoint", {
-              endpoint: response.endpoint,
-              usedFallback: response.usedFallback,
-            });
-            console.log("[movie-comments-debug] directed GET response", response.payload);
-          } else {
-            console.log("[movie-comments-debug] directed GET status", response.error instanceof ApiError ? response.error.status : null);
-            console.log("[movie-comments-debug] directed GET response", response.error instanceof Error ? response.error.message : String(response.error));
-          }
-
-          return response.ok ? { ok: true as const, payload: response.payload } : { ok: false as const, error: response.error };
-        })(),
+        getProfilePrivacySettings().then(
+          (payload) => ({ ok: true as const, payload }),
+          (error) => ({ ok: false as const, error }),
+        ),
       ]);
 
       if (!friendsResult.ok && friendsResult.error instanceof ApiError && friendsResult.error.status === 401) {
@@ -741,7 +730,7 @@ export default function MovieDetailPage() {
         return;
       }
 
-      if (!directedReceivedResult.ok && directedReceivedResult.error instanceof ApiError && directedReceivedResult.error.status === 401) {
+      if (!privacyResult.ok && privacyResult.error instanceof ApiError && privacyResult.error.status === 401) {
         router.replace("/login");
         return;
       }
@@ -770,14 +759,39 @@ export default function MovieDetailPage() {
         setPublicError("No pudimos cargar los comentarios públicos.");
       }
 
-      if (directedReceivedResult.ok) {
-        const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
-        setDirectedConversations(groupDirectedConversations(directedReceivedResult.payload, meUsername, movieId));
-        setLoadingFullHistoryByConversationKey({});
-        setFullLoadedByConversationKey({});
-        setDirectedError("");
-      } else {
-        setDirectedError("No pudimos cargar los comentarios dirigidos.");
+      if (privacyResult.ok) {
+        setFriendRequestsRestricted(privacyResult.payload.friendRequestsRestricted);
+      }
+
+      if (privacyResult.ok && !privacyResult.payload.friendRequestsRestricted) {
+        const directedEndpoints = buildMovieDirectedFetchEndpoints(movieId);
+        const directedEndpoint = directedEndpoints[0];
+        console.log("[movie-comments-debug] directed GET url", joinApiUrl(directedEndpoint));
+        const directedReceivedResult = await fetchWithFallbacks<unknown>(directedEndpoints, "[movie-detail-debug]").then(
+          ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
+          (error) => ({ ok: false as const, error }),
+        );
+
+        if (directedReceivedResult.ok) {
+          console.log("[movie-comments-debug] directed GET endpoint", {
+            endpoint: directedReceivedResult.endpoint,
+            usedFallback: directedReceivedResult.usedFallback,
+          });
+          console.log("[movie-comments-debug] directed GET response", directedReceivedResult.payload);
+          const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
+          setDirectedConversations(groupDirectedConversations(directedReceivedResult.payload, meUsername, movieId));
+          setLoadingFullHistoryByConversationKey({});
+          setFullLoadedByConversationKey({});
+          setDirectedError("");
+        } else {
+          console.log("[movie-comments-debug] directed GET status", directedReceivedResult.error instanceof ApiError ? directedReceivedResult.error.status : null);
+          console.log("[movie-comments-debug] directed GET response", directedReceivedResult.error instanceof Error ? directedReceivedResult.error.message : String(directedReceivedResult.error));
+          if (directedReceivedResult.error instanceof ApiError && directedReceivedResult.error.status === 401) {
+            router.replace("/login");
+            return;
+          }
+          setDirectedError("No pudimos cargar los comentarios dirigidos.");
+        }
       }
 
       setLoadingPublic(false);
@@ -916,18 +930,20 @@ export default function MovieDetailPage() {
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
     if (!movieId) return;
 
+    const allowedMentionUsername = canShowDirectedComments ? mentionUsername : null;
+
     setIsSubmitting(true);
     setComposerError("");
 
     try {
-      const mode = mentionUsername ? "directed" : "public";
+      const mode = allowedMentionUsername ? "directed" : "public";
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
       const directedEndpoints = buildMovieDirectedSubmitEndpoints(movieId);
-      const payload = mentionUsername ? { body: text, mentioned_username: mentionUsername } : { body: text };
+      const payload = allowedMentionUsername ? { body: text, mentioned_username: allowedMentionUsername } : { body: text };
 
       console.log("[movie-comments-debug] submit mode:", mode);
       console.log("[movie-comments-debug] textarea value:", text);
-      console.log("[movie-comments-debug] mentioned_username final:", mentionUsername);
+      console.log("[movie-comments-debug] mentioned_username final:", allowedMentionUsername);
       console.log("[movie-comments-debug] submit payload:", payload);
 
       let submitResponse: Awaited<ReturnType<typeof debugApiRequest>> | null = null;
@@ -1233,6 +1249,8 @@ export default function MovieDetailPage() {
     [editingCommentId, isMyComment, router],
   );
 
+  const composerFriends = canShowDirectedComments ? friends : [];
+
   return (
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-8 md:px-8">
@@ -1269,7 +1287,7 @@ export default function MovieDetailPage() {
           />
         ) : null}
 
-        <CommentComposer friends={friends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} />
+        <CommentComposer friends={composerFriends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} />
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
@@ -1300,104 +1318,106 @@ export default function MovieDetailPage() {
           />
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl font-bold text-[#86ADE0]">Comentarios dirigidos</h2>
-          {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div> : null}
-          {!loadingDirected && directedError ? (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
-          ) : null}
-          {!loadingDirected && !directedError && directedConversations.length === 0 ? (
-            <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
-              No hay comentarios dirigidos para esta película.
-            </div>
-          ) : null}
-          {!loadingDirected && !directedError ? (
-            <div className="space-y-3">
-              {directedConversations.map((conversation) => {
-                const isExpanded = expandedConversationKey === conversation.key;
-                return (
-                  <article key={conversation.key} className="rounded-xl border border-white/15 bg-zinc-950/65 p-4">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 text-left"
-                      onClick={() => {
-                        void handleToggleConversation(conversation);
-                      }}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
-                          {conversation.otherAvatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={conversation.otherAvatar} alt={conversation.otherDisplayName} className="h-9 w-9 rounded-full object-cover" />
-                          ) : (
-                            (conversation.otherDisplayName || conversation.otherUsername || "Usuario").charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
-                          <div className="flex items-center gap-2">
-                            {conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
-                            <span className="rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[11px] text-zinc-300">
-                              {conversation.messages.length}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-xs text-zinc-400">{isExpanded ? "Ocultar" : "Ver conversación"}</span>
-                    </button>
-
-                    {isExpanded ? (
-                      <div
-                        className="scrollbar-dark mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-3"
-                        onScroll={(event) => {
-                          const target = event.currentTarget;
-                          if (
-                            conversation.next &&
-                            !loadingDirectedMoreByKey[conversation.key] &&
-                            target.scrollTop + target.clientHeight >= target.scrollHeight - 48
-                          ) {
-                            void loadMoreConversationMessages(conversation.key);
-                          }
+        {canShowDirectedComments ? (
+          <section className="space-y-3">
+            <h2 className="text-xl font-bold text-[#86ADE0]">Comentarios dirigidos</h2>
+            {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div> : null}
+            {!loadingDirected && directedError ? (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
+            ) : null}
+            {!loadingDirected && !directedError && directedConversations.length === 0 ? (
+              <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
+                No hay comentarios dirigidos para esta película.
+              </div>
+            ) : null}
+            {!loadingDirected && !directedError ? (
+              <div className="space-y-3">
+                {directedConversations.map((conversation) => {
+                  const isExpanded = expandedConversationKey === conversation.key;
+                  return (
+                    <article key={conversation.key} className="rounded-xl border border-white/15 bg-zinc-950/65 p-4">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 text-left"
+                        onClick={() => {
+                          void handleToggleConversation(conversation);
                         }}
                       >
-                        <CommentsList
-                          comments={conversation.messages}
-                          emptyMessage="No hay mensajes en esta conversación."
-                          onReact={handleReact}
-                          onAuthorClick={handleAuthorNavigation}
-                          singleContainer={false}
-                          itemBadgeLabel={(message) =>
-                            message.authorUsername === authenticatedUsername ? "Enviado" : "Recibido"
-                          }
-                          canManageComment={isMyComment}
-                          editingCommentId={editingCommentId}
-                          editingValue={editingCommentValue}
-                          onStartEdit={handleStartEdit}
-                          onEditValueChange={setEditingCommentValue}
-                          onCancelEdit={handleCancelEdit}
-                          onSaveEdit={handleSaveEdit}
-                          savingEditCommentId={savingEditCommentId}
-                          onDeleteComment={handleDeleteComment}
-                          deletingCommentIds={deletingCommentIds}
-                          actionErrorByCommentId={commentActionErrorById}
-                          getDisplayText={(message) =>
-                            message.type === "directed" ? stripLeadingMention(message.text) : message.text
-                          }
-                        />
-                        {loadingDirectedMoreByKey[conversation.key] ? (
-                          <p className="pt-2 text-xs text-zinc-400">Cargando mensajes anteriores...</p>
-                        ) : null}
-                        {loadingFullHistoryByConversationKey[conversation.key] ? (
-                          <p className="pt-2 text-xs text-zinc-400">Cargando historial completo...</p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
-        </section>
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
+                            {conversation.otherAvatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={conversation.otherAvatar} alt={conversation.otherDisplayName} className="h-9 w-9 rounded-full object-cover" />
+                            ) : (
+                              (conversation.otherDisplayName || conversation.otherUsername || "Usuario").charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
+                            <div className="flex items-center gap-2">
+                              {conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
+                              <span className="rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[11px] text-zinc-300">
+                                {conversation.messages.length}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-xs text-zinc-400">{isExpanded ? "Ocultar" : "Ver conversación"}</span>
+                      </button>
+
+                      {isExpanded ? (
+                        <div
+                          className="scrollbar-dark mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-3"
+                          onScroll={(event) => {
+                            const target = event.currentTarget;
+                            if (
+                              conversation.next &&
+                              !loadingDirectedMoreByKey[conversation.key] &&
+                              target.scrollTop + target.clientHeight >= target.scrollHeight - 48
+                            ) {
+                              void loadMoreConversationMessages(conversation.key);
+                            }
+                          }}
+                        >
+                          <CommentsList
+                            comments={conversation.messages}
+                            emptyMessage="No hay mensajes en esta conversación."
+                            onReact={handleReact}
+                            onAuthorClick={handleAuthorNavigation}
+                            singleContainer={false}
+                            itemBadgeLabel={(message) =>
+                              message.authorUsername === authenticatedUsername ? "Enviado" : "Recibido"
+                            }
+                            canManageComment={isMyComment}
+                            editingCommentId={editingCommentId}
+                            editingValue={editingCommentValue}
+                            onStartEdit={handleStartEdit}
+                            onEditValueChange={setEditingCommentValue}
+                            onCancelEdit={handleCancelEdit}
+                            onSaveEdit={handleSaveEdit}
+                            savingEditCommentId={savingEditCommentId}
+                            onDeleteComment={handleDeleteComment}
+                            deletingCommentIds={deletingCommentIds}
+                            actionErrorByCommentId={commentActionErrorById}
+                            getDisplayText={(message) =>
+                              message.type === "directed" ? stripLeadingMention(message.text) : message.text
+                            }
+                          />
+                          {loadingDirectedMoreByKey[conversation.key] ? (
+                            <p className="pt-2 text-xs text-zinc-400">Cargando mensajes anteriores...</p>
+                          ) : null}
+                          {loadingFullHistoryByConversationKey[conversation.key] ? (
+                            <p className="pt-2 text-xs text-zinc-400">Cargando historial completo...</p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
       </div>
     </main>
   );
