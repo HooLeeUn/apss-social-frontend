@@ -7,7 +7,11 @@ import FavoriteMoviesBlock from "../../../components/profile-feed/FavoriteMovies
 import MyActivityColumn from "../../../components/profile-feed/MyActivityColumn";
 import ProfileIdentityCard from "../../../components/profile-feed/ProfileIdentityCard";
 import {
+  cancelFriendRequest,
+  followUser,
   getUserProfileByUsername,
+  sendFriendRequest,
+  unfollowUser,
 } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { useAppBranding } from "../../../hooks/useAppBranding";
@@ -23,6 +27,102 @@ function resolveUsernameParam(rawValue: string | string[] | undefined): string {
   return decodeURIComponent(rawValue).trim();
 }
 
+
+function SocialActions({ profileUser, onProfileUserChange }: { profileUser: SocialUser; onProfileUserChange: (user: SocialUser) => void }) {
+  const [pendingAction, setPendingAction] = useState<"follow" | "friend" | null>(null);
+  const isSelf = profileUser.friendshipStatus === "self";
+
+  if (isSelf) return null;
+
+  const handleFollowToggle = async () => {
+    if (pendingAction || !profileUser.canFollow) return;
+    const previousUser = profileUser;
+    const nextIsFollowing = !profileUser.isFollowing;
+    onProfileUserChange({ ...profileUser, isFollowing: nextIsFollowing });
+    setPendingAction("follow");
+
+    try {
+      if (nextIsFollowing) {
+        await followUser(profileUser.username);
+      } else {
+        await unfollowUser(profileUser.username);
+      }
+    } catch {
+      onProfileUserChange(previousUser);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleFriendRequest = async () => {
+    if (pendingAction) return;
+    const previousUser = profileUser;
+    setPendingAction("friend");
+
+    try {
+      if (profileUser.friendshipStatus === "none") {
+        onProfileUserChange({ ...profileUser, friendshipStatus: "sent_pending", canSendFriendRequest: false });
+        await sendFriendRequest(profileUser.username);
+      } else if (profileUser.friendshipStatus === "sent_pending") {
+        onProfileUserChange({ ...profileUser, friendshipStatus: "none", canSendFriendRequest: true });
+        await cancelFriendRequest(profileUser.username);
+      }
+    } catch {
+      onProfileUserChange(previousUser);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const canShowFollow = profileUser.canFollow === true;
+  const canShowFriendButton =
+    profileUser.friendshipStatus === "friends" ||
+    profileUser.friendshipStatus === "sent_pending" ||
+    profileUser.friendshipStatus === "received_pending" ||
+    (profileUser.friendshipStatus === "none" && profileUser.canSendFriendRequest === true);
+
+  if (!canShowFollow && !canShowFriendButton) return null;
+
+  const friendButtonConfig = (() => {
+    switch (profileUser.friendshipStatus) {
+      case "sent_pending":
+        return { label: "Enviada", className: "border-blue-300/50 bg-blue-600/90 text-white hover:bg-blue-500", disabled: false };
+      case "friends":
+        return { label: "Amigos", className: "border-violet-300/50 bg-violet-600/90 text-white", disabled: true };
+      case "received_pending":
+        return { label: "Solicitud recibida", className: "border-amber-300/50 bg-amber-500/15 text-amber-100", disabled: true };
+      case "none":
+      default:
+        return { label: "Solicitud de amistad", className: "border-white/15 bg-zinc-900 text-zinc-100 hover:bg-zinc-800", disabled: false };
+    }
+  })();
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {canShowFollow ? (
+        <button
+          type="button"
+          onClick={handleFollowToggle}
+          disabled={pendingAction === "follow"}
+          className="rounded-full border border-white/15 bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-blue-100 disabled:cursor-wait disabled:opacity-70"
+        >
+          {profileUser.isFollowing ? "Siguiendo" : "Seguir"}
+        </button>
+      ) : null}
+      {canShowFriendButton ? (
+        <button
+          type="button"
+          onClick={handleFriendRequest}
+          disabled={friendButtonConfig.disabled || pendingAction === "friend"}
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-default disabled:opacity-85 ${friendButtonConfig.className}`}
+        >
+          {friendButtonConfig.label}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function UserProfileFeedPage() {
   const params = useParams<{ username?: string | string[] }>();
   const branding = useAppBranding();
@@ -32,6 +132,8 @@ export default function UserProfileFeedPage() {
   const normalizedProfileAccess = profileUser?.profileAccess?.trim().toLocaleLowerCase();
   const hasLimitedAccess =
     profileUser?.canViewFullProfile === false ||
+    profileUser?.isPrivateProfile === true ||
+    profileUser?.isRestrictedByVisitedUser === true ||
     normalizedProfileAccess === "restricted" ||
     normalizedProfileAccess === "limited" ||
     normalizedProfileAccess === "private";
@@ -85,6 +187,7 @@ export default function UserProfileFeedPage() {
             />
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
+              {profileUser ? <SocialActions profileUser={profileUser} onProfileUserChange={setProfileUser} /> : null}
               {!hasLimitedAccess ? <FavoriteMoviesBlock title={`Favoritas de ${profileTitleName}`} readOnly viewedUsername={routeUsername} /> : null}
             </div>
           </div>
