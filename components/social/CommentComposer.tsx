@@ -19,6 +19,7 @@ interface CommentComposerProps {
   onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<void>;
   loading?: boolean;
   error?: string;
+  privateMentionsDisabled?: boolean;
 }
 
 function getMentionToken(value: string, caretIndex: number): { start: number; query: string } | null {
@@ -33,7 +34,7 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
   };
 }
 
-export default function CommentComposer({ friends, onSubmit, loading = false, error }: CommentComposerProps) {
+export default function CommentComposer({ friends, onSubmit, loading = false, error, privateMentionsDisabled = false }: CommentComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -52,11 +53,13 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
     if (mentionQuery === null) return [];
     const normalized = mentionQuery.trim().replace(/^@+/, "").toLowerCase();
 
+    if (privateMentionsDisabled) return [];
+
     return friends.filter((friend) => {
       if (!normalized) return true;
       return friend.username.toLowerCase().includes(normalized);
     });
-  }, [friends, mentionQuery]);
+  }, [friends, mentionQuery, privateMentionsDisabled]);
 
   useEffect(() => {
     if (mentionQuery === null) return;
@@ -64,6 +67,13 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
   }, [mentionQuery]);
 
   const updateMentionState = (nextText: string, caretIndex: number) => {
+    if (privateMentionsDisabled) {
+      setMentionQuery(null);
+      setMentionStart(null);
+      setSelectedMention(null);
+      return;
+    }
+
     if (selectedMention) {
       const token = nextText.slice(selectedMention.tokenStart, selectedMention.tokenEnd);
       if (token !== `@${selectedMention.username}`) {
@@ -141,7 +151,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
-    const mentionUsername = hasValidSelectedMention ? normalizeMentionUsername(selectedMention?.username ?? "") : null;
+    const mentionUsername = !privateMentionsDisabled && hasValidSelectedMention ? normalizeMentionUsername(selectedMention?.username ?? "") : null;
     console.log("[mentions-debug] submit mode:", mentionUsername ? "directed" : "public");
     console.log("[mentions-debug] selected mention object:", selectedMention);
     console.log("[mentions-debug] mentioned_username final:", mentionUsername);
@@ -173,20 +183,26 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
             updateMentionState(nextText, event.target.selectionStart ?? nextText.length);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Comparte tu recomendación... Usa @ para mencionar a un amigo"
+          placeholder={
+            privateMentionsDisabled
+              ? "Comparte tu recomendación pública..."
+              : "Comparte tu recomendación... Usa @ para mencionar a un amigo"
+          }
           className="w-full rounded-xl border border-white/30 bg-black/30 p-3 text-sm text-zinc-100 outline-none transition focus:border-white/45"
         />
 
-        {mentionQuery !== null ? (
+        {!privateMentionsDisabled && mentionQuery !== null ? (
           <MentionAutocomplete friends={suggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
         ) : null}
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-xs text-zinc-400">
-          {hasValidSelectedMention && selectedMention
+          {!privateMentionsDisabled && hasValidSelectedMention && selectedMention
             ? `Mención válida seleccionada: @${selectedMention.username}`
-            : "Si eliges una mención del listado, se enviará como recomendación privada."}
+            : privateMentionsDisabled
+              ? "Tu comentario se publicará de forma pública."
+              : "Si eliges una mención del listado, se enviará como recomendación privada."}
         </p>
         <button
           type="button"

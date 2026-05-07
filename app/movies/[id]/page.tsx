@@ -32,6 +32,7 @@ import {
 } from "../../../lib/social";
 import { useAppBranding } from "../../../hooks/useAppBranding";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
+import { getProfilePrivacySettings } from "../../../lib/privacy";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -569,6 +570,7 @@ export default function MovieDetailPage() {
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [authenticatedUsername, setAuthenticatedUsername] = useState("");
+  const [friendRequestsRestricted, setFriendRequestsRestricted] = useState(false);
 
   const [publicComments, setPublicComments] = useState<SocialComment[]>([]);
   const [publicNext, setPublicNext] = useState<string | null>(null);
@@ -680,12 +682,10 @@ export default function MovieDetailPage() {
       }
 
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
-      const directedEndpoints = buildMovieDirectedFetchEndpoints(movieId);
-      const directedEndpoint = directedEndpoints[0];
 
-      const [friendsResult, meResult, publicResult, directedReceivedResult] = await Promise.all([
-        fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
-          ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
+      const [privacyResult, meResult, publicResult] = await Promise.all([
+        getProfilePrivacySettings().then(
+          (payload) => ({ ok: true as const, payload }),
           (error) => ({ ok: false as const, error }),
         ),
         apiFetch("/me/").then(
@@ -705,6 +705,59 @@ export default function MovieDetailPage() {
             return { ok: false as const, error };
           }
         })(),
+      ]);
+
+      if (!privacyResult.ok && privacyResult.error instanceof ApiError && privacyResult.error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (!meResult.ok && meResult.error instanceof ApiError && meResult.error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (!publicResult.ok && publicResult.error instanceof ApiError && publicResult.error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      const nextFriendRequestsRestricted = privacyResult.ok ? privacyResult.payload.friendRequestsRestricted : false;
+      setFriendRequestsRestricted(nextFriendRequestsRestricted);
+
+      if (meResult.ok) {
+        const meUsername = getCurrentUsernameFromPayload(meResult.payload);
+        if (meUsername) setAuthenticatedUsername(meUsername);
+      }
+
+      if (publicResult.ok) {
+        const parsed = parseCommentsPage(publicResult.payload, "public");
+        setPublicComments(parsed.comments);
+        setPublicNext(normalizeEndpointPath(parsed.next));
+        setPublicError("");
+      } else {
+        setPublicError("No pudimos cargar los comentarios públicos.");
+      }
+      setLoadingPublic(false);
+
+      if (nextFriendRequestsRestricted) {
+        setFriends([]);
+        setDirectedConversations([]);
+        setExpandedConversationKey(null);
+        setLoadingFullHistoryByConversationKey({});
+        setFullLoadedByConversationKey({});
+        setDirectedError("");
+        setLoadingDirected(false);
+        return;
+      }
+
+      const directedEndpoints = buildMovieDirectedFetchEndpoints(movieId);
+      const directedEndpoint = directedEndpoints[0];
+
+      const [friendsResult, directedReceivedResult] = await Promise.all([
+        fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
+          ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
+          (error) => ({ ok: false as const, error }),
+        ),
         (async () => {
           console.log("[movie-comments-debug] directed GET url", joinApiUrl(directedEndpoint));
           const response = await fetchWithFallbacks<unknown>(directedEndpoints, "[movie-detail-debug]").then(
@@ -731,16 +784,6 @@ export default function MovieDetailPage() {
         router.replace("/login");
         return;
       }
-      if (!meResult.ok && meResult.error instanceof ApiError && meResult.error.status === 401) {
-        router.replace("/login");
-        return;
-      }
-
-      if (!publicResult.ok && publicResult.error instanceof ApiError && publicResult.error.status === 401) {
-        router.replace("/login");
-        return;
-      }
-
       if (!directedReceivedResult.ok && directedReceivedResult.error instanceof ApiError && directedReceivedResult.error.status === 401) {
         router.replace("/login");
         return;
@@ -756,19 +799,6 @@ export default function MovieDetailPage() {
         console.log("[mentions-debug] Normalized friends list:", normalizedFriends);
         setFriends(normalizedFriends);
       }
-      if (meResult.ok) {
-        const meUsername = getCurrentUsernameFromPayload(meResult.payload);
-        if (meUsername) setAuthenticatedUsername(meUsername);
-      }
-
-      if (publicResult.ok) {
-        const parsed = parseCommentsPage(publicResult.payload, "public");
-        setPublicComments(parsed.comments);
-        setPublicNext(normalizeEndpointPath(parsed.next));
-        setPublicError("");
-      } else {
-        setPublicError("No pudimos cargar los comentarios públicos.");
-      }
 
       if (directedReceivedResult.ok) {
         const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
@@ -780,7 +810,6 @@ export default function MovieDetailPage() {
         setDirectedError("No pudimos cargar los comentarios dirigidos.");
       }
 
-      setLoadingPublic(false);
       setLoadingDirected(false);
     };
 
@@ -916,18 +945,20 @@ export default function MovieDetailPage() {
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
     if (!movieId) return;
 
+    const safeMentionUsername = friendRequestsRestricted ? null : mentionUsername;
+
     setIsSubmitting(true);
     setComposerError("");
 
     try {
-      const mode = mentionUsername ? "directed" : "public";
+      const mode = safeMentionUsername ? "directed" : "public";
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
       const directedEndpoints = buildMovieDirectedSubmitEndpoints(movieId);
-      const payload = mentionUsername ? { body: text, mentioned_username: mentionUsername } : { body: text };
+      const payload = safeMentionUsername ? { body: text, mentioned_username: safeMentionUsername } : { body: text };
 
       console.log("[movie-comments-debug] submit mode:", mode);
       console.log("[movie-comments-debug] textarea value:", text);
-      console.log("[movie-comments-debug] mentioned_username final:", mentionUsername);
+      console.log("[movie-comments-debug] mentioned_username final:", safeMentionUsername);
       console.log("[movie-comments-debug] submit payload:", payload);
 
       let submitResponse: Awaited<ReturnType<typeof debugApiRequest>> | null = null;
@@ -1269,7 +1300,13 @@ export default function MovieDetailPage() {
           />
         ) : null}
 
-        <CommentComposer friends={friends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} />
+        <CommentComposer
+          friends={friends}
+          onSubmit={handleSubmitComment}
+          loading={isSubmitting}
+          error={composerError}
+          privateMentionsDisabled={friendRequestsRestricted}
+        />
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
@@ -1300,19 +1337,20 @@ export default function MovieDetailPage() {
           />
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl font-bold text-[#86ADE0]">Comentarios dirigidos</h2>
-          {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div> : null}
-          {!loadingDirected && directedError ? (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
-          ) : null}
-          {!loadingDirected && !directedError && directedConversations.length === 0 ? (
-            <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
-              No hay comentarios dirigidos para esta película.
-            </div>
-          ) : null}
-          {!loadingDirected && !directedError ? (
-            <div className="space-y-3">
+        {!friendRequestsRestricted ? (
+          <section className="space-y-3">
+            <h2 className="text-xl font-bold text-[#86ADE0]">Comentarios dirigidos</h2>
+            {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div> : null}
+            {!loadingDirected && directedError ? (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
+            ) : null}
+            {!loadingDirected && !directedError && directedConversations.length === 0 ? (
+              <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
+                No hay comentarios dirigidos para esta película.
+              </div>
+            ) : null}
+            {!loadingDirected && !directedError ? (
+              <div className="space-y-3">
               {directedConversations.map((conversation) => {
                 const isExpanded = expandedConversationKey === conversation.key;
                 return (
@@ -1395,9 +1433,10 @@ export default function MovieDetailPage() {
                   </article>
                 );
               })}
-            </div>
-          ) : null}
-        </section>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
       </div>
     </main>
   );
