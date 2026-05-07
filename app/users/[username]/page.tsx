@@ -126,6 +126,12 @@ function SocialActions({
         friendshipStatus: "none",
         friendshipId: null,
         canSendFriendRequest: nextCanSendFriendRequest,
+        ...(profileUser.isPrivateProfile === true
+          ? {
+              profileAccess: "restricted",
+              canViewFullProfile: false,
+            }
+          : {}),
       });
     } catch {
       onProfileUserChange(previousUser);
