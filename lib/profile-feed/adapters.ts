@@ -642,6 +642,12 @@ interface MyMessageApiMovie {
   title_english?: string | null;
   type?: string | null;
   genre?: string | null;
+  image?: string | null;
+  poster?: string | null;
+  poster_url?: string | null;
+  image_url?: string | null;
+  posterUrl?: string | null;
+  imageUrl?: string | null;
 }
 
 interface MyMessageApiItem {
@@ -659,6 +665,12 @@ interface MyMessageApiItem {
   event_type?: string | null;
   type?: string | null;
   movie_id?: number | string | null;
+  image?: string | null;
+  poster?: string | null;
+  poster_url?: string | null;
+  image_url?: string | null;
+  posterUrl?: string | null;
+  imageUrl?: string | null;
   is_sent?: boolean | null;
   likes_count?: number | null;
   dislikes_count?: number | null;
@@ -680,6 +692,15 @@ function resolveMessageEntityId(value: unknown, fallback: string): string | numb
 
 function normalizeMessageContent(value: string | null | undefined): string {
   return (value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+function pickFirstNonEmptyMessageString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const candidate = safeTrim(value);
+    if (candidate) return candidate;
+  }
+
+  return null;
 }
 
 function resolveMessageText(item: MyMessageApiItem): string | null {
@@ -807,6 +828,20 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
   const movieSecondaryTitle = titleSpanish && titleEnglish && titleSpanish !== titleEnglish ? titleEnglish : null;
   const metadataType = safeTrim(movie?.type) || undefined;
   const metadataGenre = safeTrim(movie?.genre) || undefined;
+  const moviePosterUrl = pickFirstNonEmptyMessageString(
+    movie?.image,
+    movie?.poster,
+    movie?.poster_url,
+    movie?.posterUrl,
+    movie?.image_url,
+    movie?.imageUrl,
+    item.image,
+    item.poster,
+    item.poster_url,
+    item.posterUrl,
+    item.image_url,
+    item.imageUrl,
+  );
 
   return {
     id: String(pickFirst(item.id, `message-${index}`)),
@@ -830,7 +865,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
     movieId: resolveMessageEntityId(movie?.id, `movie-${index}`),
     movieTitle,
     movieSecondaryTitle,
-    moviePosterUrl: null,
+    moviePosterUrl,
     movieType: metadataType,
     movieGenre: metadataGenre,
     text: resolvedText || resolveMessageText(item) || "",
