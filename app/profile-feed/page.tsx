@@ -11,6 +11,7 @@ import TopUsersSection from "../../components/profile-feed/TopUsersSection";
 import { getMyProfile, getTopFollowing, getTopFriends, markNotificationsContextRead } from "../../lib/profile-feed/adapters";
 import { SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
+import { getProfilePrivacySettings } from "../../lib/privacy";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../../lib/movies";
 
@@ -34,7 +35,7 @@ export default function ProfileFeedPage() {
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
   const initialActivityTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "messages" : "activity";
   const shouldShowRestrictedFriendsEmptyState =
-    profileUser?.friendRequestsRestricted === true && profileUser.profileVisibility !== "private";
+    profileUser?.friendRequestsRestricted === true && profileUser.profileVisibility === "public";
 
   const loadFollowing = useCallback(async () => {
     setLoadingFollowing(true);
@@ -72,7 +73,11 @@ export default function ProfileFeedPage() {
   useEffect(() => {
     const loadOwnProfileData = async () => {
       try {
-        const [myProfile, personalData] = await Promise.all([getMyProfile(), getPersonalData()]);
+        const [myProfile, personalData, privacySettings] = await Promise.all([
+          getMyProfile(),
+          getPersonalData(),
+          getProfilePrivacySettings(),
+        ]);
         setProfileUser({
           id: myProfile?.id ?? "me",
           username: myProfile?.username ?? "usuario",
@@ -85,12 +90,29 @@ export default function ProfileFeedPage() {
           ageVisible: personalData.birth_date_visible,
           genderIdentity: personalData.gender_identity ?? myProfile?.genderIdentity ?? null,
           genderIdentityVisible: personalData.gender_identity_visible,
-          profileVisibility: myProfile?.profileVisibility ?? null,
-          friendRequestsRestricted: myProfile?.friendRequestsRestricted ?? null,
+          profileVisibility: privacySettings.visibility ?? myProfile?.profileVisibility ?? null,
+          friendRequestsRestricted: privacySettings.friendRequestsRestricted ?? myProfile?.friendRequestsRestricted ?? null,
         });
       } catch {
-        const myProfile = await getMyProfile().catch(() => null);
-        setProfileUser(myProfile);
+        const [myProfile, privacySettings] = await Promise.all([
+          getMyProfile().catch(() => null),
+          getProfilePrivacySettings().catch(() => null),
+        ]);
+        setProfileUser(
+          myProfile || privacySettings
+            ? {
+                ...(myProfile ?? {
+                  id: "me",
+                  username: "usuario",
+                  displayName: null,
+                  avatarUrl: null,
+                  followersCount: null,
+                }),
+                profileVisibility: privacySettings?.visibility ?? myProfile?.profileVisibility ?? null,
+                friendRequestsRestricted: privacySettings?.friendRequestsRestricted ?? myProfile?.friendRequestsRestricted ?? null,
+              }
+            : null,
+        );
       }
     };
 
