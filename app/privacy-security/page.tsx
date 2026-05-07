@@ -126,7 +126,6 @@ export default function PrivacySecurityPage() {
     try {
       const updatedValue = await updateFriendRequestsRestriction(nextValue);
       setFriendRequestsRestricted(updatedValue);
-      setFriendRequestsRestrictionMessage("Configuración de solicitudes de amistad actualizada correctamente.");
     } catch {
       setFriendRequestsRestrictionMessage("No se pudo actualizar la restricción de solicitudes. Inténtalo de nuevo.");
     } finally {
@@ -253,22 +252,24 @@ export default function PrivacySecurityPage() {
           </Link>
         </header>
 
-        <section className="rounded-3xl border border-blue-300/20 bg-gradient-to-b from-zinc-900/90 via-zinc-950/95 to-black p-5 shadow-[0_20px_45px_rgba(0,0,0,0.42)]">
-          <div className="mb-3">
-            <p className="text-xs uppercase tracking-[0.25em] text-blue-200/85">Condiciones de privacidad</p>
+        <section className="p-5">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold uppercase tracking-[0.18em] text-blue-200/85 md:text-2xl">
+              Condiciones de privacidad
+            </h2>
           </div>
-          <ul className="space-y-2 text-sm leading-6 text-zinc-200 md:text-[0.95rem]">
+          <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-200 md:text-[0.95rem]">
             {privacyDisclaimer.map((item) => (
-              <li key={item} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+              <li key={item} className="pl-1">
                 {item}
               </li>
             ))}
           </ul>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
+        <section className="p-5">
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-zinc-100">Tipo de perfil</h2>
+            <h2 className="text-xl font-semibold text-blue-200/85 md:text-2xl">Tipo de perfil</h2>
             {loadingVisibility ? <span className="text-xs text-zinc-400">Cargando...</span> : null}
           </div>
 
@@ -308,10 +309,10 @@ export default function PrivacySecurityPage() {
 
         {!loadingVisibility && visibility === "public" ? (
           <>
-            <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
+            <section className="p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-zinc-100">Restringir solicitudes de amistad</h2>
+                  <h2 className="text-lg font-semibold text-blue-200/85">Restringir solicitudes de amistad</h2>
                   <p className="mt-1 text-sm leading-6 text-zinc-300">
                     Controla si otros usuarios pueden enviarte solicitudes de amistad.
                   </p>
@@ -336,8 +337,8 @@ export default function PrivacySecurityPage() {
               ) : null}
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
-              <h2 className="text-lg font-semibold text-zinc-100">Restringir usuarios</h2>
+            <section className="p-5">
+              <h2 className="text-lg font-semibold text-blue-200/85">Restringir usuarios</h2>
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <input

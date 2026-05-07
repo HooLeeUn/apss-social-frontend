@@ -33,6 +33,8 @@ export default function ProfileFeedPage() {
   const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
   const initialActivityTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "messages" : "activity";
+  const shouldShowRestrictedFriendsEmptyState =
+    profileUser?.friendRequestsRestricted === true && profileUser.profileVisibility !== "private";
 
   const loadFollowing = useCallback(async () => {
     setLoadingFollowing(true);
@@ -83,6 +85,8 @@ export default function ProfileFeedPage() {
           ageVisible: personalData.birth_date_visible,
           genderIdentity: personalData.gender_identity ?? myProfile?.genderIdentity ?? null,
           genderIdentityVisible: personalData.gender_identity_visible,
+          profileVisibility: myProfile?.profileVisibility ?? null,
+          friendRequestsRestricted: myProfile?.friendRequestsRestricted ?? null,
         });
       } catch {
         const myProfile = await getMyProfile().catch(() => null);
@@ -208,6 +212,7 @@ export default function ProfileFeedPage() {
               followingError={followingError}
               onRetryFriends={() => void loadFriends()}
               onRetryFollowing={() => void loadFollowing()}
+              friendRequestsRestricted={shouldShowRestrictedFriendsEmptyState}
             />
             <MyActivityColumn key={`my-activity-${initialActivityTab}`} isOwnProfile initialActiveTab={initialActivityTab} />
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">

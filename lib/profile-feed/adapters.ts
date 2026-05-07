@@ -115,6 +115,17 @@ function toBooleanOrNull(value: unknown): boolean | null {
   return null;
 }
 
+function normalizeProfileVisibility(value: unknown): "public" | "private" | null {
+  if (typeof value === "boolean") return value ? "public" : "private";
+  if (typeof value !== "string") return null;
+
+  const normalized = value.trim().toLocaleLowerCase();
+  if (["public", "público", "publico"].includes(normalized)) return "public";
+  if (["private", "privado"].includes(normalized)) return "private";
+
+  return null;
+}
+
 function pickFirst<T>(...values: (T | null | undefined)[]): T | null {
   for (const value of values) {
     if (value !== null && value !== undefined) return value;
@@ -994,6 +1005,28 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
     ),
     canViewFullProfile: toBooleanOrNull(pickFirst(user.can_view_full_profile, user.canViewFullProfile, profile?.can_view_full_profile)),
     profileAccess: safeTrim(pickFirst(user.profile_access, user.profileAccess, profile?.profile_access)),
+    profileVisibility: normalizeProfileVisibility(
+      pickFirst(
+        user.visibility,
+        user.profile_visibility,
+        user.profileVisibility,
+        user.privacy_visibility,
+        user.is_public,
+        profile?.visibility,
+        profile?.profile_visibility,
+        profile?.profileVisibility,
+        profile?.privacy_visibility,
+        profile?.is_public,
+      ),
+    ),
+    friendRequestsRestricted: toBooleanOrNull(
+      pickFirst(
+        user.friend_requests_restricted,
+        user.friendRequestsRestricted,
+        profile?.friend_requests_restricted,
+        profile?.friendRequestsRestricted,
+      ),
+    ),
   };
 }
 
