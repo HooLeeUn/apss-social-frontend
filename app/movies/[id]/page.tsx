@@ -570,7 +570,7 @@ export default function MovieDetailPage() {
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [authenticatedUsername, setAuthenticatedUsername] = useState("");
-  const [friendRequestsRestricted, setFriendRequestsRestricted] = useState(false);
+  const [friendRequestsRestricted, setFriendRequestsRestricted] = useState<boolean | null>(null);
 
   const [publicComments, setPublicComments] = useState<SocialComment[]>([]);
   const [publicNext, setPublicNext] = useState<string | null>(null);
@@ -661,6 +661,7 @@ export default function MovieDetailPage() {
       setMovieError("");
       setPublicError("");
       setDirectedError("");
+      setFriendRequestsRestricted(null);
 
       try {
         const normalizedMovie = await fetchMovieDetail();
@@ -721,7 +722,7 @@ export default function MovieDetailPage() {
         return;
       }
 
-      const nextFriendRequestsRestricted = privacyResult.ok ? privacyResult.payload.friendRequestsRestricted : false;
+      const nextFriendRequestsRestricted = privacyResult.ok ? privacyResult.payload.friendRequestsRestricted : null;
       setFriendRequestsRestricted(nextFriendRequestsRestricted);
 
       if (meResult.ok) {
@@ -739,7 +740,7 @@ export default function MovieDetailPage() {
       }
       setLoadingPublic(false);
 
-      if (nextFriendRequestsRestricted) {
+      if (nextFriendRequestsRestricted !== false) {
         setFriends([]);
         setDirectedConversations([]);
         setExpandedConversationKey(null);
@@ -945,7 +946,7 @@ export default function MovieDetailPage() {
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
     if (!movieId) return;
 
-    const safeMentionUsername = friendRequestsRestricted ? null : mentionUsername;
+    const safeMentionUsername = friendRequestsRestricted === false ? mentionUsername : null;
 
     setIsSubmitting(true);
     setComposerError("");
@@ -1305,7 +1306,7 @@ export default function MovieDetailPage() {
           onSubmit={handleSubmitComment}
           loading={isSubmitting}
           error={composerError}
-          privateMentionsDisabled={friendRequestsRestricted}
+          privateMentionsDisabled={friendRequestsRestricted !== false}
         />
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
@@ -1337,7 +1338,7 @@ export default function MovieDetailPage() {
           />
         </section>
 
-        {!friendRequestsRestricted ? (
+        {friendRequestsRestricted === false ? (
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-[#86ADE0]">Comentarios dirigidos</h2>
             {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div> : null}
