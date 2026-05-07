@@ -2,6 +2,11 @@ import { apiFetch } from "./api";
 
 export type ProfileVisibility = "public" | "private";
 
+export interface ProfilePrivacySettings {
+  visibility: ProfileVisibility;
+  friendRequestsRestricted: boolean;
+}
+
 export interface BlockedUser {
   id: number | string;
   username: string;
@@ -18,6 +23,21 @@ function toRecord(value: unknown): Record<string, unknown> | null {
 function normalizeVisibility(value: unknown): ProfileVisibility {
   if (typeof value !== "string") return "public";
   return value.trim().toLowerCase() === "private" ? "private" : "public";
+}
+
+function normalizeBoolean(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.trim().toLowerCase() === "true";
+  if (typeof value === "number") return value === 1;
+  return false;
+}
+
+function hasFriendRequestsRestrictedField(payload: unknown): boolean {
+  const record = toRecord(payload);
+  const data = toRecord(record?.data);
+  return Boolean(
+    (record && "friend_requests_restricted" in record) || (data && "friend_requests_restricted" in data),
+  );
 }
 
 function extractArray(payload: unknown): unknown[] {
@@ -57,11 +77,20 @@ function normalizeBlockedUser(value: unknown, index: number): BlockedUser | null
   };
 }
 
-export function parseVisibility(payload: unknown): ProfileVisibility {
+export function parsePrivacySettings(payload: unknown): ProfilePrivacySettings {
   const record = toRecord(payload);
-  if (!record) return "public";
+  const data = toRecord(record?.data);
 
-  return normalizeVisibility(record.visibility ?? toRecord(record.data)?.visibility);
+  return {
+    visibility: normalizeVisibility(record?.visibility ?? data?.visibility),
+    friendRequestsRestricted: normalizeBoolean(
+      record?.friend_requests_restricted ?? data?.friend_requests_restricted,
+    ),
+  };
+}
+
+export function parseVisibility(payload: unknown): ProfileVisibility {
+  return parsePrivacySettings(payload).visibility;
 }
 
 export function parseBlockedUsers(payload: unknown): BlockedUser[] {
@@ -70,9 +99,13 @@ export function parseBlockedUsers(payload: unknown): BlockedUser[] {
     .filter((entry): entry is BlockedUser => Boolean(entry));
 }
 
-export async function getProfileVisibility(): Promise<ProfileVisibility> {
+export async function getProfilePrivacySettings(): Promise<ProfilePrivacySettings> {
   const payload = await apiFetch(PROFILE_PRIVACY_ENDPOINT);
-  return parseVisibility(payload);
+  return parsePrivacySettings(payload);
+}
+
+export async function getProfileVisibility(): Promise<ProfileVisibility> {
+  return (await getProfilePrivacySettings()).visibility;
 }
 
 export async function updateProfileVisibility(visibility: ProfileVisibility): Promise<ProfileVisibility> {
@@ -82,6 +115,17 @@ export async function updateProfileVisibility(visibility: ProfileVisibility): Pr
   });
 
   return parseVisibility(payload);
+}
+
+export async function updateFriendRequestsRestriction(friendRequestsRestricted: boolean): Promise<boolean> {
+  const payload = await apiFetch(PROFILE_PRIVACY_ENDPOINT, {
+    method: "PATCH",
+    body: JSON.stringify({ friend_requests_restricted: friendRequestsRestricted }),
+  });
+
+  if (!hasFriendRequestsRestrictedField(payload)) return friendRequestsRestricted;
+
+  return parsePrivacySettings(payload).friendRequestsRestricted;
 }
 
 export async function getBlockedUsers(): Promise<BlockedUser[]> {
