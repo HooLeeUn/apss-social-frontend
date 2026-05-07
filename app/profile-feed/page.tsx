@@ -156,6 +156,7 @@ export default function ProfileFeedPage() {
   useEffect(() => {
     const normalizedTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "private_inbox" : requestedTab === "activity" ? "activity" : null;
     if (!normalizedTab) return;
+    if (normalizedTab === "private_inbox" && friendRequestsRestricted !== false) return;
 
     const markContextAsRead = async () => {
       try {
@@ -167,7 +168,7 @@ export default function ProfileFeedPage() {
     };
 
     void markContextAsRead();
-  }, [requestedTab]);
+  }, [friendRequestsRestricted, requestedTab]);
 
   useEffect(() => {
     const loadMyList = async () => {
