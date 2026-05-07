@@ -577,8 +577,9 @@ export default function MyActivityColumn({
   errorCopy = "No se pudo cargar la actividad.",
   friendRequestsRestricted = null,
 }: MyActivityColumnProps = {}) {
+  const isPrivateInboxAllowed = friendRequestsRestricted === false;
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(
-    initialActiveTab === "messages" && friendRequestsRestricted !== false ? "activity" : initialActiveTab,
+    initialActiveTab === "messages" && !isPrivateInboxAllowed ? "activity" : initialActiveTab,
   );
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
     "recommendations",
@@ -594,7 +595,7 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
-  const shouldShowPrivateInbox = isOwnProfile && friendRequestsRestricted === false;
+  const shouldShowPrivateInbox = isOwnProfile && isPrivateInboxAllowed;
   const visibleActiveTab = activeTab === "messages" && !shouldShowPrivateInbox ? "activity" : activeTab;
   const activityEnabled = !isOwnProfile || visibleActiveTab === "activity" || visibleActiveTab === "rated";
   const messagesEnabled = shouldShowPrivateInbox && visibleActiveTab === "messages";
