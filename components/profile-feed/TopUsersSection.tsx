@@ -14,6 +14,7 @@ interface TopUsersSectionProps {
   onRetryFollowing: () => void;
   authenticatedUsername?: string;
   redirectOwnClicksToProfileFeed?: boolean;
+  friendRequestsRestricted?: boolean;
 }
 
 function UserRow({
@@ -74,6 +75,7 @@ function Block({
   error,
   onRetry,
   onNavigateUser,
+  centerEmpty = false,
 }: {
   title: string;
   users: SocialUser[];
@@ -84,6 +86,7 @@ function Block({
   error: string | null;
   onRetry: () => void;
   onNavigateUser?: (clickedUser: SocialUser) => void;
+  centerEmpty?: boolean;
 }) {
   return (
     <section className="flex h-[30rem] flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
@@ -127,18 +130,22 @@ function Block({
         ) : null}
 
         {!loading && !error && users.length === 0 ? (
-          <p className="py-6 text-center text-sm text-zinc-500">{emptyCopy}</p>
+          centerEmpty ? (
+            <div className="flex h-full items-center justify-center px-3 text-center">
+              <p className="text-sm text-zinc-500">{emptyCopy}</p>
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-zinc-500">{emptyCopy}</p>
+          )
         ) : null}
 
-        {!loading && !error
-          ? (
-              <div className="activity-scrollbar h-full overflow-y-auto pr-1">
-                {users.map((user) => (
-                  <UserRow key={`${title}-${user.id}`} user={user} onNavigateUser={onNavigateUser} />
-                ))}
-              </div>
-            )
-          : null}
+        {!loading && !error && users.length > 0 ? (
+          <div className="activity-scrollbar h-full overflow-y-auto pr-1">
+            {users.map((user) => (
+              <UserRow key={`${title}-${user.id}`} user={user} onNavigateUser={onNavigateUser} />
+            ))}
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -155,6 +162,7 @@ export default function TopUsersSection({
   onRetryFollowing,
   authenticatedUsername,
   redirectOwnClicksToProfileFeed = false,
+  friendRequestsRestricted = false,
 }: TopUsersSectionProps) {
   const router = useRouter();
   const [followingQuery, setFollowingQuery] = useState("");
@@ -176,6 +184,7 @@ export default function TopUsersSection({
   const filteredFollowing = useMemo(() => filterUsers(following, followingQuery), [following, followingQuery]);
   const filteredFriends = useMemo(() => filterUsers(friends, friendsQuery), [friends, friendsQuery]);
   const normalizedAuthenticatedUsername = authenticatedUsername?.trim().toLocaleLowerCase() ?? "";
+  const shouldShowRestrictedFriendsEmptyState = friendRequestsRestricted && !friendsQuery.trim();
 
   const handleNavigateUser = (clickedUser: SocialUser) => {
     if (
@@ -209,7 +218,14 @@ export default function TopUsersSection({
         query={friendsQuery}
         onQueryChange={setFriendsQuery}
         loading={loadingFriends}
-        emptyCopy={friendsQuery.trim() ? "Sin coincidencias en amigos" : "Aún no tienes amigos agregados"}
+        emptyCopy={
+          friendsQuery.trim()
+            ? "Sin coincidencias en amigos"
+            : friendRequestsRestricted
+              ? "Restringiste solicitudes de amistad, solo puedes tener Seguidores"
+              : "Aún no tienes amigos agregados"
+        }
+        centerEmpty={shouldShowRestrictedFriendsEmptyState}
         error={friendsError}
         onRetry={onRetryFriends}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}

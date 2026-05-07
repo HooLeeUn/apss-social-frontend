@@ -78,6 +78,8 @@ export interface SocialUser {
   genderIdentityVisible?: boolean | null;
   canViewFullProfile?: boolean | null;
   profileAccess?: string | null;
+  profileVisibility?: "public" | "private" | null;
+  friendRequestsRestricted?: boolean | null;
 }
 
 export interface SocialActivityItem {
