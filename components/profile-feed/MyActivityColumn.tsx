@@ -560,7 +560,7 @@ interface MyActivityColumnProps {
   scope?: "me" | `user:${string}`;
   isOwnProfile?: boolean;
   initialActiveTab?: "activity" | "messages" | "rated";
-  hidePrivateInbox?: boolean;
+  hidePrivateInbox?: boolean | null;
   viewedUsername?: string;
   title?: string;
   emptyCopy?: string;
@@ -577,7 +577,9 @@ export default function MyActivityColumn({
   emptyCopy = "Aún no tienes actividad registrada.",
   errorCopy = "No se pudo cargar la actividad.",
 }: MyActivityColumnProps = {}) {
-  const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialActiveTab);
+  const initialResolvedActiveTab =
+    isOwnProfile && hidePrivateInbox !== false && initialActiveTab === "messages" ? "activity" : initialActiveTab;
+  const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
     "recommendations",
   );
@@ -592,9 +594,12 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
-  const effectiveActiveTab = hidePrivateInbox && activeTab === "messages" ? "activity" : activeTab;
+  const isPrivateInboxResolved = hidePrivateInbox !== null && hidePrivateInbox !== undefined;
+  const canShowPrivateInbox = !isOwnProfile || hidePrivateInbox === false;
+  const shouldBlockPrivateInbox = isOwnProfile && !canShowPrivateInbox;
+  const effectiveActiveTab = shouldBlockPrivateInbox && activeTab === "messages" ? "activity" : activeTab;
   const activityEnabled = !isOwnProfile || effectiveActiveTab === "activity" || effectiveActiveTab === "rated";
-  const messagesEnabled = isOwnProfile && !hidePrivateInbox && effectiveActiveTab === "messages";
+  const messagesEnabled = isOwnProfile && isPrivateInboxResolved && canShowPrivateInbox && effectiveActiveTab === "messages";
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
   const messages = useInfiniteMyMessages(messagesEnabled);
@@ -795,16 +800,16 @@ export default function MyActivityColumn({
   }, [isOwnProfile, normalizedViewedUsername]);
 
   useEffect(() => {
-    setActiveTab(hidePrivateInbox && initialActiveTab === "messages" ? "activity" : initialActiveTab);
-  }, [hidePrivateInbox, initialActiveTab]);
+    setActiveTab(shouldBlockPrivateInbox && initialActiveTab === "messages" ? "activity" : initialActiveTab);
+  }, [initialActiveTab, shouldBlockPrivateInbox]);
 
   useEffect(() => {
-    if (!hidePrivateInbox || activeTab !== "messages") return;
+    if (!shouldBlockPrivateInbox || activeTab !== "messages") return;
     setActiveTab("activity");
-  }, [activeTab, hidePrivateInbox]);
+  }, [activeTab, shouldBlockPrivateInbox]);
 
   useEffect(() => {
-    if (!isOwnProfile || hidePrivateInbox || effectiveActiveTab !== "messages") return;
+    if (!isOwnProfile || !canShowPrivateInbox || effectiveActiveTab !== "messages") return;
 
     markAsReadAbortControllerRef.current?.abort();
     const abortController = new AbortController();
@@ -825,7 +830,7 @@ export default function MyActivityColumn({
     return () => {
       abortController.abort();
     };
-  }, [effectiveActiveTab, hidePrivateInbox, isOwnProfile, reloadMessages]);
+  }, [canShowPrivateInbox, effectiveActiveTab, isOwnProfile, reloadMessages]);
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
@@ -846,10 +851,10 @@ export default function MyActivityColumn({
         return;
       }
 
-      if (hidePrivateInbox || !messages.hasMore || messages.loading || messages.loadingMore || messages.error) return;
+      if (!canShowPrivateInbox || !messages.hasMore || messages.loading || messages.loadingMore || messages.error) return;
       void messages.loadMore();
     },
-    [effectiveActiveTab, activity, hidePrivateInbox, isOwnProfile, messages, visitedActivityTab],
+    [effectiveActiveTab, activity, canShowPrivateInbox, isOwnProfile, messages, visitedActivityTab],
   );
 
   return (
@@ -867,7 +872,7 @@ export default function MyActivityColumn({
           >
             Mi actividad
           </button>
-          {!hidePrivateInbox ? (
+          {isPrivateInboxResolved && canShowPrivateInbox ? (
             <button
               type="button"
               onClick={() => setActiveTab("messages")}

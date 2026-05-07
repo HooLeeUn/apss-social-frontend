@@ -241,7 +241,7 @@ export default function ProfileFeedPage() {
               key={`my-activity-${initialActivityTab}`}
               isOwnProfile
               initialActiveTab={initialActivityTab}
-              hidePrivateInbox={shouldHidePrivateInbox}
+              hidePrivateInbox={profileUser?.friendRequestsRestricted}
             />
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
               <div className="relative mx-auto w-fit">
