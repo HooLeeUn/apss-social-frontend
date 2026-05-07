@@ -34,8 +34,9 @@ export default function ProfileFeedPage() {
   const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
   const initialActivityTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "messages" : "activity";
+  const shouldHidePrivateInbox = profileUser?.friendRequestsRestricted === true;
   const shouldShowRestrictedFriendsEmptyState =
-    profileUser?.friendRequestsRestricted === true && profileUser.profileVisibility === "public";
+    shouldHidePrivateInbox && profileUser.profileVisibility === "public";
 
   const loadFollowing = useCallback(async () => {
     setLoadingFollowing(true);
@@ -236,7 +237,12 @@ export default function ProfileFeedPage() {
               onRetryFollowing={() => void loadFollowing()}
               friendRequestsRestricted={shouldShowRestrictedFriendsEmptyState}
             />
-            <MyActivityColumn key={`my-activity-${initialActivityTab}`} isOwnProfile initialActiveTab={initialActivityTab} />
+            <MyActivityColumn
+              key={`my-activity-${initialActivityTab}`}
+              isOwnProfile
+              initialActiveTab={initialActivityTab}
+              hidePrivateInbox={shouldHidePrivateInbox}
+            />
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
               <div className="relative mx-auto w-fit">
                 <select
