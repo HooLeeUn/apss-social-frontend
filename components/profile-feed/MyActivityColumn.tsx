@@ -571,7 +571,7 @@ export default function MyActivityColumn({
   scope,
   isOwnProfile = true,
   initialActiveTab = "activity",
-  hidePrivateInbox = false,
+  hidePrivateInbox = null,
   viewedUsername,
   title = "Mi actividad",
   emptyCopy = "Aún no tienes actividad registrada.",
@@ -594,12 +594,16 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
-  const isPrivateInboxResolved = hidePrivateInbox !== null && hidePrivateInbox !== undefined;
-  const canShowPrivateInbox = !isOwnProfile || hidePrivateInbox === false;
+  const canShowPrivateInbox = isOwnProfile && hidePrivateInbox === false;
   const shouldBlockPrivateInbox = isOwnProfile && !canShowPrivateInbox;
   const effectiveActiveTab = shouldBlockPrivateInbox && activeTab === "messages" ? "activity" : activeTab;
   const activityEnabled = !isOwnProfile || effectiveActiveTab === "activity" || effectiveActiveTab === "rated";
-  const messagesEnabled = isOwnProfile && isPrivateInboxResolved && canShowPrivateInbox && effectiveActiveTab === "messages";
+  const messagesEnabled = canShowPrivateInbox && effectiveActiveTab === "messages";
+  const ownProfileTabs: Array<{ value: "activity" | "messages" | "rated"; label: string }> = [
+    { value: "activity", label: "Mi actividad" },
+    ...(canShowPrivateInbox ? [{ value: "messages" as const, label: "Buzón Privado" }] : []),
+    { value: "rated", label: "Mis calificadas" },
+  ];
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
   const messages = useInfiniteMyMessages(messagesEnabled);
@@ -861,41 +865,20 @@ export default function MyActivityColumn({
     <section className={`w-full min-w-0 ${isOwnProfile ? "max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}>
       {isOwnProfile ? (
         <header className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab("activity")}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-              effectiveActiveTab === "activity"
-                ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
-                : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
-            }`}
-          >
-            Mi actividad
-          </button>
-          {isPrivateInboxResolved && canShowPrivateInbox ? (
+          {ownProfileTabs.map((tab) => (
             <button
+              key={tab.value}
               type="button"
-              onClick={() => setActiveTab("messages")}
+              onClick={() => setActiveTab(tab.value)}
               className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                effectiveActiveTab === "messages"
+                effectiveActiveTab === tab.value
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
               }`}
             >
-              Buzón Privado
+              {tab.label}
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setActiveTab("rated")}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-              effectiveActiveTab === "rated"
-                ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
-                : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
-            }`}
-          >
-            Mis calificadas
-          </button>
+          ))}
         </header>
       ) : (
         <div className="space-y-3">
@@ -949,7 +932,7 @@ export default function MyActivityColumn({
         </div>
       )}
 
-      {isOwnProfile && effectiveActiveTab === "messages" ? (
+      {canShowPrivateInbox && effectiveActiveTab === "messages" ? (
         <div className="mt-3 flex items-center justify-start">
           <input
             type="search"
@@ -1042,7 +1025,7 @@ export default function MyActivityColumn({
 
             {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
           </>
-        ) : effectiveActiveTab === "messages" ? (
+        ) : canShowPrivateInbox && effectiveActiveTab === "messages" ? (
           <>
             {messages.loading ? <MyActivitySkeleton /> : null}
 

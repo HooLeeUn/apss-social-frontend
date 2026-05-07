@@ -33,10 +33,11 @@ export default function ProfileFeedPage() {
   const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
   const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
-  const initialActivityTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "messages" : "activity";
-  const shouldHidePrivateInbox = profileUser?.friendRequestsRestricted === true;
+  const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
+  const canRenderPrivateInbox = profileUser?.friendRequestsRestricted === false;
+  const initialActivityTab = requestedPrivateInboxTab && canRenderPrivateInbox ? "messages" : "activity";
   const shouldShowRestrictedFriendsEmptyState =
-    shouldHidePrivateInbox && profileUser.profileVisibility === "public";
+    profileUser?.friendRequestsRestricted === true && profileUser.profileVisibility === "public";
 
   const loadFollowing = useCallback(async () => {
     setLoadingFollowing(true);
@@ -153,7 +154,7 @@ export default function ProfileFeedPage() {
   }, [recommendedMovies]);
 
   useEffect(() => {
-    const normalizedTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "private_inbox" : requestedTab === "activity" ? "activity" : null;
+    const normalizedTab = requestedPrivateInboxTab && canRenderPrivateInbox ? "private_inbox" : requestedTab === "activity" ? "activity" : null;
     if (!normalizedTab) return;
 
     const markContextAsRead = async () => {
@@ -166,7 +167,7 @@ export default function ProfileFeedPage() {
     };
 
     void markContextAsRead();
-  }, [requestedTab]);
+  }, [canRenderPrivateInbox, requestedPrivateInboxTab, requestedTab]);
 
   useEffect(() => {
     const loadMyList = async () => {
@@ -241,7 +242,7 @@ export default function ProfileFeedPage() {
               key={`my-activity-${initialActivityTab}`}
               isOwnProfile
               initialActiveTab={initialActivityTab}
-              hidePrivateInbox={profileUser?.friendRequestsRestricted}
+              hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
             />
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
               <div className="relative mx-auto w-fit">
