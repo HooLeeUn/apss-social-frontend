@@ -40,6 +40,8 @@ function SocialActions({
   onProfileUserChange: (user: SocialUser) => void;
 }) {
   const [pendingAction, setPendingAction] = useState<"follow" | "friend" | null>(null);
+  const [isRemoveFriendModalOpen, setIsRemoveFriendModalOpen] = useState(false);
+  const [friendActionError, setFriendActionError] = useState<string | null>(null);
   const isSelf = profileUser.friendshipStatus === "self";
 
   if (isSelf) return null;
@@ -70,6 +72,7 @@ function SocialActions({
 
   const handleFriendRequest = async () => {
     if (pendingAction || authenticatedFriendRequestsRestricted !== false) return;
+    setFriendActionError(null);
     const previousUser = profileUser;
     setPendingAction("friend");
 
@@ -88,27 +91,36 @@ function SocialActions({
     }
   };
 
-  const handleRemoveFriend = async () => {
+  const handleRemoveFriendClick = () => {
     if (pendingAction || profileUser.friendshipStatus !== "friends") return;
 
-    const confirmed = window.confirm(
-      "Si dejas de ser amigo de este usuario, no podrás enviarle ni recibir mensajes privados con él. ¿Quieres continuar?",
-    );
-    if (!confirmed) return;
+    setFriendActionError(null);
+
+    if (!profileUser.friendshipId) {
+      setFriendActionError("No se puede eliminar la amistad todavía: falta el friendship_id en la respuesta del perfil.");
+      return;
+    }
+
+    setIsRemoveFriendModalOpen(true);
+  };
+
+  const handleConfirmRemoveFriend = async () => {
+    if (pendingAction || profileUser.friendshipStatus !== "friends") return;
+
+    if (!profileUser.friendshipId) {
+      setIsRemoveFriendModalOpen(false);
+      setFriendActionError("No se puede eliminar la amistad todavía: falta el friendship_id en la respuesta del perfil.");
+      return;
+    }
 
     const previousUser = profileUser;
     const nextCanSendFriendRequest = authenticatedFriendRequestsRestricted === false && profileUser.friendRequestsRestricted !== true;
     setPendingAction("friend");
-
-    if (!profileUser.friendshipId) {
-      // Backend pendiente: GET /api/users/<username>/ debe exponer el id real del registro Friendship para eliminar amistades aceptadas.
-      window.alert("No se puede eliminar la amistad todavía: falta el friendship_id en la respuesta del perfil.");
-      setPendingAction(null);
-      return;
-    }
+    setFriendActionError(null);
 
     try {
       await deleteAcceptedFriendship(profileUser.friendshipId);
+      setIsRemoveFriendModalOpen(false);
       onProfileUserChange({
         ...profileUser,
         friendshipStatus: "none",
@@ -117,6 +129,7 @@ function SocialActions({
       });
     } catch {
       onProfileUserChange(previousUser);
+      setFriendActionError("No se pudo eliminar la amistad. Inténtalo de nuevo.");
     } finally {
       setPendingAction(null);
     }
@@ -147,7 +160,8 @@ function SocialActions({
   })();
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <>
+      <div className="flex flex-wrap items-center gap-2">
       {canShowFollow ? (
         <button
           type="button"
@@ -165,14 +179,49 @@ function SocialActions({
       {canShowFriendButton ? (
         <button
           type="button"
-          onClick={profileUser.friendshipStatus === "friends" ? handleRemoveFriend : handleFriendRequest}
+          onClick={profileUser.friendshipStatus === "friends" ? handleRemoveFriendClick : handleFriendRequest}
           disabled={friendButtonConfig.disabled || pendingAction === "friend"}
           className={`rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-default disabled:opacity-85 ${friendButtonConfig.className}`}
         >
           {friendButtonConfig.label}
         </button>
       ) : null}
-    </div>
+      </div>
+
+      {friendActionError ? (
+        <p className="mt-3 max-w-xl rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-100">
+          {friendActionError}
+        </p>
+      ) : null}
+
+      {isRemoveFriendModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-950 p-6 text-center shadow-[0_28px_80px_rgba(0,0,0,0.65)]">
+            <p className="text-base font-medium leading-7 text-zinc-100">
+              Si dejas de ser amigo de este usuario, no podrás enviarle ni recibir mensajes privados con él. ¿Quieres continuar?
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => setIsRemoveFriendModalOpen(false)}
+                disabled={pendingAction === "friend"}
+                className="rounded-full border border-white/15 bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-zinc-100 transition hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-70"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveFriend}
+                disabled={pendingAction === "friend"}
+                className="rounded-full border border-violet-300/50 bg-violet-600/90 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:cursor-wait disabled:opacity-70"
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
