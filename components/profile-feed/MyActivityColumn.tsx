@@ -591,9 +591,10 @@ export default function MyActivityColumn({
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
   const activityEnabled = !isOwnProfile || activeTab === "activity" || activeTab === "rated";
+  const messagesEnabled = isOwnProfile && activeTab === "messages";
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
-  const messages = useInfiniteMyMessages(isOwnProfile);
+  const messages = useInfiniteMyMessages(messagesEnabled);
   const reloadMessages = messages.reload;
 
   const filteredMessages = useMemo(() => {

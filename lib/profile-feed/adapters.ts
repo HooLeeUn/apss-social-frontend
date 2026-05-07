@@ -638,6 +638,7 @@ interface MyMessageApiSender {
 
 interface MyMessageApiMovie {
   id?: number | string;
+  image?: string | null;
   title_spanish?: string | null;
   title_english?: string | null;
   type?: string | null;
@@ -807,6 +808,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
   const movieSecondaryTitle = titleSpanish && titleEnglish && titleSpanish !== titleEnglish ? titleEnglish : null;
   const metadataType = safeTrim(movie?.type) || undefined;
   const metadataGenre = safeTrim(movie?.genre) || undefined;
+  const moviePosterUrl = safeTrim(movie?.image);
 
   return {
     id: String(pickFirst(item.id, `message-${index}`)),
@@ -830,7 +832,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
     movieId: resolveMessageEntityId(movie?.id, `movie-${index}`),
     movieTitle,
     movieSecondaryTitle,
-    moviePosterUrl: null,
+    moviePosterUrl: moviePosterUrl || null,
     movieType: metadataType,
     movieGenre: metadataGenre,
     text: resolvedText || resolveMessageText(item) || "",
@@ -1646,7 +1648,7 @@ export async function getSocialActivity(
 
 export async function getMyMessages(nextEndpoint: string | null = null, signal?: AbortSignal): Promise<PaginatedMyMessages> {
   const endpoint = nextEndpoint || PROFILE_ME_MESSAGES_ENDPOINT;
-  const payload = await apiFetch(endpoint, { signal });
+  const payload = await apiFetch(endpoint, { cache: "no-store", signal });
   const parsed = parseMyMessages(payload);
 
   return {
