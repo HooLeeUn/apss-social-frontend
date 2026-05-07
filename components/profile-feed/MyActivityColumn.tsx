@@ -564,7 +564,7 @@ interface MyActivityColumnProps {
   title?: string;
   emptyCopy?: string;
   errorCopy?: string;
-  friendRequestsRestricted?: boolean;
+  friendRequestsRestricted?: boolean | null;
 }
 
 export default function MyActivityColumn({
@@ -575,10 +575,10 @@ export default function MyActivityColumn({
   title = "Mi actividad",
   emptyCopy = "Aún no tienes actividad registrada.",
   errorCopy = "No se pudo cargar la actividad.",
-  friendRequestsRestricted = false,
+  friendRequestsRestricted = null,
 }: MyActivityColumnProps = {}) {
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(
-    initialActiveTab === "messages" && friendRequestsRestricted ? "activity" : initialActiveTab,
+    initialActiveTab === "messages" && friendRequestsRestricted !== false ? "activity" : initialActiveTab,
   );
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
     "recommendations",
@@ -594,7 +594,7 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
-  const shouldShowPrivateInbox = isOwnProfile && !friendRequestsRestricted;
+  const shouldShowPrivateInbox = isOwnProfile && friendRequestsRestricted === false;
   const visibleActiveTab = activeTab === "messages" && !shouldShowPrivateInbox ? "activity" : activeTab;
   const activityEnabled = !isOwnProfile || visibleActiveTab === "activity" || visibleActiveTab === "rated";
   const messagesEnabled = shouldShowPrivateInbox && visibleActiveTab === "messages";
@@ -798,14 +798,20 @@ export default function MyActivityColumn({
   }, [isOwnProfile, normalizedViewedUsername]);
 
   useEffect(() => {
-    setActiveTab(initialActiveTab);
-  }, [initialActiveTab]);
+    setActiveTab(initialActiveTab === "messages" && !shouldShowPrivateInbox ? "activity" : initialActiveTab);
+  }, [initialActiveTab, shouldShowPrivateInbox]);
 
   useEffect(() => {
-    if (activeTab === "messages" && friendRequestsRestricted) {
+    if (activeTab === "messages" && !shouldShowPrivateInbox) {
       setActiveTab("activity");
     }
-  }, [activeTab, friendRequestsRestricted]);
+  }, [activeTab, shouldShowPrivateInbox]);
+
+  useEffect(() => {
+    if (!shouldShowPrivateInbox) {
+      setSenderQuery("");
+    }
+  }, [shouldShowPrivateInbox]);
 
   useEffect(() => {
     if (!isOwnProfile || !shouldShowPrivateInbox || visibleActiveTab !== "messages") return;

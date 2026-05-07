@@ -33,7 +33,9 @@ export default function ProfileFeedPage() {
   const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
   const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
-  const initialActivityTab = requestedTab === "private_inbox" || requestedTab === "messages" ? "messages" : "activity";
+  const friendRequestsRestricted = profileUser?.friendRequestsRestricted ?? null;
+  const initialActivityTab =
+    (requestedTab === "private_inbox" || requestedTab === "messages") && friendRequestsRestricted === false ? "messages" : "activity";
   const shouldShowRestrictedFriendsEmptyState =
     profileUser?.friendRequestsRestricted === true && profileUser.profileVisibility === "public";
 
@@ -240,7 +242,7 @@ export default function ProfileFeedPage() {
               key={`my-activity-${initialActivityTab}`}
               isOwnProfile
               initialActiveTab={initialActivityTab}
-              friendRequestsRestricted={profileUser?.friendRequestsRestricted === true}
+              friendRequestsRestricted={friendRequestsRestricted}
             />
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
               <div className="relative mx-auto w-fit">
