@@ -642,6 +642,12 @@ interface MyMessageApiMovie {
   title_english?: string | null;
   type?: string | null;
   genre?: string | null;
+  image?: string | null;
+  poster?: string | null;
+  poster_url?: string | null;
+  image_url?: string | null;
+  movie_image?: string | null;
+  movie_poster_url?: string | null;
 }
 
 interface MyMessageApiItem {
@@ -651,14 +657,20 @@ interface MyMessageApiItem {
   body?: string | null;
   content?: string | null;
   text?: string | null;
-  comment?: string | null;
-  message?: string | null;
+  comment?: unknown;
+  message?: unknown;
   created_at?: string | null;
   direction?: string | null;
   activity_type?: string | null;
   event_type?: string | null;
   type?: string | null;
   movie_id?: number | string | null;
+  movie_image?: string | null;
+  movie_poster_url?: string | null;
+  poster_url?: string | null;
+  image_url?: string | null;
+  image?: string | null;
+  poster?: string | null;
   is_sent?: boolean | null;
   likes_count?: number | null;
   dislikes_count?: number | null;
@@ -683,13 +695,66 @@ function normalizeMessageContent(value: string | null | undefined): string {
 }
 
 function resolveMessageText(item: MyMessageApiItem): string | null {
+  const messageRecord = toRecord(item.message);
+  const commentRecord = toRecord(item.comment);
+
   return (
     safeTrim(item.body) ||
     safeTrim(item.content) ||
     safeTrim(item.text) ||
     safeTrim(item.comment) ||
     safeTrim(item.message) ||
+    safeTrim(messageRecord?.body) ||
+    safeTrim(messageRecord?.content) ||
+    safeTrim(messageRecord?.text) ||
+    safeTrim(commentRecord?.body) ||
+    safeTrim(commentRecord?.content) ||
+    safeTrim(commentRecord?.text) ||
     null
+  );
+}
+
+function resolveMessageMoviePosterUrl(item: MyMessageApiItem, movie: MyMessageApiMovie | null | undefined): string | null {
+  const messageRecord = toRecord(item.message);
+  const commentRecord = toRecord(item.comment);
+  const messageMovie = toRecord(messageRecord?.movie);
+  const commentMovie = toRecord(commentRecord?.movie);
+
+  return safeTrim(
+    pickFirst(
+      movie?.image,
+      movie?.poster,
+      movie?.poster_url,
+      movie?.image_url,
+      movie?.movie_image,
+      movie?.movie_poster_url,
+      item.movie_image,
+      item.movie_poster_url,
+      item.poster_url,
+      item.image_url,
+      item.image,
+      item.poster,
+      messageMovie?.image,
+      messageMovie?.poster,
+      messageMovie?.poster_url,
+      messageMovie?.image_url,
+      messageRecord?.movie_image,
+      messageRecord?.movie_poster_url,
+      messageRecord?.poster_url,
+      messageRecord?.image_url,
+      messageRecord?.image,
+      messageRecord?.poster,
+      commentMovie?.image,
+      commentMovie?.poster,
+      commentMovie?.poster_url,
+      commentMovie?.image_url,
+      commentRecord?.movie_image,
+      commentRecord?.movie_poster_url,
+      commentRecord?.poster_url,
+      commentRecord?.image_url,
+      commentRecord?.image,
+      commentRecord?.poster,
+    ),
   );
 }
 
@@ -801,6 +866,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
           ? "sent"
           : "received";
   const movie = item.movie;
+  const moviePosterUrl = resolveMessageMoviePosterUrl(item, movie);
   const titleSpanish = safeTrim(movie?.title_spanish);
   const titleEnglish = safeTrim(movie?.title_english);
   const movieTitle = titleSpanish || titleEnglish || "Título desconocido";
@@ -830,7 +896,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
     movieId: resolveMessageEntityId(movie?.id, `movie-${index}`),
     movieTitle,
     movieSecondaryTitle,
-    moviePosterUrl: null,
+    moviePosterUrl,
     movieType: metadataType,
     movieGenre: metadataGenre,
     text: resolvedText || resolveMessageText(item) || "",
