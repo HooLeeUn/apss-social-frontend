@@ -1,7 +1,7 @@
 import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 
 interface TopUsersSectionProps {
   friends: SocialUser[];
@@ -33,7 +33,7 @@ function UserRow({
   onNavigateUser?: (clickedUser: SocialUser) => void;
 }) {
   const initials = user.username.slice(0, 2).toUpperCase();
-  const title = user.displayName || user.username;
+  const title = user.username;
   const followersCopy =
     typeof user.followersCount === "number"
       ? user.followersCount === 1
@@ -88,7 +88,7 @@ function PendingRequestRow({
 }) {
   const user = request.user;
   const initials = user.username.slice(0, 2).toUpperCase();
-  const title = user.displayName || user.username;
+  const title = user.username;
   const href = `/users/${encodeURIComponent(user.username)}`;
 
   return (
@@ -336,11 +336,9 @@ export default function TopUsersSection({
     [pendingRequests],
   );
   const normalizedAuthenticatedUsername = authenticatedUsername?.trim().toLocaleLowerCase() ?? "";
-  const shouldShowRestrictedFriendsEmptyState = activeConnectionView === "friends" && friendRequestsRestricted && !friendsQuery.trim();
-
-  useEffect(() => {
-    setActiveConnectionView(initialConnectionView);
-  }, [initialConnectionView]);
+  const effectiveConnectionView = friendRequestsRestricted ? "friends" : activeConnectionView;
+  const restrictedFriendRequestsCopy = "Restringiste solicitudes de amistad, solo puedes Seguir y/o ser Seguido";
+  const shouldShowRestrictedFriendsEmptyState = effectiveConnectionView === "friends" && friendRequestsRestricted;
 
   const handleNavigateUser = (clickedUser: SocialUser) => {
     if (
@@ -359,9 +357,13 @@ export default function TopUsersSection({
     <div className="relative w-fit">
       <select
         aria-label="Seleccionar vista de amistades"
-        value={activeConnectionView}
-        onChange={(event) => setActiveConnectionView(event.target.value === "pending" ? "pending" : "friends")}
-        className="appearance-none rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-base font-semibold text-zinc-100 outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:border-white/20"
+        value={effectiveConnectionView}
+        disabled={friendRequestsRestricted}
+        onChange={(event) => {
+          if (friendRequestsRestricted) return;
+          setActiveConnectionView(event.target.value === "pending" ? "pending" : "friends");
+        }}
+        className="appearance-none rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-base font-semibold text-zinc-100 outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:border-white/20 disabled:cursor-default disabled:hover:border-white/20 disabled:hover:bg-zinc-900/80"
       >
         <option value="friends" className="bg-zinc-950 text-zinc-100">Amigos</option>
         <option value="pending" className="bg-zinc-950 text-zinc-100">Pendientes</option>
@@ -388,19 +390,19 @@ export default function TopUsersSection({
         onRetry={onRetryFollowing}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
       />
-      {activeConnectionView === "friends" ? (
+      {effectiveConnectionView === "friends" ? (
         <Block
           title="Amigos"
           headerSlot={connectionHeader}
-          users={filteredFriends}
+          users={friendRequestsRestricted ? [] : filteredFriends}
           query={friendsQuery}
           onQueryChange={setFriendsQuery}
-          loading={loadingFriends}
+          loading={friendRequestsRestricted ? false : loadingFriends}
           emptyCopy={
-            friendsQuery.trim()
-              ? "Sin coincidencias en amigos"
-              : friendRequestsRestricted
-                ? "Restringiste solicitudes de amistad, solo puedes tener Seguidores"
+            friendRequestsRestricted
+              ? restrictedFriendRequestsCopy
+              : friendsQuery.trim()
+                ? "Sin coincidencias en amigos"
                 : "Aún no tienes amigos agregados"
           }
           centerEmpty={shouldShowRestrictedFriendsEmptyState}
