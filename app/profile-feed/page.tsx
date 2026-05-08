@@ -40,12 +40,14 @@ export default function ProfileFeedPage() {
   const [pendingRequestsError, setPendingRequestsError] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
   const requestedTab = searchParams.get("tab");
+  const requestedFriendsTab = searchParams.get("friendsTab");
   const [myListMovies, setMyListMovies] = useState<Movie[]>([]);
   const [loadingMyList, setLoadingMyList] = useState(true);
   const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
   const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
   const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
+  const initialConnectionView = requestedFriendsTab === "pending" ? "pending" : "friends";
   const canRenderPrivateInbox = profileUser?.friendRequestsRestricted === false;
   const initialActivityTab = requestedPrivateInboxTab && canRenderPrivateInbox ? "messages" : "activity";
   const shouldShowRestrictedFriendsEmptyState =
@@ -302,6 +304,7 @@ export default function ProfileFeedPage() {
               authenticatedUsername={profileUser?.username ?? undefined}
               redirectOwnClicksToProfileFeed
               friendRequestsRestricted={shouldShowRestrictedFriendsEmptyState}
+              initialConnectionView={initialConnectionView}
             />
             <MyActivityColumn
               key={`my-activity-${initialActivityTab}`}
