@@ -263,6 +263,7 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
     pickFirst(raw.counterpart, raw.conversation_user, raw.conversationUser, raw.other_user, raw.otherUser),
   );
   const nestedOtherUser = toRecord(pickFirst(raw.other_user, raw.otherUser));
+  const nestedMovie = toRecord(raw.movie);
   const recipientIdentity = getUserIdentity(nestedRecipient);
   const counterpartIdentity = getUserIdentity(nestedCounterpart);
   const otherUserIdentity = getUserIdentity(nestedOtherUser);
@@ -355,8 +356,8 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
       | string
       | null
       | undefined) ?? null,
-    movieId: (pickFirst(raw.movie, raw.movie_id) as number | string | null | undefined) ?? null,
-    text: String(pickFirst(raw.body, raw.text, raw.comment, raw.content, "")),
+    movieId: (pickFirst(raw.movie_id, raw.movieId, nestedMovie?.id, raw.movie) as number | string | null | undefined) ?? null,
+    text: String(pickFirst(raw.body, raw.text, raw.comment, raw.content, raw.message, "")),
     createdAt: toStringOrNull(pickFirst(raw.created_at, raw.createdAt, raw.date, raw.timestamp)),
     authorName,
     authorUsername,
@@ -387,7 +388,9 @@ export function parseCommentsPage(payload: unknown, fallbackType: "public" | "di
       ? root.results
       : Array.isArray(root?.items)
         ? root.items
-        : Array.isArray(root?.data)
+        : Array.isArray(root?.messages)
+          ? root.messages
+          : Array.isArray(root?.data)
           ? root.data
           : Array.isArray(rootData?.results)
             ? rootData.results
@@ -395,7 +398,9 @@ export function parseCommentsPage(payload: unknown, fallbackType: "public" | "di
               ? rootData.items
               : Array.isArray(rootData?.comments)
                 ? rootData.comments
-                : [];
+                : Array.isArray(rootData?.messages)
+                  ? rootData.messages
+                  : [];
 
   const comments = source
     .map((entry) => toRecord(entry))

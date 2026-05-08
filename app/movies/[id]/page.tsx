@@ -58,6 +58,8 @@ function buildMovieDirectedFetchEndpoints(movieId: string): string[] {
     `/movies/${encodedMovieId}/comments/directed/received/`,
     `/comments/directed/?movie_id=${encodedMovieId}`,
     `/comments/directed/received/?movie_id=${encodedMovieId}`,
+    `/me/messages/?movie_id=${encodedMovieId}`,
+    `/me/messages/`,
   ];
 }
 
@@ -327,7 +329,12 @@ function buildCounterpartData(
   };
 }
 
-function groupDirectedConversations(payload: unknown, authenticatedUsername: string, currentMovieId: string): DirectedConversation[] {
+function groupDirectedConversations(
+  payload: unknown,
+  authenticatedUsername: string,
+  currentMovieId: string,
+  allowMissingMovieId = true,
+): DirectedConversation[] {
   const root = toRecord(payload);
   const rootData = toRecord(root?.data);
   const explicitConversations =
@@ -377,7 +384,7 @@ function groupDirectedConversations(payload: unknown, authenticatedUsername: str
   const commentsForMovie = normalizedMovieId
     ? flatComments.filter(({ message }) => {
         const messageMovieId = normalizeId(message.movieId);
-        return !messageMovieId || messageMovieId === normalizedMovieId;
+        return allowMissingMovieId ? !messageMovieId || messageMovieId === normalizedMovieId : messageMovieId === normalizedMovieId;
       })
     : flatComments;
 
@@ -488,6 +495,57 @@ async function fetchWithFallbacks<T>(
     }
   }
 
+  throw lastError ?? new Error("No endpoint available.");
+}
+
+async function fetchDirectedConversationsWithFallbacks(
+  endpoints: string[],
+  authenticatedUsername: string,
+  movieId: string,
+): Promise<{ conversations: DirectedConversation[]; payload: unknown; endpoint: string; usedFallback: boolean }> {
+  let lastError: unknown = null;
+  let lastEmptyResult: { conversations: DirectedConversation[]; payload: unknown; endpoint: string; usedFallback: boolean } | null = null;
+
+  for (let index = 0; index < endpoints.length; index += 1) {
+    const endpoint = endpoints[index];
+
+    try {
+      const payload = await apiFetch(endpoint);
+      const conversations = groupDirectedConversations(payload, authenticatedUsername, movieId, !endpoint.startsWith("/me/messages"));
+      const result = { conversations, payload, endpoint, usedFallback: index > 0 };
+
+      console.log("[movie-detail-debug] Endpoint success:", {
+        endpoint,
+        isOfficial: index === 0,
+        conversations: conversations.length,
+      });
+
+      if (conversations.length > 0) return result;
+      lastEmptyResult = result;
+
+      if (index < endpoints.length - 1) {
+        console.log("[movie-detail-debug] Empty directed response fallback:", {
+          attemptedEndpoint: endpoint,
+          nextEndpoint: endpoints[index + 1],
+        });
+      }
+    } catch (error) {
+      lastError = error;
+      if (error instanceof ApiError && [404, 405].includes(error.status) && index < endpoints.length - 1) {
+        console.log("[movie-detail-debug] Endpoint fallback:", {
+          attemptedEndpoint: endpoint,
+          status: error.status,
+          nextEndpoint: endpoints[index + 1],
+        });
+        continue;
+      }
+
+      console.log("[movie-detail-debug] Endpoint error:", { endpoint, error });
+      throw error;
+    }
+  }
+
+  if (lastEmptyResult) return lastEmptyResult;
   throw lastError ?? new Error("No endpoint available.");
 }
 
@@ -767,8 +825,9 @@ export default function MovieDetailPage() {
         const directedEndpoints = buildMovieDirectedFetchEndpoints(movieId);
         const directedEndpoint = directedEndpoints[0];
         console.log("[movie-comments-debug] directed GET url", joinApiUrl(directedEndpoint));
-        const directedReceivedResult = await fetchWithFallbacks<unknown>(directedEndpoints, "[movie-detail-debug]").then(
-          ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
+        const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
+        const directedReceivedResult = await fetchDirectedConversationsWithFallbacks(directedEndpoints, meUsername, movieId).then(
+          ({ conversations, payload, endpoint, usedFallback }) => ({ ok: true as const, conversations, payload, endpoint, usedFallback }),
           (error) => ({ ok: false as const, error }),
         );
 
@@ -778,8 +837,7 @@ export default function MovieDetailPage() {
             usedFallback: directedReceivedResult.usedFallback,
           });
           console.log("[movie-comments-debug] directed GET response", directedReceivedResult.payload);
-          const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
-          setDirectedConversations(groupDirectedConversations(directedReceivedResult.payload, meUsername, movieId));
+          setDirectedConversations(directedReceivedResult.conversations);
           setLoadingFullHistoryByConversationKey({});
           setFullLoadedByConversationKey({});
           setDirectedError("");
