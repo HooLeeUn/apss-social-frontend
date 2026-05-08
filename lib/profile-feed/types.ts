@@ -165,7 +165,7 @@ export interface MyMessagesSummary {
   totalMessages: number;
 }
 
-export type NotificationTargetTab = "activity" | "private_inbox";
+export type NotificationTargetTab = "activity" | "private_inbox" | "friend_requests_pending";
 export type NotificationId = string | number;
 export type NotificationContext = "activity" | "private_inbox";
 

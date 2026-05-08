@@ -437,11 +437,13 @@ export default function FeedPage() {
     async (item: MyNotificationItem) => {
       setIsNotificationPanelOpen(false);
       const targetRoute =
-        item.movieId !== null && item.movieId !== ""
-          ? `/movies/${item.movieId}`
-          : item.targetTab === "private_inbox"
-            ? "/profile-feed?tab=private_inbox"
-            : "/profile-feed?tab=activity";
+        item.targetTab === "friend_requests_pending"
+          ? "/profile-feed?friendsTab=pending"
+          : item.movieId !== null && item.movieId !== ""
+            ? `/movies/${item.movieId}`
+            : item.targetTab === "private_inbox"
+              ? "/profile-feed?tab=private_inbox"
+              : "/profile-feed?tab=activity";
 
       try {
         if (isRealNotificationId(item.id)) {
@@ -672,7 +674,11 @@ export default function FeedPage() {
                           >
                             <p className="text-sm text-zinc-100">{item.text}</p>
                             <p className="mt-1 text-[11px] text-zinc-500">
-                              {item.targetTab === "activity" ? "Ir a Mi actividad" : "Ir a Buzón Privado"}
+                              {item.targetTab === "friend_requests_pending"
+                                ? "Ir a Pendientes"
+                                : item.targetTab === "activity"
+                                  ? "Ir a Mi actividad"
+                                  : "Ir a Buzón Privado"}
                             </p>
                           </button>
                         ))

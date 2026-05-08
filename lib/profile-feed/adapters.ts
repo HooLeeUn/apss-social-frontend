@@ -1843,7 +1843,29 @@ function toTargetTab(value: unknown): NotificationTargetTab | null {
   if (!normalized) return null;
   if (normalized === "activity") return "activity";
   if (normalized === "private_inbox" || normalized === "messages") return "private_inbox";
+  if (["friend_requests_pending", "friend_requests", "pending_friends", "pending"].includes(normalized)) {
+    return "friend_requests_pending";
+  }
   return null;
+}
+
+function toNotificationActorUsername(record: Record<string, unknown>): string | null {
+  const actorRecord =
+    toRecord(pickFirst(record.actor, record.sender, record.from_user, record.requester, record.user)) ||
+    toRecord(toRecord(record.object)?.user) ||
+    toRecord(toRecord(record.data)?.user);
+
+  return safeTrim(
+    pickFirst(
+      actorRecord?.username,
+      actorRecord?.user_name,
+      actorRecord?.name,
+      record.actor_username,
+      record.sender_username,
+      record.from_username,
+      record.username,
+    ),
+  );
 }
 
 function toNotificationItem(value: unknown, index: number): MyNotificationItem | null {
@@ -1854,18 +1876,23 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
   const id = normalizeNotificationId(rawId) ?? `${FALLBACK_NOTIFICATION_ID_PREFIX}${index}`;
   const normalizedActivityType = safeTrim(pickFirst(record.activity_type, record.activityType, record.type, record.notification_type))?.toLocaleLowerCase();
 
+  const actorUsername = toNotificationActorUsername(record);
   const text =
-    safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
+    normalizedActivityType === "friend_request_received"
+      ? `Tienes una solicitud de amistad de @${actorUsername || "Usuario"}`
+      : safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
   const targetTabFromPayload = toTargetTab(
     pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.destinationTab, record.tab),
   );
   const targetTab =
     targetTabFromPayload ||
-    (normalizedActivityType === "private_message" || normalizedActivityType === "private_comment_reaction"
-      ? "private_inbox"
-      : normalizedActivityType === "public_comment_reaction"
-        ? "activity"
-        : null);
+    (normalizedActivityType === "friend_request_received"
+      ? "friend_requests_pending"
+      : normalizedActivityType === "private_message" || normalizedActivityType === "private_comment_reaction"
+        ? "private_inbox"
+        : normalizedActivityType === "public_comment_reaction"
+          ? "activity"
+          : null);
 
   if (!targetTab) return null;
 
