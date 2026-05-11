@@ -14,7 +14,7 @@ const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
 ];
 
 const tabButtonBaseClass =
-  "rounded-full border px-4 py-2 text-sm font-medium transition duration-300 ease-out will-change-transform";
+  "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition duration-300 ease-out will-change-transform";
 const activeTabClass =
   "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28),inset_0_1px_0_rgba(191,219,254,0.25)]";
 const inactiveTabClass = "border-white/20 bg-zinc-900/90 text-zinc-300 shadow-[0_10px_24px_rgba(0,0,0,0.22)] hover:border-white/40 hover:text-zinc-100";
@@ -135,12 +135,17 @@ export default function SocialActivityTabsBlock() {
   return (
     <section className="ml-auto mt-8 w-full max-w-[1100px] bg-zinc-950/35 pb-5 md:mt-12">
       <header className="sticky top-4 z-30 bg-black/75 px-4 py-3 backdrop-blur-md">
-        <div className="grid grid-cols-3 items-end gap-2">
-          <div className="col-start-2 text-center">
-            <p className="mb-3 text-base font-semibold tracking-wide text-zinc-100 md:text-lg">Interacciones de</p>
+        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-end gap-x-4">
+          <div aria-hidden="true" className="invisible h-0 whitespace-nowrap px-4 text-sm font-medium">
+            Recomendaciones
+          </div>
+          <div className="col-start-2 w-[clamp(10rem,42vw,18rem)]">
+            <p className="relative left-[calc(25%-0.125rem)] mb-3 w-max -translate-x-1/2 whitespace-nowrap text-center text-base font-semibold tracking-wide text-zinc-100 md:text-lg">
+              Interacciones de
+            </p>
           </div>
         </div>
-        <div className="grid grid-cols-3 items-center gap-2">
+        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-4 gap-y-2">
           <button
             type="button"
             onClick={() => setActiveTab("recommendations")}
@@ -149,7 +154,7 @@ export default function SocialActivityTabsBlock() {
             Recomendaciones
           </button>
 
-          <div className="relative col-span-2 h-10 overflow-visible">
+          <div className="relative h-10 w-[clamp(10rem,42vw,18rem)] overflow-visible">
             {tabs.map((tab) => {
               const isActive = tab.value === activeTab;
               const positionClass = tab.value === "following" ? "left-0" : "left-[calc(50%+0.25rem)]";
@@ -163,17 +168,18 @@ export default function SocialActivityTabsBlock() {
                     : "translate-x-0";
 
               return (
-                <button
+                <div
                   key={tab.value}
-                  type="button"
-                  onClick={() => handleActivityTabClick(tab.value)}
-                  className={getTabClassName(
-                    isActive,
-                    `absolute top-0 w-[calc(50%-0.25rem)] ${positionClass} ${translateClass}`,
-                  )}
+                  className={`absolute top-0 w-[calc(50%-0.25rem)] transition duration-300 ease-out will-change-transform ${positionClass} ${translateClass}`}
                 >
-                  {tab.label}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleActivityTabClick(tab.value)}
+                    className={getTabClassName(isActive, "mx-auto")}
+                  >
+                    {tab.label}
+                  </button>
+                </div>
               );
             })}
           </div>
