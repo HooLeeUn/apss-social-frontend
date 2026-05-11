@@ -65,7 +65,7 @@ function getActivityText(item: SocialActivityItem): { label: string; detail?: st
 export default function SocialActivityCard({ item }: { item: SocialActivityItem }) {
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
   const profileHref = item.user.username?.trim() ? `/users/${encodeURIComponent(item.user.username)}` : null;
-  const movieYear = item.movieYear ? `(${item.movieYear})` : "";
+  const movieYear = item.movieYear ? String(item.movieYear) : "";
   const activity = getActivityText(item);
   const movieType = item.movieType || "-";
   const movieGenre = item.movieGenre || "-";
@@ -126,8 +126,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
                   className="cursor-pointer font-semibold text-blue-200 transition hover:text-blue-100"
                 >
                   {item.movieTitle}
-                </Link>{" "}
-                <span className="text-zinc-500">{movieYear}</span>
+                </Link>
               </p>
               {item.movieSecondaryTitle ? (
                 <p className="mt-1 truncate text-xs text-blue-200/75">
@@ -180,6 +179,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
                 <dt className="inline text-zinc-500">Género:</dt>{" "}
                 <dd className="inline text-zinc-200">{movieGenre}</dd>
               </div>
+              {movieYear ? <div className="text-zinc-200">{movieYear}</div> : null}
             </dl>
 
             <dl className="space-y-2">
