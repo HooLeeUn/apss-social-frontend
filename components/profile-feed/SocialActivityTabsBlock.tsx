@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
 import { getMyProfile, getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
 import { SocialTab } from "../../lib/profile-feed/types";
@@ -18,6 +18,10 @@ const tabButtonBaseClass =
 const activeTabClass =
   "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28),inset_0_1px_0_rgba(191,219,254,0.25)]";
 const inactiveTabClass = "border-white/20 bg-zinc-900/90 text-zinc-300 shadow-[0_10px_24px_rgba(0,0,0,0.22)] hover:border-white/40 hover:text-zinc-100";
+const activityTabsLayoutStyle = {
+  "--activity-slot-width": "clamp(5.5rem, 13vw, 7.75rem)",
+  "--activity-tab-gap": "clamp(1rem, 5vw, 3.5rem)",
+} as CSSProperties;
 
 function SocialActivitySkeleton() {
   return (
@@ -134,18 +138,16 @@ export default function SocialActivityTabsBlock() {
 
   return (
     <section className="ml-auto mt-8 w-full max-w-[1100px] bg-zinc-950/35 pb-5 md:mt-12">
-      <header className="sticky top-4 z-30 bg-black/75 px-4 py-3 backdrop-blur-md">
-        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-end gap-x-4">
+      <header className="sticky top-4 z-30 bg-black/75 px-4 py-3 backdrop-blur-md" style={activityTabsLayoutStyle}>
+        <div className="grid grid-cols-[max-content_var(--activity-slot-width)_var(--activity-slot-width)] items-end gap-x-[var(--activity-tab-gap)]">
           <div aria-hidden="true" className="invisible h-0 whitespace-nowrap px-4 text-sm font-medium">
             Recomendaciones
           </div>
-          <div className="col-start-2 w-[clamp(10rem,42vw,18rem)]">
-            <p className="relative left-[calc(25%-0.125rem)] mb-3 w-max -translate-x-1/2 whitespace-nowrap text-center text-base font-semibold tracking-wide text-zinc-100 md:text-lg">
-              Interacciones de
-            </p>
-          </div>
+          <p className="col-start-2 mb-3 w-max justify-self-center whitespace-nowrap text-center text-base font-semibold tracking-wide text-zinc-100 md:text-lg">
+            Interacciones de
+          </p>
         </div>
-        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-4 gap-y-2">
+        <div className="grid grid-cols-[max-content_var(--activity-slot-width)_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
           <button
             type="button"
             onClick={() => setActiveTab("recommendations")}
@@ -154,23 +156,23 @@ export default function SocialActivityTabsBlock() {
             Recomendaciones
           </button>
 
-          <div className="relative h-10 w-[clamp(10rem,42vw,18rem)] overflow-visible">
+          <div className="relative col-start-2 col-span-2 h-10 w-[calc(var(--activity-slot-width)+var(--activity-tab-gap)+var(--activity-slot-width))] overflow-visible">
             {tabs.map((tab) => {
               const isActive = tab.value === activeTab;
-              const positionClass = tab.value === "following" ? "left-0" : "left-[calc(50%+0.25rem)]";
+              const positionClass = tab.value === "following" ? "left-0" : "left-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]";
               const translateClass =
                 tab.value === "following"
                   ? activityTab === "friends"
-                    ? "translate-x-[calc(100%+0.5rem)]"
+                    ? "translate-x-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]"
                     : "translate-x-0"
                   : activityTab === "friends"
-                    ? "-translate-x-[calc(100%+0.5rem)]"
+                    ? "-translate-x-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]"
                     : "translate-x-0";
 
               return (
                 <div
                   key={tab.value}
-                  className={`absolute top-0 w-[calc(50%-0.25rem)] transition duration-300 ease-out will-change-transform ${positionClass} ${translateClass}`}
+                  className={`absolute top-0 w-[var(--activity-slot-width)] transition duration-300 ease-out will-change-transform ${positionClass} ${translateClass}`}
                 >
                   <button
                     type="button"
