@@ -140,20 +140,21 @@ export default function SocialActivityTabsBlock() {
     <section className="ml-auto mt-8 w-full max-w-[1100px] bg-zinc-950/35 pb-5 md:mt-12">
       <header className="sticky top-4 z-30 bg-black/75 px-4 py-3 backdrop-blur-md" style={activityTabsLayoutStyle}>
         <div className="grid grid-cols-[max-content_var(--activity-slot-width)_var(--activity-slot-width)] items-end gap-x-[var(--activity-tab-gap)]">
-          <div aria-hidden="true" className="invisible h-0 whitespace-nowrap px-4 text-sm font-medium">
-            Recomendaciones
+          <div aria-hidden="true" className="invisible h-0 min-w-[9.25rem] whitespace-nowrap px-4 text-sm font-medium">
+            Recomendadas
           </div>
-          <p className="col-start-2 mb-3 w-max justify-self-center whitespace-nowrap text-center text-base font-semibold tracking-wide text-zinc-100 md:text-lg">
-            Interacciones de
+          <p className="col-start-2 mb-3 w-max justify-self-center whitespace-nowrap bg-gradient-to-b from-blue-200 via-sky-300 to-blue-500 bg-clip-text text-center text-lg font-semibold tracking-wide text-transparent drop-shadow-[0_0_10px_rgba(56,189,248,0.35)] md:text-xl">
+            Actividades
           </p>
         </div>
         <div className="grid grid-cols-[max-content_var(--activity-slot-width)_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
           <button
             type="button"
             onClick={() => setActiveTab("recommendations")}
-            className={getTabClassName(isRecommendationsActive, "justify-self-start")}
+            className={getTabClassName(isRecommendationsActive, "h-12 min-h-12 min-w-[9.25rem] flex-col gap-0.5 justify-self-start py-2 leading-tight")}
           >
-            Recomendaciones
+            <span>Recomendadas</span>
+            <span>de Seguidos</span>
           </button>
 
           <div className="relative col-start-2 col-span-2 h-10 w-[calc(var(--activity-slot-width)+var(--activity-tab-gap)+var(--activity-slot-width))] overflow-visible">
