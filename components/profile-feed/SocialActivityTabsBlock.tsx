@@ -6,10 +6,18 @@ import { getMyProfile, getTopFollowing, getTopFriends } from "../../lib/profile-
 import { SocialTab } from "../../lib/profile-feed/types";
 import SocialActivityCard from "./SocialActivityCard";
 
+type InteractionsTab = SocialTab | "recommendations";
+
 const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
   { value: "following", label: "Seguidos", emptyCopy: "Aún no hay actividad de usuarios seguidos." },
   { value: "friends", label: "Amigos", emptyCopy: "Aún no hay actividad de amigos." },
 ];
+
+const tabButtonBaseClass =
+  "rounded-full border px-4 py-2 text-sm font-medium transition duration-300 ease-out will-change-transform";
+const activeTabClass =
+  "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28),inset_0_1px_0_rgba(191,219,254,0.25)]";
+const inactiveTabClass = "border-white/20 bg-zinc-900/90 text-zinc-300 shadow-[0_10px_24px_rgba(0,0,0,0.22)] hover:border-white/40 hover:text-zinc-100";
 
 function SocialActivitySkeleton() {
   return (
@@ -31,15 +39,17 @@ function SocialActivitySkeleton() {
 }
 
 export default function SocialActivityTabsBlock() {
-  const [activeTab, setActiveTab] = useState<SocialTab>("following");
+  const [activeTab, setActiveTab] = useState<InteractionsTab>("recommendations");
+  const [activityTab, setActivityTab] = useState<SocialTab>("following");
   const [authenticatedUsername, setAuthenticatedUsername] = useState<string | null>(null);
   const [authenticatedId, setAuthenticatedId] = useState<string | null>(null);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [followingUsernames, setFollowingUsernames] = useState<Set<string>>(new Set());
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const [friendUsernames, setFriendUsernames] = useState<Set<string>>(new Set());
-  const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activeTab);
-  const activeTabMeta = tabs.find((tab) => tab.value === activeTab) || tabs[0];
+  const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activityTab);
+  const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
+  const isRecommendationsActive = activeTab === "recommendations";
 
   useEffect(() => {
     const loadAuthenticatedUser = async () => {
@@ -106,62 +116,104 @@ export default function SocialActivityTabsBlock() {
           usernames.some((username) => followingUsernames.has(username)) || ids.some((id) => followingIds.has(id));
         const belongsToFriends = usernames.some((username) => friendUsernames.has(username)) || ids.some((id) => friendIds.has(id));
 
-        if (activeTab === "following") return belongsToFollowing;
-        if (activeTab === "friends") return belongsToFriends;
+        if (activityTab === "following") return belongsToFollowing;
+        if (activityTab === "friends") return belongsToFriends;
 
         return false;
       }),
-    [activeTab, authenticatedId, authenticatedUsername, followingIds, followingUsernames, friendIds, friendUsernames, items],
+    [activityTab, authenticatedId, authenticatedUsername, followingIds, followingUsernames, friendIds, friendUsernames, items],
   );
 
+  const handleActivityTabClick = (nextTab: SocialTab) => {
+    setActivityTab(nextTab);
+    setActiveTab(nextTab);
+  };
+
+  const getTabClassName = (isActive: boolean, extraClassName = "") =>
+    `${tabButtonBaseClass} ${isActive ? activeTabClass : inactiveTabClass} ${extraClassName}`;
+
   return (
-    <section className="ml-auto w-full max-w-[1100px] rounded-3xl border border-white/15 bg-zinc-950/50 pb-5">
-      <header className="sticky top-4 z-30 rounded-t-3xl border-b border-white/10 bg-black/90 px-4 py-3 backdrop-blur-md">
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((tab) => {
-            const isActive = tab.value === activeTab;
-            return (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setActiveTab(tab.value)}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                  isActive
-                    ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
-                    : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+    <section className="ml-auto mt-8 w-full max-w-[1100px] bg-zinc-950/35 pb-5 md:mt-12">
+      <header className="sticky top-4 z-30 bg-black/75 px-4 py-3 backdrop-blur-md">
+        <div className="grid grid-cols-3 items-end gap-2">
+          <div className="col-start-2 text-center">
+            <p className="mb-3 text-base font-semibold tracking-wide text-zinc-100 md:text-lg">Interacciones de</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("recommendations")}
+            className={getTabClassName(isRecommendationsActive, "justify-self-start")}
+          >
+            Recomendaciones
+          </button>
+
+          <div className="relative col-span-2 h-10 overflow-visible">
+            {tabs.map((tab) => {
+              const isActive = tab.value === activeTab;
+              const positionClass = tab.value === "following" ? "left-0" : "left-[calc(50%+0.25rem)]";
+              const translateClass =
+                tab.value === "following"
+                  ? activityTab === "friends"
+                    ? "translate-x-[calc(100%+0.5rem)]"
+                    : "translate-x-0"
+                  : activityTab === "friends"
+                    ? "-translate-x-[calc(100%+0.5rem)]"
+                    : "translate-x-0";
+
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => handleActivityTabClick(tab.value)}
+                  className={getTabClassName(
+                    isActive,
+                    `absolute top-0 w-[calc(50%-0.25rem)] ${positionClass} ${translateClass}`,
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </header>
 
-      <div className="space-y-3 px-4 pt-4">
-        {loading ? <SocialActivitySkeleton /> : null}
-
-        {!loading && error ? (
-          <div className="rounded-2xl border border-red-300/30 bg-red-950/30 px-4 py-3 text-sm text-red-100">
-            <p>{error}</p>
-            <button
-              type="button"
-              onClick={reload}
-              className="mt-2 rounded-full border border-red-200/40 bg-red-900/40 px-3 py-1 text-xs font-medium transition hover:bg-red-900/60"
-            >
-              Reintentar
-            </button>
+      <div className="px-4 pt-5">
+        {isRecommendationsActive ? (
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 px-4 py-8 text-center shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
+            <p className="text-sm font-medium text-zinc-300">Próximamente verás recomendaciones aquí.</p>
           </div>
-        ) : null}
+        ) : (
+          <div className="activity-scrollbar max-h-[49rem] overflow-y-auto pr-2" role="listbox" aria-label={`Actividad de ${activeTabMeta.label}`}>
+            <div className="space-y-3">
+              {loading ? <SocialActivitySkeleton /> : null}
 
-        {!loading && !error && visibleItems.length === 0 ? <p className="text-sm text-zinc-500">{activeTabMeta.emptyCopy}</p> : null}
+              {!loading && error ? (
+                <div className="rounded-2xl border border-red-300/30 bg-red-950/30 px-4 py-3 text-sm text-red-100">
+                  <p>{error}</p>
+                  <button
+                    type="button"
+                    onClick={reload}
+                    className="mt-2 rounded-full border border-red-200/40 bg-red-900/40 px-3 py-1 text-xs font-medium transition hover:bg-red-900/60"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              ) : null}
 
-        {visibleItems.map((item) => (
-          <SocialActivityCard key={item.id} item={item} />
-        ))}
+              {!loading && !error && visibleItems.length === 0 ? <p className="text-sm text-zinc-500">{activeTabMeta.emptyCopy}</p> : null}
 
-        {hasMore ? <div ref={sentinelRef} className="h-8" /> : null}
-        {loadingMore ? <p className="text-sm text-zinc-400">Cargando más actividad...</p> : null}
+              {visibleItems.map((item) => (
+                <SocialActivityCard key={item.id} item={item} />
+              ))}
+
+              {hasMore ? <div ref={sentinelRef} className="h-8" /> : null}
+              {loadingMore ? <p className="text-sm text-zinc-400">Cargando más actividad...</p> : null}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
