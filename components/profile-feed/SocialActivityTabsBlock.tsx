@@ -14,7 +14,7 @@ const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
 ];
 
 const tabButtonBaseClass =
-  "rounded-full border px-4 py-2 text-sm font-medium transition duration-300 ease-out will-change-transform";
+  "inline-flex h-10 w-fit min-w-0 items-center justify-center whitespace-nowrap rounded-full border px-4 py-0 text-sm font-medium transition duration-300 ease-out will-change-transform";
 const activeTabClass =
   "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28),inset_0_1px_0_rgba(191,219,254,0.25)]";
 const inactiveTabClass = "border-white/20 bg-zinc-900/90 text-zinc-300 shadow-[0_10px_24px_rgba(0,0,0,0.22)] hover:border-white/40 hover:text-zinc-100";
@@ -144,7 +144,7 @@ export default function SocialActivityTabsBlock() {
           <button
             type="button"
             onClick={() => setActiveTab("recommendations")}
-            className={getTabClassName(isRecommendationsActive, "justify-self-start")}
+            className={getTabClassName(isRecommendationsActive, "justify-self-start px-5")}
           >
             Recomendaciones
           </button>
@@ -169,7 +169,7 @@ export default function SocialActivityTabsBlock() {
                   onClick={() => handleActivityTabClick(tab.value)}
                   className={getTabClassName(
                     isActive,
-                    `absolute top-0 w-[calc(50%-0.25rem)] ${positionClass} ${translateClass}`,
+                    `absolute top-0 ${positionClass} ${translateClass}`,
                   )}
                 >
                   {tab.label}
