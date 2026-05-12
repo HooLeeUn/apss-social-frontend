@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type UIEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
 import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendationsByUsername } from "../../lib/profile-feed/adapters";
 import { SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
@@ -202,6 +202,7 @@ export default function SocialActivityTabsBlock() {
   const [followedRecommendationsError, setFollowedRecommendationsError] = useState<string | null>(null);
   const followedRecommendationsLoadingRef = useRef(false);
   const followedRecommendationsLoadedRef = useRef(false);
+  const pendingScrollYRef = useRef<number | null>(null);
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
   const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activityTab);
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
@@ -373,7 +374,41 @@ export default function SocialActivityTabsBlock() {
     [activityTab, authenticatedId, authenticatedUsername, followingIds, followingUsernames, friendIds, friendUsernames, items],
   );
 
+  const restorePendingScrollPosition = useCallback(() => {
+    const pendingScrollY = pendingScrollYRef.current;
+    if (pendingScrollY === null) return;
+
+    window.scrollTo(0, pendingScrollY);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (pendingScrollYRef.current === null) return;
+
+    let secondFrame: number | null = null;
+
+    restorePendingScrollPosition();
+
+    const firstFrame = window.requestAnimationFrame(() => {
+      restorePendingScrollPosition();
+
+      secondFrame = window.requestAnimationFrame(() => {
+        restorePendingScrollPosition();
+        pendingScrollYRef.current = null;
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [activeTab, activityTab, restorePendingScrollPosition, visibleItems.length]);
+
+  const preserveScrollForTabChange = useCallback(() => {
+    pendingScrollYRef.current = window.scrollY;
+  }, []);
+
   const handleActivityTabClick = (nextTab: SocialTab) => {
+    preserveScrollForTabChange();
     setActivityTab(nextTab);
     setActiveTab(nextTab);
   };
@@ -484,7 +519,7 @@ export default function SocialActivityTabsBlock() {
             </div>
           </div>
         ) : (
-          <div className="activity-scrollbar max-h-[49rem] overflow-y-auto pr-2" role="listbox" aria-label={`Actividad de ${activeTabMeta.label}`}>
+          <div className="activity-scrollbar min-h-[20rem] max-h-[49rem] overflow-y-auto pr-2" role="listbox" aria-label={`Actividad de ${activeTabMeta.label}`}>
             <div className="space-y-3">
               {loading ? <SocialActivitySkeleton /> : null}
 
