@@ -1188,30 +1188,95 @@ export async function getFavoriteMoviesByUsername(username: string): Promise<Fav
   return [];
 }
 
+function pickRecommendationRating(...values: unknown[]): number | null {
+  for (const value of values) {
+    const rating = toNumberOrNull(value);
+    if (rating !== null) return rating;
+  }
+
+  return null;
+}
+
 function parseUserMovieRecommendations(payload: unknown): UserMovieRecommendation[] {
   const asRecord = toRecord(payload);
+  const dataRecord = toRecord(asRecord?.data);
   const collection = Array.isArray(payload)
     ? payload
     : Array.isArray(asRecord?.results)
       ? asRecord.results
-      : [];
+      : Array.isArray(asRecord?.items)
+        ? asRecord.items
+        : Array.isArray(asRecord?.recommendations)
+          ? asRecord.recommendations
+          : Array.isArray(asRecord?.movie_recommendations)
+            ? asRecord.movie_recommendations
+            : Array.isArray(dataRecord?.results)
+              ? dataRecord.results
+              : Array.isArray(dataRecord?.items)
+                ? dataRecord.items
+                : Array.isArray(dataRecord?.recommendations)
+                  ? dataRecord.recommendations
+                  : Array.isArray(dataRecord?.movie_recommendations)
+                    ? dataRecord.movie_recommendations
+                    : [];
 
   return collection
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
     .map((item) => {
       const nestedMovie = toRecord(item.movie) ?? item;
-      const displayRating = toNumberOrNull(
-        pickFirst(
-          item.display_rating,
-          item.general_rating,
-          item.rating,
-          item.external_rating,
-          nestedMovie.display_rating,
-          nestedMovie.general_rating,
-          nestedMovie.rating,
-          nestedMovie.external_rating,
-        ),
+      const ratingSource = toRecord(item.ratings) ?? toRecord(nestedMovie.ratings);
+      const displayRating = pickRecommendationRating(
+        item.display_rating,
+        item.general_rating,
+        item.average_rating,
+        item.avg_rating,
+        item.real_ratings_avg,
+        item.real_rating_avg,
+        item.external_rating,
+        ratingSource?.display_rating,
+        ratingSource?.general_rating,
+        ratingSource?.average_rating,
+        ratingSource?.avg_rating,
+        ratingSource?.real_ratings_avg,
+        ratingSource?.real_rating_avg,
+        nestedMovie.display_rating,
+        nestedMovie.general_rating,
+        nestedMovie.average_rating,
+        nestedMovie.avg_rating,
+        nestedMovie.real_ratings_avg,
+        nestedMovie.real_rating_avg,
+        nestedMovie.external_rating,
+        item.rating,
+        nestedMovie.rating,
+      );
+      const followingAvgRating = pickRecommendationRating(
+        item.following_avg_rating,
+        item.following_rating,
+        item.followed_avg_rating,
+        item.followed_rating,
+        ratingSource?.following_avg_rating,
+        ratingSource?.following_rating,
+        ratingSource?.followed_avg_rating,
+        ratingSource?.followed_rating,
+        nestedMovie.following_avg_rating,
+        nestedMovie.following_rating,
+        nestedMovie.followed_avg_rating,
+        nestedMovie.followed_rating,
+      );
+      const myRating = pickRecommendationRating(
+        item.my_rating,
+        item.user_rating,
+        item.authenticated_user_rating,
+        item.current_user_rating,
+        ratingSource?.my_rating,
+        ratingSource?.user_rating,
+        ratingSource?.authenticated_user_rating,
+        ratingSource?.current_user_rating,
+        nestedMovie.my_rating,
+        nestedMovie.user_rating,
+        nestedMovie.authenticated_user_rating,
+        nestedMovie.current_user_rating,
       );
 
       return {
@@ -1225,6 +1290,9 @@ function parseUserMovieRecommendations(payload: unknown): UserMovieRecommendatio
         director: safeTrim(pickFirst(item.director, nestedMovie.director, item.director_name, nestedMovie.director_name)) || "-",
         castMembers: safeTrim(pickFirst(item.cast_members, nestedMovie.cast_members, item.cast, nestedMovie.cast)) || "-",
         displayRating,
+        followingAvgRating,
+        followingRating: followingAvgRating,
+        myRating,
         createdAt: safeTrim(pickFirst(item.created_at, nestedMovie.created_at)),
         updatedAt: safeTrim(pickFirst(item.updated_at, nestedMovie.updated_at)),
         recommendedAt: safeTrim(pickFirst(item.recommended_at, item.created_at, nestedMovie.recommended_at)),
