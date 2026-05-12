@@ -63,6 +63,9 @@ export interface UserMovieRecommendation {
   director: string;
   castMembers: string;
   displayRating?: number | null;
+  followingAvgRating?: number | null;
+  followingRating?: number | null;
+  myRating?: number | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   recommendedAt?: string | null;

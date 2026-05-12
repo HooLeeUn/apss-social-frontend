@@ -99,8 +99,8 @@ function getOptionalRecommendationRating(recommendation: FollowedRecommendation,
 
 function FollowedRecommendationCard({ recommendation }: { recommendation: FollowedRecommendation }) {
   const movieHref = `/movies/${encodeURIComponent(recommendation.id)}`;
-  const followingRating = getOptionalRecommendationRating(recommendation, ["followingRating", "followingAvgRating", "following_avg_rating"]);
-  const myRating = getOptionalRecommendationRating(recommendation, ["myRating", "my_rating"]);
+  const followingRating = getOptionalRecommendationRating(recommendation, ["followingAvgRating", "followingRating", "following_avg_rating"]);
+  const myRating = getOptionalRecommendationRating(recommendation, ["myRating", "my_rating", "userRating", "user_rating"]);
 
   return (
     <article
@@ -120,10 +120,10 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
       <div className="min-w-0 space-y-1">
         <p className="text-sm font-semibold text-blue-200">@{recommendation.recommenderUsername}</p>
         <Link href={movieHref} className="block truncate text-base font-semibold text-zinc-100 hover:text-blue-200">
-          {recommendation.titleEnglish}
+          {recommendation.titleSpanish}
         </Link>
         <Link href={movieHref} className="block truncate text-sm text-zinc-400 hover:text-blue-200">
-          {recommendation.titleSpanish}
+          {recommendation.titleEnglish}
         </Link>
         <p className="text-xs text-zinc-300">{recommendation.type} · {recommendation.genre}</p>
         <p className="text-xs text-zinc-400">{recommendation.releaseYear}</p>
