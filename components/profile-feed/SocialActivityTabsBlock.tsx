@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type UIEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
 import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendationsByUsername } from "../../lib/profile-feed/adapters";
 import { SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
@@ -24,6 +24,7 @@ const activityTabsLayoutStyle = {
   "--activity-slot-width": "clamp(5.5rem, 13vw, 7.75rem)",
   "--activity-tab-gap": "clamp(1rem, 5vw, 3.5rem)",
 } as CSSProperties;
+const activityTabSwapOffset = "calc(var(--activity-slot-width) + var(--activity-tab-gap))";
 
 
 type FollowedRecommendation = UserMovieRecommendation & {
@@ -202,10 +203,21 @@ export default function SocialActivityTabsBlock() {
   const [followedRecommendationsError, setFollowedRecommendationsError] = useState<string | null>(null);
   const followedRecommendationsLoadingRef = useRef(false);
   const followedRecommendationsLoadedRef = useRef(false);
+  const activityTabsTrackRef = useRef<HTMLDivElement | null>(null);
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
   const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activityTab);
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
   const isRecommendationsActive = activeTab === "recommendations";
+  const [activityTabsLayoutReady, setActivityTabsLayoutReady] = useState(false);
+
+  useLayoutEffect(() => {
+    const animationFrame = window.requestAnimationFrame(() => {
+      activityTabsTrackRef.current?.getBoundingClientRect();
+      setActivityTabsLayoutReady(true);
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, []);
 
   useEffect(() => {
     const loadAuthenticatedUser = async () => {
@@ -402,23 +414,26 @@ export default function SocialActivityTabsBlock() {
             <span>de Seguidos</span>
           </button>
 
-          <div className="relative col-start-2 col-span-2 h-10 w-[calc(var(--activity-slot-width)+var(--activity-tab-gap)+var(--activity-slot-width))] overflow-visible">
+          <div
+            ref={activityTabsTrackRef}
+            className="relative col-start-2 col-span-2 h-10 w-[calc(var(--activity-slot-width)+var(--activity-tab-gap)+var(--activity-slot-width))] overflow-visible"
+          >
             {tabs.map((tab) => {
               const isActive = tab.value === activeTab;
               const positionClass = tab.value === "following" ? "left-0" : "left-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]";
-              const translateClass =
-                tab.value === "following"
-                  ? activityTab === "friends"
-                    ? "translate-x-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]"
-                    : "translate-x-0"
-                  : activityTab === "friends"
-                    ? "-translate-x-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]"
-                    : "translate-x-0";
+              const shouldSwapFollowing = tab.value === "following" && activityTab === "friends";
+              const shouldSwapFriends = tab.value === "friends" && activityTab === "friends";
+              const activityTabTransform = shouldSwapFollowing
+                ? `translate3d(${activityTabSwapOffset}, 0, 0)`
+                : shouldSwapFriends
+                  ? `translate3d(calc(-1 * ${activityTabSwapOffset}), 0, 0)`
+                  : "translate3d(0, 0, 0)";
 
               return (
                 <div
                   key={tab.value}
-                  className={`absolute top-0 w-[var(--activity-slot-width)] transition duration-300 ease-out will-change-transform ${positionClass} ${translateClass}`}
+                  className={`absolute top-0 w-[var(--activity-slot-width)] transform-gpu will-change-transform ${activityTabsLayoutReady ? "transition-transform duration-300 ease-out" : "transition-none"} ${positionClass}`}
+                  style={{ backfaceVisibility: "hidden", transform: activityTabTransform, zIndex: isActive ? 2 : 1 }}
                 >
                   <button
                     type="button"
