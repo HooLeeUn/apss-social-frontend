@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type MouseEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
 import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendationsByUsername } from "../../lib/profile-feed/adapters";
-import { SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
+import { SocialActivityItem, SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
+import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
 import SocialActivityCard from "./SocialActivityCard";
 
 type InteractionsTab = SocialTab | "recommendations";
@@ -81,11 +82,32 @@ function FollowedRecommendationsSkeleton() {
   );
 }
 
+function getOptionalRecommendationRating(recommendation: FollowedRecommendation, keys: string[]): number | null | undefined {
+  const ratingSource = recommendation as FollowedRecommendation & Record<string, unknown>;
+
+  for (const key of keys) {
+    const value = ratingSource[key];
+    if (typeof value === "number" || value === null) return value;
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsedValue = Number(value);
+      if (Number.isFinite(parsedValue)) return parsedValue;
+    }
+  }
+
+  return undefined;
+}
+
 function FollowedRecommendationCard({ recommendation }: { recommendation: FollowedRecommendation }) {
   const movieHref = `/movies/${encodeURIComponent(recommendation.id)}`;
+  const followingRating = getOptionalRecommendationRating(recommendation, ["followingRating", "followingAvgRating", "following_avg_rating"]);
+  const myRating = getOptionalRecommendationRating(recommendation, ["myRating", "my_rating"]);
 
   return (
-    <article className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)]" role="option" aria-selected="false">
+    <article
+      className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[72px_minmax(10rem,1fr)_minmax(12rem,1.15fr)_minmax(7rem,auto)] lg:items-start"
+      role="option"
+      aria-selected="false"
+    >
       <Link href={movieHref} className="h-24 w-16 overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80 transition hover:border-blue-300/60 sm:h-[108px] sm:w-[72px]">
         {recommendation.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -94,18 +116,51 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
           <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">Sin poster</span>
         )}
       </Link>
+
       <div className="min-w-0 space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-200">@{recommendation.recommenderUsername}</p>
+        <p className="text-sm font-semibold text-blue-200">@{recommendation.recommenderUsername}</p>
         <Link href={movieHref} className="block truncate text-base font-semibold text-zinc-100 hover:text-blue-200">
           {recommendation.titleEnglish}
         </Link>
         <Link href={movieHref} className="block truncate text-sm text-zinc-400 hover:text-blue-200">
           {recommendation.titleSpanish}
         </Link>
-        <p className="text-xs text-zinc-300">{recommendation.releaseYear} · {recommendation.type} · {recommendation.genre}</p>
-        <p className="truncate text-xs text-zinc-400">Director: {recommendation.director}</p>
-        <p className="line-clamp-2 text-xs text-zinc-500">Casting: {recommendation.castMembers}</p>
+        <p className="text-xs text-zinc-300">{recommendation.type} · {recommendation.genre}</p>
+        <p className="text-xs text-zinc-400">{recommendation.releaseYear}</p>
       </div>
+
+      <div className="col-start-2 min-w-0 space-y-1 text-xs sm:col-start-2 lg:col-start-auto lg:-ml-4 lg:pr-4">
+        <p className="break-words text-zinc-400">
+          <span className="font-semibold text-blue-200">Director:</span> {recommendation.director}
+        </p>
+        <p className="line-clamp-3 break-words text-zinc-400">
+          <span className="font-semibold text-blue-200">Casting:</span> {recommendation.castMembers}
+        </p>
+      </div>
+
+      <dl className="col-start-2 min-w-[7rem] space-y-2 text-xs sm:col-start-2 lg:col-start-auto lg:justify-self-end">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-zinc-500">General</dt>
+          <dd className="flex items-center gap-1 font-medium text-zinc-200">
+            <span aria-hidden="true">⭐</span>
+            <span>{formatAverageRating(recommendation.displayRating)}</span>
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-zinc-500">Seguidos</dt>
+          <dd className="flex items-center gap-1 font-medium text-zinc-200">
+            <span aria-hidden="true">👥</span>
+            <span>{formatFollowingRating(followingRating)}</span>
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</dt>
+          <dd className="flex items-center gap-1 font-medium text-zinc-100">
+            <span aria-hidden="true">🙋</span>
+            <span>{formatMyRating(myRating)}</span>
+          </dd>
+        </div>
+      </dl>
     </article>
   );
 }
@@ -145,9 +200,11 @@ export default function SocialActivityTabsBlock() {
   const [followedRecommendations, setFollowedRecommendations] = useState<FollowedRecommendation[]>([]);
   const [followedRecommendationsLoading, setFollowedRecommendationsLoading] = useState(false);
   const [followedRecommendationsError, setFollowedRecommendationsError] = useState<string | null>(null);
-  const [followedRecommendationsLoaded, setFollowedRecommendationsLoaded] = useState(false);
+  const followedRecommendationsLoadingRef = useRef(false);
+  const followedRecommendationsLoadedRef = useRef(false);
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
-  const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activityTab);
+  const followingActivity = useInfiniteSocialActivity("following");
+  const friendsActivity = useInfiniteSocialActivity("friends");
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
   const isRecommendationsActive = activeTab === "recommendations";
 
@@ -192,50 +249,56 @@ export default function SocialActivityTabsBlock() {
     });
   }, [authenticatedId, authenticatedUsername, followingUsers]);
 
+
   useEffect(() => {
     if (!isRecommendationsActive) return;
     if (!authenticatedUserLoaded || !followingUsersLoaded) return;
-    if (followedRecommendationsLoaded || followedRecommendationsLoading) return;
-
-    let cancelled = false;
+    if (followedRecommendationsLoadedRef.current || followedRecommendationsLoadingRef.current) return;
 
     const loadFollowedRecommendations = async () => {
+      followedRecommendationsLoadingRef.current = true;
       setFollowedRecommendationsLoading(true);
       setFollowedRecommendationsError(null);
 
-      const settledRecommendations = await Promise.all(
-        eligibleFollowingUsers.map(async (user) => {
-          try {
+      try {
+        if (eligibleFollowingUsers.length === 0) {
+          followedRecommendationsLoadedRef.current = true;
+          setFollowedRecommendations([]);
+          return;
+        }
+
+        const settledRecommendations = await Promise.allSettled(
+          eligibleFollowingUsers.map(async (user) => {
             const recommendations = await getUserMovieRecommendationsByUsername(user.username);
-            return { status: "fulfilled" as const, username: user.username, recommendations };
-          } catch {
-            return { status: "rejected" as const, username: user.username, recommendations: [] as UserMovieRecommendation[] };
-          }
-        }),
-      );
+            return { username: user.username, recommendations };
+          }),
+        );
 
-      if (cancelled) return;
+        const mergedRecommendations = settledRecommendations.flatMap((result) => {
+          if (result.status === "rejected") return [];
 
-      const mergedRecommendations = settledRecommendations.flatMap((result) =>
-        result.recommendations.map((recommendation) => ({
-          ...recommendation,
-          recommenderUsername: result.username,
-        })),
-      );
-      const failedRequests = settledRecommendations.filter((result) => result.status === "rejected").length;
+          return result.value.recommendations.map((recommendation) => ({
+            ...recommendation,
+            recommenderUsername: result.value.username,
+          }));
+        });
+        const failedRequests = settledRecommendations.filter((result) => result.status === "rejected").length;
 
-      setFollowedRecommendations(sortFollowedRecommendations(mergedRecommendations));
-      setFollowedRecommendationsLoaded(true);
-      setFollowedRecommendationsError(failedRequests > 0 ? "No pudimos cargar algunas recomendaciones de tus seguidos." : null);
-      setFollowedRecommendationsLoading(false);
+        followedRecommendationsLoadedRef.current = true;
+        setFollowedRecommendations(sortFollowedRecommendations(mergedRecommendations));
+        setFollowedRecommendationsError(failedRequests > 0 ? "No pudimos cargar algunas recomendaciones de tus seguidos." : null);
+      } catch {
+        followedRecommendationsLoadedRef.current = true;
+        setFollowedRecommendations([]);
+        setFollowedRecommendationsError("No pudimos cargar las recomendaciones de tus seguidos.");
+      } finally {
+        followedRecommendationsLoadingRef.current = false;
+        setFollowedRecommendationsLoading(false);
+      }
     };
 
     void loadFollowedRecommendations();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authenticatedUserLoaded, eligibleFollowingUsers, followedRecommendationsLoaded, followedRecommendationsLoading, followingUsersLoaded, isRecommendationsActive]);
+  }, [authenticatedUserLoaded, eligibleFollowingUsers, followingUsersLoaded, isRecommendationsActive]);
 
   const filteredFollowedRecommendations = useMemo(() => {
     const normalizedQuery = followedRecommendationQuery.trim().toLocaleLowerCase();
@@ -261,9 +324,9 @@ export default function SocialActivityTabsBlock() {
     setVisibleRecommendationsLimit((currentLimit) => currentLimit + FOLLOWED_RECOMMENDATIONS_BATCH_SIZE);
   }, []);
 
-  const visibleItems = useMemo(
-    () =>
-      items.filter((activity) => {
+  const getVisibleItemsForTab = useCallback(
+    (targetTab: SocialTab, tabItems: SocialActivityItem[]) =>
+      tabItems.filter((activity) => {
         const record = activity as unknown as Record<string, unknown>;
         const userRecord =
           typeof record.user === "object" && record.user !== null ? (record.user as Record<string, unknown>) : ({} as Record<string, unknown>);
@@ -303,15 +366,28 @@ export default function SocialActivityTabsBlock() {
           usernames.some((username) => followingUsernames.has(username)) || ids.some((id) => followingIds.has(id));
         const belongsToFriends = usernames.some((username) => friendUsernames.has(username)) || ids.some((id) => friendIds.has(id));
 
-        if (activityTab === "following") return belongsToFollowing;
-        if (activityTab === "friends") return belongsToFriends;
-
-        return false;
+        if (targetTab === "following") return belongsToFollowing;
+        return belongsToFriends;
       }),
-    [activityTab, authenticatedId, authenticatedUsername, followingIds, followingUsernames, friendIds, friendUsernames, items],
+    [authenticatedId, authenticatedUsername, followingIds, followingUsernames, friendIds, friendUsernames],
   );
 
-  const handleActivityTabClick = (nextTab: SocialTab) => {
+  const followingVisibleItems = useMemo(
+    () => getVisibleItemsForTab("following", followingActivity.items),
+    [followingActivity.items, getVisibleItemsForTab],
+  );
+  const friendsVisibleItems = useMemo(
+    () => getVisibleItemsForTab("friends", friendsActivity.items),
+    [friendsActivity.items, getVisibleItemsForTab],
+  );
+
+  const handleRecommendationsTabClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setActiveTab("recommendations");
+  };
+
+  const handleActivityTabClick = (event: MouseEvent<HTMLButtonElement>, nextTab: SocialTab) => {
+    event.preventDefault();
     setActivityTab(nextTab);
     setActiveTab(nextTab);
   };
@@ -319,8 +395,27 @@ export default function SocialActivityTabsBlock() {
   const getTabClassName = (isActive: boolean, extraClassName = "") =>
     `${tabButtonBaseClass} ${isActive ? activeTabClass : inactiveTabClass} ${extraClassName}`;
 
+  const preventPointerFocus = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+  };
+
+  const activityPanels = [
+    {
+      tab: "following" as const,
+      meta: tabs[0],
+      visibleItems: followingVisibleItems,
+      activity: followingActivity,
+    },
+    {
+      tab: "friends" as const,
+      meta: tabs[1],
+      visibleItems: friendsVisibleItems,
+      activity: friendsActivity,
+    },
+  ];
+
   return (
-    <section className="ml-auto mt-8 w-full max-w-[1100px] bg-zinc-950/35 pb-5 md:mt-12">
+    <section className="ml-auto mt-8 w-full max-w-[1100px] bg-zinc-950/35 pb-5 [overflow-anchor:none] md:mt-12">
       <header className="sticky top-4 z-30 bg-black/75 px-4 py-3 backdrop-blur-md" style={activityTabsLayoutStyle}>
         <div className="grid grid-cols-[max-content_var(--activity-slot-width)_var(--activity-slot-width)] items-end gap-x-[var(--activity-tab-gap)]">
           <div aria-hidden="true" className="invisible h-0 min-w-[9.25rem] whitespace-nowrap px-4 text-sm font-medium">
@@ -333,7 +428,8 @@ export default function SocialActivityTabsBlock() {
         <div className="grid grid-cols-[max-content_var(--activity-slot-width)_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
           <button
             type="button"
-            onClick={() => setActiveTab("recommendations")}
+            onMouseDown={preventPointerFocus}
+            onClick={handleRecommendationsTabClick}
             className={getTabClassName(isRecommendationsActive, "h-12 min-h-12 min-w-[9.25rem] flex-col gap-0.5 justify-self-start py-2 leading-tight")}
           >
             <span>Recomendadas</span>
@@ -360,7 +456,8 @@ export default function SocialActivityTabsBlock() {
                 >
                   <button
                     type="button"
-                    onClick={() => handleActivityTabClick(tab.value)}
+                    onMouseDown={preventPointerFocus}
+                    onClick={(event) => handleActivityTabClick(event, tab.value)}
                     className={getTabClassName(isActive, "mx-auto")}
                   >
                     {tab.label}
@@ -422,32 +519,51 @@ export default function SocialActivityTabsBlock() {
             </div>
           </div>
         ) : (
-          <div className="activity-scrollbar max-h-[49rem] overflow-y-auto pr-2" role="listbox" aria-label={`Actividad de ${activeTabMeta.label}`}>
-            <div className="space-y-3">
-              {loading ? <SocialActivitySkeleton /> : null}
+          <div className="relative h-[49rem] overflow-hidden [overflow-anchor:none]" aria-label={`Actividad de ${activeTabMeta.label}`}>
+            {activityPanels.map(({ tab, meta, visibleItems, activity }) => {
+              const isPanelActive = activityTab === tab;
+              const isPanelLoading = activity.loading || !activity.loaded;
 
-              {!loading && error ? (
-                <div className="rounded-2xl border border-red-300/30 bg-red-950/30 px-4 py-3 text-sm text-red-100">
-                  <p>{error}</p>
-                  <button
-                    type="button"
-                    onClick={reload}
-                    className="mt-2 rounded-full border border-red-200/40 bg-red-900/40 px-3 py-1 text-xs font-medium transition hover:bg-red-900/60"
-                  >
-                    Reintentar
-                  </button>
+              return (
+                <div
+                  key={tab}
+                  className={`activity-scrollbar absolute inset-0 overflow-y-auto pr-2 transition-opacity duration-200 [overflow-anchor:none] ${
+                    isPanelActive ? "opacity-100" : "pointer-events-none opacity-0"
+                  }`}
+                  role="listbox"
+                  aria-label={`Actividad de ${meta.label}`}
+                  aria-hidden={!isPanelActive}
+                  inert={!isPanelActive ? true : undefined}
+                >
+                  <div className="space-y-3">
+                    {isPanelLoading ? <SocialActivitySkeleton /> : null}
+
+                    {!isPanelLoading && activity.error ? (
+                      <div className="rounded-2xl border border-red-300/30 bg-red-950/30 px-4 py-3 text-sm text-red-100">
+                        <p>{activity.error}</p>
+                        <button
+                          type="button"
+                          onMouseDown={preventPointerFocus}
+                          onClick={activity.reload}
+                          className="mt-2 rounded-full border border-red-200/40 bg-red-900/40 px-3 py-1 text-xs font-medium transition hover:bg-red-900/60"
+                        >
+                          Reintentar
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {!isPanelLoading && !activity.error && visibleItems.length === 0 ? <p className="text-sm text-zinc-500">{meta.emptyCopy}</p> : null}
+
+                    {visibleItems.map((item) => (
+                      <SocialActivityCard key={item.id} item={item} />
+                    ))}
+
+                    {activity.hasMore ? <div ref={isPanelActive ? activity.sentinelRef : undefined} className="h-8" /> : null}
+                    {activity.loadingMore ? <p className="text-sm text-zinc-400">Cargando más actividad...</p> : null}
+                  </div>
                 </div>
-              ) : null}
-
-              {!loading && !error && visibleItems.length === 0 ? <p className="text-sm text-zinc-500">{activeTabMeta.emptyCopy}</p> : null}
-
-              {visibleItems.map((item) => (
-                <SocialActivityCard key={item.id} item={item} />
-              ))}
-
-              {hasMore ? <div ref={sentinelRef} className="h-8" /> : null}
-              {loadingMore ? <p className="text-sm text-zinc-400">Cargando más actividad...</p> : null}
-            </div>
+              );
+            })}
           </div>
         )}
       </div>
