@@ -1,5 +1,4 @@
-import { API_BASE_URL } from "./api";
-import { apiFetch } from "./api";
+import { API_BASE_URL, ApiError, apiFetch } from "./api";
 
 export interface MovieTopUser {
   id: number | null;
@@ -369,6 +368,29 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     isInMyList: Boolean(pickFirst(raw.is_in_my_list, nestedMovie?.is_in_my_list, raw.isInMyList, nestedMovie?.isInMyList)),
     isInMyRecommendations: Boolean(pickFirst(raw.is_in_my_recommendations, nestedMovie?.is_in_my_recommendations, raw.isInMyRecommendations, nestedMovie?.isInMyRecommendations)),
   };
+}
+
+export async function getMovieDetailById(movieId: Movie["id"]): Promise<Movie | null> {
+  const normalizedMovieId = String(movieId).trim();
+  if (!normalizedMovieId) return null;
+
+  const movieEndpoints = [
+    buildMovieDetailEndpoint(normalizedMovieId, MOVIE_DETAIL_ENDPOINT_TEMPLATE),
+    ...MOVIE_DETAIL_FALLBACK_ENDPOINT_TEMPLATES.map((template) => buildMovieDetailEndpoint(normalizedMovieId, template)),
+  ];
+
+  for (let index = 0; index < movieEndpoints.length; index += 1) {
+    try {
+      const payload = await apiFetch(movieEndpoints[index]);
+      const rawMovie = toRecord(payload);
+      return rawMovie ? normalizeMovie(rawMovie, 0) : null;
+    } catch (error) {
+      const canTryNextEndpoint = error instanceof ApiError && [404, 405].includes(error.status) && index < movieEndpoints.length - 1;
+      if (!canTryNextEndpoint) throw error;
+    }
+  }
+
+  return null;
 }
 
 export async function getMyMovieList(): Promise<Movie[]> {

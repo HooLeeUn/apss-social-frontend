@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type CSSProperties, type MouseEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
 import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendationsByUsername } from "../../lib/profile-feed/adapters";
+import { getMovieDetailById } from "../../lib/movies";
 import { SocialActivityItem, SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
 import SocialActivityCard from "./SocialActivityCard";
@@ -82,25 +83,8 @@ function FollowedRecommendationsSkeleton() {
   );
 }
 
-function getOptionalRecommendationRating(recommendation: FollowedRecommendation, keys: string[]): number | null | undefined {
-  const ratingSource = recommendation as FollowedRecommendation & Record<string, unknown>;
-
-  for (const key of keys) {
-    const value = ratingSource[key];
-    if (typeof value === "number" || value === null) return value;
-    if (typeof value === "string" && value.trim() !== "") {
-      const parsedValue = Number(value);
-      if (Number.isFinite(parsedValue)) return parsedValue;
-    }
-  }
-
-  return undefined;
-}
-
 function FollowedRecommendationCard({ recommendation }: { recommendation: FollowedRecommendation }) {
   const movieHref = `/movies/${encodeURIComponent(recommendation.id)}`;
-  const followingRating = getOptionalRecommendationRating(recommendation, ["followingAvgRating", "followingRating", "following_avg_rating"]);
-  const myRating = getOptionalRecommendationRating(recommendation, ["myRating", "my_rating", "userRating", "user_rating"]);
 
   return (
     <article
@@ -150,14 +134,14 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
           <dt className="text-zinc-500">Seguidos</dt>
           <dd className="flex items-center gap-1 font-medium text-zinc-200">
             <span aria-hidden="true">👥</span>
-            <span>{formatFollowingRating(followingRating)}</span>
+            <span>{formatFollowingRating(recommendation.followingAvgRating)}</span>
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</dt>
           <dd className="flex items-center gap-1 font-medium text-zinc-100">
             <span aria-hidden="true">🙋</span>
-            <span>{formatMyRating(myRating)}</span>
+            <span>{formatMyRating(recommendation.myRating)}</span>
           </dd>
         </div>
       </dl>
@@ -202,6 +186,7 @@ export default function SocialActivityTabsBlock() {
   const [followedRecommendationsError, setFollowedRecommendationsError] = useState<string | null>(null);
   const followedRecommendationsLoadingRef = useRef(false);
   const followedRecommendationsLoadedRef = useRef(false);
+  const movieRatingCacheRef = useRef<Map<string, Pick<UserMovieRecommendation, "displayRating" | "followingAvgRating" | "myRating">>>(new Map());
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
   const followingActivity = useInfiniteSocialActivity("following");
   const friendsActivity = useInfiniteSocialActivity("friends");
@@ -282,11 +267,51 @@ export default function SocialActivityTabsBlock() {
             recommenderUsername: result.value.username,
           }));
         });
+        const recommendationsByMovieId = new Map<string, FollowedRecommendation>();
+        mergedRecommendations.forEach((recommendation) => {
+          const movieId = String(recommendation.id).trim();
+          if (movieId) recommendationsByMovieId.set(movieId, recommendation);
+        });
+        const movieIdsToFetch = Array.from(recommendationsByMovieId.keys()).filter((movieId) => !movieRatingCacheRef.current.has(movieId));
+
+        const settledMovieRatings = await Promise.allSettled(
+          movieIdsToFetch.map(async (movieId) => {
+            const movie = await getMovieDetailById(movieId);
+            return {
+              movieId,
+              ratings: {
+                displayRating: movie?.displayRating ?? null,
+                followingAvgRating: movie?.followingAvgRating ?? null,
+                myRating: movie?.myRating ?? null,
+              },
+            };
+          }),
+        );
+
+        settledMovieRatings.forEach((result) => {
+          if (result.status === "fulfilled") {
+            movieRatingCacheRef.current.set(result.value.movieId, result.value.ratings);
+          }
+        });
+
+        const enrichedRecommendations = mergedRecommendations.map((recommendation) => {
+          const cachedRatings = movieRatingCacheRef.current.get(String(recommendation.id).trim());
+          if (!cachedRatings) return recommendation;
+
+          return {
+            ...recommendation,
+            displayRating: cachedRatings.displayRating,
+            followingAvgRating: cachedRatings.followingAvgRating,
+            followingRating: cachedRatings.followingAvgRating,
+            myRating: cachedRatings.myRating,
+          };
+        });
         const failedRequests = settledRecommendations.filter((result) => result.status === "rejected").length;
+        const failedRatingRequests = settledMovieRatings.filter((result) => result.status === "rejected").length;
 
         followedRecommendationsLoadedRef.current = true;
-        setFollowedRecommendations(sortFollowedRecommendations(mergedRecommendations));
-        setFollowedRecommendationsError(failedRequests > 0 ? "No pudimos cargar algunas recomendaciones de tus seguidos." : null);
+        setFollowedRecommendations(sortFollowedRecommendations(enrichedRecommendations));
+        setFollowedRecommendationsError(failedRequests > 0 || failedRatingRequests > 0 ? "No pudimos cargar algunas recomendaciones de tus seguidos." : null);
       } catch {
         followedRecommendationsLoadedRef.current = true;
         setFollowedRecommendations([]);
