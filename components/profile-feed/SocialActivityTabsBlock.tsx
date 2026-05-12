@@ -129,7 +129,7 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
         <p className="text-xs text-zinc-400">{recommendation.releaseYear}</p>
       </div>
 
-      <div className="col-start-2 min-w-0 space-y-1 text-xs sm:col-start-2 lg:col-start-auto">
+      <div className="col-start-2 min-w-0 space-y-1 text-xs sm:col-start-2 lg:col-start-auto lg:-ml-4 lg:pr-4">
         <p className="break-words text-zinc-400">
           <span className="font-semibold text-blue-200">Director:</span> {recommendation.director}
         </p>
