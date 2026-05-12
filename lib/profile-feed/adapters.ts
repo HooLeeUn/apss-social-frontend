@@ -158,6 +158,11 @@ function safeTrim(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizeReleaseYear(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return safeTrim(value);
+}
+
 function normalizeOptionalId(value: unknown): string | null {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return safeTrim(value);
@@ -1216,7 +1221,7 @@ function parseUserMovieRecommendations(payload: unknown): UserMovieRecommendatio
         image: safeTrim(pickFirst(item.image, item.poster, item.poster_url, nestedMovie.image, nestedMovie.poster, nestedMovie.poster_url)),
         genre: safeTrim(pickFirst(item.genre, nestedMovie.genre, nestedMovie.genres)) || "-",
         type: safeTrim(pickFirst(item.type, nestedMovie.type)) || "-",
-        releaseYear: String(pickFirst(safeTrim(pickFirst(item.release_year, nestedMovie.release_year)), safeTrim(pickFirst(item.year, nestedMovie.year)), "-")),
+        releaseYear: normalizeReleaseYear(pickFirst(item.release_year, nestedMovie.release_year)) || "—",
         director: safeTrim(pickFirst(item.director, nestedMovie.director, item.director_name, nestedMovie.director_name)) || "-",
         castMembers: safeTrim(pickFirst(item.cast_members, nestedMovie.cast_members, item.cast, nestedMovie.cast)) || "-",
         displayRating,

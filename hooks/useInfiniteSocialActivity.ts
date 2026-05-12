@@ -19,6 +19,7 @@ interface UseInfiniteSocialActivityResult {
   loadingMore: boolean;
   error: string | null;
   hasMore: boolean;
+  loaded: boolean;
   sentinelRef: (node: HTMLDivElement | null) => void;
   reload: () => void;
 }
@@ -168,6 +169,7 @@ export function useInfiniteSocialActivity(tab: SocialTab): UseInfiniteSocialActi
     loadingMore: activeTabState.loadingMore,
     error: activeTabState.error,
     hasMore: Boolean(activeTabState.next),
+    loaded: activeTabState.loaded,
     sentinelRef,
     reload,
   };
