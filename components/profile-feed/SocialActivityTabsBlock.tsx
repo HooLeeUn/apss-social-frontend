@@ -118,7 +118,7 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
       </Link>
 
       <div className="min-w-0 space-y-1">
-        <p className="text-[11px] font-semibold text-blue-200">@{recommendation.recommenderUsername}</p>
+        <p className="text-sm font-semibold text-blue-200">@{recommendation.recommenderUsername}</p>
         <Link href={movieHref} className="block truncate text-base font-semibold text-zinc-100 hover:text-blue-200">
           {recommendation.titleEnglish}
         </Link>
