@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
 import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendationsByUsername } from "../../lib/profile-feed/adapters";
 import { SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
@@ -145,7 +145,8 @@ export default function SocialActivityTabsBlock() {
   const [followedRecommendations, setFollowedRecommendations] = useState<FollowedRecommendation[]>([]);
   const [followedRecommendationsLoading, setFollowedRecommendationsLoading] = useState(false);
   const [followedRecommendationsError, setFollowedRecommendationsError] = useState<string | null>(null);
-  const [followedRecommendationsLoaded, setFollowedRecommendationsLoaded] = useState(false);
+  const followedRecommendationsLoadingRef = useRef(false);
+  const followedRecommendationsLoadedRef = useRef(false);
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
   const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activityTab);
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
@@ -192,50 +193,56 @@ export default function SocialActivityTabsBlock() {
     });
   }, [authenticatedId, authenticatedUsername, followingUsers]);
 
+
   useEffect(() => {
     if (!isRecommendationsActive) return;
     if (!authenticatedUserLoaded || !followingUsersLoaded) return;
-    if (followedRecommendationsLoaded || followedRecommendationsLoading) return;
-
-    let cancelled = false;
+    if (followedRecommendationsLoadedRef.current || followedRecommendationsLoadingRef.current) return;
 
     const loadFollowedRecommendations = async () => {
+      followedRecommendationsLoadingRef.current = true;
       setFollowedRecommendationsLoading(true);
       setFollowedRecommendationsError(null);
 
-      const settledRecommendations = await Promise.all(
-        eligibleFollowingUsers.map(async (user) => {
-          try {
+      try {
+        if (eligibleFollowingUsers.length === 0) {
+          followedRecommendationsLoadedRef.current = true;
+          setFollowedRecommendations([]);
+          return;
+        }
+
+        const settledRecommendations = await Promise.allSettled(
+          eligibleFollowingUsers.map(async (user) => {
             const recommendations = await getUserMovieRecommendationsByUsername(user.username);
-            return { status: "fulfilled" as const, username: user.username, recommendations };
-          } catch {
-            return { status: "rejected" as const, username: user.username, recommendations: [] as UserMovieRecommendation[] };
-          }
-        }),
-      );
+            return { username: user.username, recommendations };
+          }),
+        );
 
-      if (cancelled) return;
+        const mergedRecommendations = settledRecommendations.flatMap((result) => {
+          if (result.status === "rejected") return [];
 
-      const mergedRecommendations = settledRecommendations.flatMap((result) =>
-        result.recommendations.map((recommendation) => ({
-          ...recommendation,
-          recommenderUsername: result.username,
-        })),
-      );
-      const failedRequests = settledRecommendations.filter((result) => result.status === "rejected").length;
+          return result.value.recommendations.map((recommendation) => ({
+            ...recommendation,
+            recommenderUsername: result.value.username,
+          }));
+        });
+        const failedRequests = settledRecommendations.filter((result) => result.status === "rejected").length;
 
-      setFollowedRecommendations(sortFollowedRecommendations(mergedRecommendations));
-      setFollowedRecommendationsLoaded(true);
-      setFollowedRecommendationsError(failedRequests > 0 ? "No pudimos cargar algunas recomendaciones de tus seguidos." : null);
-      setFollowedRecommendationsLoading(false);
+        followedRecommendationsLoadedRef.current = true;
+        setFollowedRecommendations(sortFollowedRecommendations(mergedRecommendations));
+        setFollowedRecommendationsError(failedRequests > 0 ? "No pudimos cargar algunas recomendaciones de tus seguidos." : null);
+      } catch {
+        followedRecommendationsLoadedRef.current = true;
+        setFollowedRecommendations([]);
+        setFollowedRecommendationsError("No pudimos cargar las recomendaciones de tus seguidos.");
+      } finally {
+        followedRecommendationsLoadingRef.current = false;
+        setFollowedRecommendationsLoading(false);
+      }
     };
 
     void loadFollowedRecommendations();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authenticatedUserLoaded, eligibleFollowingUsers, followedRecommendationsLoaded, followedRecommendationsLoading, followingUsersLoaded, isRecommendationsActive]);
+  }, [authenticatedUserLoaded, eligibleFollowingUsers, followingUsersLoaded, isRecommendationsActive]);
 
   const filteredFollowedRecommendations = useMemo(() => {
     const normalizedQuery = followedRecommendationQuery.trim().toLocaleLowerCase();
