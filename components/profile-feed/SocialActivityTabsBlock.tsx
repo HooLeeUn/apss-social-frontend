@@ -5,6 +5,7 @@ import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useR
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
 import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendationsByUsername } from "../../lib/profile-feed/adapters";
 import { SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
+import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
 import SocialActivityCard from "./SocialActivityCard";
 
 type InteractionsTab = SocialTab | "recommendations";
@@ -81,11 +82,32 @@ function FollowedRecommendationsSkeleton() {
   );
 }
 
+function getOptionalRecommendationRating(recommendation: FollowedRecommendation, keys: string[]): number | null | undefined {
+  const ratingSource = recommendation as FollowedRecommendation & Record<string, unknown>;
+
+  for (const key of keys) {
+    const value = ratingSource[key];
+    if (typeof value === "number" || value === null) return value;
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsedValue = Number(value);
+      if (Number.isFinite(parsedValue)) return parsedValue;
+    }
+  }
+
+  return undefined;
+}
+
 function FollowedRecommendationCard({ recommendation }: { recommendation: FollowedRecommendation }) {
   const movieHref = `/movies/${encodeURIComponent(recommendation.id)}`;
+  const followingRating = getOptionalRecommendationRating(recommendation, ["followingRating", "followingAvgRating", "following_avg_rating"]);
+  const myRating = getOptionalRecommendationRating(recommendation, ["myRating", "my_rating"]);
 
   return (
-    <article className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)]" role="option" aria-selected="false">
+    <article
+      className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[72px_minmax(10rem,1fr)_minmax(12rem,1.15fr)_minmax(7rem,auto)] lg:items-start"
+      role="option"
+      aria-selected="false"
+    >
       <Link href={movieHref} className="h-24 w-16 overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80 transition hover:border-blue-300/60 sm:h-[108px] sm:w-[72px]">
         {recommendation.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -94,6 +116,7 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
           <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">Sin poster</span>
         )}
       </Link>
+
       <div className="min-w-0 space-y-1">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-200">@{recommendation.recommenderUsername}</p>
         <Link href={movieHref} className="block truncate text-base font-semibold text-zinc-100 hover:text-blue-200">
@@ -102,10 +125,42 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
         <Link href={movieHref} className="block truncate text-sm text-zinc-400 hover:text-blue-200">
           {recommendation.titleSpanish}
         </Link>
-        <p className="text-xs text-zinc-300">{recommendation.releaseYear} · {recommendation.type} · {recommendation.genre}</p>
-        <p className="truncate text-xs text-zinc-400">Director: {recommendation.director}</p>
-        <p className="line-clamp-2 text-xs text-zinc-500">Casting: {recommendation.castMembers}</p>
+        <p className="text-xs text-zinc-300">{recommendation.type} · {recommendation.genre}</p>
+        <p className="text-xs text-zinc-400">{recommendation.releaseYear}</p>
       </div>
+
+      <div className="col-start-2 min-w-0 space-y-1 text-xs sm:col-start-2 lg:col-start-auto">
+        <p className="break-words text-zinc-400">
+          <span className="font-semibold text-blue-200">Director:</span> {recommendation.director}
+        </p>
+        <p className="line-clamp-3 break-words text-zinc-400">
+          <span className="font-semibold text-blue-200">Casting:</span> {recommendation.castMembers}
+        </p>
+      </div>
+
+      <dl className="col-start-2 min-w-[7rem] space-y-2 text-xs sm:col-start-2 lg:col-start-auto lg:justify-self-end">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-zinc-500">General</dt>
+          <dd className="flex items-center gap-1 font-medium text-zinc-200">
+            <span aria-hidden="true">⭐</span>
+            <span>{formatAverageRating(recommendation.displayRating)}</span>
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-zinc-500">Seguidos</dt>
+          <dd className="flex items-center gap-1 font-medium text-zinc-200">
+            <span aria-hidden="true">👥</span>
+            <span>{formatFollowingRating(followingRating)}</span>
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</dt>
+          <dd className="flex items-center gap-1 font-medium text-zinc-100">
+            <span aria-hidden="true">🙋</span>
+            <span>{formatMyRating(myRating)}</span>
+          </dd>
+        </div>
+      </dl>
     </article>
   );
 }
