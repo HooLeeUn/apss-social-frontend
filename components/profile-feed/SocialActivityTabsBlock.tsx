@@ -1,9 +1,10 @@
 "use client";
 
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
-import { getMyProfile, getTopFollowing, getTopFriends } from "../../lib/profile-feed/adapters";
-import { SocialTab } from "../../lib/profile-feed/types";
+import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendationsByUsername } from "../../lib/profile-feed/adapters";
+import { SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
 import SocialActivityCard from "./SocialActivityCard";
 
 type InteractionsTab = SocialTab | "recommendations";
@@ -22,6 +23,92 @@ const activityTabsLayoutStyle = {
   "--activity-slot-width": "clamp(5.5rem, 13vw, 7.75rem)",
   "--activity-tab-gap": "clamp(1rem, 5vw, 3.5rem)",
 } as CSSProperties;
+
+
+type FollowedRecommendation = UserMovieRecommendation & {
+  recommenderUsername: string;
+};
+
+const FOLLOWED_RECOMMENDATIONS_BATCH_SIZE = 15;
+const INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT = 25;
+
+function getRecommendationRating(recommendation: UserMovieRecommendation): number {
+  return typeof recommendation.displayRating === "number" && Number.isFinite(recommendation.displayRating) ? recommendation.displayRating : -Infinity;
+}
+
+function getRecommendationTimestamp(recommendation: UserMovieRecommendation): number {
+  const candidate = recommendation.createdAt || recommendation.updatedAt || recommendation.recommendedAt;
+  if (!candidate) return Number.NEGATIVE_INFINITY;
+  const timestamp = new Date(candidate).getTime();
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+}
+
+function getRecommendationIdScore(recommendation: UserMovieRecommendation): number {
+  const idAsNumber = Number(recommendation.id);
+  return Number.isFinite(idAsNumber) ? idAsNumber : 0;
+}
+
+function sortFollowedRecommendations(recommendations: FollowedRecommendation[]): FollowedRecommendation[] {
+  return [...recommendations].sort((left, right) => {
+    const ratingDifference = getRecommendationRating(right) - getRecommendationRating(left);
+    if (ratingDifference !== 0) return ratingDifference;
+
+    const recencyDifference = getRecommendationTimestamp(right) - getRecommendationTimestamp(left);
+    if (recencyDifference !== 0) return recencyDifference;
+
+    return getRecommendationIdScore(right) - getRecommendationIdScore(left);
+  });
+}
+
+function FollowedRecommendationsSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={`followed-recommendation-skeleton-${index}`} className="animate-pulse rounded-2xl border border-white/10 bg-zinc-950/70 p-3">
+          <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
+            <div className="h-24 rounded-lg bg-zinc-800" />
+            <div className="space-y-2">
+              <div className="h-3 w-24 rounded bg-zinc-800" />
+              <div className="h-4 w-3/4 rounded bg-zinc-800" />
+              <div className="h-3 w-2/3 rounded bg-zinc-900" />
+              <div className="h-3 w-full rounded bg-zinc-900" />
+              <div className="h-3 w-4/5 rounded bg-zinc-900" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FollowedRecommendationCard({ recommendation }: { recommendation: FollowedRecommendation }) {
+  const movieHref = `/movies/${encodeURIComponent(recommendation.id)}`;
+
+  return (
+    <article className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)]" role="option" aria-selected="false">
+      <Link href={movieHref} className="h-24 w-16 overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80 transition hover:border-blue-300/60 sm:h-[108px] sm:w-[72px]">
+        {recommendation.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={recommendation.image} alt={`Poster de ${recommendation.titleSpanish}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">Sin poster</span>
+        )}
+      </Link>
+      <div className="min-w-0 space-y-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-200">@{recommendation.recommenderUsername}</p>
+        <Link href={movieHref} className="block truncate text-base font-semibold text-zinc-100 hover:text-blue-200">
+          {recommendation.titleEnglish}
+        </Link>
+        <Link href={movieHref} className="block truncate text-sm text-zinc-400 hover:text-blue-200">
+          {recommendation.titleSpanish}
+        </Link>
+        <p className="text-xs text-zinc-300">{recommendation.releaseYear} · {recommendation.type} · {recommendation.genre}</p>
+        <p className="truncate text-xs text-zinc-400">Director: {recommendation.director}</p>
+        <p className="line-clamp-2 text-xs text-zinc-500">Casting: {recommendation.castMembers}</p>
+      </div>
+    </article>
+  );
+}
 
 function SocialActivitySkeleton() {
   return (
@@ -47,10 +134,19 @@ export default function SocialActivityTabsBlock() {
   const [activityTab, setActivityTab] = useState<SocialTab>("following");
   const [authenticatedUsername, setAuthenticatedUsername] = useState<string | null>(null);
   const [authenticatedId, setAuthenticatedId] = useState<string | null>(null);
+  const [authenticatedUserLoaded, setAuthenticatedUserLoaded] = useState(false);
+  const [followingUsers, setFollowingUsers] = useState<SocialUser[]>([]);
+  const [followingUsersLoaded, setFollowingUsersLoaded] = useState(false);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [followingUsernames, setFollowingUsernames] = useState<Set<string>>(new Set());
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const [friendUsernames, setFriendUsernames] = useState<Set<string>>(new Set());
+  const [followedRecommendationQuery, setFollowedRecommendationQuery] = useState("");
+  const [followedRecommendations, setFollowedRecommendations] = useState<FollowedRecommendation[]>([]);
+  const [followedRecommendationsLoading, setFollowedRecommendationsLoading] = useState(false);
+  const [followedRecommendationsError, setFollowedRecommendationsError] = useState<string | null>(null);
+  const [followedRecommendationsLoaded, setFollowedRecommendationsLoaded] = useState(false);
+  const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
   const { items, loading, loadingMore, error, hasMore, sentinelRef, reload } = useInfiniteSocialActivity(activityTab);
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
   const isRecommendationsActive = activeTab === "recommendations";
@@ -60,6 +156,7 @@ export default function SocialActivityTabsBlock() {
       const profile = await getMyProfile().catch(() => null);
       setAuthenticatedUsername(profile?.username?.trim().toLocaleLowerCase() || null);
       setAuthenticatedId(profile?.id ? String(profile.id).trim() : null);
+      setAuthenticatedUserLoaded(true);
     };
 
     void loadAuthenticatedUser();
@@ -69,13 +166,99 @@ export default function SocialActivityTabsBlock() {
     const loadRelationshipSets = async () => {
       const [following, friends] = await Promise.all([getTopFollowing().catch(() => []), getTopFriends().catch(() => [])]);
 
+      setFollowingUsers(following);
       setFollowingIds(new Set(following.map((user) => String(user?.id ?? "").trim()).filter(Boolean)));
       setFollowingUsernames(new Set(following.map((user) => user?.username?.trim().toLocaleLowerCase() || "").filter(Boolean)));
       setFriendIds(new Set(friends.map((user) => String(user?.id ?? "").trim()).filter(Boolean)));
       setFriendUsernames(new Set(friends.map((user) => user?.username?.trim().toLocaleLowerCase() || "").filter(Boolean)));
+      setFollowingUsersLoaded(true);
     };
 
     void loadRelationshipSets();
+  }, []);
+
+  const eligibleFollowingUsers = useMemo(() => {
+    const normalizedAuthenticatedUsername = authenticatedUsername?.trim().toLocaleLowerCase();
+    const normalizedAuthenticatedId = authenticatedId?.trim();
+
+    return followingUsers.filter((user) => {
+      const username = user.username?.trim();
+      if (!username) return false;
+      const normalizedUsername = username.toLocaleLowerCase();
+      const id = String(user.id ?? "").trim();
+      if (normalizedAuthenticatedUsername && normalizedUsername === normalizedAuthenticatedUsername) return false;
+      if (normalizedAuthenticatedId && id === normalizedAuthenticatedId) return false;
+      return true;
+    });
+  }, [authenticatedId, authenticatedUsername, followingUsers]);
+
+  useEffect(() => {
+    if (!isRecommendationsActive) return;
+    if (!authenticatedUserLoaded || !followingUsersLoaded) return;
+    if (followedRecommendationsLoaded || followedRecommendationsLoading) return;
+
+    let cancelled = false;
+
+    const loadFollowedRecommendations = async () => {
+      setFollowedRecommendationsLoading(true);
+      setFollowedRecommendationsError(null);
+
+      const settledRecommendations = await Promise.all(
+        eligibleFollowingUsers.map(async (user) => {
+          try {
+            const recommendations = await getUserMovieRecommendationsByUsername(user.username);
+            return { status: "fulfilled" as const, username: user.username, recommendations };
+          } catch {
+            return { status: "rejected" as const, username: user.username, recommendations: [] as UserMovieRecommendation[] };
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      const mergedRecommendations = settledRecommendations.flatMap((result) =>
+        result.recommendations.map((recommendation) => ({
+          ...recommendation,
+          recommenderUsername: result.username,
+        })),
+      );
+      const failedRequests = settledRecommendations.filter((result) => result.status === "rejected").length;
+
+      setFollowedRecommendations(sortFollowedRecommendations(mergedRecommendations));
+      setFollowedRecommendationsLoaded(true);
+      setFollowedRecommendationsError(failedRequests > 0 ? "No pudimos cargar algunas recomendaciones de tus seguidos." : null);
+      setFollowedRecommendationsLoading(false);
+    };
+
+    void loadFollowedRecommendations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticatedUserLoaded, eligibleFollowingUsers, followedRecommendationsLoaded, followedRecommendationsLoading, followingUsersLoaded, isRecommendationsActive]);
+
+  const filteredFollowedRecommendations = useMemo(() => {
+    const normalizedQuery = followedRecommendationQuery.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return followedRecommendations;
+
+    return followedRecommendations.filter((recommendation) =>
+      recommendation.recommenderUsername.toLocaleLowerCase().includes(normalizedQuery),
+    );
+  }, [followedRecommendationQuery, followedRecommendations]);
+
+  const visibleFollowedRecommendations = useMemo(
+    () => filteredFollowedRecommendations.slice(0, visibleRecommendationsLimit),
+    [filteredFollowedRecommendations, visibleRecommendationsLimit],
+  );
+
+  const hasMoreFollowedRecommendations = visibleRecommendationsLimit < filteredFollowedRecommendations.length;
+
+  const handleFollowedRecommendationsScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    const remainingDistance = target.scrollHeight - target.scrollTop - target.clientHeight;
+    if (remainingDistance > 96) return;
+
+    setVisibleRecommendationsLimit((currentLimit) => currentLimit + FOLLOWED_RECOMMENDATIONS_BATCH_SIZE);
   }, []);
 
   const visibleItems = useMemo(
@@ -191,8 +374,52 @@ export default function SocialActivityTabsBlock() {
 
       <div className="px-4 pt-5">
         {isRecommendationsActive ? (
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 px-4 py-8 text-center shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
-            <p className="text-sm font-medium text-zinc-300">Próximamente verás recomendaciones aquí.</p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-start">
+              <input
+                type="search"
+                value={followedRecommendationQuery}
+                onChange={(event) => {
+                  setFollowedRecommendationQuery(event.target.value);
+                  setVisibleRecommendationsLimit(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
+                }}
+                placeholder="Buscar usuario"
+                aria-label="Buscar recomendaciones por usuario seguido"
+                className="h-9 w-44 rounded-full border border-white/15 bg-zinc-900/75 px-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
+              />
+            </div>
+
+            <div
+              className="activity-scrollbar max-h-[39rem] overflow-y-auto pr-2"
+              role="listbox"
+              aria-label="Recomendadas de Seguidos"
+              onScroll={handleFollowedRecommendationsScroll}
+            >
+              <div className="space-y-3">
+                {followedRecommendationsLoading ? <FollowedRecommendationsSkeleton /> : null}
+
+                {!followedRecommendationsLoading && followedRecommendationsError ? (
+                  <p className="rounded-2xl border border-amber-300/25 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
+                    {followedRecommendationsError}
+                  </p>
+                ) : null}
+
+                {!followedRecommendationsLoading && visibleFollowedRecommendations.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/60 px-4 py-8 text-center shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
+                    <p className="text-sm font-medium text-zinc-300">Aún no hay recomendaciones de tus seguidos.</p>
+                  </div>
+                ) : null}
+
+                {visibleFollowedRecommendations.map((recommendation) => (
+                  <FollowedRecommendationCard
+                    key={`${recommendation.recommenderUsername}-${recommendation.id}`}
+                    recommendation={recommendation}
+                  />
+                ))}
+
+                {hasMoreFollowedRecommendations ? <p className="py-2 text-center text-xs text-zinc-500">Desplázate para ver más recomendaciones.</p> : null}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="activity-scrollbar max-h-[49rem] overflow-y-auto pr-2" role="listbox" aria-label={`Actividad de ${activeTabMeta.label}`}>

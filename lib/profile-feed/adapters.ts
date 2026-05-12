@@ -1194,17 +1194,37 @@ function parseUserMovieRecommendations(payload: unknown): UserMovieRecommendatio
   return collection
     .map((item) => toRecord(item))
     .filter((item): item is Record<string, unknown> => Boolean(item))
-    .map((item) => ({
-      id: String(pickFirst(item.id, item.movie_id, "")),
-      titleSpanish: safeTrim(item.title_spanish) || "Sin título",
-      titleEnglish: safeTrim(item.title_english) || "Sin título en inglés",
-      image: safeTrim(item.image),
-      genre: safeTrim(item.genre) || "-",
-      type: safeTrim(item.type) || "-",
-      releaseYear: String(pickFirst(safeTrim(item.release_year), safeTrim(item.year), "-")),
-      director: safeTrim(item.director) || "-",
-      castMembers: safeTrim(item.cast_members) || "-",
-    }))
+    .map((item) => {
+      const nestedMovie = toRecord(item.movie) ?? item;
+      const displayRating = toNumberOrNull(
+        pickFirst(
+          item.display_rating,
+          item.general_rating,
+          item.rating,
+          item.external_rating,
+          nestedMovie.display_rating,
+          nestedMovie.general_rating,
+          nestedMovie.rating,
+          nestedMovie.external_rating,
+        ),
+      );
+
+      return {
+        id: String(pickFirst(nestedMovie.id, nestedMovie.movie_id, item.movie_id, item.id, "")),
+        titleSpanish: safeTrim(pickFirst(item.title_spanish, nestedMovie.title_spanish)) || "Sin título",
+        titleEnglish: safeTrim(pickFirst(item.title_english, nestedMovie.title_english)) || "Sin título en inglés",
+        image: safeTrim(pickFirst(item.image, item.poster, item.poster_url, nestedMovie.image, nestedMovie.poster, nestedMovie.poster_url)),
+        genre: safeTrim(pickFirst(item.genre, nestedMovie.genre, nestedMovie.genres)) || "-",
+        type: safeTrim(pickFirst(item.type, nestedMovie.type)) || "-",
+        releaseYear: String(pickFirst(safeTrim(pickFirst(item.release_year, nestedMovie.release_year)), safeTrim(pickFirst(item.year, nestedMovie.year)), "-")),
+        director: safeTrim(pickFirst(item.director, nestedMovie.director, item.director_name, nestedMovie.director_name)) || "-",
+        castMembers: safeTrim(pickFirst(item.cast_members, nestedMovie.cast_members, item.cast, nestedMovie.cast)) || "-",
+        displayRating,
+        createdAt: safeTrim(pickFirst(item.created_at, nestedMovie.created_at)),
+        updatedAt: safeTrim(pickFirst(item.updated_at, nestedMovie.updated_at)),
+        recommendedAt: safeTrim(pickFirst(item.recommended_at, item.created_at, nestedMovie.recommended_at)),
+      };
+    })
     .filter((item) => item.id.trim() !== "");
 }
 

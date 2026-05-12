@@ -62,6 +62,10 @@ export interface UserMovieRecommendation {
   releaseYear: string;
   director: string;
   castMembers: string;
+  displayRating?: number | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  recommendedAt?: string | null;
 }
 
 export type FriendshipStatus = "none" | "sent_pending" | "received_pending" | "friends" | "self";
