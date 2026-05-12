@@ -107,12 +107,12 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
                   <Link
                     href={profileHref}
                     onClick={(event) => event.stopPropagation()}
-                    className="cursor-pointer text-sm font-semibold text-zinc-100 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
+                    className="cursor-pointer text-sm font-semibold text-blue-200 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
                   >
                     @{item.user.username}
                   </Link>
                 ) : (
-                  <p className="text-sm font-semibold text-zinc-100">@{item.user.username}</p>
+                  <p className="text-sm font-semibold text-blue-200">@{item.user.username}</p>
                 )}
                 <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
                   {formatRelativeDate(item.createdAt)}
