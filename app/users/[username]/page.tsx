@@ -303,6 +303,7 @@ export default function UserProfileFeedPage() {
               genderIdentityVisible={profileUser?.genderIdentityVisible}
               appBranding={branding}
               logoSlot="visited_profile_logo_url"
+              autoHeight
             />
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
