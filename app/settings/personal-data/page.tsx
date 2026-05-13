@@ -46,11 +46,13 @@ class AvatarUploadError extends Error {
   }
 }
 
+const PREFER_NOT_TO_SAY_GENDER: GenderIdentity = "prefer_not_to_say";
+
 const genderOptions: Array<{ value: GenderIdentity; label: string }> = [
   { value: "male", label: "Hombre" },
   { value: "female", label: "Mujer" },
   { value: "non_binary", label: "No binario" },
-  { value: "prefer_not_to_say", label: "Prefiero no decirlo" },
+  { value: PREFER_NOT_TO_SAY_GENDER, label: "Prefiero no decirlo" },
 ];
 
 const inputClassName =
@@ -65,15 +67,17 @@ const birthDateConfirmationCopy = "Esta fecha no podrá modificarse después de 
 function toFormState(data: PersonalData): FormState {
   const derivedAge = data.birth_date ? getAgeFromBirthDate(data.birth_date) : data.age;
 
+  const genderIdentity = data.gender_identity ?? "";
+
   return {
     first_name: data.first_name,
     last_name: data.last_name,
     email: data.email,
     birth_date: data.birth_date ?? "",
     age: derivedAge !== null ? String(derivedAge) : "",
-    gender_identity: data.gender_identity ?? "",
+    gender_identity: genderIdentity,
     birth_date_visible: data.birth_date_visible ? "yes" : "no",
-    gender_identity_visible: data.gender_identity_visible ? "yes" : "no",
+    gender_identity_visible: genderIdentity === PREFER_NOT_TO_SAY_GENDER ? "no" : data.gender_identity_visible ? "yes" : "no",
   };
 }
 
@@ -102,6 +106,7 @@ export default function PersonalDataPage() {
   });
 
   const pendingBirthDateAge = useMemo(() => getAgeFromBirthDate(form.birth_date), [form.birth_date]);
+  const isGenderVisibilityLocked = form.gender_identity === PREFER_NOT_TO_SAY_GENDER;
 
   useEffect(() => {
     if (!avatarFile) {
@@ -152,6 +157,12 @@ export default function PersonalDataPage() {
   const updateField = <K extends keyof FormState>(field: K, value: FormState[K]) => {
     setForm((current) => {
       const next = { ...current, [field]: value };
+      if (field === "gender_identity") {
+        next.gender_identity_visible = value === PREFER_NOT_TO_SAY_GENDER ? "no" : current.gender_identity_visible;
+      }
+      if (field === "gender_identity_visible" && current.gender_identity === PREFER_NOT_TO_SAY_GENDER) {
+        next.gender_identity_visible = "no";
+      }
       if (field === "birth_date") {
         const recalculatedAge = getAgeFromBirthDate(String(value));
         next.age = recalculatedAge !== null ? String(recalculatedAge) : "";
@@ -198,7 +209,7 @@ export default function PersonalDataPage() {
       birth_date: form.birth_date ? form.birth_date : null,
       birth_date_visible: form.birth_date_visible === "yes",
       gender_identity: form.gender_identity || null,
-      gender_identity_visible: form.gender_identity_visible === "yes",
+      gender_identity_visible: !isGenderVisibilityLocked && form.gender_identity_visible === "yes",
     };
 
     const updatedPersonalData = await updatePersonalData(payload);
@@ -449,8 +460,9 @@ export default function PersonalDataPage() {
                 <select
                   id="gender-visible"
                   value={form.gender_identity_visible}
+                  disabled={isGenderVisibilityLocked}
                   onChange={(event) => updateField("gender_identity_visible", event.target.value as VisibilityOption)}
-                  className={inputClassName}
+                  className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-65`}
                 >
                   <option value="yes">Sí</option>
                   <option value="no">No</option>
