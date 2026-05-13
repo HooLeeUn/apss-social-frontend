@@ -61,6 +61,7 @@ const fileTriggerClassName =
 const lockedBirthDateCopy = "La fecha de nacimiento ya fue confirmada y no puede modificarse.";
 const minorBirthDateError = `Debes tener al menos ${MINIMUM_AGE} años para registrarte.`;
 const birthDateConfirmationCopy = "Esta fecha no podrá modificarse después de crear la cuenta.";
+const privateGenderIdentity: GenderIdentity = "prefer_not_to_say";
 
 function toFormState(data: PersonalData): FormState {
   const derivedAge = data.birth_date ? getAgeFromBirthDate(data.birth_date) : data.age;
@@ -73,7 +74,7 @@ function toFormState(data: PersonalData): FormState {
     age: derivedAge !== null ? String(derivedAge) : "",
     gender_identity: data.gender_identity ?? "",
     birth_date_visible: data.birth_date_visible ? "yes" : "no",
-    gender_identity_visible: data.gender_identity_visible ? "yes" : "no",
+    gender_identity_visible: data.gender_identity === privateGenderIdentity ? "no" : data.gender_identity_visible ? "yes" : "no",
   };
 }
 
@@ -102,6 +103,7 @@ export default function PersonalDataPage() {
   });
 
   const pendingBirthDateAge = useMemo(() => getAgeFromBirthDate(form.birth_date), [form.birth_date]);
+  const isGenderIdentityPrivate = form.gender_identity === privateGenderIdentity;
 
   useEffect(() => {
     if (!avatarFile) {
@@ -156,6 +158,12 @@ export default function PersonalDataPage() {
         const recalculatedAge = getAgeFromBirthDate(String(value));
         next.age = recalculatedAge !== null ? String(recalculatedAge) : "";
       }
+      if (field === "gender_identity" && value === privateGenderIdentity) {
+        next.gender_identity_visible = "no";
+      }
+      if (field === "gender_identity_visible" && current.gender_identity === privateGenderIdentity) {
+        next.gender_identity_visible = "no";
+      }
       return next;
     });
 
@@ -198,7 +206,7 @@ export default function PersonalDataPage() {
       birth_date: form.birth_date ? form.birth_date : null,
       birth_date_visible: form.birth_date_visible === "yes",
       gender_identity: form.gender_identity || null,
-      gender_identity_visible: form.gender_identity_visible === "yes",
+      gender_identity_visible: isGenderIdentityPrivate ? false : form.gender_identity_visible === "yes",
     };
 
     const updatedPersonalData = await updatePersonalData(payload);
@@ -448,9 +456,10 @@ export default function PersonalDataPage() {
                 </label>
                 <select
                   id="gender-visible"
-                  value={form.gender_identity_visible}
+                  value={isGenderIdentityPrivate ? "no" : form.gender_identity_visible}
+                  disabled={isGenderIdentityPrivate}
                   onChange={(event) => updateField("gender_identity_visible", event.target.value as VisibilityOption)}
-                  className={inputClassName}
+                  className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-65`}
                 >
                   <option value="yes">Sí</option>
                   <option value="no">No</option>
