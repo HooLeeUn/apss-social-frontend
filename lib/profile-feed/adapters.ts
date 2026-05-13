@@ -1006,6 +1006,17 @@ export async function getFavoriteMovies(): Promise<FavoriteMovie[]> {
   }
 }
 
+function splitFullName(value: unknown): { firstName: string | null; lastName: string | null } {
+  const normalized = safeTrim(value);
+  if (!normalized) return { firstName: null, lastName: null };
+
+  const [firstName, ...lastNameParts] = normalized.split(/\s+/);
+  return {
+    firstName: safeTrim(firstName),
+    lastName: safeTrim(lastNameParts.join(" ")),
+  };
+}
+
 function toSocialUser(user: Record<string, unknown>, fallbackId: string): SocialUser | null {
   const nestedUser = toRecord(user.user);
   const username = safeTrim(
@@ -1013,34 +1024,76 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
   );
   if (!username) return null;
   const profile = toRecord(user.profile) ?? toRecord(nestedUser?.profile);
+  const profilePersonalData = toRecord(profile?.personal_data) ?? toRecord(profile?.personalData);
+  const nestedProfile = toRecord(nestedUser?.profile);
+  const nestedProfilePersonalData =
+    toRecord(nestedProfile?.personal_data) ?? toRecord(nestedProfile?.personalData);
   const personalData =
     toRecord(user.personal_data) ??
     toRecord(user.personalData) ??
+    profilePersonalData ??
     toRecord(nestedUser?.personal_data) ??
-    toRecord(nestedUser?.personalData);
+    toRecord(nestedUser?.personalData) ??
+    nestedProfilePersonalData;
   const friendship = toRecord(user.friendship) || toRecord(profile?.friendship);
+  const displayName = safeTrim(
+    pickFirst(
+      user.display_name,
+      user.displayName,
+      user.full_name,
+      user.fullName,
+      user.name,
+      profile?.display_name,
+      profile?.displayName,
+      profile?.full_name,
+      profile?.fullName,
+      personalData?.display_name,
+      personalData?.displayName,
+      personalData?.full_name,
+      personalData?.fullName,
+      personalData?.name,
+      nestedUser?.display_name,
+      nestedUser?.displayName,
+      nestedUser?.full_name,
+      nestedUser?.fullName,
+      nestedUser?.name,
+    ),
+  );
+  const derivedName =
+    displayName && displayName.toLocaleLowerCase() !== username.toLocaleLowerCase()
+      ? splitFullName(displayName)
+      : { firstName: null, lastName: null };
+  const firstName = safeTrim(
+    pickFirst(
+      user.first_name,
+      user.firstName,
+      profile?.first_name,
+      profile?.firstName,
+      personalData?.first_name,
+      personalData?.firstName,
+      nestedUser?.first_name,
+      nestedUser?.firstName,
+      derivedName.firstName,
+    ),
+  );
+  const lastName = safeTrim(
+    pickFirst(
+      user.last_name,
+      user.lastName,
+      profile?.last_name,
+      profile?.lastName,
+      personalData?.last_name,
+      personalData?.lastName,
+      nestedUser?.last_name,
+      nestedUser?.lastName,
+      derivedName.lastName,
+    ),
+  );
 
   return {
     id: String(pickFirst(user.id, user.user_id, nestedUser?.id, nestedUser?.user_id, fallbackId)),
     username,
-    displayName: safeTrim(
-      pickFirst(
-        user.display_name,
-        user.displayName,
-        user.full_name,
-        user.fullName,
-        user.name,
-        profile?.display_name,
-        profile?.displayName,
-        profile?.full_name,
-        profile?.fullName,
-        nestedUser?.display_name,
-        nestedUser?.displayName,
-        nestedUser?.full_name,
-        nestedUser?.fullName,
-        nestedUser?.name,
-      ),
-    ),
+    displayName,
     avatarUrl: safeTrim(
       pickFirst(
         user.avatar,
@@ -1054,30 +1107,8 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
       ),
     ),
     followersCount: resolveFollowersCount(user),
-    firstName: safeTrim(
-      pickFirst(
-        user.first_name,
-        user.firstName,
-        profile?.first_name,
-        profile?.firstName,
-        personalData?.first_name,
-        personalData?.firstName,
-        nestedUser?.first_name,
-        nestedUser?.firstName,
-      ),
-    ),
-    lastName: safeTrim(
-      pickFirst(
-        user.last_name,
-        user.lastName,
-        profile?.last_name,
-        profile?.lastName,
-        personalData?.last_name,
-        personalData?.lastName,
-        nestedUser?.last_name,
-        nestedUser?.lastName,
-      ),
-    ),
+    firstName,
+    lastName,
     age: toNumberOrNull(pickFirst(user.age, profile?.age, personalData?.age)),
     ageVisible: toBooleanOrNull(
       pickFirst(user.birth_date_visible, user.age_visible, profile?.birth_date_visible, personalData?.birth_date_visible),
