@@ -61,9 +61,13 @@ const fileTriggerClassName =
 const lockedBirthDateCopy = "La fecha de nacimiento ya fue confirmada y no puede modificarse.";
 const minorBirthDateError = `Debes tener al menos ${MINIMUM_AGE} años para registrarte.`;
 const birthDateConfirmationCopy = "Esta fecha no podrá modificarse después de crear la cuenta.";
+const preferNotToSayGender: GenderIdentity = "prefer_not_to_say";
+const hiddenVisibilityOption: VisibilityOption = "no";
 
 function toFormState(data: PersonalData): FormState {
   const derivedAge = data.birth_date ? getAgeFromBirthDate(data.birth_date) : data.age;
+  const genderIdentityVisibility =
+    data.gender_identity === preferNotToSayGender ? hiddenVisibilityOption : data.gender_identity_visible ? "yes" : "no";
 
   return {
     first_name: data.first_name,
@@ -73,7 +77,7 @@ function toFormState(data: PersonalData): FormState {
     age: derivedAge !== null ? String(derivedAge) : "",
     gender_identity: data.gender_identity ?? "",
     birth_date_visible: data.birth_date_visible ? "yes" : "no",
-    gender_identity_visible: data.gender_identity_visible ? "yes" : "no",
+    gender_identity_visible: genderIdentityVisibility,
   };
 }
 
@@ -82,6 +86,7 @@ export default function PersonalDataPage() {
   const branding = useAppBranding();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [birthDateLocked, setBirthDateLocked] = useState(false);
@@ -102,6 +107,7 @@ export default function PersonalDataPage() {
   });
 
   const pendingBirthDateAge = useMemo(() => getAgeFromBirthDate(form.birth_date), [form.birth_date]);
+  const isGenderVisibilityLocked = form.gender_identity === preferNotToSayGender;
 
   useEffect(() => {
     if (!avatarFile) {
@@ -118,6 +124,7 @@ export default function PersonalDataPage() {
   }, [avatarFile]);
 
   const displayedAvatar = avatarPreviewUrl || avatarUrl;
+  const isSubmitLocked = saving || redirecting;
 
   const applyLoadedData = (data: PersonalData, options?: { clearPendingAvatar?: boolean }) => {
     setForm(toFormState(data));
@@ -155,6 +162,10 @@ export default function PersonalDataPage() {
       if (field === "birth_date") {
         const recalculatedAge = getAgeFromBirthDate(String(value));
         next.age = recalculatedAge !== null ? String(recalculatedAge) : "";
+      }
+
+      if (field === "gender_identity" && value === preferNotToSayGender) {
+        next.gender_identity_visible = hiddenVisibilityOption;
       }
       return next;
     });
@@ -223,16 +234,24 @@ export default function PersonalDataPage() {
       }
     }
 
-    applyLoadedData(finalData, { clearPendingAvatar: true });
+    setBirthDateLocked(finalData.birth_date_locked);
+    setInitialBirthDate(payload.birth_date ?? finalData.birth_date ?? "");
+    if (avatarFile || finalData.avatar) {
+      setAvatarUrl(finalData.avatar);
+    }
+    setAvatarFile(null);
     setFeedback({ type: "success", message: "Datos personales actualizados correctamente." });
 
     if (typeof window !== "undefined") {
       window.localStorage.setItem("profile_avatar_updated_at", String(Date.now()));
     }
+    setRedirecting(true);
     router.push("/feed");
   };
 
   const handleSave = async () => {
+    if (isSubmitLocked) return;
+
     const validationErrors = validateForm();
 
     if (Object.keys(validationErrors).length > 0) {
@@ -266,6 +285,8 @@ export default function PersonalDataPage() {
   };
 
   const handleConfirmBirthDate = async () => {
+    if (isSubmitLocked) return;
+
     setShowBirthDateModal(false);
     setSaving(true);
     setErrors({});
@@ -450,7 +471,8 @@ export default function PersonalDataPage() {
                   id="gender-visible"
                   value={form.gender_identity_visible}
                   onChange={(event) => updateField("gender_identity_visible", event.target.value as VisibilityOption)}
-                  className={inputClassName}
+                  disabled={isGenderVisibilityLocked}
+                  className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-65`}
                 >
                   <option value="yes">Sí</option>
                   <option value="no">No</option>
@@ -518,11 +540,11 @@ export default function PersonalDataPage() {
         <div className="flex justify-end">
           <button
             type="button"
-            disabled={saving}
+            disabled={isSubmitLocked}
             onClick={() => void handleSave()}
             className="rounded-xl border border-zinc-100 bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-900 shadow-[0_8px_28px_rgba(255,255,255,0.08)] transition duration-200 hover:bg-white hover:shadow-[0_12px_34px_rgba(255,255,255,0.15)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saving ? "Guardando..." : "Guardar cambios"}
+            {redirecting ? "Redirigiendo..." : saving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
       </div>
