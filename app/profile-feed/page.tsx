@@ -89,9 +89,11 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
       href={`/users/${encodeURIComponent(user.username)}`}
       className="group flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-zinc-950/70 px-4 py-3 transition hover:border-blue-300/30 hover:bg-zinc-900/90 focus-visible:border-blue-300/50 focus-visible:outline-none"
     >
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-zinc-100 group-hover:text-blue-100">@{user.username}</p>
-        {displayName ? <p className="truncate text-xs text-zinc-300">{displayName}</p> : null}
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <p className="shrink-0 truncate text-sm font-semibold text-zinc-100 group-hover:text-blue-100">@{user.username}</p>
+          {displayName ? <p className="min-w-0 truncate text-xs font-medium text-zinc-400">{displayName}</p> : null}
+        </div>
         <p className="text-xs text-zinc-500">{followersCopy}</p>
       </div>
       {statusBadges.length > 0 ? (
@@ -504,8 +506,8 @@ export default function ProfileFeedPage() {
               </svg>
               <input
                 type="search"
-                placeholder="Buscar usuarios"
-                aria-label="Buscar usuarios"
+                placeholder="Conectar con otros fans"
+                aria-label="Conectar con otros fans"
                 value={userSearchQuery}
                 onChange={(event) => {
                   setUserSearchQuery(event.target.value);
