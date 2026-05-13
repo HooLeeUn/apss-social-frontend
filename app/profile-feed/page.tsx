@@ -283,7 +283,7 @@ export default function ProfileFeedPage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-8 w-full max-w-2xl md:mt-12" aria-label="Buscador de usuarios próximamente">
+        <section className="mx-auto mt-6 w-full max-w-2xl md:mt-8" aria-label="Buscador de usuarios próximamente">
           <div className="flex w-full rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
             <div className="relative min-w-0 flex-1">
               <svg
@@ -302,13 +302,13 @@ export default function ProfileFeedPage() {
                 placeholder="Buscar usuarios"
                 aria-label="Buscar usuarios"
                 readOnly
-                className="w-full cursor-default rounded-full border-2 border-white/60 bg-zinc-950 py-2 pl-10 pr-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-blue-300/70"
+                className="w-full cursor-default rounded-full border border-white/35 bg-zinc-950 py-2 pl-10 pr-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-blue-300/60"
               />
             </div>
           </div>
         </section>
 
-        <section className="mt-8 w-full md:mt-10">
+        <section className="mt-6 w-full md:mt-8">
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(260px,1fr)]">
             <TopUsersSection
               friends={friends}
