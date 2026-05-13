@@ -300,9 +300,10 @@ export default function TopUsersSection({
     router.push(`/users/${encodeURIComponent(clickedUser.username)}`);
   };
 
+  const activeConnectionTabClass = "bg-zinc-100 text-zinc-950 shadow-[0_10px_20px_rgba(0,0,0,0.35)]";
+
   const connectionHeader = (
-    <div className="flex w-full items-center justify-between gap-3">
-      <h2 className="text-base font-semibold text-zinc-100">Amigos</h2>
+    <div className="flex w-full items-center justify-start">
       <div className="inline-flex h-9 rounded-full border border-white/15 bg-zinc-900/75 p-1" role="tablist" aria-label="Vista de amistades">
         <button
           type="button"
@@ -310,9 +311,7 @@ export default function TopUsersSection({
           aria-selected={effectiveConnectionView === "friends"}
           onClick={() => setActiveConnectionView("friends")}
           className={`rounded-full px-3 text-sm font-semibold transition ${
-            effectiveConnectionView === "friends"
-              ? "bg-zinc-100 text-zinc-950 shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
-              : "text-zinc-400 hover:text-zinc-100"
+            effectiveConnectionView === "friends" ? activeConnectionTabClass : "text-zinc-400 hover:text-zinc-100"
           }`}
         >
           Amigos
@@ -327,9 +326,7 @@ export default function TopUsersSection({
             setActiveConnectionView("pending");
           }}
           className={`relative rounded-full px-3 text-sm font-semibold transition disabled:cursor-default ${
-            effectiveConnectionView === "pending"
-              ? "bg-blue-400 text-zinc-950 shadow-[0_10px_22px_rgba(59,130,246,0.22)]"
-              : "text-zinc-400 hover:text-zinc-100 disabled:hover:text-zinc-400"
+            effectiveConnectionView === "pending" ? activeConnectionTabClass : "text-zinc-400 hover:text-zinc-100 disabled:hover:text-zinc-400"
           }`}
         >
           Pendientes
