@@ -137,8 +137,6 @@ function PendingRequestRow({
 function Block({
   title,
   users,
-  query,
-  onQueryChange,
   loading,
   emptyCopy,
   error,
@@ -149,8 +147,6 @@ function Block({
 }: {
   title: string;
   users: SocialUser[];
-  query: string;
-  onQueryChange: (value: string) => void;
   loading: boolean;
   emptyCopy: string;
   error: string | null;
@@ -163,14 +159,6 @@ function Block({
     <section className="flex h-[30rem] flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot ?? <h2 className="text-base font-semibold text-zinc-100">{title}</h2>}
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Buscar"
-          aria-label={`Buscar en ${title}`}
-          className="h-9 w-40 rounded-full border border-white/15 bg-zinc-900/75 px-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
-        />
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {!loading && error ? (
@@ -220,8 +208,6 @@ function Block({
 
 function PendingRequestsBlock({
   requests,
-  query,
-  onQueryChange,
   loading,
   error,
   onRetry,
@@ -232,8 +218,6 @@ function PendingRequestsBlock({
   headerSlot,
 }: {
   requests: FriendRequest[];
-  query: string;
-  onQueryChange: (value: string) => void;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -247,14 +231,6 @@ function PendingRequestsBlock({
     <section className="flex h-[30rem] flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot}
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Buscar"
-          aria-label="Buscar en Pendientes"
-          className="h-9 w-40 rounded-full border border-white/15 bg-zinc-900/75 px-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
-        />
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {!loading && error ? (
@@ -301,36 +277,7 @@ export default function TopUsersSection({
   initialConnectionView = "friends",
 }: TopUsersSectionProps) {
   const router = useRouter();
-  const [followingQuery, setFollowingQuery] = useState("");
-  const [friendsQuery, setFriendsQuery] = useState("");
   const [activeConnectionView, setActiveConnectionView] = useState<"friends" | "pending">(initialConnectionView);
-
-  const filterUsers = (users: SocialUser[], query: string) => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    if (!normalizedQuery) {
-      return users;
-    }
-
-    return users.filter((user) => {
-      const username = user.username.toLocaleLowerCase();
-      const displayName = user.displayName?.toLocaleLowerCase() ?? "";
-      return username.includes(normalizedQuery) || displayName.includes(normalizedQuery);
-    });
-  };
-
-  const filterRequests = (requests: FriendRequest[], query: string) => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    if (!normalizedQuery) return requests;
-    return requests.filter((request) => {
-      const username = request.user.username.toLocaleLowerCase();
-      const displayName = request.user.displayName?.toLocaleLowerCase() ?? "";
-      return username.includes(normalizedQuery) || displayName.includes(normalizedQuery);
-    });
-  };
-
-  const filteredFollowing = useMemo(() => filterUsers(following, followingQuery), [following, followingQuery]);
-  const filteredFriends = useMemo(() => filterUsers(friends, friendsQuery), [friends, friendsQuery]);
-  const filteredPendingRequests = useMemo(() => filterRequests(pendingRequests, friendsQuery), [pendingRequests, friendsQuery]);
   const receivedPendingRequestsCount = useMemo(
     () => pendingRequests.filter((request) => request.direction === "received").length,
     [pendingRequests],
@@ -354,26 +301,45 @@ export default function TopUsersSection({
   };
 
   const connectionHeader = (
-    <div className="relative w-fit">
-      <select
-        aria-label="Seleccionar vista de amistades"
-        value={effectiveConnectionView}
-        disabled={friendRequestsRestricted}
-        onChange={(event) => {
-          if (friendRequestsRestricted) return;
-          setActiveConnectionView(event.target.value === "pending" ? "pending" : "friends");
-        }}
-        className="appearance-none rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-base font-semibold text-zinc-100 outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:border-white/20 disabled:cursor-default disabled:hover:border-white/20 disabled:hover:bg-zinc-900/80"
-      >
-        <option value="friends" className="bg-zinc-950 text-zinc-100">Amigos</option>
-        <option value="pending" className="bg-zinc-950 text-zinc-100">Pendientes</option>
-      </select>
-      <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
-      {receivedPendingRequestsCount > 0 ? (
-        <span className="pointer-events-none absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-bold leading-none text-zinc-950 shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
-          {receivedPendingRequestsCount}
-        </span>
-      ) : null}
+    <div className="flex w-full items-center justify-between gap-3">
+      <h2 className="text-base font-semibold text-zinc-100">Amigos</h2>
+      <div className="inline-flex h-9 rounded-full border border-white/15 bg-zinc-900/75 p-1" role="tablist" aria-label="Vista de amistades">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={effectiveConnectionView === "friends"}
+          onClick={() => setActiveConnectionView("friends")}
+          className={`rounded-full px-3 text-sm font-semibold transition ${
+            effectiveConnectionView === "friends"
+              ? "bg-zinc-100 text-zinc-950 shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
+              : "text-zinc-400 hover:text-zinc-100"
+          }`}
+        >
+          Amigos
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={effectiveConnectionView === "pending"}
+          disabled={friendRequestsRestricted}
+          onClick={() => {
+            if (friendRequestsRestricted) return;
+            setActiveConnectionView("pending");
+          }}
+          className={`relative rounded-full px-3 text-sm font-semibold transition disabled:cursor-default ${
+            effectiveConnectionView === "pending"
+              ? "bg-blue-400 text-zinc-950 shadow-[0_10px_22px_rgba(59,130,246,0.22)]"
+              : "text-zinc-400 hover:text-zinc-100 disabled:hover:text-zinc-400"
+          }`}
+        >
+          Pendientes
+          {receivedPendingRequestsCount > 0 ? (
+            <span className="pointer-events-none absolute -right-1.5 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-bold leading-none text-zinc-950 shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
+              {receivedPendingRequestsCount}
+            </span>
+          ) : null}
+        </button>
+      </div>
     </div>
   );
 
@@ -381,11 +347,9 @@ export default function TopUsersSection({
     <section className="grid w-full max-w-[640px] gap-3 sm:grid-cols-2 lg:max-w-[680px]">
       <Block
         title="Seguidos"
-        users={filteredFollowing}
-        query={followingQuery}
-        onQueryChange={setFollowingQuery}
+        users={following}
         loading={loadingFollowing}
-        emptyCopy={followingQuery.trim() ? "Sin coincidencias en seguidos" : "Aún no sigues a ningún usuario"}
+        emptyCopy="Aún no sigues a ningún usuario"
         error={followingError}
         onRetry={onRetryFollowing}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
@@ -394,17 +358,9 @@ export default function TopUsersSection({
         <Block
           title="Amigos"
           headerSlot={connectionHeader}
-          users={friendRequestsRestricted ? [] : filteredFriends}
-          query={friendsQuery}
-          onQueryChange={setFriendsQuery}
+          users={friendRequestsRestricted ? [] : friends}
           loading={friendRequestsRestricted ? false : loadingFriends}
-          emptyCopy={
-            friendRequestsRestricted
-              ? restrictedFriendRequestsCopy
-              : friendsQuery.trim()
-                ? "Sin coincidencias en amigos"
-                : "Aún no tienes amigos agregados"
-          }
+          emptyCopy={friendRequestsRestricted ? restrictedFriendRequestsCopy : "Aún no tienes amigos agregados"}
           centerEmpty={shouldShowRestrictedFriendsEmptyState}
           error={friendsError}
           onRetry={onRetryFriends}
@@ -413,9 +369,7 @@ export default function TopUsersSection({
       ) : (
         <PendingRequestsBlock
           headerSlot={connectionHeader}
-          requests={filteredPendingRequests}
-          query={friendsQuery}
-          onQueryChange={setFriendsQuery}
+          requests={pendingRequests}
           loading={loadingPendingRequests}
           error={pendingRequestsError}
           onRetry={onRetryPendingRequests}
