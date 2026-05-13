@@ -14,6 +14,7 @@ interface ProfileIdentityCardProps {
   appTitle?: string;
   appBranding?: AppBranding | null;
   logoSlot?: BrandingLogoSlot;
+  autoHeight?: boolean;
 }
 
 function formatGender(gender: string): string {
@@ -43,14 +44,19 @@ export default function ProfileIdentityCard({
   appTitle = "MiAppSocialMovies",
   appBranding = null,
   logoSlot = "profile_feed_logo_url",
+  autoHeight = false,
 }: ProfileIdentityCardProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);
   const canShowAge = ageVisible !== false && typeof age === "number" && Number.isFinite(age);
   const initials = (username || "U").slice(0, 2).toUpperCase();
+  const hasVisiblePersonalData = canShowGender || canShowAge;
+  const shouldRenderPersonalData = autoHeight ? hasVisiblePersonalData : true;
+  const cardHeightClass = autoHeight ? "h-fit min-h-0 self-start" : "min-h-[220px]";
+  const personalDataSpacingClass = autoHeight ? "mt-0" : "mt-auto";
 
   return (
-    <div className="relative flex min-h-[220px] w-full flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)]">
+    <div className={`relative flex w-full flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass}`}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75" />
 
       <div className="relative flex items-start justify-between gap-4">
@@ -96,18 +102,20 @@ export default function ProfileIdentityCard({
         ) : null}
       </div>
 
-      <div className="relative mt-auto flex flex-wrap items-center gap-2">
-        {canShowGender ? (
-          <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
-            {formatGender(genderIdentity as string)}
-          </span>
-        ) : null}
-        {canShowAge ? (
-          <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
-            {age} Años
-          </span>
-        ) : null}
-      </div>
+      {shouldRenderPersonalData ? (
+        <div className={`relative flex flex-wrap items-center gap-2 ${personalDataSpacingClass}`}>
+          {canShowGender ? (
+            <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
+              {formatGender(genderIdentity as string)}
+            </span>
+          ) : null}
+          {canShowAge ? (
+            <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
+              {age} Años
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
