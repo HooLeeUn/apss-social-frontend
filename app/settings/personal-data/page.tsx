@@ -61,9 +61,13 @@ const fileTriggerClassName =
 const lockedBirthDateCopy = "La fecha de nacimiento ya fue confirmada y no puede modificarse.";
 const minorBirthDateError = `Debes tener al menos ${MINIMUM_AGE} años para registrarte.`;
 const birthDateConfirmationCopy = "Esta fecha no podrá modificarse después de crear la cuenta.";
+const preferNotToSayGender: GenderIdentity = "prefer_not_to_say";
+const hiddenVisibilityOption: VisibilityOption = "no";
 
 function toFormState(data: PersonalData): FormState {
   const derivedAge = data.birth_date ? getAgeFromBirthDate(data.birth_date) : data.age;
+  const genderIdentityVisibility =
+    data.gender_identity === preferNotToSayGender ? hiddenVisibilityOption : data.gender_identity_visible ? "yes" : "no";
 
   return {
     first_name: data.first_name,
@@ -73,7 +77,7 @@ function toFormState(data: PersonalData): FormState {
     age: derivedAge !== null ? String(derivedAge) : "",
     gender_identity: data.gender_identity ?? "",
     birth_date_visible: data.birth_date_visible ? "yes" : "no",
-    gender_identity_visible: data.gender_identity_visible ? "yes" : "no",
+    gender_identity_visible: genderIdentityVisibility,
   };
 }
 
@@ -102,6 +106,7 @@ export default function PersonalDataPage() {
   });
 
   const pendingBirthDateAge = useMemo(() => getAgeFromBirthDate(form.birth_date), [form.birth_date]);
+  const isGenderVisibilityLocked = form.gender_identity === preferNotToSayGender;
 
   useEffect(() => {
     if (!avatarFile) {
@@ -155,6 +160,10 @@ export default function PersonalDataPage() {
       if (field === "birth_date") {
         const recalculatedAge = getAgeFromBirthDate(String(value));
         next.age = recalculatedAge !== null ? String(recalculatedAge) : "";
+      }
+
+      if (field === "gender_identity" && value === preferNotToSayGender) {
+        next.gender_identity_visible = hiddenVisibilityOption;
       }
       return next;
     });
@@ -450,7 +459,8 @@ export default function PersonalDataPage() {
                   id="gender-visible"
                   value={form.gender_identity_visible}
                   onChange={(event) => updateField("gender_identity_visible", event.target.value as VisibilityOption)}
-                  className={inputClassName}
+                  disabled={isGenderVisibilityLocked}
+                  className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-65`}
                 >
                   <option value="yes">Sí</option>
                   <option value="no">No</option>
