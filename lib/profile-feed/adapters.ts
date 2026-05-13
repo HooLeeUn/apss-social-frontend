@@ -6,6 +6,7 @@ import {
   PaginatedSocialActivity,
   ProfileFeedActivityResponseItem,
   PaginatedMyMessages,
+  PaginatedUserSearchResults,
   SocialActivityItem,
   SocialActivityScope,
   MyMessageItem,
@@ -46,6 +47,9 @@ const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
 const PROFILE_USER_MOVIE_RECOMMENDATIONS_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_USER_MOVIE_RECOMMENDATIONS_ENDPOINT_TEMPLATE || "/users/{username}/movie-recommendations/";
+const PROFILE_USER_SEARCH_ENDPOINT = normalizeApiEndpoint(
+  process.env.NEXT_PUBLIC_PROFILE_USER_SEARCH_ENDPOINT || "/api/users/search/",
+);
 function normalizeApiEndpoint(endpoint: string): string {
   if (!endpoint) return endpoint;
   return endpoint.startsWith("/api/") ? endpoint.slice(4) : endpoint;
@@ -1089,6 +1093,33 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
       ),
     ),
   };
+}
+
+function parseUserSearchResults(payload: unknown): PaginatedUserSearchResults {
+  const root = toRecord(payload);
+  const data = toRecord(root?.data);
+  const results = getCollection(payload);
+  const items = results
+    .map((item, index) => toSocialUser(toRecord(item) ?? {}, `user-search-${index + 1}`))
+    .filter(isNonNullSocialUser);
+
+  return {
+    items,
+    next: typeof root?.next === "string" ? root.next : typeof data?.next === "string" ? data.next : null,
+  };
+}
+
+function buildUserSearchEndpoint(query: string): string {
+  return `${PROFILE_USER_SEARCH_ENDPOINT}?${new URLSearchParams({ q: query.trim(), page: "1" }).toString()}`;
+}
+
+export async function searchUsers(query: string, nextEndpoint: string | null = null, signal?: AbortSignal): Promise<PaginatedUserSearchResults> {
+  const trimmed = query.trim();
+  if (!trimmed) return { items: [], next: null };
+
+  const endpoint = nextEndpoint ? normalizeActivityNextEndpoint(nextEndpoint) : buildUserSearchEndpoint(trimmed);
+  const payload = await apiFetch(endpoint, { signal });
+  return parseUserSearchResults(payload);
 }
 
 export async function getMyProfile(): Promise<SocialUser | null> {

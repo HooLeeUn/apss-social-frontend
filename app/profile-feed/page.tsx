@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { UIEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
@@ -17,6 +18,7 @@ import {
   getTopFriends,
   markNotificationsContextRead,
   rejectFriendship,
+  searchUsers,
 } from "../../lib/profile-feed/adapters";
 import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
@@ -26,12 +28,98 @@ import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
+function normalizeUsername(username: string | null | undefined): string {
+  return (username || "").trim().toLocaleLowerCase();
+}
+
+function mergeRelationState(
+  user: SocialUser,
+  friendsByUsername: Map<string, SocialUser>,
+  followingByUsername: Map<string, SocialUser>,
+  pendingByUsername: Map<string, FriendRequest>,
+): SocialUser {
+  const key = normalizeUsername(user.username);
+  const friend = friendsByUsername.get(key);
+  const followed = followingByUsername.get(key);
+  const pending = pendingByUsername.get(key);
+
+  return {
+    ...user,
+    followersCount: user.followersCount ?? friend?.followersCount ?? followed?.followersCount ?? pending?.user.followersCount ?? null,
+    firstName: user.firstName ?? friend?.firstName ?? followed?.firstName ?? pending?.user.firstName ?? null,
+    lastName: user.lastName ?? friend?.lastName ?? followed?.lastName ?? pending?.user.lastName ?? null,
+    avatarUrl: user.avatarUrl ?? friend?.avatarUrl ?? followed?.avatarUrl ?? pending?.user.avatarUrl ?? null,
+    isFollowing: followed ? true : user.isFollowing,
+    friendshipStatus: friend ? "friends" : pending?.direction === "sent" ? "sent_pending" : pending?.direction === "received" ? "received_pending" : user.friendshipStatus,
+  };
+}
+
+function hasPriorityRelation(user: SocialUser): boolean {
+  return user.friendshipStatus === "friends" || user.isFollowing === true;
+}
+
+function prioritizeRelatedUsers(users: SocialUser[]): SocialUser[] {
+  return [...users].sort((left, right) => {
+    const leftPriority = hasPriorityRelation(left) ? 0 : 1;
+    const rightPriority = hasPriorityRelation(right) ? 0 : 1;
+    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+    return (right.followersCount ?? 0) - (left.followersCount ?? 0);
+  });
+}
+
+function UserSearchResultRow({ user }: { user: SocialUser }) {
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  const followersCopy =
+    typeof user.followersCount === "number"
+      ? user.followersCount === 1
+        ? "Lo sigue 1 usuario"
+        : `Lo siguen ${user.followersCount} usuarios`
+      : "Seguidores no disponibles";
+
+  const statusBadges = [
+    user.friendshipStatus === "friends" ? { label: "Amigo", className: "border-violet-300/40 bg-violet-600/25 text-violet-100" } : null,
+    user.isFollowing ? { label: "Seguido", className: "border-violet-300/40 bg-violet-600/25 text-violet-100" } : null,
+    user.friendshipStatus === "sent_pending" ? { label: "Solicitud enviada", className: "border-blue-300/40 bg-blue-600/25 text-blue-100" } : null,
+    user.friendshipStatus === "received_pending" ? { label: "Solicitud recibida", className: "border-blue-300/40 bg-blue-600/25 text-blue-100" } : null,
+  ].filter((badge): badge is { label: string; className: string } => Boolean(badge));
+
+  return (
+    <Link
+      href={`/users/${encodeURIComponent(user.username)}`}
+      className="group flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-zinc-950/70 px-4 py-3 transition hover:border-blue-300/30 hover:bg-zinc-900/90 focus-visible:border-blue-300/50 focus-visible:outline-none"
+    >
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-zinc-100 group-hover:text-blue-100">@{user.username}</p>
+        {fullName ? <p className="truncate text-xs text-zinc-300">{fullName}</p> : null}
+        <p className="text-xs text-zinc-500">{followersCopy}</p>
+      </div>
+      {statusBadges.length > 0 ? (
+        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+          {statusBadges.map((badge) => (
+            <span key={badge.label} className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badge.className}`}>
+              {badge.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </Link>
+  );
+}
+
+
 export default function ProfileFeedPage() {
   const searchParams = useSearchParams();
   const branding = useAppBranding();
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<SocialUser[]>([]);
+  const [userSearchNext, setUserSearchNext] = useState<string | null>(null);
+  const [loadingUserSearch, setLoadingUserSearch] = useState(false);
+  const [loadingMoreUserSearch, setLoadingMoreUserSearch] = useState(false);
+  const [userSearchError, setUserSearchError] = useState<string | null>(null);
+  const latestUserSearchRequest = useRef(0);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [loadingFollowing, setLoadingFollowing] = useState(true);
   const [loadingPendingRequests, setLoadingPendingRequests] = useState(true);
@@ -52,6 +140,27 @@ export default function ProfileFeedPage() {
   const initialActivityTab = requestedPrivateInboxTab && canRenderPrivateInbox ? "messages" : "activity";
   const shouldShowRestrictedFriendsEmptyState =
     profileUser?.friendRequestsRestricted === true && profileUser.profileVisibility === "public";
+
+  const friendsByUsername = useMemo(
+    () => new Map(friends.map((user) => [normalizeUsername(user.username), user])),
+    [friends],
+  );
+  const followingByUsername = useMemo(
+    () => new Map(following.map((user) => [normalizeUsername(user.username), user])),
+    [following],
+  );
+  const pendingByUsername = useMemo(
+    () => new Map(pendingRequests.map((request) => [normalizeUsername(request.user.username), request])),
+    [pendingRequests],
+  );
+
+  const mergeUserSearchResults = useCallback(
+    (users: SocialUser[]) =>
+      prioritizeRelatedUsers(
+        users.map((user) => mergeRelationState(user, friendsByUsername, followingByUsername, pendingByUsername)),
+      ),
+    [friendsByUsername, followingByUsername, pendingByUsername],
+  );
 
   const loadFollowing = useCallback(async () => {
     setLoadingFollowing(true);
@@ -256,6 +365,88 @@ export default function ProfileFeedPage() {
     void loadRecommendations();
   }, []);
 
+  useEffect(() => {
+    const trimmedQuery = userSearchQuery.trim();
+    const requestId = latestUserSearchRequest.current + 1;
+    latestUserSearchRequest.current = requestId;
+
+    if (!trimmedQuery) {
+      setUserSearchResults([]);
+      setUserSearchNext(null);
+      setLoadingUserSearch(false);
+      setLoadingMoreUserSearch(false);
+      setUserSearchError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const debounce = window.setTimeout(() => {
+      setLoadingUserSearch(true);
+      setUserSearchError(null);
+      void searchUsers(trimmedQuery, null, controller.signal)
+        .then((payload) => {
+          if (latestUserSearchRequest.current !== requestId) return;
+          setUserSearchResults(mergeUserSearchResults(payload.items));
+          setUserSearchNext(payload.next);
+        })
+        .catch((error) => {
+          if (controller.signal.aborted || latestUserSearchRequest.current !== requestId) return;
+          console.warn("No se pudo buscar usuarios.", error);
+          setUserSearchResults([]);
+          setUserSearchNext(null);
+          setUserSearchError("No pudimos buscar usuarios. Intenta de nuevo.");
+        })
+        .finally(() => {
+          if (latestUserSearchRequest.current === requestId) setLoadingUserSearch(false);
+        });
+    }, 260);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(debounce);
+    };
+  }, [mergeUserSearchResults, userSearchQuery]);
+
+  useEffect(() => {
+    if (userSearchResults.length === 0) return;
+    setUserSearchResults((current) => mergeUserSearchResults(current));
+  }, [friendsByUsername, followingByUsername, mergeUserSearchResults, pendingByUsername, userSearchResults.length]);
+
+  const handleLoadMoreUserSearch = useCallback(async () => {
+    const trimmedQuery = userSearchQuery.trim();
+    if (!trimmedQuery || !userSearchNext || loadingMoreUserSearch || loadingUserSearch) return;
+
+    setLoadingMoreUserSearch(true);
+    setUserSearchError(null);
+    try {
+      const payload = await searchUsers(trimmedQuery, userSearchNext);
+      setUserSearchResults((current) => {
+        const merged = new Map(current.map((user) => [normalizeUsername(user.username), user]));
+        payload.items.forEach((user) => merged.set(normalizeUsername(user.username), user));
+        return mergeUserSearchResults(Array.from(merged.values()));
+      });
+      setUserSearchNext(payload.next);
+    } catch (error) {
+      console.warn("No se pudieron cargar más usuarios.", error);
+      setUserSearchError("No pudimos cargar más resultados.");
+    } finally {
+      setLoadingMoreUserSearch(false);
+    }
+  }, [loadingMoreUserSearch, loadingUserSearch, mergeUserSearchResults, userSearchNext, userSearchQuery]);
+
+  const handleUserSearchScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      const target = event.currentTarget;
+      const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+      if (distanceToBottom < 72) {
+        void handleLoadMoreUserSearch();
+      }
+    },
+    [handleLoadMoreUserSearch],
+  );
+
+  const shouldShowUserSearchPanel = userSearchQuery.trim().length > 0;
+
   return (
     <main className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col px-4 py-8 md:px-8">
@@ -283,7 +474,7 @@ export default function ProfileFeedPage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-4 w-full max-w-2xl md:mt-5" aria-label="Buscador de usuarios próximamente">
+        <section className="relative z-30 mx-auto mt-4 w-full max-w-2xl md:mt-5" aria-label="Buscador de usuarios">
           <div className="flex w-full rounded-full border border-white/55 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
             <div className="relative min-w-0 flex-1">
               <svg
@@ -301,11 +492,50 @@ export default function ProfileFeedPage() {
                 type="search"
                 placeholder="Buscar usuarios"
                 aria-label="Buscar usuarios"
-                readOnly
-                className="w-full cursor-default rounded-full border-[0.5px] border-white/30 bg-zinc-950 py-2 pl-10 pr-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-blue-300/60"
+                value={userSearchQuery}
+                onChange={(event) => setUserSearchQuery(event.target.value)}
+                autoComplete="off"
+                className="w-full rounded-full border-[0.5px] border-white/30 bg-zinc-950 py-2 pl-10 pr-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-blue-300/60"
               />
             </div>
           </div>
+
+          {shouldShowUserSearchPanel ? (
+            <div className="absolute left-1/2 top-full z-40 mt-2 w-[min(100%,42rem)] -translate-x-1/2 rounded-3xl border border-white/15 bg-zinc-950/95 p-2 shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+              <div className="activity-scrollbar max-h-[24rem] space-y-2 overflow-y-auto pr-1" onScroll={handleUserSearchScroll}>
+                {userSearchResults.map((user) => (
+                  <UserSearchResultRow key={user.id || user.username} user={user} />
+                ))}
+
+                {!loadingUserSearch && userSearchResults.length === 0 ? (
+                  <div className="rounded-2xl border border-white/5 bg-zinc-900/70 px-4 py-5 text-center text-sm text-zinc-400">
+                    No encontramos usuarios
+                  </div>
+                ) : null}
+
+                {loadingUserSearch ? (
+                  <div className="rounded-2xl border border-white/5 bg-zinc-900/70 px-4 py-5 text-center text-sm text-zinc-400">
+                    Buscando usuarios…
+                  </div>
+                ) : null}
+
+                {userSearchError ? (
+                  <p className="px-3 py-1 text-center text-xs text-rose-200">{userSearchError}</p>
+                ) : null}
+
+                {userSearchNext && !loadingUserSearch ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadMoreUserSearch()}
+                    disabled={loadingMoreUserSearch}
+                    className="w-full rounded-2xl border border-white/10 bg-zinc-900/80 px-4 py-2 text-xs font-semibold text-zinc-200 transition hover:border-blue-300/30 hover:text-blue-100 disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {loadingMoreUserSearch ? "Cargando más usuarios…" : "Cargar más resultados"}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="mt-4 w-full md:mt-5">
