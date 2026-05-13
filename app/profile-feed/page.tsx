@@ -258,7 +258,7 @@ export default function ProfileFeedPage() {
 
   return (
     <main className="min-h-screen bg-black text-zinc-100">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 md:px-8">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col px-4 py-8 md:px-8">
         <section className="rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
           <div className="grid items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
             <div className="flex">
@@ -283,7 +283,32 @@ export default function ProfileFeedPage() {
           </div>
         </section>
 
-        <section className="w-full">
+        <section className="mx-auto mt-8 w-full max-w-2xl md:mt-12" aria-label="Buscador de usuarios próximamente">
+          <div className="flex w-full rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
+            <div className="relative min-w-0 flex-1">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                type="search"
+                placeholder="Buscar usuarios"
+                aria-label="Buscar usuarios"
+                readOnly
+                className="w-full cursor-default rounded-full border-2 border-white/60 bg-zinc-950 py-2 pl-10 pr-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-blue-300/70"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8 w-full md:mt-10">
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(260px,1fr)]">
             <TopUsersSection
               friends={friends}
@@ -384,7 +409,9 @@ export default function ProfileFeedPage() {
           </div>
         </section>
 
-        <SocialActivityTabsBlock />
+        <div className="mt-3 md:mt-4">
+          <SocialActivityTabsBlock />
+        </div>
       </div>
     </main>
   );
