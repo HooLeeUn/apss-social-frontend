@@ -86,6 +86,7 @@ export default function PersonalDataPage() {
   const branding = useAppBranding();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [birthDateLocked, setBirthDateLocked] = useState(false);
@@ -123,6 +124,7 @@ export default function PersonalDataPage() {
   }, [avatarFile]);
 
   const displayedAvatar = avatarPreviewUrl || avatarUrl;
+  const isSubmitLocked = saving || redirecting;
 
   const applyLoadedData = (data: PersonalData, options?: { clearPendingAvatar?: boolean }) => {
     setForm(toFormState(data));
@@ -232,16 +234,24 @@ export default function PersonalDataPage() {
       }
     }
 
-    applyLoadedData(finalData, { clearPendingAvatar: true });
+    setBirthDateLocked(finalData.birth_date_locked);
+    setInitialBirthDate(payload.birth_date ?? finalData.birth_date ?? "");
+    if (avatarFile || finalData.avatar) {
+      setAvatarUrl(finalData.avatar);
+    }
+    setAvatarFile(null);
     setFeedback({ type: "success", message: "Datos personales actualizados correctamente." });
 
     if (typeof window !== "undefined") {
       window.localStorage.setItem("profile_avatar_updated_at", String(Date.now()));
     }
+    setRedirecting(true);
     router.push("/feed");
   };
 
   const handleSave = async () => {
+    if (isSubmitLocked) return;
+
     const validationErrors = validateForm();
 
     if (Object.keys(validationErrors).length > 0) {
@@ -275,6 +285,8 @@ export default function PersonalDataPage() {
   };
 
   const handleConfirmBirthDate = async () => {
+    if (isSubmitLocked) return;
+
     setShowBirthDateModal(false);
     setSaving(true);
     setErrors({});
@@ -528,11 +540,11 @@ export default function PersonalDataPage() {
         <div className="flex justify-end">
           <button
             type="button"
-            disabled={saving}
+            disabled={isSubmitLocked}
             onClick={() => void handleSave()}
             className="rounded-xl border border-zinc-100 bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-900 shadow-[0_8px_28px_rgba(255,255,255,0.08)] transition duration-200 hover:bg-white hover:shadow-[0_12px_34px_rgba(255,255,255,0.15)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saving ? "Guardando..." : "Guardar cambios"}
+            {redirecting ? "Redirigiendo..." : saving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
       </div>
