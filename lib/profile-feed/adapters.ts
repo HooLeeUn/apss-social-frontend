@@ -1007,22 +1007,77 @@ export async function getFavoriteMovies(): Promise<FavoriteMovie[]> {
 }
 
 function toSocialUser(user: Record<string, unknown>, fallbackId: string): SocialUser | null {
-  const username = safeTrim(pickFirst(user.username, user.user_name, user.name));
+  const nestedUser = toRecord(user.user);
+  const username = safeTrim(
+    pickFirst(user.username, user.user_name, nestedUser?.username, nestedUser?.user_name, user.name),
+  );
   if (!username) return null;
-  const profile = toRecord(user.profile);
-  const personalData = toRecord(user.personal_data);
+  const profile = toRecord(user.profile) ?? toRecord(nestedUser?.profile);
+  const personalData =
+    toRecord(user.personal_data) ??
+    toRecord(user.personalData) ??
+    toRecord(nestedUser?.personal_data) ??
+    toRecord(nestedUser?.personalData);
   const friendship = toRecord(user.friendship) || toRecord(profile?.friendship);
 
   return {
-    id: String(pickFirst(user.id, user.user_id, fallbackId)),
+    id: String(pickFirst(user.id, user.user_id, nestedUser?.id, nestedUser?.user_id, fallbackId)),
     username,
-    displayName: safeTrim(pickFirst(user.display_name, user.displayName, user.full_name)),
+    displayName: safeTrim(
+      pickFirst(
+        user.display_name,
+        user.displayName,
+        user.full_name,
+        user.fullName,
+        user.name,
+        profile?.display_name,
+        profile?.displayName,
+        profile?.full_name,
+        profile?.fullName,
+        nestedUser?.display_name,
+        nestedUser?.displayName,
+        nestedUser?.full_name,
+        nestedUser?.fullName,
+        nestedUser?.name,
+      ),
+    ),
     avatarUrl: safeTrim(
-      pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url, profile?.avatar, personalData?.avatar),
+      pickFirst(
+        user.avatar,
+        user.avatar_url,
+        user.profile_image,
+        user.photo_url,
+        profile?.avatar,
+        personalData?.avatar,
+        nestedUser?.avatar,
+        nestedUser?.avatar_url,
+      ),
     ),
     followersCount: resolveFollowersCount(user),
-    firstName: safeTrim(pickFirst(user.first_name, profile?.first_name, personalData?.first_name)),
-    lastName: safeTrim(pickFirst(user.last_name, profile?.last_name, personalData?.last_name)),
+    firstName: safeTrim(
+      pickFirst(
+        user.first_name,
+        user.firstName,
+        profile?.first_name,
+        profile?.firstName,
+        personalData?.first_name,
+        personalData?.firstName,
+        nestedUser?.first_name,
+        nestedUser?.firstName,
+      ),
+    ),
+    lastName: safeTrim(
+      pickFirst(
+        user.last_name,
+        user.lastName,
+        profile?.last_name,
+        profile?.lastName,
+        personalData?.last_name,
+        personalData?.lastName,
+        nestedUser?.last_name,
+        nestedUser?.lastName,
+      ),
+    ),
     age: toNumberOrNull(pickFirst(user.age, profile?.age, personalData?.age)),
     ageVisible: toBooleanOrNull(
       pickFirst(user.birth_date_visible, user.age_visible, profile?.birth_date_visible, personalData?.birth_date_visible),

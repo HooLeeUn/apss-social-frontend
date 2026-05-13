@@ -69,12 +69,13 @@ function prioritizeRelatedUsers(users: SocialUser[]): SocialUser[] {
 
 function UserSearchResultRow({ user }: { user: SocialUser }) {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  const displayName = fullName || (user.displayName && user.displayName !== user.username ? user.displayName : "");
   const followersCopy =
     typeof user.followersCount === "number"
-      ? user.followersCount === 1
-        ? "Lo sigue 1 usuario"
+      ? user.followersCount === 0
+        ? "Sin seguidores"
         : `Lo siguen ${user.followersCount} usuarios`
-      : "Seguidores no disponibles";
+      : "Sin seguidores";
 
   const statusBadges = [
     user.friendshipStatus === "friends" ? { label: "Amigo", className: "border-violet-300/40 bg-violet-600/25 text-violet-100" } : null,
@@ -90,7 +91,7 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-zinc-100 group-hover:text-blue-100">@{user.username}</p>
-        {fullName ? <p className="truncate text-xs text-zinc-300">{fullName}</p> : null}
+        {displayName ? <p className="truncate text-xs text-zinc-300">{displayName}</p> : null}
         <p className="text-xs text-zinc-500">{followersCopy}</p>
       </div>
       {statusBadges.length > 0 ? (
@@ -119,7 +120,9 @@ export default function ProfileFeedPage() {
   const [loadingUserSearch, setLoadingUserSearch] = useState(false);
   const [loadingMoreUserSearch, setLoadingMoreUserSearch] = useState(false);
   const [userSearchError, setUserSearchError] = useState<string | null>(null);
+  const [isUserSearchPanelOpen, setIsUserSearchPanelOpen] = useState(false);
   const latestUserSearchRequest = useRef(0);
+  const userSearchContainerRef = useRef<HTMLElement | null>(null);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [loadingFollowing, setLoadingFollowing] = useState(true);
   const [loadingPendingRequests, setLoadingPendingRequests] = useState(true);
@@ -408,6 +411,17 @@ export default function ProfileFeedPage() {
   }, [mergeUserSearchResults, userSearchQuery]);
 
   useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!userSearchContainerRef.current?.contains(event.target as Node)) {
+        setIsUserSearchPanelOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
     if (userSearchResults.length === 0) return;
     setUserSearchResults((current) => mergeUserSearchResults(current));
   }, [friendsByUsername, followingByUsername, mergeUserSearchResults, pendingByUsername, userSearchResults.length]);
@@ -445,7 +459,7 @@ export default function ProfileFeedPage() {
     [handleLoadMoreUserSearch],
   );
 
-  const shouldShowUserSearchPanel = userSearchQuery.trim().length > 0;
+  const shouldShowUserSearchPanel = isUserSearchPanelOpen && userSearchQuery.trim().length > 0;
 
   return (
     <main className="min-h-screen bg-black text-zinc-100">
@@ -474,7 +488,7 @@ export default function ProfileFeedPage() {
           </div>
         </section>
 
-        <section className="relative z-30 mx-auto mt-4 w-full max-w-2xl md:mt-5" aria-label="Buscador de usuarios">
+        <section ref={userSearchContainerRef} className="relative z-30 mx-auto mt-4 w-full max-w-2xl md:mt-5" aria-label="Buscador de usuarios">
           <div className="flex w-full rounded-full border border-white/55 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
             <div className="relative min-w-0 flex-1">
               <svg
@@ -493,7 +507,13 @@ export default function ProfileFeedPage() {
                 placeholder="Buscar usuarios"
                 aria-label="Buscar usuarios"
                 value={userSearchQuery}
-                onChange={(event) => setUserSearchQuery(event.target.value)}
+                onChange={(event) => {
+                  setUserSearchQuery(event.target.value);
+                  setIsUserSearchPanelOpen(event.target.value.trim().length > 0);
+                }}
+                onFocus={() => {
+                  if (userSearchQuery.trim().length > 0) setIsUserSearchPanelOpen(true);
+                }}
                 autoComplete="off"
                 className="w-full rounded-full border-[0.5px] border-white/30 bg-zinc-950 py-2 pl-10 pr-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-blue-300/60"
               />
@@ -501,7 +521,7 @@ export default function ProfileFeedPage() {
           </div>
 
           {shouldShowUserSearchPanel ? (
-            <div className="absolute left-1/2 top-full z-40 mt-2 w-[min(100%,42rem)] -translate-x-1/2 rounded-3xl border border-white/15 bg-zinc-950/95 p-2 shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+            <div className="absolute left-1/2 top-full z-40 mt-2 w-[min(100%,42rem)] -translate-x-1/2 rounded-3xl border border-zinc-700/80 bg-zinc-900 p-2 shadow-[0_28px_70px_rgba(0,0,0,0.72),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur">
               <div className="activity-scrollbar max-h-[24rem] space-y-2 overflow-y-auto pr-1" onScroll={handleUserSearchScroll}>
                 {userSearchResults.map((user) => (
                   <UserSearchResultRow key={user.id || user.username} user={user} />
