@@ -76,6 +76,7 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
         ? "Sin seguidores"
         : `Lo siguen ${user.followersCount} usuarios`
       : "Sin seguidores";
+  const initials = user.username.slice(0, 2).toUpperCase();
 
   const statusBadges = [
     user.friendshipStatus === "friends" ? { label: "Amigo", className: "border-violet-300/40 bg-violet-600/25 text-violet-100" } : null,
@@ -89,12 +90,22 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
       href={`/users/${encodeURIComponent(user.username)}`}
       className="group flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-zinc-950/70 px-4 py-3 transition hover:border-blue-300/30 hover:bg-zinc-900/90 focus-visible:border-blue-300/50 focus-visible:outline-none"
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <p className="shrink-0 truncate text-sm font-semibold text-zinc-100 group-hover:text-blue-100">@{user.username}</p>
-          {displayName ? <p className="min-w-0 truncate text-xs font-medium text-zinc-400">{displayName}</p> : null}
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {user.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={user.avatarUrl} alt={`Avatar de ${user.username}`} className="h-9 w-9 shrink-0 rounded-full border border-white/20 object-cover" />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
+            {initials}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-baseline gap-4">
+            <p className="shrink-0 truncate text-sm font-semibold text-zinc-100 group-hover:text-blue-100">@{user.username}</p>
+            {displayName ? <p className="min-w-0 truncate text-xs font-medium text-[#8fb6d9] group-hover:text-[#a9cbe6]">{displayName}</p> : null}
+          </div>
+          <p className="text-xs text-zinc-500">{followersCopy}</p>
         </div>
-        <p className="text-xs text-zinc-500">{followersCopy}</p>
       </div>
       {statusBadges.length > 0 ? (
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
