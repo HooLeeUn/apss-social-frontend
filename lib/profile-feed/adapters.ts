@@ -6,6 +6,7 @@ import {
   PaginatedSocialActivity,
   ProfileFeedActivityResponseItem,
   PaginatedMyMessages,
+  PaginatedUserSearchResults,
   SocialActivityItem,
   SocialActivityScope,
   MyMessageItem,
@@ -46,6 +47,9 @@ const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
 const PROFILE_USER_MOVIE_RECOMMENDATIONS_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_USER_MOVIE_RECOMMENDATIONS_ENDPOINT_TEMPLATE || "/users/{username}/movie-recommendations/";
+const PROFILE_USER_SEARCH_ENDPOINT = normalizeApiEndpoint(
+  process.env.NEXT_PUBLIC_PROFILE_USER_SEARCH_ENDPOINT || "/api/users/search/",
+);
 function normalizeApiEndpoint(endpoint: string): string {
   if (!endpoint) return endpoint;
   return endpoint.startsWith("/api/") ? endpoint.slice(4) : endpoint;
@@ -1002,23 +1006,109 @@ export async function getFavoriteMovies(): Promise<FavoriteMovie[]> {
   }
 }
 
+function splitFullName(value: unknown): { firstName: string | null; lastName: string | null } {
+  const normalized = safeTrim(value);
+  if (!normalized) return { firstName: null, lastName: null };
+
+  const [firstName, ...lastNameParts] = normalized.split(/\s+/);
+  return {
+    firstName: safeTrim(firstName),
+    lastName: safeTrim(lastNameParts.join(" ")),
+  };
+}
+
 function toSocialUser(user: Record<string, unknown>, fallbackId: string): SocialUser | null {
-  const username = safeTrim(pickFirst(user.username, user.user_name, user.name));
+  const nestedUser = toRecord(user.user);
+  const username = safeTrim(
+    pickFirst(user.username, user.user_name, nestedUser?.username, nestedUser?.user_name, user.name),
+  );
   if (!username) return null;
-  const profile = toRecord(user.profile);
-  const personalData = toRecord(user.personal_data);
+  const profile = toRecord(user.profile) ?? toRecord(nestedUser?.profile);
+  const profilePersonalData = toRecord(profile?.personal_data) ?? toRecord(profile?.personalData);
+  const nestedProfile = toRecord(nestedUser?.profile);
+  const nestedProfilePersonalData =
+    toRecord(nestedProfile?.personal_data) ?? toRecord(nestedProfile?.personalData);
+  const personalData =
+    toRecord(user.personal_data) ??
+    toRecord(user.personalData) ??
+    profilePersonalData ??
+    toRecord(nestedUser?.personal_data) ??
+    toRecord(nestedUser?.personalData) ??
+    nestedProfilePersonalData;
   const friendship = toRecord(user.friendship) || toRecord(profile?.friendship);
+  const displayName = safeTrim(
+    pickFirst(
+      user.display_name,
+      user.displayName,
+      user.full_name,
+      user.fullName,
+      user.name,
+      profile?.display_name,
+      profile?.displayName,
+      profile?.full_name,
+      profile?.fullName,
+      personalData?.display_name,
+      personalData?.displayName,
+      personalData?.full_name,
+      personalData?.fullName,
+      personalData?.name,
+      nestedUser?.display_name,
+      nestedUser?.displayName,
+      nestedUser?.full_name,
+      nestedUser?.fullName,
+      nestedUser?.name,
+    ),
+  );
+  const derivedName =
+    displayName && displayName.toLocaleLowerCase() !== username.toLocaleLowerCase()
+      ? splitFullName(displayName)
+      : { firstName: null, lastName: null };
+  const firstName = safeTrim(
+    pickFirst(
+      user.first_name,
+      user.firstName,
+      profile?.first_name,
+      profile?.firstName,
+      personalData?.first_name,
+      personalData?.firstName,
+      nestedUser?.first_name,
+      nestedUser?.firstName,
+      derivedName.firstName,
+    ),
+  );
+  const lastName = safeTrim(
+    pickFirst(
+      user.last_name,
+      user.lastName,
+      profile?.last_name,
+      profile?.lastName,
+      personalData?.last_name,
+      personalData?.lastName,
+      nestedUser?.last_name,
+      nestedUser?.lastName,
+      derivedName.lastName,
+    ),
+  );
 
   return {
-    id: String(pickFirst(user.id, user.user_id, fallbackId)),
+    id: String(pickFirst(user.id, user.user_id, nestedUser?.id, nestedUser?.user_id, fallbackId)),
     username,
-    displayName: safeTrim(pickFirst(user.display_name, user.displayName, user.full_name)),
+    displayName,
     avatarUrl: safeTrim(
-      pickFirst(user.avatar, user.avatar_url, user.profile_image, user.photo_url, profile?.avatar, personalData?.avatar),
+      pickFirst(
+        user.avatar,
+        user.avatar_url,
+        user.profile_image,
+        user.photo_url,
+        profile?.avatar,
+        personalData?.avatar,
+        nestedUser?.avatar,
+        nestedUser?.avatar_url,
+      ),
     ),
     followersCount: resolveFollowersCount(user),
-    firstName: safeTrim(pickFirst(user.first_name, profile?.first_name, personalData?.first_name)),
-    lastName: safeTrim(pickFirst(user.last_name, profile?.last_name, personalData?.last_name)),
+    firstName,
+    lastName,
     age: toNumberOrNull(pickFirst(user.age, profile?.age, personalData?.age)),
     ageVisible: toBooleanOrNull(
       pickFirst(user.birth_date_visible, user.age_visible, profile?.birth_date_visible, personalData?.birth_date_visible),
@@ -1089,6 +1179,45 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
       ),
     ),
   };
+}
+
+function toSearchResultUserRecord(item: unknown): Record<string, unknown> | null {
+  const record = toRecord(item);
+  if (!record) return null;
+
+  const data = toRecord(record.data);
+  const user = toRecord(record.user);
+  const profile = toRecord(record.profile);
+  const candidate = user || profile || data || record;
+
+  return { ...record, ...candidate };
+}
+
+function parseUserSearchResults(payload: unknown): PaginatedUserSearchResults {
+  const root = toRecord(payload);
+  const data = toRecord(root?.data);
+  const results = getCollection(payload);
+  const items = results
+    .map((item, index) => toSocialUser(toSearchResultUserRecord(item) ?? {}, `user-search-${index + 1}`))
+    .filter(isNonNullSocialUser);
+
+  return {
+    items,
+    next: typeof root?.next === "string" ? root.next : typeof data?.next === "string" ? data.next : null,
+  };
+}
+
+function buildUserSearchEndpoint(query: string): string {
+  return `${PROFILE_USER_SEARCH_ENDPOINT}?${new URLSearchParams({ q: query.trim(), page: "1" }).toString()}`;
+}
+
+export async function searchUsers(query: string, nextEndpoint: string | null = null, signal?: AbortSignal): Promise<PaginatedUserSearchResults> {
+  const trimmed = query.trim();
+  if (!trimmed) return { items: [], next: null };
+
+  const endpoint = nextEndpoint ? normalizeActivityNextEndpoint(nextEndpoint) : buildUserSearchEndpoint(trimmed);
+  const payload = await apiFetch(endpoint, { signal });
+  return parseUserSearchResults(payload);
 }
 
 export async function getMyProfile(): Promise<SocialUser | null> {

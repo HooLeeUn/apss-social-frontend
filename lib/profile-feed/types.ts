@@ -98,6 +98,11 @@ export interface SocialUser {
   isRestrictedByVisitedUser?: boolean | null;
 }
 
+export interface PaginatedUserSearchResults {
+  items: SocialUser[];
+  next: string | null;
+}
+
 export interface FriendRequest {
   id: string;
   direction: "sent" | "received";
