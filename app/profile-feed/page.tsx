@@ -90,9 +90,9 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
       className="group flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-zinc-950/70 px-4 py-3 transition hover:border-blue-300/30 hover:bg-zinc-900/90 focus-visible:border-blue-300/50 focus-visible:outline-none"
     >
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-baseline gap-2">
+        <div className="flex min-w-0 items-baseline gap-4">
           <p className="shrink-0 truncate text-sm font-semibold text-zinc-100 group-hover:text-blue-100">@{user.username}</p>
-          {displayName ? <p className="min-w-0 truncate text-xs font-medium text-zinc-400">{displayName}</p> : null}
+          {displayName ? <p className="min-w-0 truncate text-xs font-medium text-[#8fb6d9] group-hover:text-[#a9cbe6]">{displayName}</p> : null}
         </div>
         <p className="text-xs text-zinc-500">{followersCopy}</p>
       </div>
