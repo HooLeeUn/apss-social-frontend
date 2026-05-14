@@ -506,8 +506,8 @@ export default function ProfileFeedPage() {
               </svg>
               <input
                 type="search"
-                placeholder="Buscar amigos y seguidos"
-                aria-label="Buscar amigos y seguidos"
+                placeholder="Buscar y Seguir Amigos"
+                aria-label="Buscar y Seguir Amigos"
                 value={userSearchQuery}
                 onChange={(event) => {
                   setUserSearchQuery(event.target.value);
