@@ -1181,12 +1181,24 @@ function toSocialUser(user: Record<string, unknown>, fallbackId: string): Social
   };
 }
 
+function toSearchResultUserRecord(item: unknown): Record<string, unknown> | null {
+  const record = toRecord(item);
+  if (!record) return null;
+
+  const data = toRecord(record.data);
+  const user = toRecord(record.user);
+  const profile = toRecord(record.profile);
+  const candidate = user || profile || data || record;
+
+  return { ...record, ...candidate };
+}
+
 function parseUserSearchResults(payload: unknown): PaginatedUserSearchResults {
   const root = toRecord(payload);
   const data = toRecord(root?.data);
   const results = getCollection(payload);
   const items = results
-    .map((item, index) => toSocialUser(toRecord(item) ?? {}, `user-search-${index + 1}`))
+    .map((item, index) => toSocialUser(toSearchResultUserRecord(item) ?? {}, `user-search-${index + 1}`))
     .filter(isNonNullSocialUser);
 
   return {
