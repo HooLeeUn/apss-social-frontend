@@ -123,15 +123,29 @@ function MovieCard({
         } ${isLarge ? "h-72 md:h-auto md:w-48" : isFeed ? "" : "h-56"}`}
       >
         {posterSrc && !hasPosterError ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={posterSrc}
-            alt={`Poster de ${displayTitle}`}
-            className="h-full w-full object-cover"
-            loading={isFeed ? "lazy" : "eager"}
-            decoding="async"
-            onError={() => setPosterFailedSrc(posterSrc)}
-          />
+          canNavigateToDetail && isFeed ? (
+            <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={posterSrc}
+                alt={`Poster de ${displayTitle}`}
+                className="h-full w-full object-cover transition-transform duration-200 hover:scale-[1.02]"
+                loading="lazy"
+                decoding="async"
+                onError={() => setPosterFailedSrc(posterSrc)}
+              />
+            </Link>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={posterSrc}
+              alt={`Poster de ${displayTitle}`}
+              className="h-full w-full object-cover"
+              loading={isFeed ? "lazy" : "eager"}
+              decoding="async"
+              onError={() => setPosterFailedSrc(posterSrc)}
+            />
+          )
         ) : (
           <div
             className={`flex h-full w-full items-center justify-center px-3 text-center text-sm ${
@@ -304,7 +318,7 @@ function MovieCard({
                   </button>
                 </div>
               ) : null}
-              <CommentDetailButton href={detailHref} title={displayTitle} className="h-8 w-8 shrink-0" />
+              <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
             </div>
           ) : (
             <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">

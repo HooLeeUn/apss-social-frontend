@@ -21,6 +21,8 @@ export interface Movie {
   castMembers: string[];
   posterUrl: string | null;
   image?: string | null;
+  synopsis?: string | null;
+  synopsis_es?: string | null;
   displayRating: number | null;
   myRating: number | null;
   followingAvgRating: number | null;
@@ -319,6 +321,8 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   const contentType = pickFirst(raw.type, nestedMovie?.type);
   const director = pickFirstNonEmptyString(raw.director, nestedMovie?.director, raw.director_name, nestedMovie?.director_name);
   const castMembers = toStringList(pickFirst(raw.cast_members, nestedMovie?.cast_members, raw.cast, nestedMovie?.cast));
+  const synopsis = pickFirstNonEmptyString(raw.synopsis, nestedMovie?.synopsis);
+  const synopsis_es = pickFirstNonEmptyString(raw.synopsis_es, nestedMovie?.synopsis_es);
 
   return {
     id,
@@ -352,6 +356,8 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
           raw.image_url,
         ),
       ),
+    synopsis,
+    synopsis_es,
     displayRating: toNumber(pickFirst(raw.display_rating, raw.general_rating, raw.avg_rating, raw.rating)),
     myRating: toNumber(raw.my_rating),
     followingAvgRating: toNumber(pickFirst(raw.following_avg_rating, raw.following_rating)),

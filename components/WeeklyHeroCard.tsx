@@ -82,15 +82,29 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
         <div className="mx-auto w-full max-w-[268px] px-4 pt-3 sm:max-w-[288px]">
           <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900">
             {posterSrc && !hasPosterError ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={posterSrc}
-                alt={`Poster de ${title}`}
-                className="h-full w-full object-cover"
-                loading="lazy"
-                decoding="async"
-                onError={() => setPosterFailedSrc(posterSrc)}
-              />
+              detailHref ? (
+                <Link href={detailHref} aria-label={`Ver detalle de ${title}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={posterSrc}
+                    alt={`Poster de ${title}`}
+                    className="h-full w-full object-cover transition-transform duration-200 hover:scale-[1.02]"
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => setPosterFailedSrc(posterSrc)}
+                  />
+                </Link>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={posterSrc}
+                  alt={`Poster de ${title}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  onError={() => setPosterFailedSrc(posterSrc)}
+                />
+              )
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-6 text-center text-sm text-zinc-300">
                 Poster próximamente
@@ -151,7 +165,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 </button>
                 <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button>
               </div>
-              <CommentDetailButton href={detailHref} title={title} className="h-9 w-9 shrink-0" />
+              <CommentDetailButton title={title} synopsisEs={movie?.synopsis_es} synopsis={movie?.synopsis} className="h-9 w-9 shrink-0" />
             </div>
           </div>
         </div>
