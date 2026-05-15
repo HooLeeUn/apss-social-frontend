@@ -133,7 +133,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
       )}
 
       <div className="absolute right-[calc(34%+0.35rem)] top-[calc(59%+19px)] z-10 -translate-y-1/2">
-        <CommentDetailButton href={detailHref} title={title} className="h-[30px] w-[30px]" />
+        <CommentDetailButton title={title} synopsisEs={movie?.synopsis_es} synopsis={movie?.synopsis} className="h-[30px] w-[30px]" />
       </div>
 
       <div className="flex h-full overflow-hidden rounded-xl border border-white/25 bg-zinc-950 p-[2px] shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
@@ -216,15 +216,37 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           <div className="w-[34%] min-w-[72px] max-w-[92px] border-l border-white/10 bg-zinc-950">
             <div className="h-full w-full">
               {posterSrc && !hasPosterError ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={posterSrc}
-                  alt={`Poster de ${title}`}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  onError={() => setPosterFailedSrc(posterSrc)}
-                />
+                detailHref ? (
+                  <Link href={detailHref} aria-label={`Ver detalle de ${title}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={posterSrc}
+                      alt={`Poster de ${title}`}
+                      className="h-full w-full object-cover transition-transform duration-200 hover:scale-[1.02]"
+                      loading="lazy"
+                      decoding="async"
+                      onError={() => setPosterFailedSrc(posterSrc)}
+                    />
+                  </Link>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={posterSrc}
+                    alt={`Poster de ${title}`}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => setPosterFailedSrc(posterSrc)}
+                  />
+                )
+              ) : detailHref ? (
+                <Link
+                  href={detailHref}
+                  aria-label={`Ver detalle de ${title}`}
+                  className="flex h-full w-full cursor-pointer items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-2 text-center text-[10px] text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
+                  Sin poster
+                </Link>
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-2 text-center text-[10px] text-zinc-400">
                   Sin poster
