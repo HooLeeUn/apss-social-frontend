@@ -146,6 +146,16 @@ function MovieCard({
               onError={() => setPosterFailedSrc(posterSrc)}
             />
           )
+        ) : canNavigateToDetail && isFeed ? (
+          <Link
+            href={detailHref}
+            aria-label={`Ver detalle de ${displayTitle}`}
+            className={`flex h-full w-full cursor-pointer items-center justify-center px-3 text-center text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
+              isFeed ? "text-zinc-400" : "text-gray-500"
+            }`}
+          >
+            Poster no disponible
+          </Link>
         ) : (
           <div
             className={`flex h-full w-full items-center justify-center px-3 text-center text-sm ${

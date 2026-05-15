@@ -239,6 +239,14 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     onError={() => setPosterFailedSrc(posterSrc)}
                   />
                 )
+              ) : detailHref ? (
+                <Link
+                  href={detailHref}
+                  aria-label={`Ver detalle de ${title}`}
+                  className="flex h-full w-full cursor-pointer items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-2 text-center text-[10px] text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
+                  Sin poster
+                </Link>
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-2 text-center text-[10px] text-zinc-400">
                   Sin poster
