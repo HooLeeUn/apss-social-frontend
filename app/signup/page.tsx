@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { setToken } from "../../lib/auth";
+import Link from "next/link";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { API_BASE_URL } from "../../lib/api";
 import AuthShell from "../../components/auth/AuthShell";
 import { formatBirthDate, getAgeFromBirthDate, MINIMUM_AGE } from "../../lib/personal-data";
@@ -17,18 +16,32 @@ type FieldName =
   | "password_confirmation"
   | "non_field_errors";
 type FieldErrors = Partial<Record<FieldName, string>>;
-
-interface RegisterResponse {
-  token?: string;
-}
+type UsernameAvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
 
 const inputBaseClassName =
   "w-full rounded-xl border border-zinc-700/85 bg-zinc-900/90 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500/90 outline-none transition duration-200 hover:border-zinc-500/90 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-400/35";
 const errorClassName = "text-sm text-red-300/95";
 const birthDateHelperText = "Esta fecha no podrá modificarse después de crear la cuenta.";
+const MIN_USERNAME_LENGTH = 8;
+const USERNAME_DEBOUNCE_MS = 500;
+
+function getUsernameAvailability(payload: Record<string, unknown>): boolean | null {
+  const available = payload.available ?? payload.is_available ?? payload.username_available;
+
+  if (typeof available === "boolean") {
+    return available;
+  }
+
+  const exists = payload.exists ?? payload.taken ?? payload.username_exists;
+
+  if (typeof exists === "boolean") {
+    return !exists;
+  }
+
+  return null;
+}
 
 export default function SignupPage() {
-  const router = useRouter();
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -41,12 +54,22 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
   const [showBirthDateModal, setShowBirthDateModal] = useState(false);
+  const [registrationPending, setRegistrationPending] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<UsernameAvailabilityStatus>("idle");
+  const [usernameStatusMessage, setUsernameStatusMessage] = useState("");
+  const lastCheckedUsernameRef = useRef("");
 
   const birthDateAge = useMemo(() => getAgeFromBirthDate(form.birth_date), [form.birth_date]);
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "", non_field_errors: "" }));
+
+    if (field === "username") {
+      lastCheckedUsernameRef.current = "";
+      setUsernameStatus("idle");
+      setUsernameStatusMessage("");
+    }
   };
 
   const validateForm = (): FieldErrors => {
@@ -60,8 +83,8 @@ export default function SignupPage() {
       nextErrors.last_name = "El apellido es obligatorio.";
     }
 
-    if (form.username.trim().length < 8) {
-      nextErrors.username = "El username debe tener al menos 8 caracteres.";
+    if (form.username.trim().length < MIN_USERNAME_LENGTH) {
+      nextErrors.username = `El username debe tener al menos ${MIN_USERNAME_LENGTH} caracteres.`;
     }
 
     if (!form.birth_date) {
@@ -102,6 +125,64 @@ export default function SignupPage() {
     return backendErrors;
   };
 
+  useEffect(() => {
+    const username = form.username.trim();
+
+    lastCheckedUsernameRef.current = "";
+    setUsernameStatusMessage("");
+
+    if (!username || username.length < MIN_USERNAME_LENGTH) {
+      setUsernameStatus("idle");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setUsernameStatus("checking");
+      setUsernameStatusMessage("Verificando username…");
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/register/check-username/?username=${encodeURIComponent(username)}`, {
+          signal: controller.signal,
+        });
+        const contentType = res.headers.get("content-type") || "";
+        const data: Record<string, unknown> = contentType.includes("application/json") ? await res.json() : {};
+
+        if (!res.ok) {
+          throw new Error("Username check failed");
+        }
+
+        const isAvailable = getUsernameAvailability(data);
+
+        if (isAvailable === null) {
+          throw new Error("Invalid username check response");
+        }
+
+        lastCheckedUsernameRef.current = username;
+        setUsernameStatus(isAvailable ? "available" : "unavailable");
+        setUsernameStatusMessage(isAvailable ? "Username disponible" : "Este username ya está en uso");
+        setErrors((prev) => ({
+          ...prev,
+          username: isAvailable ? "" : "Este username ya está en uso",
+        }));
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error(error);
+        lastCheckedUsernameRef.current = username;
+        setUsernameStatus("error");
+        setUsernameStatusMessage("No se pudo verificar el username. Intenta nuevamente.");
+      }
+    }, USERNAME_DEBOUNCE_MS);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [form.username]);
+
   const submitRegistration = async () => {
     setLoading(true);
     setErrors({});
@@ -116,7 +197,7 @@ export default function SignupPage() {
       });
 
       const contentType = res.headers.get("content-type") || "";
-      const data: RegisterResponse | Record<string, unknown> = contentType.includes("application/json") ? await res.json() : {};
+      const data: Record<string, unknown> = contentType.includes("application/json") ? await res.json() : {};
 
       if (!res.ok) {
         const parsedErrors = mapBackendErrors(data as Record<string, unknown>);
@@ -128,15 +209,7 @@ export default function SignupPage() {
         return;
       }
 
-      const registerData = data as RegisterResponse;
-
-      if (registerData.token) {
-        setToken(registerData.token);
-        router.push("/");
-        return;
-      }
-
-      router.push("/login");
+      setRegistrationPending(true);
     } catch (error) {
       console.error(error);
       setErrors({ non_field_errors: "No se pudo conectar con el backend." });
@@ -149,6 +222,18 @@ export default function SignupPage() {
     e.preventDefault();
 
     const frontendErrors = validateForm();
+    const normalizedUsername = form.username.trim();
+
+    if (
+      !frontendErrors.username &&
+      (usernameStatus !== "available" || lastCheckedUsernameRef.current !== normalizedUsername)
+    ) {
+      frontendErrors.username =
+        usernameStatus === "checking"
+          ? "Espera a que termine la verificación del username."
+          : "Verifica que el username esté disponible antes de registrarte.";
+    }
+
     if (Object.keys(frontendErrors).length > 0) {
       setErrors(frontendErrors);
       return;
@@ -161,6 +246,45 @@ export default function SignupPage() {
     setShowBirthDateModal(false);
     await submitRegistration();
   };
+
+  const normalizedUsername = form.username.trim();
+  const hasUsernameReadyForSubmit =
+    usernameStatus === "available" && lastCheckedUsernameRef.current === normalizedUsername;
+  const isSubmitDisabled = loading || usernameStatus === "checking" || (normalizedUsername.length >= MIN_USERNAME_LENGTH && !hasUsernameReadyForSubmit);
+  const usernameStatusClassName =
+    usernameStatus === "available"
+      ? "text-sm text-emerald-300/95"
+      : usernameStatus === "unavailable" || usernameStatus === "error"
+        ? errorClassName
+        : "text-sm text-zinc-300";
+
+  if (registrationPending) {
+    return (
+      <AuthShell
+        title="Revisa tu correo"
+        description="Tu registro quedó pendiente hasta que confirmes tu email."
+        footerText="¿Ya confirmaste tu cuenta?"
+        footerLinkText="Inicia sesión"
+        footerHref="/login"
+        brandingSlot="signup_logo_url"
+      >
+        <div className="space-y-5 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-5 text-sm leading-6 text-emerald-50 shadow-[0_14px_36px_rgba(16,185,129,0.08)]">
+          <p className="text-base font-semibold text-emerald-100">
+            Te enviamos un correo de confirmación. Revisa tu bandeja para activar tu cuenta.
+          </p>
+          <p className="text-emerald-50/85">
+            La cuenta permanecerá pendiente y no podrás iniciar sesión hasta abrir el enlace de confirmación.
+          </p>
+          <Link
+            href="/login"
+            className="inline-flex w-full items-center justify-center rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 shadow-[0_8px_28px_rgba(255,255,255,0.08)] transition duration-200 hover:bg-white hover:shadow-[0_12px_34px_rgba(255,255,255,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.995]"
+          >
+            Ir al login
+          </Link>
+        </div>
+      </AuthShell>
+    );
+  }
 
   return (
     <>
@@ -212,7 +336,8 @@ export default function SignupPage() {
               value={form.username}
               onChange={(e) => handleChange("username", e.target.value)}
             />
-            {errors.username && <p className={errorClassName}>{errors.username}</p>}
+            {errors.username ? <p className={errorClassName}>{errors.username}</p> : null}
+            {!errors.username && usernameStatusMessage ? <p className={usernameStatusClassName}>{usernameStatusMessage}</p> : null}
           </div>
 
           <div className="space-y-2">
@@ -282,10 +407,10 @@ export default function SignupPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitDisabled}
             className="mt-1 w-full rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 shadow-[0_8px_28px_rgba(255,255,255,0.08)] transition duration-200 hover:bg-white hover:shadow-[0_12px_34px_rgba(255,255,255,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.995] disabled:cursor-not-allowed disabled:opacity-65 disabled:shadow-none"
           >
-            {loading ? "Creando cuenta..." : "Registrarme"}
+            {loading ? "Enviando confirmación..." : "Registrarme"}
           </button>
         </form>
       </AuthShell>
