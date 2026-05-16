@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { setToken } from "../lib/auth";
 import { API_BASE_URL } from "../lib/api";
 import AuthShell from "../components/auth/AuthShell";
@@ -9,10 +9,22 @@ import AuthShell from "../components/auth/AuthShell";
 const inputBaseClassName =
   "w-full rounded-xl border border-zinc-700/85 bg-zinc-900/90 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500/90 outline-none transition duration-200 hover:border-zinc-500/90 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-400/35";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const verifiedParam = searchParams.get("verified");
+  const verificationMessage =
+    verifiedParam === "1"
+      ? "Tu correo fue verificado. Ya puedes iniciar sesión."
+      : verifiedParam === "expired"
+        ? "El enlace expiró. Debes crear tu cuenta nuevamente."
+        : "";
+  const verificationMessageClassName =
+    verifiedParam === "1"
+      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-100"
+      : "border-amber-300/25 bg-amber-300/10 text-amber-100";
 
   const handleLogin = async () => {
     try {
@@ -54,6 +66,12 @@ export default function LoginPage() {
       brandingSlot="login_logo_url"
     >
       <div className="space-y-5">
+        {verificationMessage ? (
+          <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${verificationMessageClassName}`}>
+            {verificationMessage}
+          </div>
+        ) : null}
+
         <div className="space-y-2">
           <label htmlFor="login-username" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
             Username
@@ -89,5 +107,13 @@ export default function LoginPage() {
         </button>
       </div>
     </AuthShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginPageContent />
+    </Suspense>
   );
 }
