@@ -98,9 +98,9 @@ function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<strin
 }
 
 type StreamingCountry = "CO" | "US";
-const STREAMING_COUNTRY_OPTIONS: { value: StreamingCountry; flag: string }[] = [
-  { value: "CO", flag: "🇨🇴" },
-  { value: "US", flag: "🇺🇸" },
+const STREAMING_COUNTRY_OPTIONS: { value: StreamingCountry; flagSrc: string }[] = [
+  { value: "CO", flagSrc: "/flags/co.svg" },
+  { value: "US", flagSrc: "/flags/us.svg" },
 ];
 
 function normalizeStreamingCountry(value: unknown): StreamingCountry {
@@ -774,7 +774,15 @@ export default function FeedPage() {
                     aria-haspopup="listbox"
                     aria-expanded={isStreamingCountryMenuOpen}
                   >
-                    <span>{`${selectedStreamingCountryOption.flag} ${selectedStreamingCountryOption.value}`}</span>
+                    <span className="flex items-center gap-1.5">
+                      <img
+                        src={selectedStreamingCountryOption.flagSrc}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-3.5 w-5 rounded-[2px] object-cover"
+                      />
+                      <span>{selectedStreamingCountryOption.value}</span>
+                    </span>
                     <span className="text-[10px] text-zinc-400">▾</span>
                   </button>
                   {isStreamingCountryMenuOpen ? (
@@ -797,7 +805,15 @@ export default function FeedPage() {
                                 : "text-zinc-100 hover:bg-slate-600/25"
                             }`}
                           >
-                            {`${option.flag} ${option.value}`}
+                            <span className="flex items-center gap-1.5">
+                              <img
+                                src={option.flagSrc}
+                                alt=""
+                                aria-hidden="true"
+                                className="h-3.5 w-5 rounded-[2px] object-cover"
+                              />
+                              <span>{option.value}</span>
+                            </span>
                           </button>
                         </li>
                       ))}
