@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { clearToken, getToken } from "../../lib/auth";
@@ -97,6 +97,12 @@ function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<strin
   return movies.filter((movie) => !shouldExcludeFromPersonalized(movie, excludedRatedIds));
 }
 
+type StreamingCountry = "CO" | "US";
+
+function normalizeStreamingCountry(value: unknown): StreamingCountry {
+  return value === "US" ? "US" : "CO";
+}
+
 export default function FeedPage() {
   const router = useRouter();
   const branding = useAppBranding();
@@ -116,6 +122,9 @@ export default function FeedPage() {
   const [listedMovieIds, setListedMovieIds] = useState<Set<string>>(new Set());
   const [recommendedMovieIds, setRecommendedMovieIds] = useState<Set<string>>(new Set());
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [streamingCountry, setStreamingCountry] = useState<StreamingCountry>("CO");
+  const [isSavingStreamingCountry, setIsSavingStreamingCountry] = useState(false);
+  const [streamingCountryError, setStreamingCountryError] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -248,9 +257,14 @@ export default function FeedPage() {
 
     const loadProfileContext = async () => {
       try {
-        const [personalData, profile] = await Promise.all([getPersonalData(), getMyProfile()]);
+        const [personalData, profile, me] = await Promise.all([getPersonalData(), getMyProfile(), apiFetch("/me/", { cache: "no-store" })]);
         setProfileAvatarUrl(personalData.avatar);
         setCurrentUserId(profile?.id ?? null);
+        const normalizedCountry = normalizeStreamingCountry(
+          me && typeof me === "object" ? (me as Record<string, unknown>).streaming_country : null,
+        );
+        setStreamingCountry(normalizedCountry);
+        setStreamingCountryError("");
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
         await refreshNotifications();
@@ -432,6 +446,32 @@ export default function FeedPage() {
       return nextState;
     });
   }, [refreshNotifications]);
+
+  const handleStreamingCountryChange = useCallback(
+    async (event: ChangeEvent<HTMLSelectElement>) => {
+      const nextCountry = normalizeStreamingCountry(event.target.value);
+      const previousCountry = streamingCountry;
+      if (nextCountry === previousCountry || isSavingStreamingCountry) return;
+
+      setStreamingCountry(nextCountry);
+      setStreamingCountryError("");
+      setIsSavingStreamingCountry(true);
+
+      try {
+        await apiFetch("/me/", {
+          method: "PATCH",
+          body: JSON.stringify({ streaming_country: nextCountry }),
+        });
+      } catch (streamingCountryPatchError) {
+        console.warn("No se pudo actualizar streaming_country.", streamingCountryPatchError);
+        setStreamingCountry(previousCountry);
+        setStreamingCountryError("No se guardó el país");
+      } finally {
+        setIsSavingStreamingCountry(false);
+      }
+    },
+    [isSavingStreamingCountry, streamingCountry],
+  );
 
   const handleNotificationItemClick = useCallback(
     async (item: MyNotificationItem) => {
@@ -697,6 +737,22 @@ export default function FeedPage() {
                   avatarAlt="Ir a perfil"
                   avatarVersion={profileAvatarVersion}
                 />
+                <div className="flex max-w-[88px] flex-col items-start gap-1">
+                  <label htmlFor="streaming-country" className="sr-only">
+                    País de streaming
+                  </label>
+                  <select
+                    id="streaming-country"
+                    value={streamingCountry}
+                    onChange={handleStreamingCountryChange}
+                    disabled={isSavingStreamingCountry}
+                    className="h-9 w-full rounded-xl border border-white/20 bg-zinc-900/95 px-2 py-1 text-xs font-semibold text-zinc-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/40 focus-visible:ring-2 focus-visible:ring-blue-300/70 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <option value="CO">🇨🇴 CO</option>
+                    <option value="US">🇺🇸 US</option>
+                  </select>
+                  {streamingCountryError ? <p className="text-[10px] text-red-300">{streamingCountryError}</p> : null}
+                </div>
               </div>
               <div className="mt-3">
                 <DirectorBoardMenu
