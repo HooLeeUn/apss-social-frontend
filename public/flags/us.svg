@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Estados Unidos</title>
+  <desc id="desc">Bandera con trece franjas y cantón azul.</desc>
+  <rect width="60" height="40" fill="#B22234"/>
+  <g fill="#FFF">
+    <rect y="3.08" width="60" height="3.08"/>
+    <rect y="9.23" width="60" height="3.08"/>
+    <rect y="15.38" width="60" height="3.08"/>
+    <rect y="21.54" width="60" height="3.08"/>
+    <rect y="27.69" width="60" height="3.08"/>
+    <rect y="33.85" width="60" height="3.08"/>
+  </g>
+  <rect width="24" height="21.54" fill="#3C3B6E"/>
+  <g fill="#FFF">
+    <circle cx="2.2" cy="2" r="0.5"/><circle cx="6.2" cy="2" r="0.5"/><circle cx="10.2" cy="2" r="0.5"/><circle cx="14.2" cy="2" r="0.5"/><circle cx="18.2" cy="2" r="0.5"/><circle cx="22.2" cy="2" r="0.5"/>
+    <circle cx="4.2" cy="4.2" r="0.5"/><circle cx="8.2" cy="4.2" r="0.5"/><circle cx="12.2" cy="4.2" r="0.5"/><circle cx="16.2" cy="4.2" r="0.5"/><circle cx="20.2" cy="4.2" r="0.5"/>
+    <circle cx="2.2" cy="6.4" r="0.5"/><circle cx="6.2" cy="6.4" r="0.5"/><circle cx="10.2" cy="6.4" r="0.5"/><circle cx="14.2" cy="6.4" r="0.5"/><circle cx="18.2" cy="6.4" r="0.5"/><circle cx="22.2" cy="6.4" r="0.5"/>
+    <circle cx="4.2" cy="8.6" r="0.5"/><circle cx="8.2" cy="8.6" r="0.5"/><circle cx="12.2" cy="8.6" r="0.5"/><circle cx="16.2" cy="8.6" r="0.5"/><circle cx="20.2" cy="8.6" r="0.5"/>
+    <circle cx="2.2" cy="10.8" r="0.5"/><circle cx="6.2" cy="10.8" r="0.5"/><circle cx="10.2" cy="10.8" r="0.5"/><circle cx="14.2" cy="10.8" r="0.5"/><circle cx="18.2" cy="10.8" r="0.5"/><circle cx="22.2" cy="10.8" r="0.5"/>
+    <circle cx="4.2" cy="13" r="0.5"/><circle cx="8.2" cy="13" r="0.5"/><circle cx="12.2" cy="13" r="0.5"/><circle cx="16.2" cy="13" r="0.5"/><circle cx="20.2" cy="13" r="0.5"/>
+    <circle cx="2.2" cy="15.2" r="0.5"/><circle cx="6.2" cy="15.2" r="0.5"/><circle cx="10.2" cy="15.2" r="0.5"/><circle cx="14.2" cy="15.2" r="0.5"/><circle cx="18.2" cy="15.2" r="0.5"/><circle cx="22.2" cy="15.2" r="0.5"/>
+    <circle cx="4.2" cy="17.4" r="0.5"/><circle cx="8.2" cy="17.4" r="0.5"/><circle cx="12.2" cy="17.4" r="0.5"/><circle cx="16.2" cy="17.4" r="0.5"/><circle cx="20.2" cy="17.4" r="0.5"/>
+  </g>
+</svg>
