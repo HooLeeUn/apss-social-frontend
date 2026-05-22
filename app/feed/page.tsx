@@ -830,6 +830,7 @@ export default function FeedPage() {
                   onCloseSession={handleLogout}
                   onPersonalDataClick={() => router.push("/settings/personal-data")}
                   onPrivacySecurityClick={() => router.push("/privacy-security")}
+                  onPoliciesClick={() => router.push("/policies")}
                 />
               </div>
             </div>
