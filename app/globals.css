@@ -165,3 +165,27 @@ textarea,
 .interaction-icon-tag--active {
   filter: brightness(0) saturate(100%) invert(45%) sepia(96%) saturate(2107%) hue-rotate(196deg) brightness(101%) contrast(101%);
 }
+
+.synopsis-popover-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a #121212;
+}
+
+.synopsis-popover-scrollbar::-webkit-scrollbar {
+  width: 7px;
+}
+
+.synopsis-popover-scrollbar::-webkit-scrollbar-track {
+  background: #121212;
+  border-radius: 9999px;
+}
+
+.synopsis-popover-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #595959 0%, #3f3f3f 100%);
+  border-radius: 9999px;
+  border: 1px solid #242424;
+}
+
+.synopsis-popover-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #666666 0%, #4a4a4a 100%);
+}

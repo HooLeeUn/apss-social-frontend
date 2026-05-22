@@ -98,7 +98,7 @@ export default function CommentDetailButton({ title, synopsis, synopsisEs, class
               id={popoverId}
               role="dialog"
               aria-label={`Sinopsis de ${title}`}
-              className={`fixed z-[1000] max-h-56 w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-white/15 bg-zinc-950/95 p-4 text-sm leading-relaxed text-zinc-100 shadow-[0_18px_45px_rgba(0,0,0,0.55)] backdrop-blur-md ${popoverClassName}`.trim()}
+              className={`fixed z-[1000] max-h-56 w-[min(20rem,calc(100vw-2rem))] overflow-y-auto synopsis-popover-scrollbar rounded-xl border border-white/15 bg-zinc-950/95 p-4 text-sm leading-relaxed text-zinc-100 shadow-[0_18px_45px_rgba(0,0,0,0.55)] backdrop-blur-md ${popoverClassName}`.trim()}
               style={{ top: position.top, left: position.left }}
               onClick={(event) => event.stopPropagation()}
             >
