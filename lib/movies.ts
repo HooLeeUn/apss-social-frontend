@@ -308,6 +308,25 @@ function normalizeContentType(value: unknown): string {
 
 export function normalizeMovie(raw: Record<string, unknown>, index: number): Movie {
   const nestedMovie = toRecord(raw.movie);
+  const debugTitleEnglish = pickFirstNonEmptyString(raw.title_english, nestedMovie?.title_english);
+  const debugTitleSpanish = pickFirstNonEmptyString(raw.title_spanish, nestedMovie?.title_spanish);
+  const isBeautifulMind =
+    [debugTitleEnglish, debugTitleSpanish]
+      .filter((value): value is string => Boolean(value))
+      .some((value) => {
+        const normalized = value.toLowerCase();
+        return normalized.includes("a beautiful mind") || normalized.includes("una mente brillante");
+      });
+
+  if (process.env.NODE_ENV === "development" && isBeautifulMind) {
+    console.log("[WeeklyRecommendations][raw]", {
+      title_english: debugTitleEnglish,
+      title_spanish: debugTitleSpanish,
+      synopsis: pickFirstNonEmptyString(raw.synopsis, nestedMovie?.synopsis),
+      synopsis_es: pickFirstNonEmptyString(raw.synopsis_es, nestedMovie?.synopsis_es),
+    });
+  }
+
   const genres = resolveGenres(raw, nestedMovie);
   const titleSpanish = pickFirstNonEmptyString(raw.title_spanish, nestedMovie?.title_spanish);
   const titleEnglish = pickFirstNonEmptyString(raw.title_english, nestedMovie?.title_english);
@@ -324,15 +343,36 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   const synopsis = pickFirstNonEmptyString(
     raw.synopsis_en,
     nestedMovie?.synopsis_en,
+    raw.synopsis_english,
+    nestedMovie?.synopsis_english,
+    raw.overview_en,
+    nestedMovie?.overview_en,
+    raw.overview_english,
+    nestedMovie?.overview_english,
     raw.synopsis,
     nestedMovie?.synopsis,
+    raw.overview,
+    nestedMovie?.overview,
   );
   const synopsis_es = pickFirstNonEmptyString(
     raw.synopsis_es,
     nestedMovie?.synopsis_es,
     raw.synopsis_spanish,
     nestedMovie?.synopsis_spanish,
+    raw.overview_es,
+    nestedMovie?.overview_es,
+    raw.overview_spanish,
+    nestedMovie?.overview_spanish,
+    raw.overview,
+    nestedMovie?.overview,
   );
+
+  if (process.env.NODE_ENV === "development" && isBeautifulMind) {
+    console.log("[WeeklyRecommendations][normalized]", {
+      synopsis,
+      synopsis_es,
+    });
+  }
 
   return {
     id,
