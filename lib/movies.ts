@@ -324,14 +324,28 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   const synopsis = pickFirstNonEmptyString(
     raw.synopsis_en,
     nestedMovie?.synopsis_en,
+    raw.synopsis_english,
+    nestedMovie?.synopsis_english,
+    raw.overview_en,
+    nestedMovie?.overview_en,
+    raw.overview_english,
+    nestedMovie?.overview_english,
     raw.synopsis,
     nestedMovie?.synopsis,
+    raw.overview,
+    nestedMovie?.overview,
   );
   const synopsis_es = pickFirstNonEmptyString(
     raw.synopsis_es,
     nestedMovie?.synopsis_es,
     raw.synopsis_spanish,
     nestedMovie?.synopsis_spanish,
+    raw.overview_es,
+    nestedMovie?.overview_es,
+    raw.overview_spanish,
+    nestedMovie?.overview_spanish,
+    raw.overview,
+    nestedMovie?.overview,
   );
 
   return {
