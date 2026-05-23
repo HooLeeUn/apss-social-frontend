@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 interface DirectorBoardMenuProps {
+  locale?: "es" | "en";
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
@@ -45,6 +46,7 @@ export default function DirectorBoardMenu({
   onPrivacySecurityClick,
   onPersonalDataClick,
   onPoliciesClick,
+  locale = "es",
 }: DirectorBoardMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -113,7 +115,7 @@ export default function DirectorBoardMenu({
               onClick={handlePersonalDataClick}
               className="w-full px-3 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
             >
-              Datos Personales
+              {locale === "en" ? "Personal Data" : "Datos Personales"}
             </button>
           </li>
           <li>
@@ -122,7 +124,7 @@ export default function DirectorBoardMenu({
               onClick={handlePoliciesClick}
               className="w-full px-3 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
             >
-              Políticas y Términos
+              {locale === "en" ? "Policies & Terms" : "Políticas y Términos"}
             </button>
           </li>
           <li>
@@ -131,7 +133,7 @@ export default function DirectorBoardMenu({
               onClick={handlePrivacySecurityClick}
               className="w-full px-3 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
             >
-              Privacidad y Seguridad
+              {locale === "en" ? "Privacy & Security" : "Privacidad y Seguridad"}
             </button>
           </li>
           <li>
@@ -140,7 +142,7 @@ export default function DirectorBoardMenu({
               onClick={handleCloseSessionClick}
               className="w-full px-3 py-3 text-left text-sm text-red-300 transition-colors hover:bg-red-500/10"
             >
-              Cerrar Sesión
+              {locale === "en" ? "Log Out" : "Cerrar Sesión"}
             </button>
           </li>
         </ul>

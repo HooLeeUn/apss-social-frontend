@@ -23,6 +23,7 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
+import { countryToLocale, getStoredCountry, setStoredCountry } from "../../lib/i18n";
 import {
   addMovieToMyList,
   addMovieToMyRecommendations,
@@ -130,6 +131,7 @@ export default function FeedPage() {
   const [isSavingStreamingCountry, setIsSavingStreamingCountry] = useState(false);
   const [streamingCountryError, setStreamingCountryError] = useState("");
   const [isStreamingCountryMenuOpen, setIsStreamingCountryMenuOpen] = useState(false);
+  const locale = countryToLocale(streamingCountry);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -142,6 +144,10 @@ export default function FeedPage() {
   const notificationContainerRef = useRef<HTMLDivElement | null>(null);
   const streamingCountryContainerRef = useRef<HTMLDivElement | null>(null);
   const isRefreshingNotificationsRef = useRef(false);
+
+  useEffect(() => {
+    setStreamingCountry(getStoredCountry());
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -459,6 +465,7 @@ export default function FeedPage() {
       if (nextCountry === previousCountry || isSavingStreamingCountry) return;
 
       setStreamingCountry(nextCountry);
+      setStoredCountry(nextCountry);
       setStreamingCountryError("");
       setIsSavingStreamingCountry(true);
 
@@ -824,6 +831,7 @@ export default function FeedPage() {
               </div>
               <div className="mt-3">
                 <DirectorBoardMenu
+                  locale={locale}
                   isOpen={isDirectorBoardOpen}
                   onToggle={handleDirectorBoardToggle}
                   onClose={handleDirectorBoardClose}
@@ -837,6 +845,7 @@ export default function FeedPage() {
           </div>
 
           <SearchBar
+            locale={locale}
             className="mx-auto w-full max-w-2xl rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
             inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
             showSearchIcon
@@ -844,6 +853,7 @@ export default function FeedPage() {
           />
 
           <GenreChips
+            locale={locale}
             genres={FEED_GENRE_OPTIONS}
             selectedGenres={selectedGenres}
             onToggleGenre={toggleGenreSelection}

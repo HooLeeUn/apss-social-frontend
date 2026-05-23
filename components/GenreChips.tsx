@@ -1,6 +1,7 @@
 import type { GenreOption } from "../lib/genres";
 
 interface GenreChipsProps {
+  locale?: "es" | "en";
   genres: readonly (string | GenreOption)[];
   selectedGenres?: string[];
   onToggleGenre?: (genre: string) => void;
