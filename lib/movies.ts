@@ -321,8 +321,18 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   const contentType = pickFirst(raw.type, nestedMovie?.type);
   const director = pickFirstNonEmptyString(raw.director, nestedMovie?.director, raw.director_name, nestedMovie?.director_name);
   const castMembers = toStringList(pickFirst(raw.cast_members, nestedMovie?.cast_members, raw.cast, nestedMovie?.cast));
-  const synopsis = pickFirstNonEmptyString(raw.synopsis, nestedMovie?.synopsis);
-  const synopsis_es = pickFirstNonEmptyString(raw.synopsis_es, nestedMovie?.synopsis_es);
+  const synopsis = pickFirstNonEmptyString(
+    raw.synopsis_en,
+    nestedMovie?.synopsis_en,
+    raw.synopsis,
+    nestedMovie?.synopsis,
+  );
+  const synopsis_es = pickFirstNonEmptyString(
+    raw.synopsis_es,
+    nestedMovie?.synopsis_es,
+    raw.synopsis_spanish,
+    nestedMovie?.synopsis_spanish,
+  );
 
   return {
     id,
