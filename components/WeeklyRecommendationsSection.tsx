@@ -1,11 +1,13 @@
 import { memo, useMemo } from "react";
 import { Movie } from "../lib/movies";
+import { useI18n } from "../hooks/useI18n";
 import WeeklyHeroCard from "./WeeklyHeroCard";
 import WeeklyMiniCard from "./WeeklyMiniCard";
 
 interface WeeklyRecommendationsSectionProps {
   weeklyMovies: Movie[];
   currentUserId?: string | number | null;
+  currentUsername?: string | null;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
   listedMovieIds?: Set<string>;
   onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
@@ -13,13 +15,14 @@ interface WeeklyRecommendationsSectionProps {
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
 }
 
-function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations }: WeeklyRecommendationsSectionProps) {
+function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations }: WeeklyRecommendationsSectionProps) {
+  const { t } = useI18n({ userId: currentUserId, username: currentUsername });
   const heroMovies = useMemo(() => [weeklyMovies[0], weeklyMovies[1]], [weeklyMovies]);
   const miniMovies = useMemo(() => Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]), [weeklyMovies]);
 
   return (
     <section className="space-y-6 pt-4">
-      <h2 className="text-center text-2xl font-semibold text-zinc-100">Recomendaciones de la semana</h2>
+      <h2 className="text-center text-2xl font-semibold text-zinc-100">{t("weeklyRecs")}</h2>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-stretch lg:gap-8">
         <div className="grid grid-cols-1 gap-4 lg:h-full lg:grid-cols-2 lg:auto-rows-fr">

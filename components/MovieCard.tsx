@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { memo, useState } from "react";
+import { useI18n } from "../hooks/useI18n";
+import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
@@ -25,10 +27,10 @@ interface MovieCardProps {
   stretchPosterColumn?: boolean;
 }
 
-function formatContentType(contentType: string) {
+function formatContentType(contentType: string, locale: "es" | "en") {
   const normalized = contentType.trim().toLowerCase();
-  if (normalized === "movie") return "Película";
-  if (normalized === "series" || normalized === "tv series" || normalized === "tvseries") return "Serie";
+  if (normalized === "movie") return locale === "en" ? "Movie" : "Película";
+  if (normalized === "series" || normalized === "tv series" || normalized === "tvseries") return locale === "en" ? "Series" : "Serie";
   if (!contentType.trim()) return "Desconocido";
   return contentType;
 }
@@ -50,15 +52,17 @@ function MovieCard({
   onToggleMyRecommendations,
   stretchPosterColumn = false,
 }: MovieCardProps) {
+  const { locale, t } = useI18n();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
-  const typeYearLine = [formatContentType(movie.contentType), movie.year && movie.year !== "-" ? movie.year : null]
+  const typeYearLine = [formatContentType(movie.contentType, locale), movie.year && movie.year !== "-" ? movie.year : null]
     .filter(Boolean)
     .join(" · ");
   const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : "Sin género";
-  const displayTitle = movie.displayTitle || movie.title;
-  const displaySecondaryTitle = movie.displaySecondaryTitle;
+  const resolvedTitles = resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.displayTitle || movie.title);
+  const displayTitle = resolvedTitles.primary;
+  const displaySecondaryTitle = resolvedTitles.secondary ?? movie.displaySecondaryTitle ?? null;
   const hasDirector = Boolean(movie.director?.trim());
   const castPreview = movie.castMembers.slice(0, 4);
   const hasCast = castPreview.length > 0;
@@ -154,7 +158,7 @@ function MovieCard({
               isFeed ? "text-zinc-400" : "text-gray-500"
             }`}
           >
-            Poster no disponible
+            {t("noPoster")}
           </Link>
         ) : (
           <div
@@ -162,7 +166,7 @@ function MovieCard({
               isFeed ? "text-zinc-400" : "text-gray-500"
             }`}
           >
-            Poster no disponible
+            {t("noPoster")}
           </div>
         )}
 
@@ -260,7 +264,7 @@ function MovieCard({
               </div>
             ) : (
               <>
-                <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>Seguidos</p>
+                <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>{t("following")}</p>
                 <p className="text-sm font-semibold">{formatFollowingRating(movie.followingAvgRating)}</p>
                 {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
                   <p className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</p>
@@ -303,7 +307,7 @@ function MovieCard({
               )
             ) : (
               <>
-                <p className={`text-[11px] uppercase tracking-wide whitespace-nowrap ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>MI CALIF.</p>
+                <p className={`text-[11px] uppercase tracking-wide whitespace-nowrap ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>{t("myRating")}</p>
                 <p className="text-sm font-semibold">{formatMyRating(movie.myRating)}</p>
               </>
             )}
