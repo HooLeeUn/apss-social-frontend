@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { memo, useState } from "react";
+import { useI18n } from "../hooks/useI18n";
+import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
@@ -28,8 +30,10 @@ function getAvatarFallback(username?: string | null): string {
 }
 
 function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations }: WeeklyMiniCardProps) {
-  const title = movie?.displayTitle ?? movie?.title ?? fallbackLabel;
-  const secondaryTitle = movie?.displaySecondaryTitle ?? null;
+  const { locale } = useI18n();
+  const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
+  const title = resolvedTitles.primary;
+  const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
   const genres = movie?.genres?.filter(Boolean) ?? [];
   const genre = genres.length ? genres.slice(0, 3).join(" • ") : "Sin género";
   const type = movie?.contentType ?? "Movie / Series";

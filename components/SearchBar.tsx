@@ -4,6 +4,7 @@ import { FormEvent, memo, UIEvent, useCallback, useEffect, useMemo, useRef, useS
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, apiFetch } from "../lib/api";
 import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../lib/movies";
+import { resolveMovieTitles } from "../lib/i18n";
 
 const AUTOCOMPLETE_LIMIT = 10;
 const AUTOCOMPLETE_DEBOUNCE_MS = 400;
@@ -29,6 +30,7 @@ interface SearchBarProps {
   buttonClassName?: string;
   showSearchIcon?: boolean;
   inlineAutocomplete?: boolean;
+  locale?: "es" | "en";
 }
 
 function buildAutocompleteEndpoint(query: string, page: number): string {
@@ -52,9 +54,11 @@ function collectUniqueMovies(movies: Movie[], seenIds: Set<string>): Movie[] {
 interface AutocompleteMovieRowProps {
   movie: Movie;
   onSelect: (movieId: Movie["id"]) => void;
+  locale: "es" | "en";
 }
 
-const AutocompleteMovieRow = memo(function AutocompleteMovieRow({ movie, onSelect }: AutocompleteMovieRowProps) {
+const AutocompleteMovieRow = memo(function AutocompleteMovieRow({ movie, onSelect, locale }: AutocompleteMovieRowProps) {
+  const titles = resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.displayTitle);
   return (
     <button
       type="button"
@@ -65,14 +69,14 @@ const AutocompleteMovieRow = memo(function AutocompleteMovieRow({ movie, onSelec
         {movie.posterUrl ? (
           <img src={movie.posterUrl} alt={movie.displayTitle} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
+          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">{locale === "en" ? "No Poster" : "Sin póster"}</div>
         )}
       </div>
       <div className="min-w-0 text-xs text-zinc-200">
         <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
-          {movie.titleSpanish ?? "-"}
+          {titles.primary ?? "-"}
         </p>
-        <p className="truncate text-[11px] leading-snug text-zinc-400">{movie.titleEnglish ?? "-"}</p>
+        <p className="truncate text-[11px] leading-snug text-zinc-400">{titles.secondary ?? "-"}</p>
         <p className="mt-0.5 truncate text-[11px] text-zinc-500">{movie.year || "-"}</p>
       </div>
       <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
@@ -98,6 +102,7 @@ export default function SearchBar({
   buttonClassName,
   showSearchIcon = false,
   inlineAutocomplete = false,
+  locale = "es",
 }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Movie[]>([]);
@@ -311,7 +316,7 @@ export default function SearchBar({
             onFocus={() => {
               if (inlineAutocomplete && shouldRunAutocomplete(trimmedQuery)) setIsOpen(true);
             }}
-            placeholder="Buscar películas, género o año"
+            placeholder={locale === "en" ? "Search movies, genre or year" : "Buscar películas, género o año"}
             className={`w-full rounded-[999px] border border-gray-300 bg-white px-3 py-2 text-sm ${
               showSearchIcon ? "pl-10" : ""
             } ${inputClassName ?? ""}`.trim()}
@@ -331,7 +336,7 @@ export default function SearchBar({
         <div className="absolute left-0 right-0 top-full z-40 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur">
           <div className="search-dropdown-scrollbar max-h-[336px] overflow-y-auto overscroll-contain py-1" onScroll={handleResultsScroll}>
             {results.map((movie) => (
-              <AutocompleteMovieRow key={movie.id} movie={movie} onSelect={handleMovieClick} />
+              <AutocompleteMovieRow key={movie.id} movie={movie} onSelect={handleMovieClick} locale={locale} />
             ))}
             {isLoadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
             {isLoading ? (

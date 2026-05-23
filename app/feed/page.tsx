@@ -23,6 +23,7 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
+import { countryToLocale, getStoredCountry, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
 import {
   addMovieToMyList,
   addMovieToMyRecommendations,
@@ -103,10 +104,6 @@ const STREAMING_COUNTRY_OPTIONS: { value: StreamingCountry; flagSrc: string }[] 
   { value: "US", flagSrc: "/flags/us.svg" },
 ];
 
-function normalizeStreamingCountry(value: unknown): StreamingCountry {
-  return value === "US" ? "US" : "CO";
-}
-
 export default function FeedPage() {
   const router = useRouter();
   const branding = useAppBranding();
@@ -121,6 +118,7 @@ export default function FeedPage() {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileAvatarVersion, setProfileAvatarVersion] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [notificationItems, setNotificationItems] = useState<MyNotificationItem[]>([]);
   const [listedMovieIds, setListedMovieIds] = useState<Set<string>>(new Set());
@@ -130,6 +128,7 @@ export default function FeedPage() {
   const [isSavingStreamingCountry, setIsSavingStreamingCountry] = useState(false);
   const [streamingCountryError, setStreamingCountryError] = useState("");
   const [isStreamingCountryMenuOpen, setIsStreamingCountryMenuOpen] = useState(false);
+  const locale = countryToLocale(streamingCountry);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -142,6 +141,10 @@ export default function FeedPage() {
   const notificationContainerRef = useRef<HTMLDivElement | null>(null);
   const streamingCountryContainerRef = useRef<HTMLDivElement | null>(null);
   const isRefreshingNotificationsRef = useRef(false);
+
+  useEffect(() => {
+    setStreamingCountry(getStoredCountry(null));
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -265,11 +268,19 @@ export default function FeedPage() {
       try {
         const [personalData, profile, me] = await Promise.all([getPersonalData(), getMyProfile(), apiFetch("/me/", { cache: "no-store" })]);
         setProfileAvatarUrl(personalData.avatar);
-        setCurrentUserId(profile?.id ?? null);
-        const normalizedCountry = normalizeStreamingCountry(
-          me && typeof me === "object" ? (me as Record<string, unknown>).streaming_country : null,
-        );
-        setStreamingCountry(normalizedCountry);
+        const meRecord = me && typeof me === "object" ? (me as Record<string, unknown>) : null;
+        const resolvedUserId = profile?.id ?? meRecord?.id ?? null;
+        const resolvedUsername =
+          typeof meRecord?.username === "string"
+            ? meRecord.username
+            : typeof meRecord?.user_name === "string"
+              ? meRecord.user_name
+              : null;
+
+        setCurrentUserId(resolvedUserId !== null && resolvedUserId !== undefined ? String(resolvedUserId) : null);
+        setCurrentUsername(resolvedUsername);
+        const storedCountry = setActiveLocaleScope({ userId: resolvedUserId, username: resolvedUsername });
+        setStreamingCountry(storedCountry);
         setStreamingCountryError("");
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
@@ -278,6 +289,7 @@ export default function FeedPage() {
         console.warn("No se pudo cargar el avatar del perfil para feed:", avatarError);
         setProfileAvatarUrl(null);
         setCurrentUserId(null);
+        setCurrentUsername(null);
         setUnreadNotificationsCount(0);
         setNotificationItems([]);
       }
@@ -439,6 +451,7 @@ export default function FeedPage() {
   }, []);
 
   const handleLogout = useCallback(() => {
+    setActiveLocaleScope(null);
     clearToken();
     router.replace("/login");
   }, [router]);
@@ -459,6 +472,7 @@ export default function FeedPage() {
       if (nextCountry === previousCountry || isSavingStreamingCountry) return;
 
       setStreamingCountry(nextCountry);
+      setStoredCountry(nextCountry, { userId: currentUserId, username: currentUsername });
       setStreamingCountryError("");
       setIsSavingStreamingCountry(true);
 
@@ -475,7 +489,7 @@ export default function FeedPage() {
         setIsSavingStreamingCountry(false);
       }
     },
-    [isSavingStreamingCountry, streamingCountry],
+    [currentUserId, currentUsername, isSavingStreamingCountry, streamingCountry],
   );
 
   const handleNotificationItemClick = useCallback(
@@ -824,6 +838,7 @@ export default function FeedPage() {
               </div>
               <div className="mt-3">
                 <DirectorBoardMenu
+                  locale={locale}
                   isOpen={isDirectorBoardOpen}
                   onToggle={handleDirectorBoardToggle}
                   onClose={handleDirectorBoardClose}
@@ -837,6 +852,7 @@ export default function FeedPage() {
           </div>
 
           <SearchBar
+            locale={locale}
             className="mx-auto w-full max-w-2xl rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
             inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
             showSearchIcon
@@ -844,6 +860,7 @@ export default function FeedPage() {
           />
 
           <GenreChips
+            locale={locale}
             genres={FEED_GENRE_OPTIONS}
             selectedGenres={selectedGenres}
             onToggleGenre={toggleGenreSelection}
@@ -858,16 +875,16 @@ export default function FeedPage() {
             isGenreDisabled={shouldDisableGenreChip}
           />
 
-          <p className="text-center text-xs text-zinc-500">*Escoge hasta 3 géneros</p>
+          <p className="text-center text-xs text-zinc-500">{translate(locale, "chooseGenres")}</p>
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} />
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">
           <div className="mx-auto w-full max-w-[860px] px-3 sm:px-4">
-            <h2 className="text-xl font-semibold text-zinc-100">Tu Cartelera</h2>
+            <h2 className="text-xl font-semibold text-zinc-100">{translate(locale, "yourWatchlist")}</h2>
           </div>
           {isLoadingPersonalized ? (
             <p className="pl-3 text-zinc-400 md:pl-6">Cargando...</p>
