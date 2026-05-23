@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppLogo from "../../components/AppLogo";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { ApiError } from "../../lib/api";
@@ -9,6 +10,7 @@ import { getLegalPolicies, LegalSection } from "../../lib/legal";
 
 export default function PoliciesPage() {
   const branding = useAppBranding();
+  const router = useRouter();
   const [title, setTitle] = useState("Políticas y Términos");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [sections, setSections] = useState<LegalSection[]>([]);
@@ -38,23 +40,35 @@ export default function PoliciesPage() {
 
   const hasLegalContent = useMemo(() => sections.length > 0, [sections]);
 
+  const normalizePolicyParagraph = (paragraph: string) =>
+    paragraph
+      .replace(
+        "Al crear cuenta, el usuario reconoce que su perfil se crea inicialmente como público.",
+        "Al crear una cuenta, el usuario reconoce que su perfil se crea inicialmente como público.",
+      )
+      .replace(
+        "La visibilidad de calificaciones, comentarios, recomendaciones, seguidores, amigos y datos personales depende de la configuración del perfil y permisos definidos por el usuario.",
+        "La visibilidad de calificaciones, comentarios, recomendaciones y datos personales depende de la configuración del perfil y permisos definidos por el usuario.",
+      );
+
   return (
     <main className="min-h-screen bg-black px-4 py-10 text-zinc-100 sm:px-6">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-7">
-        <div className="flex items-center justify-between gap-4">
-          <AppLogo
-            branding={branding}
-            slot="feed_logo_url"
-            alt="Logo de QNext"
-            className="text-base font-semibold tracking-[0.24em] text-zinc-300"
-            imageClassName="h-8 w-auto object-contain opacity-90"
-          />
-          <Link
-            href="/feed"
-            className="rounded-full border border-zinc-600 px-4 py-2 text-sm text-zinc-100 transition hover:border-zinc-300 hover:bg-zinc-900"
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={() => router.push("/feed")}
+            className="group rounded-2xl p-1 transition duration-200 hover:-translate-y-0.5 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70"
+            aria-label="Ir al feed"
           >
-            Volver al feed
-          </Link>
+            <AppLogo
+              branding={branding}
+              slot="feed_logo_url"
+              alt="Logo de QNext"
+              className="text-xl font-semibold tracking-[0.24em] text-zinc-200 transition duration-200 group-hover:text-white"
+              imageClassName="h-12 w-auto object-contain opacity-95 drop-shadow-[0_8px_22px_rgba(124,58,237,0.28)] transition duration-200 group-hover:opacity-100 group-hover:drop-shadow-[0_10px_26px_rgba(167,139,250,0.35)]"
+            />
+          </button>
         </div>
 
         <header className="space-y-2">
@@ -85,7 +99,7 @@ export default function PoliciesPage() {
                 <h2 className="text-xl font-semibold text-violet-300">{section.subtitle}</h2>
                 <div className="space-y-3 text-[15px] leading-8 text-zinc-200">
                   {section.paragraphs.map((paragraph, paragraphIndex) => (
-                    <p key={`${section.subtitle}-${paragraphIndex}`}>{paragraph}</p>
+                    <p key={`${section.subtitle}-${paragraphIndex}`}>{normalizePolicyParagraph(paragraph)}</p>
                   ))}
                   {section.showTmdbAttribution ? (
                     <div className="space-y-3 pt-2">
