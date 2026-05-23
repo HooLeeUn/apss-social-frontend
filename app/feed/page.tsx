@@ -23,7 +23,7 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
-import { countryToLocale, getStoredCountry, setStoredCountry } from "../../lib/i18n";
+import { countryToLocale, getStoredCountry, setStoredCountry, t as translate } from "../../lib/i18n";
 import {
   addMovieToMyList,
   addMovieToMyRecommendations,
@@ -868,7 +868,7 @@ export default function FeedPage() {
             isGenreDisabled={shouldDisableGenreChip}
           />
 
-          <p className="text-center text-xs text-zinc-500">*Escoge hasta 3 géneros</p>
+          <p className="text-center text-xs text-zinc-500">{translate(locale, "chooseGenres")}</p>
         </div>
 
         <section className="space-y-5">
@@ -877,7 +877,7 @@ export default function FeedPage() {
 
         <section className="space-y-5 bg-black pb-8">
           <div className="mx-auto w-full max-w-[860px] px-3 sm:px-4">
-            <h2 className="text-xl font-semibold text-zinc-100">Tu Cartelera</h2>
+            <h2 className="text-xl font-semibold text-zinc-100">{translate(locale, "yourWatchlist")}</h2>
           </div>
           {isLoadingPersonalized ? (
             <p className="pl-3 text-zinc-400 md:pl-6">Cargando...</p>

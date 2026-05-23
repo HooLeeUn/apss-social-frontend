@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "../hooks/useI18n";
 
 interface CommentDetailButtonProps {
   title: string;
@@ -11,19 +12,24 @@ interface CommentDetailButtonProps {
   popoverClassName?: string;
 }
 
-const SYNOPSIS_FALLBACK = "Sinopsis próximamente.";
-
-function resolveSynopsis(synopsisEs?: string | null, synopsis?: string | null): string {
-  return synopsisEs?.trim() || synopsis?.trim() || SYNOPSIS_FALLBACK;
+function resolveLocalizedSynopsis(
+  locale: "es" | "en",
+  synopsisEs?: string | null,
+  synopsis?: string | null,
+): string {
+  const fallback = locale === "en" ? "Synopsis coming soon" : "Sinopsis próximamente";
+  if (locale === "en") return synopsis?.trim() || synopsisEs?.trim() || fallback;
+  return synopsisEs?.trim() || synopsis?.trim() || fallback;
 }
 
 export default function CommentDetailButton({ title, synopsis, synopsisEs, className = "", popoverClassName = "" }: CommentDetailButtonProps) {
+  const { locale } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const popoverId = useId();
-  const synopsisText = resolveSynopsis(synopsisEs, synopsis);
+  const synopsisText = resolveLocalizedSynopsis(locale, synopsisEs, synopsis);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -97,12 +103,12 @@ export default function CommentDetailButton({ title, synopsis, synopsisEs, class
               ref={popoverRef}
               id={popoverId}
               role="dialog"
-              aria-label={`Sinopsis de ${title}`}
+              aria-label={`${locale === "en" ? "Synopsis" : "Sinopsis"} de ${title}`}
               className={`fixed z-[1000] max-h-56 w-[min(20rem,calc(100vw-2rem))] overflow-y-auto synopsis-popover-scrollbar rounded-xl border border-white/15 bg-zinc-950/95 p-4 text-sm leading-relaxed text-zinc-100 shadow-[0_18px_45px_rgba(0,0,0,0.55)] backdrop-blur-md ${popoverClassName}`.trim()}
               style={{ top: position.top, left: position.left }}
               onClick={(event) => event.stopPropagation()}
             >
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-200/80">Sinopsis</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-200/80">{locale === "en" ? "SYNOPSIS" : "SINOPSIS"}</p>
               <p className="whitespace-pre-line text-zinc-200">{synopsisText}</p>
             </div>,
             document.body,

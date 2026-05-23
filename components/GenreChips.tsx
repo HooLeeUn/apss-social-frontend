@@ -26,6 +26,7 @@ interface NormalizedGenreChip {
 }
 
 export default function GenreChips({
+  locale = "es",
   genres,
   selectedGenres,
   onToggleGenre,
@@ -43,17 +44,28 @@ export default function GenreChips({
   disabledChipClassName,
   isGenreDisabled,
 }: GenreChipsProps) {
+  const genreLabelMap: Record<string, { es: string; en: string }> = {
+    Action: { es: "Acción", en: "Action" },
+    Animation: { es: "Animación", en: "Animation" },
+    Comedy: { es: "Comedia", en: "Comedy" },
+    Documentary: { es: "Documental", en: "Documentary" },
+    Drama: { es: "Drama", en: "Drama" },
+    Horror: { es: "Horror", en: "Horror" },
+    Musical: { es: "Musical", en: "Musical" },
+    "Sci-Fi": { es: "Ciencia ficción", en: "Sci-Fi" },
+  };
+
   const normalizedGenres: NormalizedGenreChip[] = genres.map((genre) =>
     typeof genre === "string"
-      ? { label: genre, value: genre }
-      : { label: genre.label, value: genre.value },
+      ? { label: genreLabelMap[genre]?.[locale] ?? genre, value: genre }
+      : { label: genreLabelMap[genre.value]?.[locale] ?? genre.label, value: genre.value },
   );
 
   const selectedValues =
-    selectedGenres ?? (selectedGenre && selectedGenre !== "Todos" ? [selectedGenre] : []);
+    selectedGenres ?? (selectedGenre && selectedGenre !== "Todos" && selectedGenre !== "All" ? [selectedGenre] : []);
 
   const chips = showAllChip
-    ? [{ label: "Todos", value: "Todos", isAll: true }, ...normalizedGenres.map((genre) => ({ ...genre, isAll: false }))]
+    ? [{ label: locale === "en" ? "All" : "Todos", value: "Todos", isAll: true }, ...normalizedGenres.map((genre) => ({ ...genre, isAll: false }))]
     : normalizedGenres.map((genre) => ({ ...genre, isAll: false }));
 
   return (
