@@ -23,7 +23,7 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
-import { countryToLocale, getStoredCountry, setStoredCountry, t as translate } from "../../lib/i18n";
+import { countryToLocale, getStoredCountry, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
 import {
   addMovieToMyList,
   addMovieToMyRecommendations,
@@ -104,10 +104,6 @@ const STREAMING_COUNTRY_OPTIONS: { value: StreamingCountry; flagSrc: string }[] 
   { value: "US", flagSrc: "/flags/us.svg" },
 ];
 
-function normalizeStreamingCountry(value: unknown): StreamingCountry {
-  return value === "US" ? "US" : "CO";
-}
-
 export default function FeedPage() {
   const router = useRouter();
   const branding = useAppBranding();
@@ -122,6 +118,7 @@ export default function FeedPage() {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileAvatarVersion, setProfileAvatarVersion] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [notificationItems, setNotificationItems] = useState<MyNotificationItem[]>([]);
   const [listedMovieIds, setListedMovieIds] = useState<Set<string>>(new Set());
@@ -146,7 +143,7 @@ export default function FeedPage() {
   const isRefreshingNotificationsRef = useRef(false);
 
   useEffect(() => {
-    setStreamingCountry(getStoredCountry());
+    setStreamingCountry(getStoredCountry(null));
   }, []);
 
   useEffect(() => {
@@ -271,11 +268,19 @@ export default function FeedPage() {
       try {
         const [personalData, profile, me] = await Promise.all([getPersonalData(), getMyProfile(), apiFetch("/me/", { cache: "no-store" })]);
         setProfileAvatarUrl(personalData.avatar);
-        setCurrentUserId(profile?.id ?? null);
-        const normalizedCountry = normalizeStreamingCountry(
-          me && typeof me === "object" ? (me as Record<string, unknown>).streaming_country : null,
-        );
-        setStreamingCountry(normalizedCountry);
+        const meRecord = me && typeof me === "object" ? (me as Record<string, unknown>) : null;
+        const resolvedUserId = profile?.id ?? meRecord?.id ?? null;
+        const resolvedUsername =
+          typeof meRecord?.username === "string"
+            ? meRecord.username
+            : typeof meRecord?.user_name === "string"
+              ? meRecord.user_name
+              : null;
+
+        setCurrentUserId(resolvedUserId !== null && resolvedUserId !== undefined ? String(resolvedUserId) : null);
+        setCurrentUsername(resolvedUsername);
+        const storedCountry = setActiveLocaleScope({ userId: resolvedUserId, username: resolvedUsername });
+        setStreamingCountry(storedCountry);
         setStreamingCountryError("");
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
@@ -284,6 +289,7 @@ export default function FeedPage() {
         console.warn("No se pudo cargar el avatar del perfil para feed:", avatarError);
         setProfileAvatarUrl(null);
         setCurrentUserId(null);
+        setCurrentUsername(null);
         setUnreadNotificationsCount(0);
         setNotificationItems([]);
       }
@@ -445,6 +451,7 @@ export default function FeedPage() {
   }, []);
 
   const handleLogout = useCallback(() => {
+    setActiveLocaleScope(null);
     clearToken();
     router.replace("/login");
   }, [router]);
@@ -465,7 +472,7 @@ export default function FeedPage() {
       if (nextCountry === previousCountry || isSavingStreamingCountry) return;
 
       setStreamingCountry(nextCountry);
-      setStoredCountry(nextCountry);
+      setStoredCountry(nextCountry, { userId: currentUserId, username: currentUsername });
       setStreamingCountryError("");
       setIsSavingStreamingCountry(true);
 
@@ -482,7 +489,7 @@ export default function FeedPage() {
         setIsSavingStreamingCountry(false);
       }
     },
-    [isSavingStreamingCountry, streamingCountry],
+    [currentUserId, currentUsername, isSavingStreamingCountry, streamingCountry],
   );
 
   const handleNotificationItemClick = useCallback(
@@ -872,7 +879,7 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} />
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">

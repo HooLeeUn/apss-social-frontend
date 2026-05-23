@@ -7,6 +7,7 @@ import WeeklyMiniCard from "./WeeklyMiniCard";
 interface WeeklyRecommendationsSectionProps {
   weeklyMovies: Movie[];
   currentUserId?: string | number | null;
+  currentUsername?: string | null;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
   listedMovieIds?: Set<string>;
   onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
@@ -14,8 +15,8 @@ interface WeeklyRecommendationsSectionProps {
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
 }
 
-function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations }: WeeklyRecommendationsSectionProps) {
-  const { t } = useI18n();
+function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations }: WeeklyRecommendationsSectionProps) {
+  const { t } = useI18n({ userId: currentUserId, username: currentUsername });
   const heroMovies = useMemo(() => [weeklyMovies[0], weeklyMovies[1]], [weeklyMovies]);
   const miniMovies = useMemo(() => Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]), [weeklyMovies]);
 
