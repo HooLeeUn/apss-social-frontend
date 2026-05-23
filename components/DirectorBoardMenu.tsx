@@ -7,6 +7,7 @@ interface DirectorBoardMenuProps {
   onCloseSession?: () => void;
   onPrivacySecurityClick?: () => void;
   onPersonalDataClick?: () => void;
+  onPoliciesClick?: () => void;
 }
 
 interface DirectorBoardToggleProps {
@@ -43,6 +44,7 @@ export default function DirectorBoardMenu({
   onCloseSession,
   onPrivacySecurityClick,
   onPersonalDataClick,
+  onPoliciesClick,
 }: DirectorBoardMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,8 +74,9 @@ export default function DirectorBoardMenu({
     };
   }, [isOpen, onClose]);
 
-  const handleMenuOptionClick = () => {
+  const handlePoliciesClick = () => {
     onClose();
+    onPoliciesClick?.();
   };
 
   const handlePersonalDataClick = () => {
@@ -116,7 +119,7 @@ export default function DirectorBoardMenu({
           <li>
             <button
               type="button"
-              onClick={handleMenuOptionClick}
+              onClick={handlePoliciesClick}
               className="w-full px-3 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
             >
               Políticas y Términos
