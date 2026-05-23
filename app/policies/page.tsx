@@ -110,7 +110,7 @@ export default function PoliciesPage() {
                         tipo, directores, casting, géneros, número de votos y calificaciones promedio de referencia,
                         proviene de IMDb.
                       </p>
-                      <img src="/brand/tmdb.svg" alt="TMDB" className="h-7 w-auto opacity-80" loading="lazy" />
+                      <img src="/brand/tmdb.svg" alt="TMDB" className="mt-6 h-6 w-auto opacity-80" loading="lazy" />
                     </div>
                   ) : null}
                 </div>
