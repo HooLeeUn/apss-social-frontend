@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { memo, useState } from "react";
+import { useI18n } from "../hooks/useI18n";
+import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
@@ -28,8 +30,10 @@ function getAvatarFallback(username?: string | null): string {
 }
 
 function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations }: WeeklyHeroCardProps) {
-  const title = movie?.displayTitle ?? movie?.title ?? fallbackLabel;
-  const secondaryTitle = movie?.displaySecondaryTitle ?? null;
+  const { locale, t } = useI18n();
+  const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
+  const title = resolvedTitles.primary;
+  const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
   const genre = movie?.genres?.[0] ?? "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
@@ -222,14 +226,14 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
               <p className="text-base font-semibold text-zinc-100">⭐ {formatAverageRating(movie?.displayRating)}</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">Seguidos</p>
+              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("following")}</p>
               <p className="text-base font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating)}</p>
               {formatFollowingRatingsCount(movie?.followingRatingsCount) ? (
                 <p className="text-[10px] text-zinc-500">{formatFollowingRatingsCount(movie?.followingRatingsCount)}</p>
               ) : null}
             </div>
             <div className="rounded-lg border border-blue-400/60 bg-blue-950/35 px-3 py-2 shadow-[0_4px_12px_rgba(59,130,246,0.22)] transition-all duration-150 hover:-translate-y-px hover:border-blue-300/80 hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
-              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">MI CALIF.</p>
+              <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
                 {movie && onRated ? (
                   <RatingPopover
