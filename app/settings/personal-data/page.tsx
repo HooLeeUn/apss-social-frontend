@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "../../../lib/api";
 import AppLogo from "../../../components/AppLogo";
 import { useAppBranding } from "../../../hooks/useAppBranding";
+import { useI18n } from "../../../hooks/useI18n";
 import {
   formatBirthDate,
   GenderIdentity,
@@ -46,19 +47,18 @@ class AvatarUploadError extends Error {
   }
 }
 
-const genderOptions: Array<{ value: GenderIdentity; label: string }> = [
-  { value: "male", label: "Hombre" },
-  { value: "female", label: "Mujer" },
-  { value: "non_binary", label: "No binario" },
-  { value: "prefer_not_to_say", label: "Prefiero no decirlo" },
-];
+const genderOptions = [
+  { value: "male", labelKey: "personalDataGenderMan" },
+  { value: "female", labelKey: "personalDataGenderWoman" },
+  { value: "non_binary", labelKey: "personalDataGenderNonBinary" },
+  { value: "prefer_not_to_say", labelKey: "personalDataGenderPreferNotToSay" },
+] as const;
 
 const inputClassName =
   "w-full rounded-xl border border-zinc-700/85 bg-zinc-900/90 px-4 py-3 text-sm text-zinc-100 outline-none transition duration-200 hover:border-zinc-500/90 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-400/35";
 const labelClassName = "text-[0.8rem] font-semibold uppercase tracking-[0.1em] text-zinc-200";
 const fileTriggerClassName =
   "inline-flex w-fit cursor-pointer items-center rounded-lg border border-zinc-500/70 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 transition duration-200 hover:border-zinc-300";
-const lockedBirthDateCopy = "La fecha de nacimiento ya fue confirmada y no puede modificarse.";
 const minorBirthDateError = `Debes tener al menos ${MINIMUM_AGE} años para registrarte.`;
 const birthDateConfirmationCopy = "Esta fecha no podrá modificarse después de crear la cuenta.";
 const preferNotToSayGender: GenderIdentity = "prefer_not_to_say";
@@ -84,6 +84,7 @@ function toFormState(data: PersonalData): FormState {
 export default function PersonalDataPage() {
   const router = useRouter();
   const branding = useAppBranding();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -333,8 +334,8 @@ export default function PersonalDataPage() {
       <div className="mx-auto w-full max-w-[980px] space-y-6 px-4 py-7 md:px-8 md:py-8">
         <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.35)]">
           <div>
-            <h1 className="text-xl font-semibold tracking-wide text-zinc-100 md:text-2xl">Datos Personales</h1>
-            <p className="mt-1 text-sm text-zinc-400">Gestiona aquí tu información principal de perfil.</p>
+            <h1 className="text-xl font-semibold tracking-wide text-zinc-100 md:text-2xl">{t("personalData")}</h1>
+            <p className="mt-1 text-sm text-zinc-400">{t("personalDataSubtitle")}</p>
           </div>
           <button
             type="button"
@@ -353,11 +354,11 @@ export default function PersonalDataPage() {
         </header>
 
         <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
-          <h2 className="mb-4 text-lg font-semibold text-zinc-100">Información básica</h2>
+          <h2 className="mb-4 text-lg font-semibold text-zinc-100">{t("personalDataBasicInfo")}</h2>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="first-name" className={labelClassName}>
-                Nombre
+                {t("personalDataFirstName")}
               </label>
               <input
                 id="first-name"
@@ -370,7 +371,7 @@ export default function PersonalDataPage() {
 
             <div className="space-y-2">
               <label htmlFor="last-name" className={labelClassName}>
-                Apellido
+                {t("personalDataLastName")}
               </label>
               <input
                 id="last-name"
@@ -383,7 +384,7 @@ export default function PersonalDataPage() {
 
             <div className="space-y-2 md:col-span-2">
               <label htmlFor="email" className={labelClassName}>
-                Email
+                {t("personalDataEmail")}
               </label>
               <input
                 id="email"
@@ -398,12 +399,12 @@ export default function PersonalDataPage() {
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
-          <h2 className="mb-4 text-lg font-semibold text-zinc-100">Información personal</h2>
+          <h2 className="mb-4 text-lg font-semibold text-zinc-100">{t("personalDataPersonalInfo")}</h2>
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-12">
               <div className="space-y-2 md:col-span-5">
                 <label htmlFor="birth-date" className={labelClassName}>
-                  Fecha de nacimiento
+                  {t("personalDataBirthDate")}
                 </label>
                 <input
                   id="birth-date"
@@ -413,19 +414,19 @@ export default function PersonalDataPage() {
                   onChange={(event) => updateField("birth_date", event.target.value)}
                   className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-65`}
                 />
-                {birthDateLocked ? <p className="text-xs text-zinc-400">{lockedBirthDateCopy}</p> : null}
+                {birthDateLocked ? <p className="text-xs text-zinc-400">{t("personalDataLockedBirthDate")}</p> : null}
               </div>
 
               <div className="space-y-2 md:col-span-3">
                 <label htmlFor="age" className={labelClassName}>
-                  Edad
+                  {t("personalDataAge")}
                 </label>
                 <input id="age" value={form.age} readOnly className={`${inputClassName} cursor-default opacity-75`} />
               </div>
 
               <div className="space-y-2 md:col-span-4">
                 <label htmlFor="birth-date-visible" className={labelClassName}>
-                  Visible
+                  {t("personalDataVisible")}
                 </label>
                 <select
                   id="birth-date-visible"
@@ -433,8 +434,8 @@ export default function PersonalDataPage() {
                   onChange={(event) => updateField("birth_date_visible", event.target.value as VisibilityOption)}
                   className={inputClassName}
                 >
-                  <option value="yes">Sí</option>
-                  <option value="no">No</option>
+                  <option value="yes">{t("personalDataYes")}</option>
+                  <option value="no">{t("personalDataNo")}</option>
                 </select>
               </div>
             </div>
@@ -446,7 +447,7 @@ export default function PersonalDataPage() {
             <div className="grid gap-4 md:grid-cols-12">
               <div className="space-y-2 md:col-span-8">
                 <label htmlFor="gender-identity" className={labelClassName}>
-                  Identidad de género
+                  {t("personalDataGenderIdentity")}
                 </label>
                 <select
                   id="gender-identity"
@@ -454,10 +455,10 @@ export default function PersonalDataPage() {
                   onChange={(event) => updateField("gender_identity", event.target.value as FormState["gender_identity"])}
                   className={inputClassName}
                 >
-                  <option value="">Selecciona una opción</option>
+                  <option value="">{t("personalDataSelectOption")}</option>
                   {genderOptions.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </option>
                   ))}
                 </select>
@@ -465,7 +466,7 @@ export default function PersonalDataPage() {
 
               <div className="space-y-2 md:col-span-4">
                 <label htmlFor="gender-visible" className={labelClassName}>
-                  Visible
+                  {t("personalDataVisible")}
                 </label>
                 <select
                   id="gender-visible"
@@ -474,8 +475,8 @@ export default function PersonalDataPage() {
                   disabled={isGenderVisibilityLocked}
                   className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-65`}
                 >
-                  <option value="yes">Sí</option>
-                  <option value="no">No</option>
+                  <option value="yes">{t("personalDataYes")}</option>
+                  <option value="no">{t("personalDataNo")}</option>
                 </select>
               </div>
             </div>
@@ -483,7 +484,7 @@ export default function PersonalDataPage() {
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
-          <h2 className="mb-4 text-lg font-semibold text-zinc-100">Foto/Avatar</h2>
+          <h2 className="mb-4 text-lg font-semibold text-zinc-100">{t("personalDataPhotoAvatar")}</h2>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="h-20 w-20 overflow-hidden rounded-full border border-white/20 bg-zinc-900/80">
               {displayedAvatar ? (
@@ -502,10 +503,10 @@ export default function PersonalDataPage() {
 
             <div className="w-full space-y-2">
               <label htmlFor="avatar-file" className={labelClassName}>
-                Subir o cambiar foto
+                {t("personalDataUploadPhoto")}
               </label>
               <label htmlFor="avatar-file" className={fileTriggerClassName}>
-                Elegir archivo
+                {t("personalDataChooseFile")}
               </label>
               <input
                 id="avatar-file"
@@ -515,9 +516,9 @@ export default function PersonalDataPage() {
                 className="sr-only"
               />
               {avatarFile ? (
-                <p className="max-w-full truncate text-xs text-zinc-400">Archivo seleccionado: {avatarFile.name}</p>
-              ) : (
-                <p className="text-xs text-zinc-400">Sin archivo seleccionado</p>
+                <p className="max-w-full truncate text-xs text-zinc-400">{t("personalDataSelectedFile")}: {avatarFile.name}</p>
+              ) : avatarUrl ? null : (
+                <p className="text-xs text-zinc-400">{t("personalDataNoFileSelected")}</p>
               )}
             </div>
           </div>
@@ -544,7 +545,7 @@ export default function PersonalDataPage() {
             onClick={() => void handleSave()}
             className="rounded-xl border border-zinc-100 bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-900 shadow-[0_8px_28px_rgba(255,255,255,0.08)] transition duration-200 hover:bg-white hover:shadow-[0_12px_34px_rgba(255,255,255,0.15)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {redirecting ? "Redirigiendo..." : saving ? "Guardando..." : "Guardar cambios"}
+            {redirecting ? "Redirigiendo..." : saving ? "Guardando..." : t("personalDataSaveChanges")}
           </button>
         </div>
       </div>
