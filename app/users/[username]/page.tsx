@@ -17,6 +17,8 @@ import {
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { getProfilePrivacySettings } from "../../../lib/privacy";
 import { useAppBranding } from "../../../hooks/useAppBranding";
+import { useI18n } from "../../../hooks/useI18n";
+import { interpolate } from "../../../lib/i18n";
 
 function resolveUsernameParam(rawValue: string | string[] | undefined): string {
   if (Array.isArray(rawValue)) {
@@ -34,10 +36,12 @@ function SocialActions({
   profileUser,
   authenticatedFriendRequestsRestricted,
   onProfileUserChange,
+  labels,
 }: {
   profileUser: SocialUser;
   authenticatedFriendRequestsRestricted: boolean | null;
   onProfileUserChange: (user: SocialUser) => void;
+  labels: { following: string; follow: string; friends: string; friendRequest: string; friendRequestReceived: string; sent: string };
 }) {
   const [pendingAction, setPendingAction] = useState<"follow" | "friend" | null>(null);
   const [isRemoveFriendModalOpen, setIsRemoveFriendModalOpen] = useState(false);
@@ -154,14 +158,14 @@ function SocialActions({
   const friendButtonConfig = (() => {
     switch (profileUser.friendshipStatus) {
       case "sent_pending":
-        return { label: "Enviada", className: "border-blue-300/50 bg-blue-600/90 text-white hover:bg-blue-500", disabled: false };
+        return { label: labels.sent, className: "border-blue-300/50 bg-blue-600/90 text-white hover:bg-blue-500", disabled: false };
       case "friends":
-        return { label: "Amigos", className: "border-violet-300/50 bg-violet-600/90 text-white hover:bg-violet-500", disabled: false };
+        return { label: labels.friends, className: "border-violet-300/50 bg-violet-600/90 text-white hover:bg-violet-500", disabled: false };
       case "received_pending":
-        return { label: "Solicitud recibida", className: "border-amber-300/50 bg-amber-500/15 text-amber-100", disabled: true };
+        return { label: labels.friendRequestReceived, className: "border-amber-300/50 bg-amber-500/15 text-amber-100", disabled: true };
       case "none":
       default:
-        return { label: "Solicitud de amistad", className: "border-white/15 bg-zinc-900 text-zinc-100 hover:bg-zinc-800", disabled: false };
+        return { label: labels.friendRequest, className: "border-white/15 bg-zinc-900 text-zinc-100 hover:bg-zinc-800", disabled: false };
     }
   })();
 
@@ -179,7 +183,7 @@ function SocialActions({
               : "border-white/15 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
           }`}
         >
-          {profileUser.isFollowing ? "Siguiendo" : "Seguir"}
+          {profileUser.isFollowing ? labels.following : labels.follow}
         </button>
       ) : null}
       {canShowFriendButton ? (
@@ -234,6 +238,7 @@ function SocialActions({
 export default function UserProfileFeedPage() {
   const params = useParams<{ username?: string | string[] }>();
   const branding = useAppBranding();
+  const { t } = useI18n();
   const routeUsername = resolveUsernameParam(params?.username);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
   const [authenticatedFriendRequestsRestricted, setAuthenticatedFriendRequestsRestricted] = useState<boolean | null>(null);
@@ -275,8 +280,16 @@ export default function UserProfileFeedPage() {
     void loadProfile();
   }, [routeUsername]);
 
-  const profileTitleName = profileUser?.displayName || profileUser?.username || routeUsername || "Usuario";
-  const profileHandle = profileUser?.username || routeUsername || "usuario";
+  const profileTitleName = profileUser?.displayName || profileUser?.username || routeUsername || t("profileFeedUser");
+  const profileHandle = profileUser?.username || routeUsername || t("profileFeedUser").toLocaleLowerCase();
+  const socialActionLabels = {
+    following: t("visitedProfileFollowing"),
+    follow: t("visitedProfileFollow"),
+    friends: t("visitedProfileFriends"),
+    friendRequest: t("visitedProfileFriendRequest"),
+    friendRequestReceived: t("visitedProfileFriendRequestReceived"),
+    sent: t("visitedProfileSent"),
+  };
 
   return (
     <main className="min-h-screen bg-black text-zinc-100">
@@ -288,7 +301,7 @@ export default function UserProfileFeedPage() {
                 href="/profile-feed"
                 className="inline-flex w-fit items-center rounded-full border border-white/20 bg-zinc-900/70 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-blue-200/70 hover:text-blue-100"
               >
-                ← Volver a mi perfil
+                {t("visitedProfileBackToMyProfile")}
               </Link>
 
               <ProfileIdentityCard
@@ -303,6 +316,8 @@ export default function UserProfileFeedPage() {
                 appBranding={branding}
                 logoSlot="visited_profile_logo_url"
                 autoHeight
+                userLabel={t("visitedProfileUser")}
+                formatAge={(age) => interpolate(t("visitedProfileAge"), { age })}
               />
             </div>
 
@@ -312,9 +327,16 @@ export default function UserProfileFeedPage() {
                   profileUser={profileUser}
                   authenticatedFriendRequestsRestricted={authenticatedFriendRequestsRestricted}
                   onProfileUserChange={setProfileUser}
+                  labels={socialActionLabels}
                 />
               ) : null}
-              {!hasLimitedAccess ? <FavoriteMoviesBlock title={`Favoritas de ${profileTitleName}`} readOnly viewedUsername={routeUsername} /> : null}
+              {!hasLimitedAccess ? (
+                <FavoriteMoviesBlock
+                  title={interpolate(t("visitedProfileFavoriteMovies"), { name: profileTitleName })}
+                  readOnly
+                  viewedUsername={routeUsername}
+                />
+              ) : null}
             </div>
           </div>
         </section>
@@ -325,7 +347,7 @@ export default function UserProfileFeedPage() {
               <MyActivityColumn
                 isOwnProfile={false}
                 viewedUsername={routeUsername}
-                title={`Actividad de ${profileTitleName}`}
+                title={interpolate(t("visitedProfileActivity"), { name: profileTitleName })}
                 emptyCopy="Este usuario no tiene actividad social visible aún."
                 errorCopy="No se pudo cargar la actividad de este usuario."
               />

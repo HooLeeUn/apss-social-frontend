@@ -8,7 +8,7 @@ import { getMyProfile, getUserMovieRecommendationsByUsername, getUserProfileByUs
 import { MyMessageItem, SocialActivityItem, UserMovieRecommendation } from "../../lib/profile-feed/types";
 import { formatAverageRating } from "../../lib/rating-format";
 import { useI18n } from "../../hooks/useI18n";
-import { formatProfileFeedRelativeDate, Locale } from "../../lib/i18n";
+import { formatProfileFeedRelativeDate, Locale, resolveMovieTitles, translateVisibleGenre, translateVisitedProfileMovieType } from "../../lib/i18n";
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
@@ -85,9 +85,27 @@ function getActivityDetail(item: SocialActivityItem, locale: Locale): string | n
   return item.likedCommentSnippet || item.movieTitle;
 }
 
-function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: number | null, locale: Locale = "es"): string {
-  const values = [movieType, movieGenre, movieYear ? String(movieYear) : null].filter(Boolean);
+function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: number | null, locale: Locale = "es", translateForVisitedProfile = false): string {
+  const typeValue = translateForVisitedProfile ? translateVisitedProfileMovieType(locale, movieType) : movieType;
+  const genreValue = translateForVisitedProfile ? translateVisibleGenre(locale, movieGenre) : movieGenre;
+  const typeLabel = locale === "en" ? "Type:" : "Tipo:";
+  const genreLabel = locale === "en" ? "Genre:" : "Género:";
+  const values = [
+    typeValue && typeValue !== "-" ? `${translateForVisitedProfile ? `${typeLabel} ` : ""}${typeValue}` : null,
+    genreValue && genreValue !== "-" ? `${translateForVisitedProfile ? `${genreLabel} ` : ""}${genreValue}` : null,
+    movieYear ? String(movieYear) : null,
+  ].filter(Boolean);
   return values.length > 0 ? values.join(" · ") : (locale === "en" ? "No metadata" : "Sin metadata");
+}
+
+function getRecommendationTitles(movie: UserMovieRecommendation, locale: Locale) {
+  return resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.titleSpanish);
+}
+
+function formatRecommendationMetadata(movie: UserMovieRecommendation, locale: Locale): string {
+  const typeLabel = locale === "en" ? "Type:" : "Tipo:";
+  const genreLabel = locale === "en" ? "Genre:" : "Género:";
+  return `${genreLabel} ${translateVisibleGenre(locale, movie.genre)} · ${typeLabel} ${translateVisitedProfileMovieType(locale, movie.type)} · ${movie.releaseYear}`;
 }
 
 function getVisitedActionMessage(item: SocialActivityItem, locale: Locale): string | null {
@@ -343,7 +361,7 @@ function ActivityRow({
           </p>
         ) : null}
         <p className={`mt-1 text-zinc-500 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
-          {formatMetadata(item.movieType, item.movieGenre, item.movieYear, locale)}
+          {formatMetadata(item.movieType, item.movieGenre, item.movieYear, locale, isVisitedProfile)}
         </p>
         {isOwnProfile && activityDetail ? <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p> : null}
         {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatProfileFeedRelativeDate(locale, getActivityRelativeDate(item))}</p> : null}
@@ -879,7 +897,7 @@ export default function MyActivityColumn({
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
               }`}
             >
-              Recomendaciones
+              {t("visitedProfileRecommendations")}
             </button>
             <button
               type="button"
@@ -890,7 +908,7 @@ export default function MyActivityColumn({
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
               }`}
             >
-              Comentarios públicos
+              {t("visitedProfilePublicComments")}
             </button>
             <button
               type="button"
@@ -901,7 +919,7 @@ export default function MyActivityColumn({
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
               }`}
             >
-              Calificaciones
+              {t("visitedProfileRatings")}
             </button>
             <button
               type="button"
@@ -912,7 +930,7 @@ export default function MyActivityColumn({
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
               }`}
             >
-              Me gusta/No me gusta
+              {t("visitedProfileLikesDislikes")}
             </button>
           </div>
         </div>
@@ -966,25 +984,30 @@ export default function MyActivityColumn({
                   <p className="text-sm text-zinc-500">Este usuario aún no ha compartido recomendaciones.</p>
                 ) : null}
                 {!recommendationsLoading && !recommendationsError && userRecommendations.length > 0
-                  ? userRecommendations.map((movie) => (
+                  ? userRecommendations.map((movie) => {
+                      const recommendationTitles = getRecommendationTitles(movie, locale);
+                      return (
                       <article key={movie.id} className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 border-b border-white/10 py-3">
                         <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="h-[108px] w-[72px] overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80">
                           {movie.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={movie.image} alt={`Poster de ${movie.titleSpanish}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                            <img src={movie.image} alt={`Poster de ${recommendationTitles.primary}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                           ) : (
                             <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">{t("profileFeedNoPoster")}</span>
                           )}
                         </Link>
                         <div className="min-w-0 space-y-1">
-                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-lg font-semibold text-zinc-100 hover:text-blue-200">{movie.titleSpanish}</Link>
-                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-sm text-zinc-400 hover:text-blue-200">{movie.titleEnglish}</Link>
-                          <p className="text-xs text-zinc-300">{movie.genre} · {movie.type} · {movie.releaseYear}</p>
+                          <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-lg font-semibold text-zinc-100 hover:text-blue-200">{recommendationTitles.primary}</Link>
+                          {recommendationTitles.secondary ? (
+                            <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-sm text-zinc-400 hover:text-blue-200">{recommendationTitles.secondary}</Link>
+                          ) : null}
+                          <p className="text-xs text-zinc-300">{formatRecommendationMetadata(movie, locale)}</p>
                           <p className="text-xs text-zinc-400">{t("profileFeedDirector")} {movie.director}</p>
                           <p className="line-clamp-2 text-xs text-zinc-500">{t("profileFeedCast")} {movie.castMembers}</p>
                         </div>
                       </article>
-                    ))
+                      );
+                    })
                   : null}
               </>
             ) : null}
