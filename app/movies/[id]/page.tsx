@@ -1393,12 +1393,19 @@ export default function MovieDetailPage() {
                 </div>
               ) : null}
               {!loadingDirected && !directedError ? (
-                <div className="scrollbar-dark max-h-[40rem] overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/45 p-3">
+                <div className="scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/45 p-3">
                   <div className="space-y-3">
                     {directedConversations.map((conversation) => {
                       const isExpanded = expandedConversationKey === conversation.key;
                       return (
-                        <article key={conversation.key} className="rounded-xl border border-white/15 bg-zinc-950/65 p-4">
+                        <article
+                          key={conversation.key}
+                          className={`rounded-xl p-4 transition-colors ${
+                            isExpanded
+                              ? "border border-[#86ADE0]/70 bg-[#86ADE0]/10 shadow-[0_0_18px_rgba(134,173,224,0.18)]"
+                              : "border border-transparent border-b-neutral-800/60 bg-transparent hover:bg-white/[0.03]"
+                          }`}
+                        >
                           <button
                             type="button"
                             className="flex w-full items-center justify-between gap-3 text-left"
@@ -1430,7 +1437,7 @@ export default function MovieDetailPage() {
 
                           {isExpanded ? (
                             <div
-                              className="scrollbar-dark mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-3"
+                              className="scrollbar-metallic-blue mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-[#86ADE0]/30 bg-black/20 p-3"
                               onScroll={(event) => {
                                 const target = event.currentTarget;
                                 if (
