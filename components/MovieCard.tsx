@@ -27,11 +27,11 @@ interface MovieCardProps {
   stretchPosterColumn?: boolean;
 }
 
-function formatContentType(contentType: string, locale: "es" | "en") {
+function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
   const normalized = contentType.trim().toLowerCase();
-  if (normalized === "movie") return locale === "en" ? "Movie" : "Película";
-  if (normalized === "series" || normalized === "tv series" || normalized === "tvseries") return locale === "en" ? "Series" : "Serie";
-  if (!contentType.trim()) return "Desconocido";
+  if (normalized === "movie") return labels.movie;
+  if (normalized === "series" || normalized === "tv series" || normalized === "tvseries") return labels.series;
+  if (!contentType.trim()) return labels.unknown;
   return contentType;
 }
 
@@ -56,10 +56,10 @@ function MovieCard({
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
-  const typeYearLine = [formatContentType(movie.contentType, locale), movie.year && movie.year !== "-" ? movie.year : null]
+  const typeYearLine = [formatContentType(movie.contentType, { movie: t("movieDetailMovie"), series: t("movieDetailSeries"), unknown: t("movieDetailUnknown") }), movie.year && movie.year !== "-" ? movie.year : null]
     .filter(Boolean)
     .join(" · ");
-  const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : "Sin género";
+  const genresLine = movie.genres.length > 0 ? movie.genres.join(" · ") : t("movieDetailNoGenre");
   const resolvedTitles = resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.displayTitle || movie.title);
   const displayTitle = resolvedTitles.primary;
   const displaySecondaryTitle = resolvedTitles.secondary ?? movie.displaySecondaryTitle ?? null;
@@ -201,19 +201,19 @@ function MovieCard({
                 </p>
               ) : null}
             </div>
-            <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || "Desconocido"}</p>
+            <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || t("movieDetailUnknown")}</p>
             <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
           </div>
           {showExtendedMetadata && (hasDirector || hasCast) ? (
             <div className="space-y-1.5 md:pt-0.5">
               {hasDirector ? (
                 <p className={`text-sm leading-snug ${isFeed ? "text-zinc-300" : "text-gray-600"}`}>
-                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>Director:</span> {movie.director}
+                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailDirector")}:</span> {movie.director}
                 </p>
               ) : null}
               {hasCast ? (
                 <p className={`line-clamp-2 text-sm leading-snug ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
-                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>Casting:</span> {castPreview.join(" · ")}
+                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailCast")}:</span> {castPreview.join(" · ")}
                 </p>
               ) : null}
             </div>

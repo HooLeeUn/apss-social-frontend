@@ -1,6 +1,7 @@
 "use client";
 
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "../../hooks/useI18n";
 import { Friend } from "../../lib/social";
 import MentionAutocomplete from "./MentionAutocomplete";
 
@@ -34,6 +35,7 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
 }
 
 export default function CommentComposer({ friends, onSubmit, loading = false, error }: CommentComposerProps) {
+  const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -160,7 +162,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
 
   return (
     <section className="rounded-2xl border-2 border-white/25 bg-zinc-950/55 p-4">
-      <h3 className="mb-3 text-xl font-bold text-[#86ADE0]">Comentar película</h3>
+      <h3 className="mb-3 text-xl font-bold text-[#86ADE0]">{t("movieDetailCommentTitle")}</h3>
 
       <div className="relative">
         <textarea
@@ -173,7 +175,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
             updateMentionState(nextText, event.target.selectionStart ?? nextText.length);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Comparte tu recomendación... Usa @ para mencionar a un amigo"
+          placeholder={t("movieDetailCommentPlaceholder")}
           className="w-full rounded-xl border border-white/30 bg-black/30 p-3 text-sm text-zinc-100 outline-none transition focus:border-white/45"
         />
 
@@ -185,8 +187,8 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-xs text-zinc-400">
           {hasValidSelectedMention && selectedMention
-            ? `Mención válida seleccionada: @${selectedMention.username}`
-            : "Si eliges una mención del listado, se enviará como recomendación privada."}
+            ? `${t("movieDetailValidMention")}: @${selectedMention.username}`
+            : t("movieDetailMentionHelp")}
         </p>
         <button
           type="button"
@@ -194,7 +196,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
           onClick={() => void handleSubmit()}
           className="rounded-full border-2 border-white/60 px-4 py-2 text-xs font-semibold text-zinc-100 transition hover:border-white disabled:opacity-50"
         >
-          {loading ? "Enviando..." : "Publicar"}
+          {loading ? t("movieDetailSending") : t("movieDetailPost")}
         </button>
       </div>
 

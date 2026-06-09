@@ -1,3 +1,4 @@
+import { useI18n } from "../../hooks/useI18n";
 import { ReactionType, SocialComment } from "../../lib/social";
 
 interface ReactionButtonsProps {
@@ -7,10 +8,14 @@ interface ReactionButtonsProps {
 }
 
 export default function ReactionButtons({ comment, onReact, disabled = false }: ReactionButtonsProps) {
+  const { t } = useI18n();
   const handleClick = (reaction: Exclude<ReactionType, null>) => {
     const nextReaction = comment.myReaction === reaction ? null : reaction;
     void onReact(comment.id, nextReaction);
   };
+
+  const likeLabel = comment.myReaction === "like" ? t("movieDetailYouLiked") : t("movieDetailLike");
+  const dislikeLabel = comment.myReaction === "dislike" ? t("movieDetailYouDisliked") : t("movieDetailDislike");
 
   return (
     <div className="flex items-center gap-2">
@@ -18,6 +23,8 @@ export default function ReactionButtons({ comment, onReact, disabled = false }: 
         type="button"
         disabled={disabled}
         onClick={() => handleClick("like")}
+        aria-label={likeLabel}
+        title={likeLabel}
         className={`rounded-full border px-2.5 py-1 text-xs font-medium transition disabled:opacity-40 ${
           comment.myReaction === "like"
             ? "border-emerald-400/70 bg-emerald-500/20 text-emerald-200"
@@ -31,6 +38,8 @@ export default function ReactionButtons({ comment, onReact, disabled = false }: 
         type="button"
         disabled={disabled}
         onClick={() => handleClick("dislike")}
+        aria-label={dislikeLabel}
+        title={dislikeLabel}
         className={`rounded-full border px-2.5 py-1 text-xs font-medium transition disabled:opacity-40 ${
           comment.myReaction === "dislike"
             ? "border-rose-400/70 bg-rose-500/20 text-rose-200"

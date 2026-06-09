@@ -31,8 +31,10 @@ import {
   UserIdentity,
 } from "../../../lib/social";
 import { useAppBranding } from "../../../hooks/useAppBranding";
+import { useI18n } from "../../../hooks/useI18n";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
 import { getProfilePrivacySettings } from "../../../lib/privacy";
+import { t as translate } from "../../../lib/i18n";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -619,6 +621,7 @@ function removeCommentFromCollection(collection: SocialComment[], commentId: num
 export default function MovieDetailPage() {
   const router = useRouter();
   const branding = useAppBranding();
+  const { locale, t } = useI18n();
   const params = useParams<{ id: string }>();
   const movieId = params?.id ? String(params.id) : "";
 
@@ -729,7 +732,7 @@ export default function MovieDetailPage() {
         const normalizedMovie = await fetchMovieDetail();
 
         if (!normalizedMovie) {
-          setMovieError("No se pudo interpretar la película seleccionada.");
+          setMovieError(translate(locale, "movieDetailMovieParseError"));
         } else {
           setMovie(normalizedMovie);
         }
@@ -739,7 +742,7 @@ export default function MovieDetailPage() {
           return;
         }
 
-        setMovieError("No pudimos cargar los datos de la película.");
+        setMovieError(translate(locale, "movieDetailMovieLoadError"));
       } finally {
         setMovieLoading(false);
       }
@@ -814,7 +817,7 @@ export default function MovieDetailPage() {
         setPublicNext(normalizeEndpointPath(parsed.next));
         setPublicError("");
       } else {
-        setPublicError("No pudimos cargar los comentarios públicos.");
+        setPublicError(translate(locale, "movieDetailPublicCommentsLoadError"));
       }
 
       if (privacyResult.ok) {
@@ -848,7 +851,7 @@ export default function MovieDetailPage() {
             router.replace("/login");
             return;
           }
-          setDirectedError("No pudimos cargar los comentarios dirigidos.");
+          setDirectedError(translate(locale, "movieDetailDirectedCommentsLoadError"));
         }
       }
 
@@ -857,7 +860,7 @@ export default function MovieDetailPage() {
     };
 
     void loadData();
-  }, [fetchMovieDetail, movieId, router]);
+  }, [fetchMovieDetail, locale, movieId, router]);
 
   const handleMovieRated = useCallback(
     async (_movieId: Movie["id"], score: number, _payload?: unknown) => {
@@ -1117,7 +1120,7 @@ export default function MovieDetailPage() {
         console.log("[movie-comments-debug] submit response body on error:", error.message);
       }
       console.error("Comment submit error", error);
-      setComposerError("No pudimos enviar tu comentario. Intenta nuevamente.");
+      setComposerError(translate(locale, "movieDetailCommentPostError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -1180,7 +1183,7 @@ export default function MovieDetailPage() {
       }
       setPublicComments(previousPublic);
       setDirectedConversations(previousConversations);
-      setReactionError("No pudimos registrar tu reacción en este momento.");
+      setReactionError(translate(locale, "movieDetailReactionError"));
     }
   };
 
@@ -1313,7 +1316,7 @@ export default function MovieDetailPage() {
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-8 md:px-8">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-zinc-100">Detalle de película</h1>
+          <h1 className="text-2xl font-semibold text-zinc-100">{t("movieDetailTitle")}</h1>
           <Link
             href="/feed"
             className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
@@ -1329,7 +1332,7 @@ export default function MovieDetailPage() {
           </Link>
         </div>
 
-        {movieLoading ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-zinc-300">Cargando película...</div> : null}
+        {movieLoading ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-zinc-300">{t("movieDetailLoadingMovie")}</div> : null}
         {!movieLoading && movieError ? (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">{movieError}</div>
         ) : null}
@@ -1350,12 +1353,12 @@ export default function MovieDetailPage() {
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
         <section className="space-y-3">
-          <h2 className="text-xl font-bold text-[#86ADE0]">Comentarios públicos</h2>
+          <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2>
           <CommentsList
             comments={publicComments}
             loading={loadingPublic}
             error={publicError}
-            emptyMessage="Todavía no hay comentarios públicos para esta película."
+            emptyMessage={t("movieDetailNoPublicComments")}
             onReact={handleReact}
             onAuthorClick={handleAuthorNavigation}
             singleContainer
@@ -1378,14 +1381,14 @@ export default function MovieDetailPage() {
 
         {canShowDirectedComments ? (
           <section className="space-y-3">
-            <h2 className="text-xl font-bold text-[#86ADE0]">Comentarios dirigidos</h2>
-            {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div> : null}
+            <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2>
+            {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">{t("movieDetailLoadingComments")}</div> : null}
             {!loadingDirected && directedError ? (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
             ) : null}
             {!loadingDirected && !directedError && directedConversations.length === 0 ? (
               <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
-                No hay comentarios dirigidos para esta película.
+                {t("movieDetailNoDirectedComments")}
               </div>
             ) : null}
             {!loadingDirected && !directedError ? (
@@ -1420,7 +1423,7 @@ export default function MovieDetailPage() {
                             </div>
                           </div>
                         </div>
-                        <span className="text-xs text-zinc-400">{isExpanded ? "Ocultar" : "Ver conversación"}</span>
+                        <span className="text-xs text-zinc-400">{isExpanded ? t("movieDetailHide") : t("movieDetailShow")}</span>
                       </button>
 
                       {isExpanded ? (
@@ -1439,12 +1442,12 @@ export default function MovieDetailPage() {
                         >
                           <CommentsList
                             comments={conversation.messages}
-                            emptyMessage="No hay mensajes en esta conversación."
+                            emptyMessage={t("movieDetailNoConversationMessages")}
                             onReact={handleReact}
                             onAuthorClick={handleAuthorNavigation}
                             singleContainer={false}
                             itemBadgeLabel={(message) =>
-                              message.authorUsername === authenticatedUsername ? "Enviado" : "Recibido"
+                              message.authorUsername === authenticatedUsername ? t("movieDetailSent") : t("movieDetailReceived")
                             }
                             canManageComment={isMyComment}
                             editingCommentId={editingCommentId}
@@ -1462,10 +1465,10 @@ export default function MovieDetailPage() {
                             }
                           />
                           {loadingDirectedMoreByKey[conversation.key] ? (
-                            <p className="pt-2 text-xs text-zinc-400">Cargando mensajes anteriores...</p>
+                            <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingPreviousMessages")}</p>
                           ) : null}
                           {loadingFullHistoryByConversationKey[conversation.key] ? (
-                            <p className="pt-2 text-xs text-zinc-400">Cargando historial completo...</p>
+                            <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingFullHistory")}</p>
                           ) : null}
                         </div>
                       ) : null}
