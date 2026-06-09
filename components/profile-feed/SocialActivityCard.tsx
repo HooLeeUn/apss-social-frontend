@@ -1,73 +1,52 @@
 import Link from "next/link";
 import { SocialActivityItem } from "../../lib/profile-feed/types";
-import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../../lib/rating-format";
-
-function formatRelativeDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Reciente";
-
-  const elapsedMs = Date.now() - date.getTime();
-  const elapsedMinutes = Math.floor(elapsedMs / 60000);
-
-  if (elapsedMinutes < 1) return "Ahora";
-  if (elapsedMinutes < 60) return `Hace ${elapsedMinutes} min`;
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `Hace ${elapsedHours} h`;
-
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 7) return `Hace ${elapsedDays} d`;
-
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
+import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
+import { useI18n } from "../../hooks/useI18n";
+import { formatProfileFeedRatingsCount, formatProfileFeedRelativeDate, translateProfileFeedMovieType } from "../../lib/i18n";
 
 function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
 }
 
-function getActivityText(item: SocialActivityItem): { label: string; detail?: string; subDetail?: string; tone?: "like" | "dislike" } {
+function getActivityText(item: SocialActivityItem, locale: "es" | "en", t: ReturnType<typeof useI18n>["t"]): { label: string; detail?: string; subDetail?: string; tone?: "like" | "dislike" } {
   if (item.interactionType === "rating") {
     return {
-      label: "calificó",
-      detail: item.ratingValue !== undefined ? `${formatAverageRating(item.ratingValue)}/10` : "Sin score",
+      label: t("profileFeedRated"),
+      detail: item.ratingValue !== undefined ? `${formatAverageRating(item.ratingValue)}/10` : "—",
     };
   }
 
   if (item.interactionType === "comment") {
     return {
-      label: "comentó",
-      detail: item.commentText || "Sin comentario",
+      label: locale === "en" ? "commented" : "comentó",
+      detail: item.commentText || (locale === "en" ? "No comment" : "Sin comentario"),
     };
   }
 
   if (item.interactionType === "dislike") {
     return {
-      label: "le dio dislike a un comentario en",
-      detail: item.likedCommentSnippet || "Sin extracto de comentario",
-      subDetail: item.likedCommentAuthorUsername ? `comentario de @${item.likedCommentAuthorUsername}` : undefined,
+      label: locale === "en" ? "disliked a comment on" : "le dio dislike a un comentario en",
+      detail: item.likedCommentSnippet || (locale === "en" ? "No comment excerpt" : "Sin extracto de comentario"),
+      subDetail: item.likedCommentAuthorUsername ? `${locale === "en" ? "comment from" : "comentario de"} @${item.likedCommentAuthorUsername}` : undefined,
       tone: "dislike",
     };
   }
 
   return {
-    label: "le dio like a un comentario en",
-    detail: item.likedCommentSnippet || "Sin extracto de comentario",
-    subDetail: item.likedCommentAuthorUsername ? `comentario de @${item.likedCommentAuthorUsername}` : undefined,
+    label: locale === "en" ? "liked a comment on" : "le dio like a un comentario en",
+    detail: item.likedCommentSnippet || (locale === "en" ? "No comment excerpt" : "Sin extracto de comentario"),
+    subDetail: item.likedCommentAuthorUsername ? `${locale === "en" ? "comment from" : "comentario de"} @${item.likedCommentAuthorUsername}` : undefined,
     tone: "like",
   };
 }
 
 export default function SocialActivityCard({ item }: { item: SocialActivityItem }) {
+  const { locale, t } = useI18n();
   const movieHref = `/movies/${encodeURIComponent(String(item.movieId))}`;
   const profileHref = item.user.username?.trim() ? `/users/${encodeURIComponent(item.user.username)}` : null;
   const movieYear = item.movieYear ? String(item.movieYear) : "";
-  const activity = getActivityText(item);
-  const movieType = item.movieType || "-";
+  const activity = getActivityText(item, locale, t);
+  const movieType = translateProfileFeedMovieType(locale, item.movieType);
   const movieGenre = item.movieGenre || "-";
 
   return (
@@ -115,7 +94,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
                   <p className="text-sm font-semibold text-blue-200">@{item.user.username}</p>
                 )}
                 <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
-                  {formatRelativeDate(item.createdAt)}
+                  {formatProfileFeedRelativeDate(locale, item.createdAt)}
                 </span>
               </div>
               <p className="mt-1 text-sm text-zinc-300">
@@ -172,11 +151,11 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
           <div className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2">
             <dl className="space-y-2">
               <div>
-                <dt className="inline text-zinc-500">Tipo:</dt>{" "}
+                <dt className="inline text-zinc-500">{t("profileFeedType")}</dt>{" "}
                 <dd className="inline text-zinc-200">{movieType}</dd>
               </div>
               <div>
-                <dt className="inline text-zinc-500">Género:</dt>{" "}
+                <dt className="inline text-zinc-500">{t("profileFeedGenre")}</dt>{" "}
                 <dd className="inline text-zinc-200">{movieGenre}</dd>
               </div>
               {movieYear ? <div className="text-zinc-200">{movieYear}</div> : null}
@@ -184,23 +163,23 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
 
             <dl className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-zinc-500">General</dt>
+                <dt className="text-zinc-500">{t("profileFeedGeneral")}</dt>
                 <dd className="flex items-center gap-1 font-medium text-zinc-200">
                   <span aria-hidden="true">⭐</span>
                   <span>{formatAverageRating(item.generalRating)}</span>
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-zinc-500">Seguidos</dt>
+                <dt className="text-zinc-500">{t("profileFeedFollowing")}</dt>
                 <dd className="flex flex-col items-end leading-tight font-medium text-zinc-200">
                   <span>👥 {formatFollowingRating(item.followingRating)}</span>
-                  {formatFollowingRatingsCount(item.followingRatingsCount) ? (
-                    <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(item.followingRatingsCount)}</span>
+                  {formatProfileFeedRatingsCount(locale, item.followingRatingsCount) ? (
+                    <span className="text-[10px] font-normal text-zinc-500">{formatProfileFeedRatingsCount(locale, item.followingRatingsCount)}</span>
                   ) : null}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</dt>
+                <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("profileFeedMyRatingUpper")}</dt>
                 <dd className="flex items-center gap-1 font-medium text-zinc-100">
                   <span aria-hidden="true">🙋</span>
                   <span>{formatMyRating(item.myRating)}</span>

@@ -12,7 +12,9 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { FavoriteMovie } from "../../lib/profile-feed/types";
 import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../../lib/movies";
-import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount } from "../../lib/rating-format";
+import { formatAverageRating, formatFollowingRating } from "../../lib/rating-format";
+import { useI18n } from "../../hooks/useI18n";
+import { formatProfileFeedRatingsCount, interpolate } from "../../lib/i18n";
 
 interface FavoriteMovieItemProps {
   movie?: FavoriteMovie;
@@ -37,6 +39,7 @@ interface FavoriteMoviesBlockProps {
 }
 
 function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
+  const { locale, t } = useI18n();
   const displayTitle = movie?.title || "";
   const displaySecondaryTitle = movie?.displaySecondaryTitle ?? null;
   const firstLetter = displayTitle.charAt(0)?.toUpperCase() ?? "—";
@@ -131,11 +134,11 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                     <span aria-hidden="true">⭐</span>
                     <span>{formatAverageRating(movie.generalRating)}</span>
                   </div>
-                  <div className="inline-flex h-10 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1" aria-label="Seguidos">
+                  <div className="inline-flex h-10 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1" aria-label={t("profileFeedFollowing")}>
                     <div className="flex flex-col justify-center leading-tight text-zinc-200">
                       <span className="whitespace-nowrap text-sm font-semibold">👥 {formatFollowingRating(readOnlyFollowingRating)}</span>
-                      {formatFollowingRatingsCount(readOnlyFollowingRatingsCount) ? (
-                        <span className="text-[9px] font-normal text-zinc-500/90">{formatFollowingRatingsCount(readOnlyFollowingRatingsCount)}</span>
+                      {formatProfileFeedRatingsCount(locale, readOnlyFollowingRatingsCount) ? (
+                        <span className="text-[9px] font-normal text-zinc-500/90">{formatProfileFeedRatingsCount(locale, readOnlyFollowingRatingsCount)}</span>
                       ) : null}
                     </div>
                   </div>
@@ -158,7 +161,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                         submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
                         icon="🧑"
                         nullLabel="—"
-                        ariaLabel="Mi calificación"
+                        ariaLabel={t("myRating")}
                         className="shrink-0"
                       />
                     )}
@@ -168,11 +171,11 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
             ) : (
               <>
                 <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
-                  <span className="text-zinc-600">VACÍO</span>
+                  <span className="text-zinc-600">{t("profileFeedNoItems")}</span>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Favorita {slot}</p>
-                  <p className="text-sm text-zinc-500">Selecciona una película para este espacio.</p>
+                  <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">{`${locale === "en" ? "Favorite" : "Favorita"} ${slot}`}</p>
+                  <p className="text-sm text-zinc-500">{locale === "en" ? "Select a movie for this slot." : "Selecciona una película para este espacio."}</p>
                 </div>
               </>
             )}
@@ -242,6 +245,7 @@ interface FavoriteSearchResultRowProps {
 }
 
 const FavoriteSearchResultRow = memo(function FavoriteSearchResultRow({ movie, savingMovieId, onSelect }: FavoriteSearchResultRowProps) {
+  const { t } = useI18n();
   const movieId = String(movie.id);
   const castPreview = movie.castMembers.join(", ");
   const posterSrc = movie.posterUrl || movie.image || null;
@@ -261,7 +265,7 @@ const FavoriteSearchResultRow = memo(function FavoriteSearchResultRow({ movie, s
         {posterSrc ? (
           <img src={posterSrc} alt={movie.displayTitle} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">Sin póster</div>
+          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">{t("profileFeedNoPoster")}</div>
         )}
       </div>
       <div className="min-w-0 text-xs text-zinc-200">
@@ -279,10 +283,10 @@ const FavoriteSearchResultRow = memo(function FavoriteSearchResultRow({ movie, s
       </div>
       <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
         <p className="truncate text-zinc-400">
-          <span className="font-medium text-blue-300">Dir:</span> {compactMetadataValue(movie.director)}
+          <span className="font-medium text-blue-300">{t("profileFeedDirector")}</span> {compactMetadataValue(movie.director)}
         </p>
         <p className="line-clamp-3 break-words text-zinc-500">
-          <span className="font-medium text-blue-300">Cast:</span> {isSaving ? "Guardando…" : castPreview || "—"}
+          <span className="font-medium text-blue-300">{t("profileFeedCast")}</span> {isSaving ? "Guardando…" : castPreview || "—"}
         </p>
       </div>
     </button>
@@ -290,6 +294,7 @@ const FavoriteSearchResultRow = memo(function FavoriteSearchResultRow({ movie, s
 });
 
 function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchModalProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
@@ -413,7 +418,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
           setCurrentPage((currentPageValue) => (currentPageValue === 1 ? currentPageValue : 1));
           const nextCanLoadMore = Boolean(pagination.next) || parsed.length >= FAVORITE_AUTOCOMPLETE_LIMIT;
           setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore === nextCanLoadMore ? currentCanLoadMore : nextCanLoadMore));
-          const nextFeedback = parsed.length === 0 ? "No encontramos coincidencias." : "";
+          const nextFeedback = parsed.length === 0 ? t("profileFeedNoResults") : "";
           setFeedback((currentFeedback) => (currentFeedback === nextFeedback ? currentFeedback : nextFeedback));
         })
         .catch((error) => {
@@ -422,7 +427,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
 
           setNextEndpoint(null);
           setCanLoadMore((currentCanLoadMore) => (currentCanLoadMore ? false : currentCanLoadMore));
-          setFeedback((currentFeedback) => (currentFeedback === "No se pudo completar la búsqueda." ? currentFeedback : "No se pudo completar la búsqueda."));
+          setFeedback((currentFeedback) => (currentFeedback === t("profileFeedNoResults") ? currentFeedback : t("profileFeedNoResults")));
         })
         .finally(() => {
           if (requestIdRef.current === currentRequestId && abortControllerRef.current === requestController) {
@@ -440,7 +445,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
       }
       abortControllerRef.current?.abort();
     };
-  }, [open, trimmedQuery]);
+  }, [open, t, trimmedQuery]);
 
   const loadMoreResults = useCallback(() => {
     if (!open || !canLoadMore || loading || loadingMore || loadMoreAbortControllerRef.current || !shouldRunAutocomplete(trimmedQuery)) return;
@@ -505,11 +510,11 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
       await onSaved();
       onClose();
     } catch {
-      setFeedback("No se pudo guardar la favorita. Inténtalo de nuevo.");
+      setFeedback(t("profileFeedNoResults"));
     } finally {
       setSavingMovieId(null);
     }
-  }, [onClose, onSaved, savingMovieId, slot]);
+  }, [onClose, onSaved, savingMovieId, slot, t]);
 
   if (!open) return null;
 
@@ -520,27 +525,27 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
           ref={inputRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={`Buscar película favorita ${slot} por título, año, género, director o cast`}
-          aria-label={`Buscar película favorita ${slot}`}
+          placeholder={interpolate(t("profileFeedSearchFavoriteMoviePlaceholder"), { slot })}
+          aria-label={interpolate(t("profileFeedSearchFavoriteMoviePlaceholder"), { slot })}
           className="w-full rounded-xl border border-white/15 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-blue-300/70 focus:outline-none focus:ring-2 focus:ring-blue-400/15"
         />
 
         <div
           role="listbox"
-          aria-label={`Resultados para película favorita ${slot}`}
+          aria-label={t("profileFeedNoResults")}
           className="search-dropdown-scrollbar mt-3 max-h-[360px] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-zinc-900/60 p-1"
           onScroll={handleResultsScroll}
         >
           {results.map((movie) => (
             <FavoriteSearchResultRow key={movie.id} movie={movie} savingMovieId={savingMovieId} onSelect={handleMovieSelect} />
           ))}
-          {loadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">Cargando más...</p> : null}
+          {loadingMore ? <p className="px-3 py-2 text-center text-[11px] text-zinc-500">{t("profileFeedLoadingMore")}</p> : null}
           {loading ? (
-            <div className="flex justify-center px-3 py-2" aria-label="Cargando resultados">
+            <div className="flex justify-center px-3 py-2" aria-label={t("profileFeedLoading")}>
               <span className="h-3 w-3 animate-spin rounded-full border border-blue-200/30 border-t-blue-200" />
             </div>
           ) : null}
-          {!loading && !shouldRunAutocomplete(trimmedQuery) ? <p className="px-3 py-3 text-xs text-zinc-500">Escribe al menos 3 caracteres.</p> : null}
+          {!loading && !shouldRunAutocomplete(trimmedQuery) ? <p className="px-3 py-3 text-xs text-zinc-500">{t("profileFeedTypeAtLeast3Characters")}</p> : null}
           {!loading && feedback ? <p className="px-3 py-3 text-xs text-zinc-400">{feedback}</p> : null}
         </div>
       </div>
@@ -553,6 +558,7 @@ export default function FavoriteMoviesBlock({
   readOnly = false,
   viewedUsername,
 }: FavoriteMoviesBlockProps = {}) {
+  const { t } = useI18n();
   const [favorites, setFavorites] = useState<FavoriteMovie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -600,7 +606,7 @@ export default function FavoriteMoviesBlock({
   return (
     <section className="rounded-3xl bg-zinc-950/65 p-6 shadow-[0_24px_45px_rgba(0,0,0,0.38)]">
       {title ? <h2 className="mb-4 text-lg font-semibold text-zinc-100 md:text-left">{title}</h2> : null}
-      {loading ? <p className="text-sm text-zinc-400">Cargando favoritas...</p> : null}
+      {loading ? <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p> : null}
       {!loading && error ? <p className="mb-3 text-xs text-zinc-400">{error}</p> : null}
 
       <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3 xl:gap-2.5">

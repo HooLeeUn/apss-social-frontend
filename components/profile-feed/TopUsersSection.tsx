@@ -2,6 +2,8 @@ import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReactNode, useMemo, useState } from "react";
+import { useI18n } from "../../hooks/useI18n";
+import { interpolate } from "../../lib/i18n";
 
 interface TopUsersSectionProps {
   friends: SocialUser[];
@@ -32,13 +34,14 @@ function UserRow({
   user: SocialUser;
   onNavigateUser?: (clickedUser: SocialUser) => void;
 }) {
+  const { t } = useI18n();
   const initials = user.username.slice(0, 2).toUpperCase();
   const title = user.username;
   const followersCopy =
     typeof user.followersCount === "number"
       ? user.followersCount === 1
-        ? "Lo sigue 1 usuario"
-        : `Lo siguen ${user.followersCount} usuarios`
+        ? t("profileFeedFollowedByOne")
+        : interpolate(t("profileFeedFollowedByMany"), { count: user.followersCount })
       : null;
 
   const href = `/users/${encodeURIComponent(user.username)}`;
@@ -86,6 +89,7 @@ function PendingRequestRow({
   onCancel: (request: FriendRequest) => void;
   onNavigateUser?: (clickedUser: SocialUser) => void;
 }) {
+  const { locale, t } = useI18n();
   const user = request.user;
   const initials = user.username.slice(0, 2).toUpperCase();
   const title = user.username;
@@ -111,14 +115,14 @@ function PendingRequestRow({
             {title}
           </Link>
         )}
-        <p className="text-xs text-zinc-400">{request.direction === "sent" ? "Solicitud enviada" : "Solicitud recibida"}</p>
+        <p className="text-xs text-zinc-400">{request.direction === "sent" ? t("profileFeedRequestSent") : t("profileFeedRequestReceived")}</p>
         {request.direction === "received" ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             <button type="button" onClick={() => onAccept(request)} className="rounded-full bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-violet-500">
-              Aceptar
+              {locale === "en" ? "Accept" : "Aceptar"}
             </button>
             <button type="button" onClick={() => onReject(request)} className="rounded-full border border-white/15 bg-zinc-900 px-2.5 py-1 text-[11px] font-semibold text-zinc-100 transition hover:bg-zinc-800">
-              Eliminar
+              {locale === "en" ? "Delete" : "Eliminar"}
             </button>
           </div>
         ) : null}
@@ -126,7 +130,7 @@ function PendingRequestRow({
       {request.direction === "sent" ? (
         <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row">
           <button type="button" onClick={() => onCancel(request)} className="rounded-full border border-blue-300/40 bg-blue-600/20 px-2.5 py-1 text-[11px] font-semibold text-blue-100 transition hover:bg-blue-600/30">
-            Cancelar
+            {locale === "en" ? "Cancel" : "Cancelar"}
           </button>
         </div>
       ) : null}
@@ -155,6 +159,7 @@ function Block({
   centerEmpty?: boolean;
   headerSlot?: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <section className="flex h-[30rem] flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
@@ -165,7 +170,7 @@ function Block({
           <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
             <p>{error}</p>
             <button type="button" onClick={onRetry} className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60">
-              Reintentar
+              {t("profileFeedRetry")}
             </button>
           </div>
         ) : null}
@@ -227,6 +232,7 @@ function PendingRequestsBlock({
   onNavigateUser?: (clickedUser: SocialUser) => void;
   headerSlot: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <section className="flex h-[30rem] flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
@@ -237,12 +243,12 @@ function PendingRequestsBlock({
           <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
             <p>{error}</p>
             <button type="button" onClick={onRetry} className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60">
-              Reintentar
+              {t("profileFeedRetry")}
             </button>
           </div>
         ) : null}
-        {loading ? <p className="py-6 text-center text-sm text-zinc-500">Cargando solicitudes…</p> : null}
-        {!loading && !error && requests.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">No tienes solicitudes pendientes</p> : null}
+        {loading ? <p className="py-6 text-center text-sm text-zinc-500">{t("profileFeedLoading")}</p> : null}
+        {!loading && !error && requests.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">{t("profileFeedNoPendingRequests")}</p> : null}
         {!loading && !error && requests.length > 0 ? (
           <div className="activity-scrollbar h-full overflow-y-auto pr-1">
             {requests.map((request) => (
@@ -277,6 +283,7 @@ export default function TopUsersSection({
   initialConnectionView = "friends",
 }: TopUsersSectionProps) {
   const router = useRouter();
+  const { locale, t } = useI18n();
   const [activeConnectionView, setActiveConnectionView] = useState<"friends" | "pending">(initialConnectionView);
   const receivedPendingRequestsCount = useMemo(
     () => pendingRequests.filter((request) => request.direction === "received").length,
@@ -284,7 +291,7 @@ export default function TopUsersSection({
   );
   const normalizedAuthenticatedUsername = authenticatedUsername?.trim().toLocaleLowerCase() ?? "";
   const effectiveConnectionView = friendRequestsRestricted ? "friends" : activeConnectionView;
-  const restrictedFriendRequestsCopy = "Restringiste solicitudes de amistad, solo puedes Seguir y/o ser Seguido";
+  const restrictedFriendRequestsCopy = t("profileFeedRequestRejected");
   const shouldShowRestrictedFriendsEmptyState = effectiveConnectionView === "friends" && friendRequestsRestricted;
 
   const handleNavigateUser = (clickedUser: SocialUser) => {
@@ -304,7 +311,7 @@ export default function TopUsersSection({
 
   const connectionHeader = (
     <div className="flex w-full items-center justify-start">
-      <div className="inline-flex h-9 rounded-full border border-white/15 bg-zinc-900/75 p-1" role="tablist" aria-label="Vista de amistades">
+      <div className="inline-flex h-9 rounded-full border border-white/15 bg-zinc-900/75 p-1" role="tablist" aria-label={t("profileFeedFriends")}>
         <button
           type="button"
           role="tab"
@@ -314,7 +321,7 @@ export default function TopUsersSection({
             effectiveConnectionView === "friends" ? activeConnectionTabClass : "text-zinc-400 hover:text-zinc-100"
           }`}
         >
-          Amigos
+          {t("profileFeedFriends")}
         </button>
         <button
           type="button"
@@ -329,7 +336,7 @@ export default function TopUsersSection({
             effectiveConnectionView === "pending" ? activeConnectionTabClass : "text-zinc-400 hover:text-zinc-100 disabled:hover:text-zinc-400"
           }`}
         >
-          Pendientes
+          {t("profileFeedPending")}
           {receivedPendingRequestsCount > 0 ? (
             <span className="pointer-events-none absolute -right-1.5 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-bold leading-none text-zinc-950 shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
               {receivedPendingRequestsCount}
@@ -343,21 +350,21 @@ export default function TopUsersSection({
   return (
     <section className="grid w-full max-w-[640px] gap-3 sm:grid-cols-2 lg:max-w-[680px]">
       <Block
-        title="Seguidos"
+        title={t("profileFeedFollowing")}
         users={following}
         loading={loadingFollowing}
-        emptyCopy="Aún no sigues a ningún usuario"
+        emptyCopy={locale === "en" ? "You are not following anyone yet" : "Aún no sigues a ningún usuario"}
         error={followingError}
         onRetry={onRetryFollowing}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
       />
       {effectiveConnectionView === "friends" ? (
         <Block
-          title="Amigos"
+          title={t("profileFeedFriends")}
           headerSlot={connectionHeader}
           users={friendRequestsRestricted ? [] : friends}
           loading={friendRequestsRestricted ? false : loadingFriends}
-          emptyCopy={friendRequestsRestricted ? restrictedFriendRequestsCopy : "Aún no tienes amigos agregados"}
+          emptyCopy={friendRequestsRestricted ? restrictedFriendRequestsCopy : locale === "en" ? "You have no friends added yet" : "Aún no tienes amigos agregados"}
           centerEmpty={shouldShowRestrictedFriendsEmptyState}
           error={friendsError}
           onRetry={onRetryFriends}

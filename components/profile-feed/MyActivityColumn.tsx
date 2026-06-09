@@ -7,35 +7,13 @@ import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSo
 import { getMyProfile, getUserMovieRecommendationsByUsername, getUserProfileByUsername, markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
 import { MyMessageItem, SocialActivityItem, UserMovieRecommendation } from "../../lib/profile-feed/types";
 import { formatAverageRating } from "../../lib/rating-format";
+import { useI18n } from "../../hooks/useI18n";
+import { formatProfileFeedRelativeDate, Locale } from "../../lib/i18n";
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
 const MAX_AUTO_LOAD_MORE_ATTEMPTS = 12;
-
-function formatRelativeDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Reciente";
-
-  const elapsedMs = Date.now() - date.getTime();
-  const elapsedMinutes = Math.floor(elapsedMs / 60000);
-
-  if (elapsedMinutes < 1) return "Ahora";
-  if (elapsedMinutes < 60) return `Hace ${elapsedMinutes} min`;
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `Hace ${elapsedHours} h`;
-
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 7) return `Hace ${elapsedDays} d`;
-
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 
 function getActivityRelativeDate(item: SocialActivityItem): string {
   return item.activityAt ?? item.updatedAt ?? item.createdAt;
@@ -46,84 +24,84 @@ function getActivitySortTimestamp(item: SocialActivityItem): number {
   return new Date(sortDate).getTime();
 }
 
-function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean): string {
-  const safeMovieTitle = item.movieTitle || "título";
-  const ratedVerb = isOwnProfile ? "Calificaste" : "Calificó";
-  const commentedVerb = isOwnProfile ? "Comentaste" : "Comentó";
+function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean, locale: Locale): string {
+  const safeMovieTitle = item.movieTitle || (locale === "en" ? "title" : "título");
+  const ratedVerb = isOwnProfile ? (locale === "en" ? "You rated" : "Calificaste") : (locale === "en" ? "Rated" : "Calificó");
+  const commentedVerb = isOwnProfile ? (locale === "en" ? "Commented on" : "Comentaste") : (locale === "en" ? "Commented" : "Comentó");
   const directedTarget = item.directedCommentTargetUsername ? ` a @${item.directedCommentTargetUsername}` : "";
 
   if (item.interactionType === "rating") {
-    const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : "sin nota";
-    return `${ratedVerb} con ${score} esta película`;
+    const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : (locale === "en" ? "no score" : "sin nota");
+    return locale === "en" ? `${ratedVerb} this movie ${score}` : `${ratedVerb} con ${score} esta película`;
   }
 
   if (item.interactionType === "comment") {
     if (item.isDirectedComment) {
       return isOwnProfile
-        ? `Enviaste un mensaje privado sobre ${safeMovieTitle}${directedTarget}`
-        : `Envió un mensaje privado sobre ${safeMovieTitle}${directedTarget}`;
+        ? locale === "en" ? `You sent a private message about ${safeMovieTitle}${directedTarget}` : `Enviaste un mensaje privado sobre ${safeMovieTitle}${directedTarget}`
+        : locale === "en" ? `Sent a private message about ${safeMovieTitle}${directedTarget}` : `Envió un mensaje privado sobre ${safeMovieTitle}${directedTarget}`;
     }
     return `${commentedVerb} ${safeMovieTitle}`;
   }
 
-  const reactionActor = item.reactionActorUsername || item.user.username || "otro usuario";
-  const commentAuthor = item.likedCommentAuthorUsername || "otro usuario";
+  const reactionActor = item.reactionActorUsername || item.user.username || (locale === "en" ? "another user" : "otro usuario");
+  const commentAuthor = item.likedCommentAuthorUsername || (locale === "en" ? "another user" : "otro usuario");
 
   const reactionValue = item.reactionValue || (item.interactionType === "like" || item.interactionType === "dislike" ? item.interactionType : null);
   if (reactionValue === "dislike") {
     if (item.isGivenReaction) {
-      return `No te gustó el comentario de ${commentAuthor}`;
+      return locale === "en" ? `You disliked the comment from ${commentAuthor}` : `No te gustó el comentario de ${commentAuthor}`;
     }
     if (item.isReceivedReaction) {
-      return `A ${reactionActor} no le gustó tu comentario`;
+      return locale === "en" ? `${reactionActor} disliked your comment` : `A ${reactionActor} no le gustó tu comentario`;
     }
-    return `${isOwnProfile ? "No te gustó" : "No le gustó"} el comentario de ${commentAuthor}`;
+    return locale === "en" ? `${isOwnProfile ? "You disliked" : "Disliked"} the comment from ${commentAuthor}` : `${isOwnProfile ? "No te gustó" : "No le gustó"} el comentario de ${commentAuthor}`;
   }
 
   if (reactionValue === "like" && item.isGivenReaction) {
-    return `Te gustó el comentario de ${commentAuthor}`;
+    return locale === "en" ? `You liked the comment from ${commentAuthor}` : `Te gustó el comentario de ${commentAuthor}`;
   }
   if (reactionValue === "like" && item.isReceivedReaction) {
-    return `A ${reactionActor} le gustó tu comentario`;
+    return locale === "en" ? `${reactionActor} liked your comment` : `A ${reactionActor} le gustó tu comentario`;
   }
   if (reactionValue === "like") {
-    return `${isOwnProfile ? "Te gustó" : "Le gustó"} el comentario de ${commentAuthor}`;
+    return locale === "en" ? `${isOwnProfile ? "You liked" : "Liked"} the comment from ${commentAuthor}` : `${isOwnProfile ? "Te gustó" : "Le gustó"} el comentario de ${commentAuthor}`;
   }
-  return "Reaccionaste a un comentario";
+  return locale === "en" ? "You reacted to a comment" : "Reaccionaste a un comentario";
 }
 
-function getActivityDetail(item: SocialActivityItem): string | null {
+function getActivityDetail(item: SocialActivityItem, locale: Locale): string | null {
   if (item.interactionType === "rating") {
     return null;
   }
 
   if (item.interactionType === "comment") {
     if (item.isDirectedComment) {
-      return stripLeadingMention(item.commentText || "Enviaste un comentario privado.");
+      return stripLeadingMention(item.commentText || (locale === "en" ? "You sent a private comment." : "Enviaste un comentario privado."));
     }
-    return item.commentText || "Dejaste un comentario público.";
+    return item.commentText || (locale === "en" ? "You left a public comment." : "Dejaste un comentario público.");
   }
 
   return item.likedCommentSnippet || item.movieTitle;
 }
 
-function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: number | null): string {
+function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: number | null, locale: Locale = "es"): string {
   const values = [movieType, movieGenre, movieYear ? String(movieYear) : null].filter(Boolean);
-  return values.length > 0 ? values.join(" · ") : "Sin metadata";
+  return values.length > 0 ? values.join(" · ") : (locale === "en" ? "No metadata" : "Sin metadata");
 }
 
-function getVisitedActionMessage(item: SocialActivityItem): string | null {
+function getVisitedActionMessage(item: SocialActivityItem, locale: Locale): string | null {
   if (item.interactionType === "rating") {
-    const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : "sin nota";
-    return `Calificó con ${score} esta película`;
+    const score = item.ratingValue !== undefined ? formatAverageRating(item.ratingValue) : (locale === "en" ? "no score" : "sin nota");
+    return locale === "en" ? `Rated this movie ${score}` : `Calificó con ${score} esta película`;
   }
 
   if (item.interactionType === "like") {
-    return `Le gustó este comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+    return locale === "en" ? `Liked this comment from ${item.likedCommentAuthorUsername || "another user"}` : `Le gustó este comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
   }
 
   if (item.interactionType === "dislike") {
-    return `No le gustó este comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
+    return locale === "en" ? `Disliked this comment from ${item.likedCommentAuthorUsername || "another user"}` : `No le gustó este comentario de ${item.likedCommentAuthorUsername || "otro usuario"}`;
   }
 
   return null;
@@ -266,10 +244,11 @@ function ActivityRow({
   myUsername?: string | null;
   authorCanVisitByUsername?: Record<string, boolean>;
 }) {
+  const { locale, t } = useI18n();
   const hasMovieId = item.movieId !== undefined && item.movieId !== null && String(item.movieId).trim() !== "";
   const movieHref = hasMovieId ? `/movies/${encodeURIComponent(String(item.movieId))}` : null;
-  const activityDetail = getActivityDetail(item);
-  const visitedActionMessage = getVisitedActionMessage(item);
+  const activityDetail = getActivityDetail(item, locale);
+  const visitedActionMessage = getVisitedActionMessage(item, locale);
   const isVisitedProfile = !isOwnProfile;
   const normalizedMyUsername = myUsername?.trim().toLocaleLowerCase() || "";
   const normalizedAuthorUsername = item.likedCommentAuthorUsername?.trim().toLocaleLowerCase() || "";
@@ -280,13 +259,13 @@ function ActivityRow({
   const reactionMessage =
     reactionValue === "like"
       ? authorIsCurrentUser
-        ? `A ${viewedUsername || "este usuario"} le gustó tu comentario`
-        : `A ${viewedUsername || "este usuario"} le gustó el comentario de`
+        ? locale === "en" ? `${viewedUsername || "this user"} liked your comment` : `A ${viewedUsername || "este usuario"} le gustó tu comentario`
+        : locale === "en" ? `${viewedUsername || "this user"} liked the comment from` : `A ${viewedUsername || "este usuario"} le gustó el comentario de`
       : reactionValue === "dislike"
         ? authorIsCurrentUser
-          ? `A ${viewedUsername || "este usuario"} no le gustó tu comentario`
-          : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`
-        : `A ${viewedUsername || "este usuario"} reaccionó al comentario de`;
+          ? locale === "en" ? `${viewedUsername || "this user"} disliked your comment` : `A ${viewedUsername || "este usuario"} no le gustó tu comentario`
+          : locale === "en" ? `${viewedUsername || "this user"} disliked the comment from` : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`
+        : locale === "en" ? `${viewedUsername || "this user"} reacted to the comment from` : `A ${viewedUsername || "este usuario"} reaccionó al comentario de`;
   const ownActivityIconClassName = "h-5 w-5 shrink-0";
   const ownActivityIcon =
     item.interactionType === "comment" ? (
@@ -329,7 +308,7 @@ function ActivityRow({
       <div className={`min-w-0 ${isOwnProfile ? "pr-10" : ""}`}>
         {isOwnProfile ? <div className="absolute right-0 top-3">{ownActivityIcon}</div> : null}
         {isOwnProfile ? (
-          <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile)}</p>
+          <p className="text-xs font-medium text-blue-200/85">{getActivityTitle(item, isOwnProfile, locale)}</p>
         ) : null}
         {movieHref ? (
           <Link
@@ -343,7 +322,7 @@ function ActivityRow({
         </Link>
         ) : (
           <p className={`mt-1 block font-semibold text-zinc-100 ${isVisitedProfile ? "text-base leading-snug md:text-lg" : "truncate text-sm"}`}>
-            {item.movieTitle || "Título desconocido"}
+            {item.movieTitle || t("profileFeedUnknownTitle")}
           </p>
         )}
         {item.movieSecondaryTitle ? (
@@ -364,10 +343,10 @@ function ActivityRow({
           </p>
         ) : null}
         <p className={`mt-1 text-zinc-500 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
-          {formatMetadata(item.movieType, item.movieGenre, item.movieYear)}
+          {formatMetadata(item.movieType, item.movieGenre, item.movieYear, locale)}
         </p>
         {isOwnProfile && activityDetail ? <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p> : null}
-        {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(getActivityRelativeDate(item))}</p> : null}
+        {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatProfileFeedRelativeDate(locale, getActivityRelativeDate(item))}</p> : null}
       </div>
 
       {isVisitedProfile ? (
@@ -411,13 +390,13 @@ function ActivityRow({
                       )}
                     </>
                   ) : null}
-                  {!authorIsCurrentUser && !item.likedCommentAuthorUsername ? " otro usuario" : null}
+                  {!authorIsCurrentUser && !item.likedCommentAuthorUsername ? (locale === "en" ? " another user" : " otro usuario") : null}
                 </p>
               </div>
               {item.likedCommentSnippet ? (
                 <p className="pl-7 text-sm leading-relaxed text-zinc-200 md:text-base">{item.likedCommentSnippet}</p>
               ) : null}
-              <p className="pl-7 text-xs text-zinc-500 md:text-sm">{formatRelativeDate(getActivityRelativeDate(item))}</p>
+              <p className="pl-7 text-xs text-zinc-500 md:text-sm">{formatProfileFeedRelativeDate(locale, getActivityRelativeDate(item))}</p>
             </div>
           ) : null}
         </div>
@@ -427,10 +406,11 @@ function ActivityRow({
 }
 
 function MessageRow({ item }: { item: MyMessageItem }) {
+  const { locale, t } = useI18n();
   const hasMovieId = item.movieId !== undefined && item.movieId !== null && String(item.movieId).trim() !== "";
   const movieHref = hasMovieId ? `/movies/${encodeURIComponent(String(item.movieId))}` : null;
   const counterpart = item.direction === "sent" ? item.recipient || item.sender : item.sender;
-  const counterpartUsername = counterpart?.username || "usuario";
+  const counterpartUsername = counterpart?.username || t("profileFeedUser").toLocaleLowerCase();
   const counterpartInitials = counterpartUsername.slice(0, 2).toUpperCase();
   const messageDirectionIcon = item.direction === "sent" ? (
     <svg
@@ -482,13 +462,13 @@ function MessageRow({ item }: { item: MyMessageItem }) {
         <p className="text-xs text-zinc-100">
           {item.direction === "received" ? (
             <>
-              <span className="text-base font-semibold text-blue-400 !text-blue-400">Recibido</span>
-              <span className="text-white"> de </span>
+              <span className="text-base font-semibold text-blue-400 !text-blue-400">{t("profileFeedReceived")}</span>
+              <span className="text-white"> {locale === "en" ? "from" : "de"} </span>
             </>
           ) : (
             <>
-              <span className="text-base font-semibold text-white">Enviado</span>
-              <span className="text-white"> a </span>
+              <span className="text-base font-semibold text-white">{t("profileFeedSent")}</span>
+              <span className="text-white"> {locale === "en" ? "to" : "a"} </span>
             </>
           )}
           <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
@@ -530,7 +510,7 @@ function MessageRow({ item }: { item: MyMessageItem }) {
           )}
           {item.movieSecondaryTitle ? <p className="mt-0.5 truncate text-[11px] text-blue-200/75">{item.movieSecondaryTitle}</p> : null}
           <p className="mt-2 line-clamp-3 text-xs text-zinc-300/90">{stripLeadingMention(item.text)}</p>
-          <p className="mt-1 text-[11px] text-zinc-500">{formatRelativeDate(item.createdAt)}</p>
+          <p className="mt-1 text-[11px] text-zinc-500">{formatProfileFeedRelativeDate(locale, item.createdAt)}</p>
         </div>
       </div>
     </article>
@@ -573,10 +553,11 @@ export default function MyActivityColumn({
   initialActiveTab = "activity",
   hidePrivateInbox = null,
   viewedUsername,
-  title = "Mi actividad",
-  emptyCopy = "Aún no tienes actividad registrada.",
-  errorCopy = "No se pudo cargar la actividad.",
+  title,
+  emptyCopy,
+  errorCopy,
 }: MyActivityColumnProps = {}) {
+  const { locale, t } = useI18n();
   const initialResolvedActiveTab =
     isOwnProfile && hidePrivateInbox !== false && initialActiveTab === "messages" ? "activity" : initialActiveTab;
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
@@ -600,10 +581,15 @@ export default function MyActivityColumn({
   const activityEnabled = !isOwnProfile || effectiveActiveTab === "activity" || effectiveActiveTab === "rated";
   const messagesEnabled = canShowPrivateInbox && effectiveActiveTab === "messages";
   const ownProfileTabs: Array<{ value: "activity" | "messages" | "rated"; label: string }> = [
-    { value: "activity", label: "Mi actividad" },
-    ...(canShowPrivateInbox ? [{ value: "messages" as const, label: "Buzón Privado" }] : []),
-    { value: "rated", label: "Mis calificadas" },
+    { value: "activity", label: t("profileFeedMyActivity") },
+    ...(canShowPrivateInbox ? [{ value: "messages" as const, label: t("profileFeedPrivateInbox") }] : []),
+    { value: "rated", label: t("profileFeedMyRatings") },
   ];
+
+
+  const resolvedTitle = title ?? t("profileFeedMyActivity");
+  const resolvedEmptyCopy = emptyCopy ?? (locale === "en" ? "You have no registered activity yet." : "Aún no tienes actividad registrada.");
+  const resolvedErrorCopy = errorCopy ?? (locale === "en" ? "Activity could not be loaded." : "No se pudo cargar la actividad.");
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
   const messages = useInfiniteMyMessages(messagesEnabled);
@@ -882,7 +868,7 @@ export default function MyActivityColumn({
         </header>
       ) : (
         <div className="space-y-3">
-          <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
+          <h2 className="text-base font-semibold text-zinc-100">{resolvedTitle}</h2>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -938,8 +924,8 @@ export default function MyActivityColumn({
             type="search"
             value={senderQuery}
             onChange={(event) => setSenderQuery(event.target.value)}
-            placeholder="Buscar usuario"
-            aria-label="Buscar mensajes por usuario remitente"
+            placeholder={t("profileFeedSearchUser")}
+            aria-label={t("profileFeedSearchUser")}
             className="h-9 w-40 rounded-full border border-white/15 bg-zinc-900/75 px-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
           />
         </div>
@@ -959,20 +945,20 @@ export default function MyActivityColumn({
 
             {!activity.loading && activity.error ? (
               <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
-                <p>{activity.error || errorCopy}</p>
+                <p>{activity.error || resolvedErrorCopy}</p>
                 <button
                   type="button"
                   onClick={activity.reload}
                   className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60"
                 >
-                  Reintentar
+                  {t("profileFeedRetry")}
                 </button>
               </div>
             ) : null}
 
             {!isOwnProfile && visitedActivityTab === "recommendations" ? (
               <>
-                {recommendationsLoading ? <p className="text-sm text-zinc-400">Cargando recomendaciones...</p> : null}
+                {recommendationsLoading ? <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p> : null}
                 {!recommendationsLoading && recommendationsError ? (
                   <p className="text-sm text-zinc-400">No pudimos cargar las recomendaciones de este usuario.</p>
                 ) : null}
@@ -987,15 +973,15 @@ export default function MyActivityColumn({
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={movie.image} alt={`Poster de ${movie.titleSpanish}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                           ) : (
-                            <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">Sin poster</span>
+                            <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">{t("profileFeedNoPoster")}</span>
                           )}
                         </Link>
                         <div className="min-w-0 space-y-1">
                           <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-lg font-semibold text-zinc-100 hover:text-blue-200">{movie.titleSpanish}</Link>
                           <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-sm text-zinc-400 hover:text-blue-200">{movie.titleEnglish}</Link>
                           <p className="text-xs text-zinc-300">{movie.genre} · {movie.type} · {movie.releaseYear}</p>
-                          <p className="text-xs text-zinc-400">Director: {movie.director}</p>
-                          <p className="line-clamp-2 text-xs text-zinc-500">Casting: {movie.castMembers}</p>
+                          <p className="text-xs text-zinc-400">{t("profileFeedDirector")} {movie.director}</p>
+                          <p className="line-clamp-2 text-xs text-zinc-500">{t("profileFeedCast")} {movie.castMembers}</p>
                         </div>
                       </article>
                     ))
@@ -1006,7 +992,7 @@ export default function MyActivityColumn({
             {!activity.loading &&
             !activity.error &&
             (isOwnProfile ? ownActivityItems.length === 0 : visitedActivityTab !== "recommendations" && filteredActivityItems.length === 0) ? (
-              <p className="text-sm text-zinc-500">{emptyCopy}</p>
+              <p className="text-sm text-zinc-500">{resolvedEmptyCopy}</p>
             ) : null}
 
             {!activity.loading && !activity.error
@@ -1023,7 +1009,7 @@ export default function MyActivityColumn({
                 ))
               : null}
 
-            {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
+            {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">{t("profileFeedLoadingMoreActivity")}</p> : null}
           </>
         ) : canShowPrivateInbox && effectiveActiveTab === "messages" ? (
           <>
@@ -1037,13 +1023,13 @@ export default function MyActivityColumn({
                   onClick={messages.reload}
                   className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60"
                 >
-                  Reintentar
+                  {t("profileFeedRetry")}
                 </button>
               </div>
             ) : null}
 
             {!messages.loading && !messages.error && messages.items.length === 0 ? (
-              <p className="text-sm text-zinc-500">No tienes mensajes privados por ahora</p>
+              <p className="text-sm text-zinc-500">{t("profileFeedNoMessages")}</p>
             ) : null}
 
             {!messages.loading && !messages.error && messages.items.length > 0 && filteredMessages.length === 0 ? (
@@ -1054,7 +1040,7 @@ export default function MyActivityColumn({
               ? filteredMessages.map((item) => <MessageRow key={item.id} item={item} />)
               : null}
 
-            {messages.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más mensajes...</p> : null}
+            {messages.loadingMore ? <p className="py-3 text-xs text-zinc-400">{t("profileFeedLoadingMoreMessages")}</p> : null}
           </>
         ) : (
           <>
@@ -1062,19 +1048,19 @@ export default function MyActivityColumn({
 
             {!activity.loading && activity.error ? (
               <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
-                <p>{activity.error || errorCopy}</p>
+                <p>{activity.error || resolvedErrorCopy}</p>
                 <button
                   type="button"
                   onClick={activity.reload}
                   className="mt-2 rounded-full border border-red-200/30 bg-red-900/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-900/60"
                 >
-                  Reintentar
+                  {t("profileFeedRetry")}
                 </button>
               </div>
             ) : null}
 
             {!activity.loading && !activity.error && ownRatedItems.length === 0 ? (
-              <p className="text-sm text-zinc-500">Aún no tienes películas calificadas.</p>
+              <p className="text-sm text-zinc-500">{locale === "en" ? "You have no rated movies yet." : "Aún no tienes películas calificadas."}</p>
             ) : null}
 
             {!activity.loading && !activity.error
@@ -1091,7 +1077,7 @@ export default function MyActivityColumn({
                 ))
               : null}
 
-            {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">Cargando más actividad...</p> : null}
+            {activity.loadingMore ? <p className="py-3 text-xs text-zinc-400">{t("profileFeedLoadingMoreActivity")}</p> : null}
           </>
         )}
       </div>

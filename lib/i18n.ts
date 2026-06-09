@@ -69,6 +69,76 @@ const translations = {
     movieDetailDislike: "No me gusta",
     movieDetailYouLiked: "Te gustó",
     movieDetailYouDisliked: "No te gustó",
+    profileFeedUser: "Usuario",
+    profileFeedAge: "{age} Años",
+    profileFeedFavoriteMovies: "Mis Películas Favoritas",
+    profileFeedSearchAndFollowFriends: "Buscar y Seguir Amigos",
+    profileFeedSearchFavoriteMoviePlaceholder: "Buscar película favorita {slot} por título, año, género, director o cast",
+    profileFeedTypeAtLeast3Characters: "Escribe al menos 3 caracteres.",
+    profileFeedNoResults: "Sin resultados.",
+    profileFeedLoading: "Cargando...",
+    profileFeedLoadingList: "Cargando lista…",
+    profileFeedNoMovies: "Sin películas",
+    profileFeedNoItems: "Sin elementos",
+    profileFeedFollowing: "Seguidos",
+    profileFeedFollowedByOne: "Lo sigue 1 usuario",
+    profileFeedFollowedByMany: "Lo siguen {count} usuarios",
+    profileFeedNoFollowers: "Sin seguidores",
+    profileFeedFriends: "Amigos",
+    profileFeedPending: "Pendientes",
+    profileFeedNoPendingRequests: "No tienes solicitudes pendientes",
+    profileFeedRequestSent: "Solicitud enviada",
+    profileFeedRequestReceived: "Solicitud recibida",
+    profileFeedRequestAccepted: "Solicitud aceptada",
+    profileFeedRequestRejected: "Solicitud rechazada",
+    profileFeedMyActivity: "Mi actividad",
+    profileFeedPrivateInbox: "Buzón Privado",
+    profileFeedMyRatings: "Mis calificadas",
+    profileFeedSearchUser: "Buscar usuario",
+    profileFeedReceived: "Recibido",
+    profileFeedSent: "Enviado",
+    profileFeedReceivedFrom: "Recibido de",
+    profileFeedSentTo: "Enviado a",
+    profileFeedNoMessages: "Sin mensajes",
+    profileFeedHide: "Ocultar",
+    profileFeedShow: "Mostrar",
+    profileFeedViewMore: "Ver más",
+    profileFeedViewLess: "Ver menos",
+    profileFeedMyList: "Mi Lista",
+    profileFeedMyRecommendations: "Mis recomendadas",
+    profileFeedRecommendations: "Recomendadas",
+    profileFeedRated: "calificó",
+    profileFeedCommented: "Comentó",
+    profileFeedType: "Tipo:",
+    profileFeedGenre: "Género:",
+    profileFeedDirector: "Director:",
+    profileFeedCast: "Casting:",
+    profileFeedGeneral: "General",
+    profileFeedMyRatingUpper: "MI CALIF.",
+    profileFeedOneRating: "1 calif.",
+    profileFeedManyRatings: "{count} calif.",
+    profileFeedMovieTypeMovie: "movie",
+    profileFeedMovieTypeSeries: "series",
+    profileFeedRecent: "Reciente",
+    profileFeedNow: "Ahora",
+    profileFeedUnknownTitle: "Título desconocido",
+    profileFeedNoPoster: "Sin poster",
+    profileFeedRetry: "Reintentar",
+    profileFeedLoadMore: "Cargar más resultados",
+    profileFeedLoadingMoreUsers: "Cargando más usuarios…",
+    profileFeedLoadingMoreActivity: "Cargando más actividad...",
+    profileFeedLoadingMoreMessages: "Cargando más mensajes...",
+    profileFeedLoadingMore: "Cargando más...",
+    profileFeedNoUsersFound: "No encontramos usuarios",
+    profileFeedSearchingUsers: "Buscando usuarios…",
+    profileFeedYouRatedMovie: "Calificaste con {rating} esta película",
+    profileFeedRatedMovie: "Calificó con {rating} esta película",
+    profileFeedYouLikedCommentFrom: "Te gustó el comentario de {username}",
+    profileFeedYouDislikedCommentFrom: "No te gustó el comentario de {username}",
+    profileFeedUserLikedYourComment: "A {username} le gustó tu comentario",
+    profileFeedUserDislikedYourComment: "A {username} no le gustó tu comentario",
+    profileFeedMyListRemoveAria: "Quitar {title} de Mi Lista",
+    profileFeedMyRecommendationsRemoveAria: "Quitar {title} de Mis recomendadas",
     personalData: "Datos Personales",
     personalDataSubtitle: "Gestiona aquí tu información principal de perfil.",
     personalDataBasicInfo: "Información básica",
@@ -203,6 +273,76 @@ const translations = {
     movieDetailDislike: "Dislike",
     movieDetailYouLiked: "You liked",
     movieDetailYouDisliked: "You disliked",
+    profileFeedUser: "User",
+    profileFeedAge: "{age} years old",
+    profileFeedFavoriteMovies: "My Favorite Movies",
+    profileFeedSearchAndFollowFriends: "Search and Follow Friends",
+    profileFeedSearchFavoriteMoviePlaceholder: "Search favorite movie {slot} by title, year, genre, director or cast",
+    profileFeedTypeAtLeast3Characters: "Type at least 3 characters.",
+    profileFeedNoResults: "No results.",
+    profileFeedLoading: "Loading...",
+    profileFeedLoadingList: "Loading list…",
+    profileFeedNoMovies: "No movies",
+    profileFeedNoItems: "No items",
+    profileFeedFollowing: "Following",
+    profileFeedFollowedByOne: "Followed by 1 user",
+    profileFeedFollowedByMany: "Followed by {count} users",
+    profileFeedNoFollowers: "No followers",
+    profileFeedFriends: "Friends",
+    profileFeedPending: "Pending",
+    profileFeedNoPendingRequests: "You have no pending requests",
+    profileFeedRequestSent: "Request sent",
+    profileFeedRequestReceived: "Request received",
+    profileFeedRequestAccepted: "Request accepted",
+    profileFeedRequestRejected: "Request rejected",
+    profileFeedMyActivity: "My Activity",
+    profileFeedPrivateInbox: "Private Inbox",
+    profileFeedMyRatings: "My Ratings",
+    profileFeedSearchUser: "Search user",
+    profileFeedReceived: "Received",
+    profileFeedSent: "Sent",
+    profileFeedReceivedFrom: "Received from",
+    profileFeedSentTo: "Sent to",
+    profileFeedNoMessages: "No messages",
+    profileFeedHide: "Hide",
+    profileFeedShow: "Show",
+    profileFeedViewMore: "View more",
+    profileFeedViewLess: "View less",
+    profileFeedMyList: "My List",
+    profileFeedMyRecommendations: "My Recommendations",
+    profileFeedRecommendations: "Recommendations",
+    profileFeedRated: "rated",
+    profileFeedCommented: "Commented",
+    profileFeedType: "Type:",
+    profileFeedGenre: "Genre:",
+    profileFeedDirector: "Director:",
+    profileFeedCast: "Cast:",
+    profileFeedGeneral: "General",
+    profileFeedMyRatingUpper: "MY RATING",
+    profileFeedOneRating: "1 rating",
+    profileFeedManyRatings: "{count} ratings",
+    profileFeedMovieTypeMovie: "Movie",
+    profileFeedMovieTypeSeries: "Series",
+    profileFeedRecent: "Recent",
+    profileFeedNow: "Now",
+    profileFeedUnknownTitle: "Unknown title",
+    profileFeedNoPoster: "No poster",
+    profileFeedRetry: "Retry",
+    profileFeedLoadMore: "Load more results",
+    profileFeedLoadingMoreUsers: "Loading more users…",
+    profileFeedLoadingMoreActivity: "Loading more activity...",
+    profileFeedLoadingMoreMessages: "Loading more messages...",
+    profileFeedLoadingMore: "Loading more...",
+    profileFeedNoUsersFound: "No users found",
+    profileFeedSearchingUsers: "Searching users…",
+    profileFeedYouRatedMovie: "You rated this movie {rating}",
+    profileFeedRatedMovie: "Rated this movie {rating}",
+    profileFeedYouLikedCommentFrom: "You liked the comment from {username}",
+    profileFeedYouDislikedCommentFrom: "You disliked the comment from {username}",
+    profileFeedUserLikedYourComment: "{username} liked your comment",
+    profileFeedUserDislikedYourComment: "{username} disliked your comment",
+    profileFeedMyListRemoveAria: "Remove {title} from My List",
+    profileFeedMyRecommendationsRemoveAria: "Remove {title} from My Recommendations",
     personalData: "Personal Data",
     personalDataSubtitle: "Manage your main profile information here.",
     personalDataBasicInfo: "Basic Information",
@@ -350,6 +490,55 @@ export function setStoredCountry(country: Country, scope?: LocaleUserScope | nul
 
 export function t(locale: Locale, key: TranslationKey): string {
   return translations[locale]?.[key] ?? translations.es[key] ?? key;
+}
+
+export function interpolate(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key) => {
+    const value = values[key];
+    return value === undefined ? match : String(value);
+  });
+}
+
+export function formatProfileFeedRelativeDate(locale: Locale, iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return t(locale, "profileFeedRecent");
+
+  const elapsedMs = Date.now() - date.getTime();
+  const elapsedMinutes = Math.floor(elapsedMs / 60000);
+
+  if (elapsedMinutes < 1) return t(locale, "profileFeedNow");
+  if (elapsedMinutes < 60) return locale === "en" ? `${elapsedMinutes} min ago` : `Hace ${elapsedMinutes} min`;
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return locale === "en" ? `${elapsedHours} h ago` : `Hace ${elapsedHours} h`;
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) return locale === "en" ? `${elapsedDays} d ago` : `Hace ${elapsedDays} d`;
+
+  return formatProfileFeedAbsoluteDate(locale, date);
+}
+
+export function formatProfileFeedAbsoluteDate(locale: Locale, date: Date): string {
+  const months = locale === "en"
+    ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    : ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = months[date.getMonth()] ?? "";
+  const year = date.getFullYear();
+  return locale === "en" ? `${month} ${day}, ${year}` : `${day} ${month} ${year}`;
+}
+
+export function formatProfileFeedRatingsCount(locale: Locale, count: number | null | undefined): string | null {
+  const normalizedCount = typeof count === "number" && Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  if (normalizedCount <= 0) return null;
+  return interpolate(t(locale, normalizedCount === 1 ? "profileFeedOneRating" : "profileFeedManyRatings"), { count: normalizedCount });
+}
+
+export function translateProfileFeedMovieType(locale: Locale, value?: string | null): string {
+  const normalized = value?.trim().toLocaleLowerCase();
+  if (normalized === "movie") return t(locale, "profileFeedMovieTypeMovie");
+  if (normalized === "series") return t(locale, "profileFeedMovieTypeSeries");
+  return value || "-";
 }
 
 export function resolveMovieTitles(locale: Locale, titleSpanish?: string | null, titleEnglish?: string | null, fallback?: string | null) {

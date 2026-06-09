@@ -15,6 +15,8 @@ interface ProfileIdentityCardProps {
   appBranding?: AppBranding | null;
   logoSlot?: BrandingLogoSlot;
   autoHeight?: boolean;
+  userLabel?: string;
+  formatAge?: (age: number) => string;
 }
 
 function formatGender(gender: string): string {
@@ -45,6 +47,8 @@ export default function ProfileIdentityCard({
   appBranding = null,
   logoSlot = "profile_feed_logo_url",
   autoHeight = false,
+  userLabel = "usuario",
+  formatAge = (value) => `${value} Años`,
 }: ProfileIdentityCardProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);
@@ -85,7 +89,7 @@ export default function ProfileIdentityCard({
       </div>
 
       <div className="relative min-w-0 space-y-2 pr-24">
-        <p className="truncate text-sm uppercase tracking-[0.18em] text-zinc-500">usuario</p>
+        <p className="truncate text-sm uppercase tracking-[0.18em] text-zinc-500">{userLabel}</p>
         <p
           className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-2xl font-semibold text-zinc-100"
           title={`@${username}`}
@@ -111,7 +115,7 @@ export default function ProfileIdentityCard({
           ) : null}
           {canShowAge ? (
             <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
-              {age} Años
+              {formatAge(age)}
             </span>
           ) : null}
         </div>
