@@ -1352,133 +1352,141 @@ export default function MovieDetailPage() {
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
-        <section className="space-y-3">
-          <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2>
-          <CommentsList
-            comments={publicComments}
-            loading={loadingPublic}
-            error={publicError}
-            emptyMessage={t("movieDetailNoPublicComments")}
-            onReact={handleReact}
-            onAuthorClick={handleAuthorNavigation}
-            singleContainer
-            onLoadMore={() => void appendPublicComments()}
-            hasMore={Boolean(publicNext)}
-            loadingMore={loadingPublicMore}
-            canManageComment={isMyComment}
-            editingCommentId={editingCommentId}
-            editingValue={editingCommentValue}
-            onStartEdit={handleStartEdit}
-            onEditValueChange={setEditingCommentValue}
-            onCancelEdit={handleCancelEdit}
-            onSaveEdit={handleSaveEdit}
-            savingEditCommentId={savingEditCommentId}
-            onDeleteComment={handleDeleteComment}
-            deletingCommentIds={deletingCommentIds}
-            actionErrorByCommentId={commentActionErrorById}
-          />
-        </section>
-
-        {canShowDirectedComments ? (
+        <div className={`grid grid-cols-1 gap-4 ${canShowDirectedComments ? "lg:grid-cols-2" : ""}`}>
           <section className="space-y-3">
-            <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2>
-            {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">{t("movieDetailLoadingComments")}</div> : null}
-            {!loadingDirected && directedError ? (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
-            ) : null}
-            {!loadingDirected && !directedError && directedConversations.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
-                {t("movieDetailNoDirectedComments")}
-              </div>
-            ) : null}
-            {!loadingDirected && !directedError ? (
-              <div className="space-y-3">
-                {directedConversations.map((conversation) => {
-                  const isExpanded = expandedConversationKey === conversation.key;
-                  return (
-                    <article key={conversation.key} className="rounded-xl border border-white/15 bg-zinc-950/65 p-4">
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between gap-3 text-left"
-                        onClick={() => {
-                          void handleToggleConversation(conversation);
-                        }}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
-                            {conversation.otherAvatar ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={conversation.otherAvatar} alt={conversation.otherDisplayName} className="h-9 w-9 rounded-full object-cover" />
-                            ) : (
-                              (conversation.otherDisplayName || conversation.otherUsername || "Usuario").charAt(0).toUpperCase()
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
-                            <div className="flex items-center gap-2">
-                              {conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
-                              <span className="rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[11px] text-zinc-300">
-                                {conversation.messages.length}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-xs text-zinc-400">{isExpanded ? t("movieDetailHide") : t("movieDetailShow")}</span>
-                      </button>
-
-                      {isExpanded ? (
-                        <div
-                          className="scrollbar-dark mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-3"
-                          onScroll={(event) => {
-                            const target = event.currentTarget;
-                            if (
-                              conversation.next &&
-                              !loadingDirectedMoreByKey[conversation.key] &&
-                              target.scrollTop + target.clientHeight >= target.scrollHeight - 48
-                            ) {
-                              void loadMoreConversationMessages(conversation.key);
-                            }
-                          }}
-                        >
-                          <CommentsList
-                            comments={conversation.messages}
-                            emptyMessage={t("movieDetailNoConversationMessages")}
-                            onReact={handleReact}
-                            onAuthorClick={handleAuthorNavigation}
-                            singleContainer={false}
-                            itemBadgeLabel={(message) =>
-                              message.authorUsername === authenticatedUsername ? t("movieDetailSent") : t("movieDetailReceived")
-                            }
-                            canManageComment={isMyComment}
-                            editingCommentId={editingCommentId}
-                            editingValue={editingCommentValue}
-                            onStartEdit={handleStartEdit}
-                            onEditValueChange={setEditingCommentValue}
-                            onCancelEdit={handleCancelEdit}
-                            onSaveEdit={handleSaveEdit}
-                            savingEditCommentId={savingEditCommentId}
-                            onDeleteComment={handleDeleteComment}
-                            deletingCommentIds={deletingCommentIds}
-                            actionErrorByCommentId={commentActionErrorById}
-                            getDisplayText={(message) =>
-                              message.type === "directed" ? stripLeadingMention(message.text) : message.text
-                            }
-                          />
-                          {loadingDirectedMoreByKey[conversation.key] ? (
-                            <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingPreviousMessages")}</p>
-                          ) : null}
-                          {loadingFullHistoryByConversationKey[conversation.key] ? (
-                            <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingFullHistory")}</p>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
-            ) : null}
+            <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2>
+            <CommentsList
+              comments={publicComments}
+              loading={loadingPublic}
+              error={publicError}
+              emptyMessage={t("movieDetailNoPublicComments")}
+              onReact={handleReact}
+              onAuthorClick={handleAuthorNavigation}
+              singleContainer
+              onLoadMore={() => void appendPublicComments()}
+              hasMore={Boolean(publicNext)}
+              loadingMore={loadingPublicMore}
+              canManageComment={isMyComment}
+              editingCommentId={editingCommentId}
+              editingValue={editingCommentValue}
+              onStartEdit={handleStartEdit}
+              onEditValueChange={setEditingCommentValue}
+              onCancelEdit={handleCancelEdit}
+              onSaveEdit={handleSaveEdit}
+              savingEditCommentId={savingEditCommentId}
+              onDeleteComment={handleDeleteComment}
+              deletingCommentIds={deletingCommentIds}
+              actionErrorByCommentId={commentActionErrorById}
+            />
           </section>
-        ) : null}
+
+          {canShowDirectedComments ? (
+            <section className="space-y-3">
+              <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2>
+              {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">{t("movieDetailLoadingComments")}</div> : null}
+              {!loadingDirected && directedError ? (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
+              ) : null}
+              {!loadingDirected && !directedError && directedConversations.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
+                  {t("movieDetailNoDirectedComments")}
+                </div>
+              ) : null}
+              {!loadingDirected && !directedError ? (
+                <div className="scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/45 p-3">
+                  <div className="space-y-3">
+                    {directedConversations.map((conversation) => {
+                      const isExpanded = expandedConversationKey === conversation.key;
+                      return (
+                        <article
+                          key={conversation.key}
+                          className={`rounded-xl p-4 transition-colors ${
+                            isExpanded
+                              ? "border border-[#86ADE0]/70 bg-[#86ADE0]/10 shadow-[0_0_18px_rgba(134,173,224,0.18)]"
+                              : "border border-transparent border-b-neutral-800/60 bg-transparent hover:bg-white/[0.03]"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-between gap-3 text-left"
+                            onClick={() => {
+                              void handleToggleConversation(conversation);
+                            }}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
+                                {conversation.otherAvatar ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={conversation.otherAvatar} alt={conversation.otherDisplayName} className="h-9 w-9 rounded-full object-cover" />
+                                ) : (
+                                  (conversation.otherDisplayName || conversation.otherUsername || "Usuario").charAt(0).toUpperCase()
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
+                                <div className="flex items-center gap-2">
+                                  {conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-xs text-zinc-400">{isExpanded ? t("movieDetailHide") : t("movieDetailShow")}</span>
+                          </button>
+
+                          {isExpanded ? (
+                            <div
+                              className="scrollbar-metallic-blue mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-[#86ADE0]/30 bg-black/20 p-3"
+                              onScroll={(event) => {
+                                const target = event.currentTarget;
+                                if (
+                                  conversation.next &&
+                                  !loadingDirectedMoreByKey[conversation.key] &&
+                                  target.scrollTop + target.clientHeight >= target.scrollHeight - 48
+                                ) {
+                                  void loadMoreConversationMessages(conversation.key);
+                                }
+                              }}
+                            >
+                              <CommentsList
+                                comments={conversation.messages}
+                                emptyMessage={t("movieDetailNoConversationMessages")}
+                                onReact={handleReact}
+                                onAuthorClick={handleAuthorNavigation}
+                                singleContainer={false}
+                                itemBadgeLabel={(message) =>
+                                  message.authorUsername === authenticatedUsername ? t("movieDetailSent") : t("movieDetailReceived")
+                                }
+                                canManageComment={isMyComment}
+                                editingCommentId={editingCommentId}
+                                editingValue={editingCommentValue}
+                                onStartEdit={handleStartEdit}
+                                onEditValueChange={setEditingCommentValue}
+                                onCancelEdit={handleCancelEdit}
+                                onSaveEdit={handleSaveEdit}
+                                savingEditCommentId={savingEditCommentId}
+                                onDeleteComment={handleDeleteComment}
+                                deletingCommentIds={deletingCommentIds}
+                                actionErrorByCommentId={commentActionErrorById}
+                                getDisplayText={(message) =>
+                                  message.type === "directed" ? stripLeadingMention(message.text) : message.text
+                                }
+                              />
+                              {loadingDirectedMoreByKey[conversation.key] ? (
+                                <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingPreviousMessages")}</p>
+                              ) : null}
+                              {loadingFullHistoryByConversationKey[conversation.key] ? (
+                                <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingFullHistory")}</p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+        </div>
       </div>
     </main>
   );
