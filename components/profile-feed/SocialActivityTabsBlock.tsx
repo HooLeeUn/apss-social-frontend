@@ -7,14 +7,12 @@ import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendatio
 import { getMovieDetailById } from "../../lib/movies";
 import { SocialActivityItem, SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
+import { useI18n } from "../../hooks/useI18n";
+import { translateProfileFeedMovieType } from "../../lib/i18n";
 import SocialActivityCard from "./SocialActivityCard";
 
 type InteractionsTab = SocialTab | "recommendations";
 
-const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
-  { value: "following", label: "Seguidos", emptyCopy: "Aún no hay actividad de usuarios seguidos." },
-  { value: "friends", label: "Amigos", emptyCopy: "Aún no hay actividad de amigos." },
-];
 
 const tabButtonBaseClass =
   "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition duration-300 ease-out will-change-transform";
@@ -84,6 +82,7 @@ function FollowedRecommendationsSkeleton() {
 }
 
 function FollowedRecommendationCard({ recommendation }: { recommendation: FollowedRecommendation }) {
+  const { locale, t } = useI18n();
   const movieHref = `/movies/${encodeURIComponent(recommendation.id)}`;
 
   return (
@@ -97,7 +96,7 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
           // eslint-disable-next-line @next/next/no-img-element
           <img src={recommendation.image} alt={`Poster de ${recommendation.titleSpanish}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
         ) : (
-          <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">Sin poster</span>
+          <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">{t("profileFeedNoPoster")}</span>
         )}
       </Link>
 
@@ -109,36 +108,36 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
         <Link href={movieHref} className="block truncate text-sm text-zinc-400 hover:text-blue-200">
           {recommendation.titleEnglish}
         </Link>
-        <p className="text-xs text-zinc-300">{recommendation.type} · {recommendation.genre}</p>
+        <p className="text-xs text-zinc-300">{translateProfileFeedMovieType(locale, recommendation.type)} · {recommendation.genre}</p>
         <p className="text-xs text-zinc-400">{recommendation.releaseYear}</p>
       </div>
 
       <div className="col-start-2 min-w-0 space-y-1 text-xs sm:col-start-2 lg:col-start-auto lg:-ml-4 lg:pr-4">
         <p className="break-words text-zinc-400">
-          <span className="font-semibold text-blue-200">Director:</span> {recommendation.director}
+          <span className="font-semibold text-blue-200">{t("profileFeedDirector")}</span> {recommendation.director}
         </p>
         <p className="line-clamp-3 break-words text-zinc-400">
-          <span className="font-semibold text-blue-200">Casting:</span> {recommendation.castMembers}
+          <span className="font-semibold text-blue-200">{t("profileFeedCast")}</span> {recommendation.castMembers}
         </p>
       </div>
 
       <dl className="col-start-2 min-w-[7rem] space-y-2 text-xs sm:col-start-2 lg:col-start-auto lg:justify-self-end">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-zinc-500">General</dt>
+          <dt className="text-zinc-500">{t("profileFeedGeneral")}</dt>
           <dd className="flex items-center gap-1 font-medium text-zinc-200">
             <span aria-hidden="true">⭐</span>
             <span>{formatAverageRating(recommendation.displayRating)}</span>
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-zinc-500">Seguidos</dt>
+          <dt className="text-zinc-500">{t("profileFeedFollowing")}</dt>
           <dd className="flex items-center gap-1 font-medium text-zinc-200">
             <span aria-hidden="true">👥</span>
             <span>{formatFollowingRating(recommendation.followingAvgRating)}</span>
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">MI CALIF.</dt>
+          <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("profileFeedMyRatingUpper")}</dt>
           <dd className="flex items-center gap-1 font-medium text-zinc-100">
             <span aria-hidden="true">🙋</span>
             <span>{formatMyRating(recommendation.myRating)}</span>
@@ -169,6 +168,7 @@ function SocialActivitySkeleton() {
 }
 
 export default function SocialActivityTabsBlock() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<InteractionsTab>("recommendations");
   const [activityTab, setActivityTab] = useState<SocialTab>("following");
   const [authenticatedUsername, setAuthenticatedUsername] = useState<string | null>(null);
@@ -188,6 +188,10 @@ export default function SocialActivityTabsBlock() {
   const followedRecommendationsLoadedRef = useRef(false);
   const movieRatingCacheRef = useRef<Map<string, Pick<UserMovieRecommendation, "displayRating" | "followingAvgRating" | "myRating">>>(new Map());
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
+  const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
+    { value: "following", label: t("profileFeedFollowing"), emptyCopy: t("profileFeedNoItems") },
+    { value: "friends", label: t("profileFeedFriends"), emptyCopy: t("profileFeedNoItems") },
+  ];
   const followingActivity = useInfiniteSocialActivity("following");
   const friendsActivity = useInfiniteSocialActivity("friends");
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
@@ -449,7 +453,7 @@ export default function SocialActivityTabsBlock() {
             onClick={handleRecommendationsTabClick}
             className={getTabClassName(isRecommendationsActive, "h-12 min-h-12 min-w-[9.25rem] flex-col gap-0.5 justify-self-start py-2 leading-tight")}
           >
-            <span>Recomendadas</span>
+            <span>{t("profileFeedRecommendations")}</span>
           </button>
 
           <div className="relative col-start-2 col-span-2 h-10 w-[calc(var(--activity-slot-width)+var(--activity-tab-gap)+var(--activity-slot-width))] overflow-visible">
@@ -496,8 +500,8 @@ export default function SocialActivityTabsBlock() {
                   setFollowedRecommendationQuery(event.target.value);
                   setVisibleRecommendationsLimit(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
                 }}
-                placeholder="Buscar usuario"
-                aria-label="Buscar recomendaciones por usuario seguido"
+                placeholder={t("profileFeedSearchUser")}
+                aria-label={t("profileFeedSearchUser")}
                 className="h-9 w-44 rounded-full border border-white/15 bg-zinc-900/75 px-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-300/60 focus:bg-zinc-900"
               />
             </div>
@@ -505,7 +509,7 @@ export default function SocialActivityTabsBlock() {
             <div
               className="activity-scrollbar max-h-[39rem] overflow-y-auto pr-2"
               role="listbox"
-              aria-label="Recomendadas"
+              aria-label={t("profileFeedRecommendations")}
               onScroll={handleFollowedRecommendationsScroll}
             >
               <div className="space-y-3">
@@ -519,7 +523,7 @@ export default function SocialActivityTabsBlock() {
 
                 {!followedRecommendationsLoading && visibleFollowedRecommendations.length === 0 ? (
                   <div className="rounded-2xl border border-white/10 bg-zinc-950/60 px-4 py-8 text-center shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
-                    <p className="text-sm font-medium text-zinc-300">Aún no hay recomendaciones de tus seguidos.</p>
+                    <p className="text-sm font-medium text-zinc-300">{t("profileFeedNoItems")}</p>
                   </div>
                 ) : null}
 
@@ -530,7 +534,7 @@ export default function SocialActivityTabsBlock() {
                   />
                 ))}
 
-                {hasMoreFollowedRecommendations ? <p className="py-2 text-center text-xs text-zinc-500">Desplázate para ver más recomendaciones.</p> : null}
+                {hasMoreFollowedRecommendations ? <p className="py-2 text-center text-xs text-zinc-500">{t("profileFeedViewMore")}</p> : null}
               </div>
             </div>
           </div>
@@ -563,7 +567,7 @@ export default function SocialActivityTabsBlock() {
                           onClick={activity.reload}
                           className="mt-2 rounded-full border border-red-200/40 bg-red-900/40 px-3 py-1 text-xs font-medium transition hover:bg-red-900/60"
                         >
-                          Reintentar
+                          {t("profileFeedRetry")}
                         </button>
                       </div>
                     ) : null}
@@ -575,7 +579,7 @@ export default function SocialActivityTabsBlock() {
                     ))}
 
                     {activity.hasMore ? <div ref={isPanelActive ? activity.sentinelRef : undefined} className="h-8" /> : null}
-                    {activity.loadingMore ? <p className="text-sm text-zinc-400">Cargando más actividad...</p> : null}
+                    {activity.loadingMore ? <p className="text-sm text-zinc-400">{t("profileFeedLoadingMoreActivity")}</p> : null}
                   </div>
                 </div>
               );

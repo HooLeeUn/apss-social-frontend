@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { countryToLocale, getStoredCountry, localeEventName, Locale, LocaleUserScope, t } from "../lib/i18n";
 
 export function useI18n(scope?: LocaleUserScope | null) {
@@ -12,5 +12,7 @@ export function useI18n(scope?: LocaleUserScope | null) {
     return () => window.removeEventListener(localeEventName, sync as EventListener);
   }, [scope, scopeKey]);
 
-  return { locale, t: (key: Parameters<typeof t>[1]) => t(locale, key) };
+  const translate = useCallback((key: Parameters<typeof t>[1]) => t(locale, key), [locale]);
+
+  return { locale, t: translate };
 }

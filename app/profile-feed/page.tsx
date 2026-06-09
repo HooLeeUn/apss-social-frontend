@@ -24,6 +24,8 @@ import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import { getPersonalData } from "../../lib/personal-data";
 import { getProfilePrivacySettings } from "../../lib/privacy";
 import { useAppBranding } from "../../hooks/useAppBranding";
+import { useI18n } from "../../hooks/useI18n";
+import { interpolate, resolveMovieTitles } from "../../lib/i18n";
 import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../../lib/movies";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
@@ -68,21 +70,22 @@ function prioritizeRelatedUsers(users: SocialUser[]): SocialUser[] {
 }
 
 function UserSearchResultRow({ user }: { user: SocialUser }) {
+  const { t } = useI18n();
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
   const displayName = fullName || (user.displayName && user.displayName !== user.username ? user.displayName : "");
   const followersCopy =
     typeof user.followersCount === "number"
       ? user.followersCount === 0
-        ? "Sin seguidores"
-        : `Lo siguen ${user.followersCount} usuarios`
-      : "Sin seguidores";
+        ? t("profileFeedNoFollowers")
+        : interpolate(t("profileFeedFollowedByMany"), { count: user.followersCount })
+      : t("profileFeedNoFollowers");
   const initials = user.username.slice(0, 2).toUpperCase();
 
   const statusBadges = [
-    user.friendshipStatus === "friends" ? { label: "Amigo", className: "border-violet-300/40 bg-violet-600/25 text-violet-100" } : null,
-    user.isFollowing ? { label: "Seguido", className: "border-violet-300/40 bg-violet-600/25 text-violet-100" } : null,
-    user.friendshipStatus === "sent_pending" ? { label: "Solicitud enviada", className: "border-blue-300/40 bg-blue-600/25 text-blue-100" } : null,
-    user.friendshipStatus === "received_pending" ? { label: "Solicitud recibida", className: "border-blue-300/40 bg-blue-600/25 text-blue-100" } : null,
+    user.friendshipStatus === "friends" ? { label: t("profileFeedFriends"), className: "border-violet-300/40 bg-violet-600/25 text-violet-100" } : null,
+    user.isFollowing ? { label: t("profileFeedFollowing"), className: "border-violet-300/40 bg-violet-600/25 text-violet-100" } : null,
+    user.friendshipStatus === "sent_pending" ? { label: t("profileFeedRequestSent"), className: "border-blue-300/40 bg-blue-600/25 text-blue-100" } : null,
+    user.friendshipStatus === "received_pending" ? { label: t("profileFeedRequestReceived"), className: "border-blue-300/40 bg-blue-600/25 text-blue-100" } : null,
   ].filter((badge): badge is { label: string; className: string } => Boolean(badge));
 
   return (
@@ -124,6 +127,7 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
 export default function ProfileFeedPage() {
   const searchParams = useSearchParams();
   const branding = useAppBranding();
+  const { locale, t } = useI18n();
   const [friends, setFriends] = useState<SocialUser[]>([]);
   const [following, setFollowing] = useState<SocialUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
@@ -495,13 +499,13 @@ export default function ProfileFeedPage() {
             </div>
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
-              <p className="text-center text-lg font-semibold text-zinc-100 md:text-left">Mis Películas Favoritas</p>
+              <p className="text-center text-lg font-semibold text-zinc-100 md:text-left">{t("profileFeedFavoriteMovies")}</p>
               <FavoriteMoviesBlock />
             </div>
           </div>
         </section>
 
-        <section ref={userSearchContainerRef} className="relative z-30 mx-auto mt-4 w-full max-w-2xl md:mt-5" aria-label="Buscador de usuarios">
+        <section ref={userSearchContainerRef} className="relative z-30 mx-auto mt-4 w-full max-w-2xl md:mt-5" aria-label={t("profileFeedSearchUser")}>
           <div className="flex w-full rounded-full border border-white/55 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
             <div className="relative min-w-0 flex-1">
               <svg
@@ -517,8 +521,8 @@ export default function ProfileFeedPage() {
               </svg>
               <input
                 type="search"
-                placeholder="Buscar y Seguir Amigos"
-                aria-label="Buscar y Seguir Amigos"
+                placeholder={t("profileFeedSearchAndFollowFriends")}
+                aria-label={t("profileFeedSearchAndFollowFriends")}
                 value={userSearchQuery}
                 onChange={(event) => {
                   setUserSearchQuery(event.target.value);
@@ -542,13 +546,13 @@ export default function ProfileFeedPage() {
 
                 {!loadingUserSearch && userSearchResults.length === 0 ? (
                   <div className="rounded-2xl border border-white/5 bg-zinc-900/70 px-4 py-5 text-center text-sm text-zinc-400">
-                    No encontramos usuarios
+                    {t("profileFeedNoUsersFound")}
                   </div>
                 ) : null}
 
                 {loadingUserSearch ? (
                   <div className="rounded-2xl border border-white/5 bg-zinc-900/70 px-4 py-5 text-center text-sm text-zinc-400">
-                    Buscando usuarios…
+                    {t("profileFeedSearchingUsers")}
                   </div>
                 ) : null}
 
@@ -563,7 +567,7 @@ export default function ProfileFeedPage() {
                     disabled={loadingMoreUserSearch}
                     className="w-full rounded-2xl border border-white/10 bg-zinc-900/80 px-4 py-2 text-xs font-semibold text-zinc-200 transition hover:border-blue-300/30 hover:text-blue-100 disabled:cursor-wait disabled:opacity-70"
                   >
-                    {loadingMoreUserSearch ? "Cargando más usuarios…" : "Cargar más resultados"}
+                    {loadingMoreUserSearch ? t("profileFeedLoadingMoreUsers") : t("profileFeedLoadMore")}
                   </button>
                 ) : null}
               </div>
@@ -603,37 +607,36 @@ export default function ProfileFeedPage() {
             <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
               <div className="relative mx-auto w-fit">
                 <select
-                  aria-label="Seleccionar lista"
+                  aria-label={t("profileFeedMyList")}
                   value={activeListView}
                   onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
                   className="appearance-none overflow-hidden rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
                 >
-                  <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">Mi Lista</option>
-                  <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">Mis recomendadas</option>
+                  <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyList")}</option>
+                  <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyRecommendations")}</option>
                 </select>
                 <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
               </div>
               <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
-                {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">Cargando lista…</p> : null}
-                {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">Sin películas en esta lista por ahora.</p> : null}
-                {activeListView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">Cargando lista…</p> : null}
-                {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">Sin películas en tu lista.</p> : null}
+                {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
+                {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">{t("profileFeedNoMovies")}</p> : null}
+                {activeListView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
+                {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">{t("profileFeedNoMovies")}</p> : null}
                 {activeListView === "my-list" && myListMovies.map((movie) => {
-                  const displayTitle = movie.titleSpanish || movie.displayTitle || movie.title;
-                  const englishTitle = movie.titleEnglish || movie.displaySecondaryTitle || "";
+                  const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
                   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
                   return (
                     <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
                       <div className="relative flex justify-center">
-                        <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
+                        <Link href={detailHref} aria-label={`${locale === "en" ? "View details for" : "Ver detalle de"} ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
                           {movie.image || movie.posterUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={movie.image || movie.posterUrl || ""} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
+                            <img src={movie.image || movie.posterUrl || ""} alt={`${locale === "en" ? "Poster for" : "Poster de"} ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
                           ) : (
-                            <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">Sin poster</div>
+                            <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">{t("profileFeedNoPoster")}</div>
                           )}
                         </Link>
-                        <button type="button" onClick={() => void handleRemoveFromMyList(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={`Quitar ${displayTitle} de Mi Lista`}>✕</button>
+                        <button type="button" onClick={() => void handleRemoveFromMyList(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={interpolate(t("profileFeedMyListRemoveAria"), { title: displayTitle })}>✕</button>
                       </div>
                       <div className="mt-1.5 text-center">
                         <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
@@ -644,21 +647,20 @@ export default function ProfileFeedPage() {
                 })}
 
                 {activeListView === "recommended" && recommendedMovies.map((movie) => {
-                  const displayTitle = movie.titleSpanish || movie.displayTitle || movie.title;
-                  const englishTitle = movie.titleEnglish || movie.displaySecondaryTitle || "";
+                  const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
                   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
                   return (
                     <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
                       <div className="relative flex justify-center">
-                        <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
+                        <Link href={detailHref} aria-label={`${locale === "en" ? "View details for" : "Ver detalle de"} ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
                           {movie.image || movie.posterUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={movie.image || movie.posterUrl || ""} alt={`Poster de ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
+                            <img src={movie.image || movie.posterUrl || ""} alt={`${locale === "en" ? "Poster for" : "Poster de"} ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
                           ) : (
-                            <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">Sin poster</div>
+                            <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">{t("profileFeedNoPoster")}</div>
                           )}
                         </Link>
-                        <button type="button" onClick={() => void handleRemoveFromRecommended(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={`Quitar ${displayTitle} de Mis recomendadas`}>✕</button>
+                        <button type="button" onClick={() => void handleRemoveFromRecommended(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={interpolate(t("profileFeedMyRecommendationsRemoveAria"), { title: displayTitle })}>✕</button>
                       </div>
                       <div className="mt-1.5 text-center">
                         <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
