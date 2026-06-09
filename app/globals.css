@@ -117,6 +117,28 @@ textarea,
   background: #3a3a3a;
 }
 
+.scrollbar-metallic-blue {
+  scrollbar-width: thin;
+  scrollbar-color: #5f8fc8 #0f0f0f;
+}
+
+.scrollbar-metallic-blue::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-metallic-blue::-webkit-scrollbar-track {
+  background: #0f0f0f;
+}
+
+.scrollbar-metallic-blue::-webkit-scrollbar-thumb {
+  background: #5f8fc8;
+  border-radius: 8px;
+}
+
+.scrollbar-metallic-blue::-webkit-scrollbar-thumb:hover {
+  background: #86ade0;
+}
+
 .interaction-icons {
   display: flex;
   gap: 6px;
