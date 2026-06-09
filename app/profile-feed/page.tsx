@@ -493,6 +493,8 @@ export default function ProfileFeedPage() {
                 ageVisible={profileUser?.ageVisible}
                 genderIdentity={profileUser?.genderIdentity}
                 genderIdentityVisible={profileUser?.genderIdentityVisible}
+                userLabel={t("profileFeedUser").toLocaleUpperCase(locale)}
+                formatAge={(value) => interpolate(t("profileFeedAge"), { age: value })}
                 appBranding={branding}
                 logoSlot="profile_feed_logo_url"
               />
