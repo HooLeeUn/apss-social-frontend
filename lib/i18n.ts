@@ -582,29 +582,52 @@ export function translateVisitedProfileMovieType(locale: Locale, value?: string 
   return value || "-";
 }
 
-export function translateVisibleGenre(locale: Locale, value?: string | null): string {
-  const normalized = value?.trim();
-  if (!normalized) return "-";
+const VISIBLE_GENRE_TRANSLATIONS_ES: Record<string, string> = {
+  action: "Acción",
+  animation: "Animación",
+  comedy: "Comedia",
+  documentary: "Documental",
+  drama: "Drama",
+  horror: "Horror",
+  musical: "Musical",
+  "sci-fi": "Ciencia ficción",
+};
+
+const VISIBLE_GENRE_SEPARATOR_REGEX = /(\s*[,|]\s*)/;
+
+function translateVisibleGenreToken(locale: Locale, value: string): string {
+  const normalized = value.trim();
+  if (!normalized) return "";
   if (locale === "en") return normalized;
 
-  const genreTranslations: Record<string, string> = {
-    Action: "Acción",
-    Animation: "Animación",
-    Comedy: "Comedia",
-    Documentary: "Documental",
-    Drama: "Drama",
-    Horror: "Horror",
-    Musical: "Musical",
-    "Sci-Fi": "Ciencia ficción",
-  };
+  return VISIBLE_GENRE_TRANSLATIONS_ES[normalized.toLocaleLowerCase()] ?? normalized;
+}
 
-  return genreTranslations[normalized] ?? normalized;
+export function formatGenresByLocale(locale: Locale, values?: string[] | string | null): string {
+  if (Array.isArray(values)) {
+    const translatedGenres = values
+      .map((value) => translateVisibleGenreToken(locale, value))
+      .filter(Boolean);
+    return translatedGenres.length ? translatedGenres.join(", ") : "-";
+  }
+
+  if (typeof values !== "string") return "-";
+
+  const trimmedValue = values.trim();
+  if (!trimmedValue) return "-";
+
+  return trimmedValue
+    .split(VISIBLE_GENRE_SEPARATOR_REGEX)
+    .map((part) => (VISIBLE_GENRE_SEPARATOR_REGEX.test(part) ? part : translateVisibleGenreToken(locale, part)))
+    .join("") || "-";
+}
+
+export function translateVisibleGenre(locale: Locale, value?: string | null): string {
+  return formatGenresByLocale(locale, value);
 }
 
 export function translateVisibleGenres(locale: Locale, values?: string[] | string | null): string {
-  const genres = Array.isArray(values) ? values : typeof values === "string" ? values.split(",") : [];
-  const translated = genres.map((genre) => translateVisibleGenre(locale, genre.trim())).filter((genre) => genre !== "-");
-  return translated.length ? translated.join(", ") : "-";
+  return formatGenresByLocale(locale, values);
 }
 
 export function resolveMovieTitles(locale: Locale, titleSpanish?: string | null, titleEnglish?: string | null, fallback?: string | null) {
