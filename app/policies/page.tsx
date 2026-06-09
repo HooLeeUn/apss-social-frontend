@@ -106,9 +106,7 @@ export default function PoliciesPage() {
           <h1 className="text-3xl font-semibold text-white sm:text-4xl">{title}</h1>
           {lastUpdated ? (
             <p className="text-sm text-zinc-400">
-              {isEnglishLocale && lastUpdated === "Last updated"
-                ? lastUpdated
-                : `${isEnglishLocale ? "Last updated" : "Última actualización"}: ${lastUpdated}`}
+              {`${isEnglishLocale ? "Last updated" : "Última actualización"}: ${lastUpdated}`}
             </p>
           ) : null}
         </header>

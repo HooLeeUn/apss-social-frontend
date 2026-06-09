@@ -2,7 +2,7 @@ import { LegalPoliciesContent } from "./legal";
 
 export const englishLegalPolicies: LegalPoliciesContent = {
   title: "Policies & Terms",
-  lastUpdated: "Last updated",
+  lastUpdated: "2026-05-22",
   sections: [
     {
       subtitle: "1. General Information about QNext",
