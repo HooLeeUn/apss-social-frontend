@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Puerto Rico</title>
+  <desc id="desc">Franjas rojas y blancas con triángulo azul y estrella.</desc>
+  <rect width="60" height="40" fill="#ED0000"/><g fill="#FFF"><rect y="8" width="60" height="8"/><rect y="24" width="60" height="8"/></g><polygon points="0,0 28,20 0,40" fill="#0050F0"/><polygon points="9,15 10.5,18.3 14,18.3 11.2,20.5 12.2,24 9,22 5.8,24 6.8,20.5 4,18.3 7.5,18.3" fill="#FFF"/>
+</svg>

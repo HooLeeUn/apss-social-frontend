@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Belize</title>
+  <desc id="desc">Campo azul con franjas rojas y disco central.</desc>
+  <rect width="60" height="40" fill="#003F87"/><rect width="60" height="5" fill="#CE1126"/><rect y="35" width="60" height="5" fill="#CE1126"/><circle cx="30" cy="20" r="8" fill="#FFF"/><circle cx="30" cy="20" r="5" fill="#6AB04A"/>
+</svg>

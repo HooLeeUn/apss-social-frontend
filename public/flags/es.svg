@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de España</title>
+  <desc id="desc">Franjas roja, amarilla y roja.</desc>
+  <rect width="60" height="10" fill="#AA151B"/><rect y="10" width="60" height="20" fill="#F1BF00"/><rect y="30" width="60" height="10" fill="#AA151B"/><rect x="16" y="16" width="5" height="8" fill="#AA151B"/>
+</svg>

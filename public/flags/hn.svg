@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Honduras</title>
+  <desc id="desc">Franjas azules y blanca con estrellas.</desc>
+  <rect width="60" height="13.33" fill="#00BCE4"/><rect y="13.33" width="60" height="13.34" fill="#FFF"/><rect y="26.67" width="60" height="13.33" fill="#00BCE4"/><g fill="#00BCE4"><circle cx="24" cy="18" r="1"/><circle cx="30" cy="18" r="1"/><circle cx="36" cy="18" r="1"/><circle cx="27" cy="22" r="1"/><circle cx="33" cy="22" r="1"/></g>
+</svg>
