@@ -137,6 +137,23 @@ const translations = {
     profileFeedYouDislikedCommentFrom: "No te gustó el comentario de {username}",
     profileFeedUserLikedYourComment: "A {username} le gustó tu comentario",
     profileFeedUserDislikedYourComment: "A {username} no le gustó tu comentario",
+    visitedProfileBackToMyProfile: "← Volver a mi perfil",
+    visitedProfileUser: "USUARIO",
+    visitedProfileAge: "{age} Años",
+    visitedProfileFavoriteMovies: "Favoritas de {name}",
+    visitedProfileFollowing: "Siguiendo",
+    visitedProfileFollow: "Seguir",
+    visitedProfileFriends: "Amigos",
+    visitedProfileFriendRequest: "Solicitud de amistad",
+    visitedProfileFriendRequestReceived: "Solicitud recibida",
+    visitedProfileSent: "Enviada",
+    visitedProfileActivity: "Actividad de {name}",
+    visitedProfileRecommendations: "Recomendaciones",
+    visitedProfilePublicComments: "Comentarios públicos",
+    visitedProfileRatings: "Calificaciones",
+    visitedProfileLikesDislikes: "Me gusta/No me gusta",
+    visitedProfileMovieTypeMovie: "Película",
+    visitedProfileMovieTypeSeries: "Serie",
     profileFeedMyListRemoveAria: "Quitar {title} de Mi Lista",
     profileFeedMyRecommendationsRemoveAria: "Quitar {title} de Mis recomendadas",
     personalData: "Datos Personales",
@@ -341,6 +358,23 @@ const translations = {
     profileFeedYouDislikedCommentFrom: "You disliked the comment from {username}",
     profileFeedUserLikedYourComment: "{username} liked your comment",
     profileFeedUserDislikedYourComment: "{username} disliked your comment",
+    visitedProfileBackToMyProfile: "← Back to my profile",
+    visitedProfileUser: "USER",
+    visitedProfileAge: "{age} years old",
+    visitedProfileFavoriteMovies: "{name}'s Favorites",
+    visitedProfileFollowing: "Following",
+    visitedProfileFollow: "Follow",
+    visitedProfileFriends: "Friends",
+    visitedProfileFriendRequest: "Friend Request",
+    visitedProfileFriendRequestReceived: "Friend Request",
+    visitedProfileSent: "Sent",
+    visitedProfileActivity: "{name}'s Activity",
+    visitedProfileRecommendations: "Recommendations",
+    visitedProfilePublicComments: "Public Comments",
+    visitedProfileRatings: "Ratings",
+    visitedProfileLikesDislikes: "Likes/Dislikes",
+    visitedProfileMovieTypeMovie: "Movie",
+    visitedProfileMovieTypeSeries: "Series",
     profileFeedMyListRemoveAria: "Remove {title} from My List",
     profileFeedMyRecommendationsRemoveAria: "Remove {title} from My Recommendations",
     personalData: "Personal Data",
@@ -539,6 +573,61 @@ export function translateProfileFeedMovieType(locale: Locale, value?: string | n
   if (normalized === "movie") return t(locale, "profileFeedMovieTypeMovie");
   if (normalized === "series") return t(locale, "profileFeedMovieTypeSeries");
   return value || "-";
+}
+
+export function translateVisitedProfileMovieType(locale: Locale, value?: string | null): string {
+  const normalized = value?.trim().toLocaleLowerCase();
+  if (normalized === "movie") return t(locale, "visitedProfileMovieTypeMovie");
+  if (normalized === "series") return t(locale, "visitedProfileMovieTypeSeries");
+  return value || "-";
+}
+
+const VISIBLE_GENRE_TRANSLATIONS_ES: Record<string, string> = {
+  action: "Acción",
+  animation: "Animación",
+  comedy: "Comedia",
+  documentary: "Documental",
+  drama: "Drama",
+  horror: "Horror",
+  musical: "Musical",
+  "sci-fi": "Ciencia ficción",
+};
+
+const VISIBLE_GENRE_SEPARATOR_REGEX = /(\s*[,|]\s*)/;
+
+function translateVisibleGenreToken(locale: Locale, value: string): string {
+  const normalized = value.trim();
+  if (!normalized) return "";
+  if (locale === "en") return normalized;
+
+  return VISIBLE_GENRE_TRANSLATIONS_ES[normalized.toLocaleLowerCase()] ?? normalized;
+}
+
+export function formatGenresByLocale(locale: Locale, values?: string[] | string | null): string {
+  if (Array.isArray(values)) {
+    const translatedGenres = values
+      .map((value) => translateVisibleGenreToken(locale, value))
+      .filter(Boolean);
+    return translatedGenres.length ? translatedGenres.join(", ") : "-";
+  }
+
+  if (typeof values !== "string") return "-";
+
+  const trimmedValue = values.trim();
+  if (!trimmedValue) return "-";
+
+  return trimmedValue
+    .split(VISIBLE_GENRE_SEPARATOR_REGEX)
+    .map((part) => (VISIBLE_GENRE_SEPARATOR_REGEX.test(part) ? part : translateVisibleGenreToken(locale, part)))
+    .join("") || "-";
+}
+
+export function translateVisibleGenre(locale: Locale, value?: string | null): string {
+  return formatGenresByLocale(locale, value);
+}
+
+export function translateVisibleGenres(locale: Locale, values?: string[] | string | null): string {
+  return formatGenresByLocale(locale, values);
 }
 
 export function resolveMovieTitles(locale: Locale, titleSpanish?: string | null, titleEnglish?: string | null, fallback?: string | null) {

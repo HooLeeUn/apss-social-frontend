@@ -14,7 +14,7 @@ import { FavoriteMovie } from "../../lib/profile-feed/types";
 import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../../lib/movies";
 import { formatAverageRating, formatFollowingRating } from "../../lib/rating-format";
 import { useI18n } from "../../hooks/useI18n";
-import { formatProfileFeedRatingsCount, interpolate } from "../../lib/i18n";
+import { formatProfileFeedRatingsCount, interpolate, resolveMovieTitles, translateVisibleGenre } from "../../lib/i18n";
 
 interface FavoriteMovieItemProps {
   movie?: FavoriteMovie;
@@ -40,8 +40,10 @@ interface FavoriteMoviesBlockProps {
 
 function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
   const { locale, t } = useI18n();
-  const displayTitle = movie?.title || "";
-  const displaySecondaryTitle = movie?.displaySecondaryTitle ?? null;
+  const resolvedTitles = readOnly && movie ? resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.title) : null;
+  const displayTitle = resolvedTitles?.primary || movie?.title || "";
+  const displaySecondaryTitle = resolvedTitles?.secondary ?? movie?.displaySecondaryTitle ?? null;
+  const displayGenre = readOnly ? translateVisibleGenre(locale, movie?.genre) : movie?.genre;
   const firstLetter = displayTitle.charAt(0)?.toUpperCase() ?? "—";
   const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
@@ -125,7 +127,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                     ) : null}
                     <div className="mt-1 flex min-w-0 flex-col justify-center gap-0.5 pr-1">
                       <p className="truncate text-sm leading-tight text-zinc-300">{movie.year}</p>
-                      <p className="truncate text-sm leading-tight text-zinc-300">{movie.genre}</p>
+                      <p className="truncate text-sm leading-tight text-zinc-300">{displayGenre}</p>
                     </div>
                   </div>
                 </div>
