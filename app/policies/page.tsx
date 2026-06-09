@@ -14,6 +14,7 @@ export default function PoliciesPage() {
   const branding = useAppBranding();
   const router = useRouter();
   const { locale } = useI18n();
+  const isEnglishLocale = locale === "en";
   const [title, setTitle] = useState("Políticas y Términos");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [sections, setSections] = useState<LegalSection[]>([]);
@@ -21,7 +22,9 @@ export default function PoliciesPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (locale === "en") {
+    let ignoreBackendPayload = false;
+
+    if (isEnglishLocale) {
       setTitle(englishLegalPolicies.title);
       setLastUpdated(englishLegalPolicies.lastUpdated);
       setSections(englishLegalPolicies.sections);
@@ -39,22 +42,32 @@ export default function PoliciesPage() {
     const loadPolicies = async () => {
       try {
         const payload = await getLegalPolicies();
+        if (ignoreBackendPayload) return;
+
         setTitle(payload.title);
         setLastUpdated(payload.lastUpdated);
         setSections(payload.sections);
       } catch (loadError) {
+        if (ignoreBackendPayload) return;
+
         if (loadError instanceof ApiError && loadError.status === 401) {
           setError("Tu sesión expiró. Inicia sesión nuevamente para consultar esta información.");
         } else {
           setError("No se pudieron cargar las políticas en este momento.");
         }
       } finally {
-        setLoading(false);
+        if (!ignoreBackendPayload) {
+          setLoading(false);
+        }
       }
     };
 
     void loadPolicies();
-  }, [locale]);
+
+    return () => {
+      ignoreBackendPayload = true;
+    };
+  }, [isEnglishLocale]);
 
   const hasLegalContent = useMemo(() => sections.length > 0, [sections]);
 
@@ -93,14 +106,12 @@ export default function PoliciesPage() {
           <h1 className="text-3xl font-semibold text-white sm:text-4xl">{title}</h1>
           {lastUpdated ? (
             <p className="text-sm text-zinc-400">
-              {locale === "en" && lastUpdated === "Last updated"
-                ? lastUpdated
-                : `${locale === "en" ? "Last updated" : "Última actualización"}: ${lastUpdated}`}
+              {`${isEnglishLocale ? "Last updated" : "Última actualización"}: ${lastUpdated}`}
             </p>
           ) : null}
         </header>
 
-        {loading ? <p className="text-zinc-300">{locale === "en" ? "Loading policies…" : "Cargando políticas…"}</p> : null}
+        {loading ? <p className="text-zinc-300">{isEnglishLocale ? "Loading policies…" : "Cargando políticas…"}</p> : null}
 
         {!loading && error ? (
           <section className="space-y-4">
@@ -109,12 +120,12 @@ export default function PoliciesPage() {
               href="/feed"
               className="inline-flex rounded-full border border-zinc-500 px-4 py-2 text-sm text-zinc-100 transition hover:border-zinc-300 hover:bg-zinc-900"
             >
-              {locale === "en" ? "Back to feed" : "Volver al feed"}
+              {isEnglishLocale ? "Back to feed" : "Volver al feed"}
             </Link>
           </section>
         ) : null}
 
-        {!loading && !error && !hasLegalContent ? <p className="text-zinc-300">{locale === "en" ? "No legal content available." : "No hay contenido legal disponible."}</p> : null}
+        {!loading && !error && !hasLegalContent ? <p className="text-zinc-300">{isEnglishLocale ? "No legal content available." : "No hay contenido legal disponible."}</p> : null}
 
         {!loading && !error && hasLegalContent ? (
           <div className="space-y-10 pb-8">
@@ -127,7 +138,7 @@ export default function PoliciesPage() {
                   ))}
                   {section.showTmdbAttribution ? (
                     <div className="space-y-3 pt-2">
-                      {locale === "es" ? (
+                      {!isEnglishLocale ? (
                         <>
                           <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
                           <p>Los posters y sinopsis utilizados en QNext provienen de TMDB.</p>
