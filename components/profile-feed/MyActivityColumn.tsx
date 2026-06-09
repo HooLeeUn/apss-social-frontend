@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useInfiniteMyMessages } from "../../hooks/useInfiniteMyMessages";
 import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSocialActivity";
 import { getMyProfile, getUserMovieRecommendationsByUsername, getUserProfileByUsername, markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
@@ -14,6 +15,9 @@ import { stripLeadingMention } from "../../lib/strip-leading-mention";
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
 const MAX_AUTO_LOAD_MORE_ATTEMPTS = 12;
+const VISITED_PROFILE_METADATA_LABEL_CLASSNAME = "font-medium text-blue-200/85";
+const VISITED_PROFILE_ACTIVITY_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[15px] md:text-base`;
+const VISITED_PROFILE_RECOMMENDATION_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[13px]`;
 
 function getActivityRelativeDate(item: SocialActivityItem): string {
   return item.activityAt ?? item.updatedAt ?? item.createdAt;
@@ -85,27 +89,60 @@ function getActivityDetail(item: SocialActivityItem, locale: Locale): string | n
   return item.likedCommentSnippet || item.movieTitle;
 }
 
-function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: number | null, locale: Locale = "es", translateForVisitedProfile = false): string {
+function joinMetadataParts(parts: ReactNode[]): ReactNode {
+  return parts.map((part, index) => (
+    <span key={`metadata-part-${index}`}>
+      {index > 0 ? " · " : ""}
+      {part}
+    </span>
+  ));
+}
+
+function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: number | null, locale: Locale = "es", translateForVisitedProfile = false): ReactNode {
   const typeValue = translateForVisitedProfile ? translateVisitedProfileMovieType(locale, movieType) : movieType;
   const genreValue = translateForVisitedProfile ? translateVisibleGenre(locale, movieGenre) : movieGenre;
   const typeLabel = locale === "en" ? "Type:" : "Tipo:";
   const genreLabel = locale === "en" ? "Genre:" : "Género:";
+
+  if (!translateForVisitedProfile) {
+    const values = [
+      typeValue && typeValue !== "-" ? typeValue : null,
+      genreValue && genreValue !== "-" ? genreValue : null,
+      movieYear ? String(movieYear) : null,
+    ].filter(Boolean);
+    return values.length > 0 ? values.join(" · ") : (locale === "en" ? "No metadata" : "Sin metadata");
+  }
+
   const values = [
-    typeValue && typeValue !== "-" ? `${translateForVisitedProfile ? `${typeLabel} ` : ""}${typeValue}` : null,
-    genreValue && genreValue !== "-" ? `${translateForVisitedProfile ? `${genreLabel} ` : ""}${genreValue}` : null,
+    typeValue && typeValue !== "-" ? (
+      <>
+        <span className={VISITED_PROFILE_ACTIVITY_METADATA_LABEL_CLASSNAME}>{typeLabel}</span> {typeValue}
+      </>
+    ) : null,
+    genreValue && genreValue !== "-" ? (
+      <>
+        <span className={VISITED_PROFILE_ACTIVITY_METADATA_LABEL_CLASSNAME}>{genreLabel}</span> {genreValue}
+      </>
+    ) : null,
     movieYear ? String(movieYear) : null,
-  ].filter(Boolean);
-  return values.length > 0 ? values.join(" · ") : (locale === "en" ? "No metadata" : "Sin metadata");
+  ].filter(Boolean) as ReactNode[];
+
+  return values.length > 0 ? joinMetadataParts(values) : (locale === "en" ? "No metadata" : "Sin metadata");
 }
 
 function getRecommendationTitles(movie: UserMovieRecommendation, locale: Locale) {
   return resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.titleSpanish);
 }
 
-function formatRecommendationMetadata(movie: UserMovieRecommendation, locale: Locale): string {
+function formatRecommendationMetadata(movie: UserMovieRecommendation, locale: Locale): ReactNode {
   const typeLabel = locale === "en" ? "Type:" : "Tipo:";
   const genreLabel = locale === "en" ? "Genre:" : "Género:";
-  return `${genreLabel} ${translateVisibleGenre(locale, movie.genre)} · ${typeLabel} ${translateVisitedProfileMovieType(locale, movie.type)} · ${movie.releaseYear}`;
+  return (
+    <>
+      <span className={VISITED_PROFILE_RECOMMENDATION_METADATA_LABEL_CLASSNAME}>{genreLabel}</span> {translateVisibleGenre(locale, movie.genre)} ·{" "}
+      <span className={VISITED_PROFILE_RECOMMENDATION_METADATA_LABEL_CLASSNAME}>{typeLabel}</span> {translateVisitedProfileMovieType(locale, movie.type)} · {movie.releaseYear}
+    </>
+  );
 }
 
 function getVisitedActionMessage(item: SocialActivityItem, locale: Locale): string | null {
@@ -1002,8 +1039,8 @@ export default function MyActivityColumn({
                             <Link href={`/movies/${encodeURIComponent(movie.id)}`} className="block truncate text-sm text-zinc-400 hover:text-blue-200">{recommendationTitles.secondary}</Link>
                           ) : null}
                           <p className="text-xs text-zinc-300">{formatRecommendationMetadata(movie, locale)}</p>
-                          <p className="text-xs text-zinc-400">{t("profileFeedDirector")} {movie.director}</p>
-                          <p className="line-clamp-2 text-xs text-zinc-500">{t("profileFeedCast")} {movie.castMembers}</p>
+                          <p className="text-xs text-zinc-400"><span className={VISITED_PROFILE_RECOMMENDATION_METADATA_LABEL_CLASSNAME}>{t("profileFeedDirector")}</span> {movie.director}</p>
+                          <p className="line-clamp-2 text-xs text-zinc-500"><span className={VISITED_PROFILE_RECOMMENDATION_METADATA_LABEL_CLASSNAME}>{t("profileFeedCast")}</span> {movie.castMembers}</p>
                         </div>
                       </article>
                       );
