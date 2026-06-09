@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useI18n } from "../../hooks/useI18n";
 import { formatSocialDate, SocialComment } from "../../lib/social";
 import ReactionButtons from "./ReactionButtons";
 
@@ -49,6 +50,7 @@ export default function CommentItem({
   const deleteDisabled = deleting || savingEdit;
   const saveDisabled = savingEdit || !editValue.trim();
   const trimmedLength = useMemo(() => editValue.trim().length, [editValue]);
+  const { locale, t } = useI18n();
 
   return (
     <article className={showCard ? "rounded-xl border border-white/15 bg-zinc-950/65 p-4" : "py-3"}>
@@ -74,13 +76,13 @@ export default function CommentItem({
             >
               {comment.authorName}
             </button>
-            <p className="text-xs text-zinc-400">{formatSocialDate(comment.createdAt)}</p>
+            <p className="text-xs text-zinc-400">{formatSocialDate(comment.createdAt, locale, t("movieDetailNoDate"))}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-white/15 bg-black/25 px-2 py-1 text-[11px] font-medium text-zinc-300">
-            {badgeLabel ?? (comment.type === "public" ? "Público" : "Dirigido")}
+            {badgeLabel ?? (comment.type === "public" ? t("movieDetailPublicBadge") : t("movieDetailDirectedBadge"))}
           </span>
           {canManage ? (
             <div className="relative">

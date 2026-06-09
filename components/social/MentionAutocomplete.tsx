@@ -1,3 +1,4 @@
+import { useI18n } from "../../hooks/useI18n";
 import { Friend } from "../../lib/social";
 
 interface MentionAutocompleteProps {
@@ -7,10 +8,11 @@ interface MentionAutocompleteProps {
 }
 
 export default function MentionAutocomplete({ friends, activeIndex, onSelect }: MentionAutocompleteProps) {
+  const { t } = useI18n();
   if (friends.length === 0) {
     return (
       <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-white/15 bg-zinc-950/95 p-3 text-sm text-zinc-400 shadow-xl">
-        No hay coincidencias de amigos.
+        {t("movieDetailNoFriendMatches")}
       </div>
     );
   }

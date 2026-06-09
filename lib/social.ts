@@ -423,13 +423,13 @@ export function buildCommentDetailEndpoint(commentId: number | string): string {
   return COMMENT_DETAIL_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(commentId)));
 }
 
-export function formatSocialDate(date: string | null): string {
-  if (!date) return "Sin fecha";
+export function formatSocialDate(date: string | null, locale: "es" | "en" = "es", noDateLabel = "Sin fecha"): string {
+  if (!date) return noDateLabel;
 
   const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "Sin fecha";
+  if (Number.isNaN(parsed.getTime())) return noDateLabel;
 
-  return new Intl.DateTimeFormat("es-ES", {
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-CO", {
     day: "2-digit",
     month: "short",
     year: "numeric",

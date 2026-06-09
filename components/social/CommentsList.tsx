@@ -1,3 +1,4 @@
+import { useI18n } from "../../hooks/useI18n";
 import { SocialComment } from "../../lib/social";
 import CommentItem from "./CommentItem";
 
@@ -52,9 +53,11 @@ export default function CommentsList({
   actionErrorByCommentId = {},
   getDisplayText,
 }: CommentsListProps) {
+  const { t } = useI18n();
+
   if (loading) {
     return (
-      <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">Cargando comentarios...</div>
+      <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">{t("movieDetailLoadingComments")}</div>
     );
   }
 
@@ -132,7 +135,7 @@ export default function CommentsList({
           </div>
         ))}
       </div>
-      {loadingMore ? <p className="pt-2 text-xs text-zinc-400">Cargando más comentarios...</p> : null}
+      {loadingMore ? <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingMoreComments")}</p> : null}
     </div>
   );
 }
