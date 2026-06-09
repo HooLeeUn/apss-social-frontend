@@ -5,12 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppLogo from "../../components/AppLogo";
 import { useAppBranding } from "../../hooks/useAppBranding";
+import { useI18n } from "../../hooks/useI18n";
 import { ApiError } from "../../lib/api";
 import { getLegalPolicies, LegalSection } from "../../lib/legal";
+import { englishLegalPolicies } from "../../lib/legalPoliciesEnglish";
 
 export default function PoliciesPage() {
   const branding = useAppBranding();
   const router = useRouter();
+  const { locale } = useI18n();
   const [title, setTitle] = useState("Políticas y Términos");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [sections, setSections] = useState<LegalSection[]>([]);
@@ -18,6 +21,21 @@ export default function PoliciesPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (locale === "en") {
+      setTitle(englishLegalPolicies.title);
+      setLastUpdated(englishLegalPolicies.lastUpdated);
+      setSections(englishLegalPolicies.sections);
+      setError("");
+      setLoading(false);
+      return;
+    }
+
+    setTitle("Políticas y Términos");
+    setLastUpdated(null);
+    setSections([]);
+    setError("");
+    setLoading(true);
+
     const loadPolicies = async () => {
       try {
         const payload = await getLegalPolicies();
@@ -36,7 +54,7 @@ export default function PoliciesPage() {
     };
 
     void loadPolicies();
-  }, []);
+  }, [locale]);
 
   const hasLegalContent = useMemo(() => sections.length > 0, [sections]);
 
@@ -73,10 +91,16 @@ export default function PoliciesPage() {
 
         <header className="space-y-2">
           <h1 className="text-3xl font-semibold text-white sm:text-4xl">{title}</h1>
-          {lastUpdated ? <p className="text-sm text-zinc-400">Última actualización: {lastUpdated}</p> : null}
+          {lastUpdated ? (
+            <p className="text-sm text-zinc-400">
+              {locale === "en" && lastUpdated === "Last updated"
+                ? lastUpdated
+                : `${locale === "en" ? "Last updated" : "Última actualización"}: ${lastUpdated}`}
+            </p>
+          ) : null}
         </header>
 
-        {loading ? <p className="text-zinc-300">Cargando políticas…</p> : null}
+        {loading ? <p className="text-zinc-300">{locale === "en" ? "Loading policies…" : "Cargando políticas…"}</p> : null}
 
         {!loading && error ? (
           <section className="space-y-4">
@@ -85,12 +109,12 @@ export default function PoliciesPage() {
               href="/feed"
               className="inline-flex rounded-full border border-zinc-500 px-4 py-2 text-sm text-zinc-100 transition hover:border-zinc-300 hover:bg-zinc-900"
             >
-              Volver al feed
+              {locale === "en" ? "Back to feed" : "Volver al feed"}
             </Link>
           </section>
         ) : null}
 
-        {!loading && !error && !hasLegalContent ? <p className="text-zinc-300">No hay contenido legal disponible.</p> : null}
+        {!loading && !error && !hasLegalContent ? <p className="text-zinc-300">{locale === "en" ? "No legal content available." : "No hay contenido legal disponible."}</p> : null}
 
         {!loading && !error && hasLegalContent ? (
           <div className="space-y-10 pb-8">
@@ -103,13 +127,17 @@ export default function PoliciesPage() {
                   ))}
                   {section.showTmdbAttribution ? (
                     <div className="space-y-3 pt-2">
-                      <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
-                      <p>Los posters y sinopsis utilizados en QNext provienen de TMDB.</p>
-                      <p>
-                        Parte de la información de películas y series utilizada en QNext, incluyendo títulos, años,
-                        tipo, directores, casting, géneros, número de votos y calificaciones promedio de referencia,
-                        proviene de IMDb.
-                      </p>
+                      {locale === "es" ? (
+                        <>
+                          <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+                          <p>Los posters y sinopsis utilizados en QNext provienen de TMDB.</p>
+                          <p>
+                            Parte de la información de películas y series utilizada en QNext, incluyendo títulos, años,
+                            tipo, directores, casting, géneros, número de votos y calificaciones promedio de referencia,
+                            proviene de IMDb.
+                          </p>
+                        </>
+                      ) : null}
                       <img src="/brand/tmdb.svg" alt="TMDB" className="mt-6 h-6 w-auto opacity-80" loading="lazy" />
                     </div>
                   ) : null}
