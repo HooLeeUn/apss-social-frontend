@@ -1426,9 +1426,6 @@ export default function MovieDetailPage() {
                                 <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
                                 <div className="flex items-center gap-2">
                                   {conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
-                                  <span className="rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[11px] text-zinc-300">
-                                    {conversation.messages.length}
-                                  </span>
                                 </div>
                               </div>
                             </div>
