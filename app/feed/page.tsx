@@ -123,29 +123,29 @@ type StreamingCountry = Country;
 type StreamingCountryOption = { value: StreamingCountry; name: string; flagSrc: string };
 
 const STREAMING_COUNTRY_OPTIONS: StreamingCountryOption[] = [
-  { value: "CO", name: "Colombia", flagSrc: "/flags/co.svg" },
-  { value: "MX", name: "México", flagSrc: "/flags/mx.svg" },
   { value: "AR", name: "Argentina", flagSrc: "/flags/ar.svg" },
-  { value: "CL", name: "Chile", flagSrc: "/flags/cl.svg" },
-  { value: "PE", name: "Perú", flagSrc: "/flags/pe.svg" },
-  { value: "EC", name: "Ecuador", flagSrc: "/flags/ec.svg" },
-  { value: "VE", name: "Venezuela", flagSrc: "/flags/ve.svg" },
   { value: "BO", name: "Bolivia", flagSrc: "/flags/bo.svg" },
-  { value: "PY", name: "Paraguay", flagSrc: "/flags/py.svg" },
-  { value: "UY", name: "Uruguay", flagSrc: "/flags/uy.svg" },
+  { value: "BZ", name: "Belize", flagSrc: "/flags/bz.svg" },
+  { value: "CA", name: "Canadá", flagSrc: "/flags/ca.svg" },
+  { value: "CL", name: "Chile", flagSrc: "/flags/cl.svg" },
+  { value: "CO", name: "Colombia", flagSrc: "/flags/co.svg" },
   { value: "CR", name: "Costa Rica", flagSrc: "/flags/cr.svg" },
-  { value: "PA", name: "Panamá", flagSrc: "/flags/pa.svg" },
+  { value: "DO", name: "República Dominicana", flagSrc: "/flags/do.svg" },
+  { value: "EC", name: "Ecuador", flagSrc: "/flags/ec.svg" },
+  { value: "ES", name: "España", flagSrc: "/flags/es.svg" },
   { value: "GT", name: "Guatemala", flagSrc: "/flags/gt.svg" },
   { value: "HN", name: "Honduras", flagSrc: "/flags/hn.svg" },
-  { value: "SV", name: "El Salvador", flagSrc: "/flags/sv.svg" },
+  { value: "MX", name: "México", flagSrc: "/flags/mx.svg" },
   { value: "NI", name: "Nicaragua", flagSrc: "/flags/ni.svg" },
-  { value: "DO", name: "República Dominicana", flagSrc: "/flags/do.svg" },
+  { value: "PA", name: "Panamá", flagSrc: "/flags/pa.svg" },
+  { value: "PE", name: "Perú", flagSrc: "/flags/pe.svg" },
   { value: "PR", name: "Puerto Rico", flagSrc: "/flags/pr.svg" },
-  { value: "ES", name: "España", flagSrc: "/flags/es.svg" },
-  { value: "US", name: "Estados Unidos", flagSrc: "/flags/us.svg" },
-  { value: "CA", name: "Canadá", flagSrc: "/flags/ca.svg" },
+  { value: "PY", name: "Paraguay", flagSrc: "/flags/py.svg" },
+  { value: "SV", name: "El Salvador", flagSrc: "/flags/sv.svg" },
   { value: "UK", name: "Reino Unido", flagSrc: "/flags/uk.svg" },
-  { value: "BZ", name: "Belize", flagSrc: "/flags/bz.svg" },
+  { value: "US", name: "Estados Unidos", flagSrc: "/flags/us.svg" },
+  { value: "UY", name: "Uruguay", flagSrc: "/flags/uy.svg" },
+  { value: "VE", name: "Venezuela", flagSrc: "/flags/ve.svg" },
 ];
 
 function normalizeCountrySearchText(value: string): string {
@@ -876,7 +876,7 @@ export default function FeedPage() {
                         className="mb-1 h-8 w-full rounded-lg border border-white/10 bg-zinc-950/80 px-2 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-slate-300/45 focus:outline-none"
                         aria-label="Buscar país de streaming"
                       />
-                      <ul role="listbox" aria-label="País de streaming" className="max-h-64 overflow-y-auto pr-1">
+                      <ul role="listbox" aria-label="País de streaming" className="streaming-country-scrollbar max-h-64 overflow-y-auto pr-1">
                         {filteredStreamingCountryOptions.length > 0 ? (
                           filteredStreamingCountryOptions.map((option) => (
                             <li key={option.value} role="option" aria-selected={streamingCountry === option.value}>
