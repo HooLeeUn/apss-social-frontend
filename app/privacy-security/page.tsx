@@ -6,6 +6,12 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "../../lib/api";
 import AppLogo from "../../components/AppLogo";
 import { useAppBranding } from "../../hooks/useAppBranding";
+import { useI18n } from "../../hooks/useI18n";
+import {
+  countryToLocale,
+  getStoredCountry,
+  t as translate,
+} from "../../lib/i18n";
 import {
   blockUser,
   BlockedUser,
@@ -18,19 +24,34 @@ import {
   updateProfileVisibility,
 } from "../../lib/privacy";
 
-const privacyDisclaimer = [
-  "Todos los perfiles se crean como públicos por defecto, pero puedes cambiar esta configuración cuando quieras.",
-  "Los perfiles públicos pueden recibir seguidores, seguir perfiles públicos y también tener amistades.",
-  "Los perfiles privados no pueden ser seguidos, pero sí pueden seguir perfiles públicos y mantener amistades.",
-  "Si cambias tu perfil a privado, perderás tus seguidores actuales, pero conservarás los perfiles que ya sigues.",
-  "Tus comentarios públicos seguirán siendo visibles aunque tu perfil sea privado.",
-  "Si restringes a un usuario, esa persona no podrá acceder a tu perfil ni al contenido que el backend le oculte por restricción.",
-  "El perfil público que restrinja solicitudes de amistad conservará sus seguidores y seguidos, pero perderá todas sus amistades actuales. Si vuelve a permitir solicitudes, esas amistades no se recuperarán automáticamente.",
-];
+const privacyDisclaimerKeys = [
+  "privacySecurityConditionDefaultPublic",
+  "privacySecurityConditionPublicProfiles",
+  "privacySecurityConditionPrivateProfiles",
+  "privacySecurityConditionPrivateChange",
+  "privacySecurityConditionPublicComments",
+  "privacySecurityConditionRestrictedUser",
+  "privacySecurityConditionFriendRequests",
+] as const;
 
 export default function PrivacySecurityPage() {
   const router = useRouter();
   const branding = useAppBranding();
+  const { t } = useI18n();
+
+  const formatMessage = (
+    key: Parameters<typeof t>[0],
+    values?: Record<string, string>,
+  ) => {
+    const template = t(key);
+    if (!values) return template;
+
+    return Object.entries(values).reduce(
+      (message, [placeholder, value]) =>
+        message.replace(`{${placeholder}}`, value),
+      template,
+    );
+  };
 
   const [visibility, setVisibility] = useState<ProfileVisibility>("public");
   const [loadingVisibility, setLoadingVisibility] = useState(true);
@@ -38,10 +59,18 @@ export default function PrivacySecurityPage() {
   const [visibilityMessage, setVisibilityMessage] = useState("");
   const [showConfirmPrivate, setShowConfirmPrivate] = useState(false);
 
-  const [friendRequestsRestricted, setFriendRequestsRestricted] = useState(false);
-  const [savingFriendRequestsRestriction, setSavingFriendRequestsRestriction] = useState(false);
-  const [friendRequestsRestrictionMessage, setFriendRequestsRestrictionMessage] = useState("");
-  const [showConfirmFriendRequestsRestriction, setShowConfirmFriendRequestsRestriction] = useState(false);
+  const [friendRequestsRestricted, setFriendRequestsRestricted] =
+    useState(false);
+  const [savingFriendRequestsRestriction, setSavingFriendRequestsRestriction] =
+    useState(false);
+  const [
+    friendRequestsRestrictionMessage,
+    setFriendRequestsRestrictionMessage,
+  ] = useState("");
+  const [
+    showConfirmFriendRequestsRestriction,
+    setShowConfirmFriendRequestsRestriction,
+  ] = useState(false);
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [blockedUsersLoading, setBlockedUsersLoading] = useState(true);
@@ -50,7 +79,9 @@ export default function PrivacySecurityPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchingUsers, setSearchingUsers] = useState(false);
   const [searchResults, setSearchResults] = useState<BlockedUser[]>([]);
-  const [dismissedSearchResultIds, setDismissedSearchResultIds] = useState<Set<string>>(new Set());
+  const [dismissedSearchResultIds, setDismissedSearchResultIds] = useState<
+    Set<string>
+  >(new Set());
   const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
@@ -62,7 +93,9 @@ export default function PrivacySecurityPage() {
         ]);
 
         setVisibility(loadedPrivacySettings.visibility);
-        setFriendRequestsRestricted(loadedPrivacySettings.friendRequestsRestricted);
+        setFriendRequestsRestricted(
+          loadedPrivacySettings.friendRequestsRestricted,
+        );
         setBlockedUsers(loadedBlockedUsers);
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
@@ -70,8 +103,13 @@ export default function PrivacySecurityPage() {
           return;
         }
 
-        setVisibilityMessage("No se pudo cargar tu configuración de privacidad.");
-        setBlockedUsersMessage("No se pudo cargar la lista de usuarios restringidos.");
+        const storedLocale = countryToLocale(getStoredCountry());
+        setVisibilityMessage(
+          translate(storedLocale, "privacySecurityPrivacySettingsLoadError"),
+        );
+        setBlockedUsersMessage(
+          translate(storedLocale, "privacySecurityRestrictedUsersLoadError"),
+        );
       } finally {
         setLoadingVisibility(false);
         setBlockedUsersLoading(false);
@@ -81,7 +119,10 @@ export default function PrivacySecurityPage() {
     void loadData();
   }, [router]);
 
-  const blockedIds = useMemo(() => new Set(blockedUsers.map((user) => String(user.id))), [blockedUsers]);
+  const blockedIds = useMemo(
+    () => new Set(blockedUsers.map((user) => String(user.id))),
+    [blockedUsers],
+  );
   const normalizeSearchQuery = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return "";
@@ -94,7 +135,9 @@ export default function PrivacySecurityPage() {
   const visibleSearchResults = useMemo(
     () =>
       searchResults.filter(
-        (user) => !blockedIds.has(String(user.id)) && !dismissedSearchResultIds.has(String(user.id)),
+        (user) =>
+          !blockedIds.has(String(user.id)) &&
+          !dismissedSearchResultIds.has(String(user.id)),
       ),
     [blockedIds, dismissedSearchResultIds, searchResults],
   );
@@ -111,9 +154,9 @@ export default function PrivacySecurityPage() {
     try {
       const updatedVisibility = await updateProfileVisibility(nextVisibility);
       setVisibility(updatedVisibility);
-      setVisibilityMessage("Configuración de privacidad actualizada correctamente.");
+      setVisibilityMessage(t("privacySecurityPrivacyUpdated"));
     } catch {
-      setVisibilityMessage("No se pudo actualizar el tipo de perfil. Inténtalo de nuevo.");
+      setVisibilityMessage(t("privacySecurityProfileTypeUpdateError"));
     } finally {
       setSavingVisibility(false);
     }
@@ -127,14 +170,20 @@ export default function PrivacySecurityPage() {
       const updatedValue = await updateFriendRequestsRestriction(nextValue);
       setFriendRequestsRestricted(updatedValue);
     } catch {
-      setFriendRequestsRestrictionMessage("No se pudo actualizar la restricción de solicitudes. Inténtalo de nuevo.");
+      setFriendRequestsRestrictionMessage(
+        t("privacySecurityFriendRequestsUpdateError"),
+      );
     } finally {
       setSavingFriendRequestsRestriction(false);
     }
   };
 
   const handleFriendRequestsRestrictionChange = (nextValue: boolean) => {
-    if (savingFriendRequestsRestriction || nextValue === friendRequestsRestricted) return;
+    if (
+      savingFriendRequestsRestriction ||
+      nextValue === friendRequestsRestricted
+    )
+      return;
 
     setFriendRequestsRestrictionMessage("");
 
@@ -175,18 +224,20 @@ export default function PrivacySecurityPage() {
       const results = await searchUsersToRestrict(normalizedQuery);
       const uniqueResults = results.filter((user, index, current) => {
         const userId = String(user.id);
-        return current.findIndex((entry) => String(entry.id) === userId) === index;
+        return (
+          current.findIndex((entry) => String(entry.id) === userId) === index
+        );
       });
 
       setSearchResults(uniqueResults);
       setDismissedSearchResultIds(new Set());
 
       if (uniqueResults.length === 0) {
-        setSearchMessage("Sin resultados");
+        setSearchMessage(t("privacySecurityNoResults"));
       }
     } catch {
       setSearchResults([]);
-      setSearchMessage("No se pudo completar la búsqueda de usuarios.");
+      setSearchMessage(t("privacySecuritySearchError"));
     } finally {
       setSearchingUsers(false);
     }
@@ -195,22 +246,28 @@ export default function PrivacySecurityPage() {
   const handleBlockUser = async (user: BlockedUser) => {
     const alreadyBlocked = blockedIds.has(String(user.id));
     if (alreadyBlocked) {
-      setBlockedUsersMessage("Ese usuario ya está restringido.");
+      setBlockedUsersMessage(t("privacySecurityAlreadyRestricted"));
       return;
     }
 
     try {
       await blockUser(user.id);
       await refreshBlockedUsers();
-      setSearchResults((current) => current.filter((entry) => String(entry.id) !== String(user.id)));
+      setSearchResults((current) =>
+        current.filter((entry) => String(entry.id) !== String(user.id)),
+      );
       setDismissedSearchResultIds((current) => {
         const next = new Set(current);
         next.delete(String(user.id));
         return next;
       });
-      setBlockedUsersMessage(`${user.username} fue restringido correctamente.`);
+      setBlockedUsersMessage(
+        formatMessage("privacySecurityUserRestricted", {
+          username: user.username,
+        }),
+      );
     } catch {
-      setBlockedUsersMessage("No se pudo restringir ese usuario.");
+      setBlockedUsersMessage(t("privacySecurityRestrictUserError"));
     }
   };
 
@@ -226,9 +283,13 @@ export default function PrivacySecurityPage() {
     try {
       await unblockUser(user.id);
       await refreshBlockedUsers();
-      setBlockedUsersMessage(`Se quitó la restricción para ${user.username}.`);
+      setBlockedUsersMessage(
+        formatMessage("privacySecurityRestrictionRemoved", {
+          username: user.username,
+        }),
+      );
     } catch {
-      setBlockedUsersMessage("No se pudo quitar la restricción en este momento.");
+      setBlockedUsersMessage(t("privacySecurityRemoveRestrictionError"));
     }
   };
 
@@ -236,7 +297,9 @@ export default function PrivacySecurityPage() {
     <main className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto w-full max-w-[980px] space-y-6 px-4 py-7 md:px-8 md:py-8">
         <header className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.35)]">
-          <h1 className="text-xl font-semibold tracking-wide text-zinc-100 md:text-2xl">Privacidad y Seguridad</h1>
+          <h1 className="text-xl font-semibold tracking-wide text-zinc-100 md:text-2xl">
+            {t("privacySecurity")}
+          </h1>
           <Link
             href="/feed"
             className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
@@ -255,13 +318,13 @@ export default function PrivacySecurityPage() {
         <section className="p-5">
           <div className="mb-4">
             <h2 className="text-xl font-semibold uppercase tracking-[0.18em] text-blue-200/85 md:text-2xl">
-              Condiciones de privacidad
+              {t("privacySecurityConditionsTitle")}
             </h2>
           </div>
           <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-200 md:text-[0.95rem]">
-            {privacyDisclaimer.map((item) => (
-              <li key={item} className="pl-1">
-                {item}
+            {privacyDisclaimerKeys.map((key) => (
+              <li key={key} className="pl-1">
+                {t(key)}
               </li>
             ))}
           </ul>
@@ -269,8 +332,14 @@ export default function PrivacySecurityPage() {
 
         <section className="p-5">
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h2 className="text-xl font-semibold text-blue-200/85 md:text-2xl">Tipo de perfil</h2>
-            {loadingVisibility ? <span className="text-xs text-zinc-400">Cargando...</span> : null}
+            <h2 className="text-xl font-semibold text-blue-200/85 md:text-2xl">
+              {t("privacySecurityProfileType")}
+            </h2>
+            {loadingVisibility ? (
+              <span className="text-xs text-zinc-400">
+                {t("privacySecurityLoading")}
+              </span>
+            ) : null}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -284,8 +353,12 @@ export default function PrivacySecurityPage() {
                   : "border-white/20 bg-zinc-900/70 text-zinc-200 hover:border-white/40"
               } disabled:cursor-not-allowed disabled:opacity-60`}
             >
-              <p className="text-sm font-semibold">Público</p>
-              <p className="mt-1 text-xs text-zinc-300">Puede recibir seguidores y mantener amistades.</p>
+              <p className="text-sm font-semibold">
+                {t("privacySecurityPublic")}
+              </p>
+              <p className="mt-1 text-xs text-zinc-300">
+                {t("privacySecurityPublicDescription")}
+              </p>
             </button>
 
             <button
@@ -298,13 +371,23 @@ export default function PrivacySecurityPage() {
                   : "border-white/20 bg-zinc-900/70 text-zinc-200 hover:border-white/40"
               } disabled:cursor-not-allowed disabled:opacity-60`}
             >
-              <p className="text-sm font-semibold">Privado</p>
-              <p className="mt-1 text-xs text-zinc-300">No puede ser seguido, pero sí mantener amistades.</p>
+              <p className="text-sm font-semibold">
+                {t("privacySecurityPrivate")}
+              </p>
+              <p className="mt-1 text-xs text-zinc-300">
+                {t("privacySecurityPrivateDescription")}
+              </p>
             </button>
           </div>
 
-          {savingVisibility ? <p className="mt-3 text-sm text-zinc-300">Guardando cambios...</p> : null}
-          {visibilityMessage ? <p className="mt-3 text-sm text-zinc-300">{visibilityMessage}</p> : null}
+          {savingVisibility ? (
+            <p className="mt-3 text-sm text-zinc-300">
+              {t("privacySecuritySavingChanges")}
+            </p>
+          ) : null}
+          {visibilityMessage ? (
+            <p className="mt-3 text-sm text-zinc-300">{visibilityMessage}</p>
+          ) : null}
         </section>
 
         {!loadingVisibility && visibility === "public" ? (
@@ -312,33 +395,45 @@ export default function PrivacySecurityPage() {
             <section className="p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-blue-200/85">Restringir solicitudes de amistad</h2>
+                  <h2 className="text-lg font-semibold text-blue-200/85">
+                    {t("privacySecurityRestrictFriendRequests")}
+                  </h2>
                   <p className="mt-1 text-sm leading-6 text-zinc-300">
-                    Controla si otros usuarios pueden enviarte solicitudes de amistad.
+                    {t("privacySecurityRestrictFriendRequestsDescription")}
                   </p>
                 </div>
                 <select
                   value={friendRequestsRestricted ? "yes" : "no"}
                   disabled={savingFriendRequestsRestriction}
-                  onChange={(event) => handleFriendRequestsRestrictionChange(event.target.value === "yes")}
+                  onChange={(event) =>
+                    handleFriendRequestsRestrictionChange(
+                      event.target.value === "yes",
+                    )
+                  }
                   className="min-w-28 rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-300/70 disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Restringir solicitudes de amistad"
+                  aria-label={t("privacySecurityRestrictFriendRequests")}
                 >
-                  <option value="no">NO</option>
-                  <option value="yes">SÍ</option>
+                  <option value="no">{t("privacySecurityNo")}</option>
+                  <option value="yes">{t("privacySecurityYes")}</option>
                 </select>
               </div>
 
               {savingFriendRequestsRestriction ? (
-                <p className="mt-3 text-sm text-zinc-300">Guardando cambios...</p>
+                <p className="mt-3 text-sm text-zinc-300">
+                  {t("privacySecuritySavingChanges")}
+                </p>
               ) : null}
               {friendRequestsRestrictionMessage ? (
-                <p className="mt-3 text-sm text-zinc-300">{friendRequestsRestrictionMessage}</p>
+                <p className="mt-3 text-sm text-zinc-300">
+                  {friendRequestsRestrictionMessage}
+                </p>
               ) : null}
             </section>
 
             <section className="p-5">
-              <h2 className="text-lg font-semibold text-blue-200/85">Restringir usuarios</h2>
+              <h2 className="text-lg font-semibold text-blue-200/85">
+                {t("privacySecurityRestrictUsers")}
+              </h2>
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <input
@@ -361,7 +456,7 @@ export default function PrivacySecurityPage() {
                       void handleSearchUsers();
                     }
                   }}
-                  placeholder="Buscar usuario por nombre"
+                  placeholder={t("privacySecuritySearchUserPlaceholder")}
                   className="w-full rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-300/70"
                 />
                 <button
@@ -370,16 +465,24 @@ export default function PrivacySecurityPage() {
                   disabled={searchingUsers}
                   className="rounded-2xl border border-white/40 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {searchingUsers ? "Buscando..." : "Buscar"}
+                  {searchingUsers
+                    ? t("privacySecuritySearching")
+                    : t("privacySecuritySearch")}
                 </button>
               </div>
 
               {hasSearchQuery ? (
                 <div className="mt-4 space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Resultados</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
+                    {t("privacySecurityResults")}
+                  </p>
                   {visibleSearchResults.length === 0 ? (
                     <p className="text-sm text-zinc-500">
-                      {searchingUsers ? "Buscando usuarios..." : hasSearched ? searchMessage || "Sin resultados" : ""}
+                      {searchingUsers
+                        ? t("privacySecuritySearchingUsers")
+                        : hasSearched
+                          ? searchMessage || t("privacySecurityNoResults")
+                          : ""}
                     </p>
                   ) : (
                     <ul className="space-y-2">
@@ -388,21 +491,23 @@ export default function PrivacySecurityPage() {
                           key={String(user.id)}
                           className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-2"
                         >
-                          <span className="text-sm text-zinc-200">@{user.username}</span>
+                          <span className="text-sm text-zinc-200">
+                            @{user.username}
+                          </span>
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => void handleBlockUser(user)}
                               className="rounded-full border border-red-300/50 px-3 py-1 text-xs font-medium text-red-200 transition hover:border-red-200"
                             >
-                              Agregar
+                              {t("privacySecurityAdd")}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleCancelSearchResult(user.id)}
                               className="rounded-full border border-white/30 px-3 py-1 text-xs font-medium text-zinc-100 transition hover:border-white"
                             >
-                              Cancelar
+                              {t("privacySecurityCancel")}
                             </button>
                           </div>
                         </li>
@@ -413,11 +518,17 @@ export default function PrivacySecurityPage() {
               ) : null}
 
               <div className="mt-5 space-y-2">
-                <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Usuarios restringidos</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
+                  {t("privacySecurityRestrictedUsers")}
+                </p>
                 {blockedUsersLoading ? (
-                  <p className="text-sm text-zinc-400">Cargando usuarios restringidos...</p>
+                  <p className="text-sm text-zinc-400">
+                    {t("privacySecurityLoadingRestrictedUsers")}
+                  </p>
                 ) : blockedUsers.length === 0 ? (
-                  <p className="text-sm text-zinc-500">No tienes usuarios restringidos actualmente.</p>
+                  <p className="text-sm text-zinc-500">
+                    {t("privacySecurityNoRestrictedUsers")}
+                  </p>
                 ) : (
                   <ul className="space-y-2">
                     {blockedUsers.map((user) => (
@@ -425,13 +536,15 @@ export default function PrivacySecurityPage() {
                         key={String(user.id)}
                         className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-2"
                       >
-                        <span className="text-sm text-zinc-200">@{user.username}</span>
+                        <span className="text-sm text-zinc-200">
+                          @{user.username}
+                        </span>
                         <button
                           type="button"
                           onClick={() => void handleUnblockUser(user)}
                           className="rounded-full border border-white/40 px-3 py-1 text-xs font-medium text-zinc-100 transition hover:border-white"
                         >
-                          Quitar restricción
+                          {t("privacySecurityRemoveRestriction")}
                         </button>
                       </li>
                     ))}
@@ -439,21 +552,24 @@ export default function PrivacySecurityPage() {
                 )}
               </div>
 
-              {blockedUsersMessage ? <p className="mt-4 text-sm text-zinc-300">{blockedUsersMessage}</p> : null}
+              {blockedUsersMessage ? (
+                <p className="mt-4 text-sm text-zinc-300">
+                  {blockedUsersMessage}
+                </p>
+              ) : null}
             </section>
           </>
         ) : null}
       </div>
 
-
       {showConfirmFriendRequestsRestriction ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4">
           <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-[0_25px_55px_rgba(0,0,0,0.5)]">
-            <h3 className="text-lg font-semibold text-zinc-100">Restringir solicitudes de amistad</h3>
+            <h3 className="text-lg font-semibold text-zinc-100">
+              {t("privacySecurityRestrictFriendRequests")}
+            </h3>
             <p className="mt-3 text-sm leading-6 text-zinc-300">
-              Al restringir las solicitudes de amistad, se eliminarán todas tus amistades actuales. Podrás volver a
-              permitir solicitudes más adelante, pero las amistades eliminadas no se recuperarán automáticamente; tendrás
-              que agregarlas nuevamente una por una.
+              {t("privacySecurityConfirmFriendRequestsRestrictionDescription")}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -461,7 +577,7 @@ export default function PrivacySecurityPage() {
                 onClick={() => setShowConfirmFriendRequestsRestriction(false)}
                 className="rounded-full border border-white/30 px-4 py-2 text-sm text-zinc-100"
               >
-                Cancelar
+                {t("privacySecurityCancel")}
               </button>
               <button
                 type="button"
@@ -471,7 +587,7 @@ export default function PrivacySecurityPage() {
                 }}
                 className="rounded-full border border-blue-300/70 bg-blue-500/20 px-4 py-2 text-sm font-medium text-blue-100"
               >
-                Aceptar
+                {t("privacySecurityAccept")}
               </button>
             </div>
           </div>
@@ -481,11 +597,11 @@ export default function PrivacySecurityPage() {
       {showConfirmPrivate ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4">
           <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-[0_25px_55px_rgba(0,0,0,0.5)]">
-            <h3 className="text-lg font-semibold text-zinc-100">Confirmar cambio a perfil privado</h3>
+            <h3 className="text-lg font-semibold text-zinc-100">
+              {t("privacySecurityConfirmPrivateTitle")}
+            </h3>
             <p className="mt-3 text-sm leading-6 text-zinc-300">
-              Al cambiar tu perfil a privado, tus seguidores actuales serán eliminados. Seguirás conservando los
-              perfiles que ya sigues y podrás seguir interactuando públicamente en películas. Tus amistades no se verán
-              afectadas. ¿Deseas continuar?
+              {t("privacySecurityConfirmPrivateDescription")}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -493,7 +609,7 @@ export default function PrivacySecurityPage() {
                 onClick={() => setShowConfirmPrivate(false)}
                 className="rounded-full border border-white/30 px-4 py-2 text-sm text-zinc-100"
               >
-                Cancelar
+                {t("privacySecurityCancel")}
               </button>
               <button
                 type="button"
@@ -503,7 +619,7 @@ export default function PrivacySecurityPage() {
                 }}
                 className="rounded-full border border-blue-300/70 bg-blue-500/20 px-4 py-2 text-sm font-medium text-blue-100"
               >
-                Confirmar cambio
+                {t("privacySecurityConfirmChange")}
               </button>
             </div>
           </div>
