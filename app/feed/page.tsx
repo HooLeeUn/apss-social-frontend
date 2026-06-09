@@ -58,6 +58,27 @@ function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
 
 const MAX_SELECTED_GENRES = 3;
 
+function translateNotificationText(locale: ReturnType<typeof countryToLocale>, text: string): string {
+  if (locale !== "en") return text;
+
+  const knownPatterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+    [/^Tienes un mensaje privado de (.+)$/i, (match) => `You have a private message from ${match[1]}`],
+    [/^A (.+) le gustó tu mensaje$/i, (match) => `${match[1]} liked your message`],
+    [/^A (.+) no le gustó tu mensaje$/i, (match) => `${match[1]} disliked your message`],
+    [/^A (.+) le gustó tu comentario$/i, (match) => `${match[1]} liked your comment`],
+    [/^A (.+) no le gustó tu comentario$/i, (match) => `${match[1]} disliked your comment`],
+    [/^Te gustó el comentario de (.+)$/i, (match) => `You liked ${match[1]}’s comment`],
+    [/^No te gustó el comentario de (.+)$/i, (match) => `You disliked ${match[1]}’s comment`],
+  ];
+
+  for (const [pattern, translatePattern] of knownPatterns) {
+    const match = text.match(pattern);
+    if (match) return translatePattern(match);
+  }
+
+  return text;
+}
+
 function buildPersonalizedFeedEndpoint(selectedGenres: string[]): string {
   const params = new URLSearchParams();
 
@@ -730,14 +751,14 @@ export default function FeedPage() {
                     className="absolute right-14 top-0 z-[70] w-[310px] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md md:right-16"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">Notificaciones</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">{translate(locale, "notificationsTitle")}</p>
                       {notificationItems.length > 0 ? (
                         <button
                           type="button"
                           onClick={handleMarkAllNotificationsAsRead}
                           className="text-[11px] font-semibold text-blue-300 transition hover:text-blue-200"
                         >
-                          Marcar todo como leído
+                          {translate(locale, "notificationsMarkAllRead")}
                         </button>
                       ) : null}
                     </div>
@@ -750,19 +771,19 @@ export default function FeedPage() {
                             onClick={() => handleNotificationItemClick(item)}
                             className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-left transition hover:border-blue-300/50 hover:bg-zinc-800"
                           >
-                            <p className="text-sm text-zinc-100">{item.text}</p>
+                            <p className="text-sm text-zinc-100">{translateNotificationText(locale, item.text)}</p>
                             <p className="mt-1 text-[11px] text-zinc-500">
                               {item.targetTab === "friend_requests_pending"
-                                ? "Ir a Pendientes"
+                                ? translate(locale, "notificationsGoToPending")
                                 : item.targetTab === "activity"
-                                  ? "Ir a Mi actividad"
-                                  : "Ir a Buzón Privado"}
+                                  ? translate(locale, "notificationsGoToMyActivity")
+                                  : translate(locale, "notificationsGoToPrivateInbox")}
                             </p>
                           </button>
                         ))
                       ) : (
                         <p className="rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-xs text-zinc-400">
-                          No tienes notificaciones pendientes.
+                          {translate(locale, "notificationsEmpty")}
                         </p>
                       )}
                     </div>
