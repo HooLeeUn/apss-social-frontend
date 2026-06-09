@@ -72,6 +72,29 @@ textarea,
   background: #5a5a5a;
 }
 
+.streaming-country-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #444444 #111111;
+}
+
+.streaming-country-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.streaming-country-scrollbar::-webkit-scrollbar-track {
+  background: #111111;
+  border-radius: 9999px;
+}
+
+.streaming-country-scrollbar::-webkit-scrollbar-thumb {
+  background: #444444;
+  border-radius: 9999px;
+}
+
+.streaming-country-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #666666;
+}
+
 .scrollbar-dark {
   scrollbar-width: thin;
   scrollbar-color: #2a2a2a #0f0f0f;

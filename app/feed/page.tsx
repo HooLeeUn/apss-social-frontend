@@ -23,7 +23,7 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
-import { countryToLocale, getStoredCountry, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
+import { type Country, countryToLocale, getStoredCountry, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
 import {
   addMovieToMyList,
   addMovieToMyRecommendations,
@@ -119,11 +119,42 @@ function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<strin
   return movies.filter((movie) => !shouldExcludeFromPersonalized(movie, excludedRatedIds));
 }
 
-type StreamingCountry = "CO" | "US";
-const STREAMING_COUNTRY_OPTIONS: { value: StreamingCountry; flagSrc: string }[] = [
-  { value: "CO", flagSrc: "/flags/co.svg" },
-  { value: "US", flagSrc: "/flags/us.svg" },
+type StreamingCountry = Country;
+type StreamingCountryOption = { value: StreamingCountry; name: string; flagSrc: string };
+
+const STREAMING_COUNTRY_OPTIONS: StreamingCountryOption[] = [
+  { value: "AR", name: "Argentina", flagSrc: "/flags/ar.svg" },
+  { value: "BO", name: "Bolivia", flagSrc: "/flags/bo.svg" },
+  { value: "BZ", name: "Belize", flagSrc: "/flags/bz.svg" },
+  { value: "CA", name: "Canadá", flagSrc: "/flags/ca.svg" },
+  { value: "CL", name: "Chile", flagSrc: "/flags/cl.svg" },
+  { value: "CO", name: "Colombia", flagSrc: "/flags/co.svg" },
+  { value: "CR", name: "Costa Rica", flagSrc: "/flags/cr.svg" },
+  { value: "DO", name: "República Dominicana", flagSrc: "/flags/do.svg" },
+  { value: "EC", name: "Ecuador", flagSrc: "/flags/ec.svg" },
+  { value: "ES", name: "España", flagSrc: "/flags/es.svg" },
+  { value: "GT", name: "Guatemala", flagSrc: "/flags/gt.svg" },
+  { value: "HN", name: "Honduras", flagSrc: "/flags/hn.svg" },
+  { value: "MX", name: "México", flagSrc: "/flags/mx.svg" },
+  { value: "NI", name: "Nicaragua", flagSrc: "/flags/ni.svg" },
+  { value: "PA", name: "Panamá", flagSrc: "/flags/pa.svg" },
+  { value: "PE", name: "Perú", flagSrc: "/flags/pe.svg" },
+  { value: "PR", name: "Puerto Rico", flagSrc: "/flags/pr.svg" },
+  { value: "PY", name: "Paraguay", flagSrc: "/flags/py.svg" },
+  { value: "SV", name: "El Salvador", flagSrc: "/flags/sv.svg" },
+  { value: "UK", name: "Reino Unido", flagSrc: "/flags/uk.svg" },
+  { value: "US", name: "Estados Unidos", flagSrc: "/flags/us.svg" },
+  { value: "UY", name: "Uruguay", flagSrc: "/flags/uy.svg" },
+  { value: "VE", name: "Venezuela", flagSrc: "/flags/ve.svg" },
 ];
+
+function normalizeCountrySearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
 export default function FeedPage() {
   const router = useRouter();
@@ -149,6 +180,7 @@ export default function FeedPage() {
   const [isSavingStreamingCountry, setIsSavingStreamingCountry] = useState(false);
   const [streamingCountryError, setStreamingCountryError] = useState("");
   const [isStreamingCountryMenuOpen, setIsStreamingCountryMenuOpen] = useState(false);
+  const [streamingCountrySearch, setStreamingCountrySearch] = useState("");
   const locale = countryToLocale(streamingCountry);
 
   const [loading, setLoading] = useState(true);
@@ -298,9 +330,10 @@ export default function FeedPage() {
               ? meRecord.user_name
               : null;
 
-        setCurrentUserId(resolvedUserId !== null && resolvedUserId !== undefined ? String(resolvedUserId) : null);
+        const normalizedUserId = resolvedUserId !== null && resolvedUserId !== undefined ? String(resolvedUserId) : null;
+        setCurrentUserId(normalizedUserId);
         setCurrentUsername(resolvedUsername);
-        const storedCountry = setActiveLocaleScope({ userId: resolvedUserId, username: resolvedUsername });
+        const storedCountry = setActiveLocaleScope({ userId: normalizedUserId, username: resolvedUsername });
         setStreamingCountry(storedCountry);
         setStreamingCountryError("");
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
@@ -489,8 +522,7 @@ export default function FeedPage() {
 
   const handleStreamingCountryChange = useCallback(
     async (nextCountry: StreamingCountry) => {
-      const previousCountry = streamingCountry;
-      if (nextCountry === previousCountry || isSavingStreamingCountry) return;
+      if (nextCountry === streamingCountry || isSavingStreamingCountry) return;
 
       setStreamingCountry(nextCountry);
       setStoredCountry(nextCountry, { userId: currentUserId, username: currentUsername });
@@ -503,9 +535,7 @@ export default function FeedPage() {
           body: JSON.stringify({ streaming_country: nextCountry }),
         });
       } catch (streamingCountryPatchError) {
-        console.warn("No se pudo actualizar streaming_country.", streamingCountryPatchError);
-        setStreamingCountry(previousCountry);
-        setStreamingCountryError("No se guardó el país");
+        console.warn("No se pudo actualizar streaming_country en el backend; se conservó la selección local.", streamingCountryPatchError);
       } finally {
         setIsSavingStreamingCountry(false);
       }
@@ -699,6 +729,21 @@ export default function FeedPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isStreamingCountryMenuOpen) setStreamingCountrySearch("");
+  }, [isStreamingCountryMenuOpen]);
+
+  const filteredStreamingCountryOptions = useMemo(() => {
+    const normalizedQuery = normalizeCountrySearchText(streamingCountrySearch);
+    if (!normalizedQuery) return STREAMING_COUNTRY_OPTIONS;
+
+    return STREAMING_COUNTRY_OPTIONS.filter((option) => {
+      const normalizedName = normalizeCountrySearchText(option.name);
+      const normalizedValue = normalizeCountrySearchText(option.value);
+      return normalizedName.includes(normalizedQuery) || normalizedValue.includes(normalizedQuery);
+    });
+  }, [streamingCountrySearch]);
+
   const selectedStreamingCountryOption = useMemo(
     () => STREAMING_COUNTRY_OPTIONS.find((option) => option.value === streamingCountry) ?? STREAMING_COUNTRY_OPTIONS[0],
     [streamingCountry],
@@ -805,11 +850,12 @@ export default function FeedPage() {
                     type="button"
                     disabled={isSavingStreamingCountry}
                     onClick={() => setIsStreamingCountryMenuOpen((current) => !current)}
+                    title={selectedStreamingCountryOption.name}
                     className="flex h-9 w-full items-center justify-between gap-1 rounded-xl border border-white/20 bg-zinc-900/95 px-2 py-1 text-xs font-semibold text-zinc-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition hover:border-white/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300/35 disabled:cursor-not-allowed disabled:opacity-70"
                     aria-haspopup="listbox"
                     aria-expanded={isStreamingCountryMenuOpen}
                   >
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1.5" title={selectedStreamingCountryOption.name}>
                       <img
                         src={selectedStreamingCountryOption.flagSrc}
                         alt=""
@@ -821,38 +867,50 @@ export default function FeedPage() {
                     <span className="text-[10px] text-zinc-400">▾</span>
                   </button>
                   {isStreamingCountryMenuOpen ? (
-                    <ul
-                      role="listbox"
-                      aria-label="País de streaming"
-                      className="absolute top-10 z-40 w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900/98 p-1 shadow-[0_14px_26px_rgba(0,0,0,0.5)]"
-                    >
-                      {STREAMING_COUNTRY_OPTIONS.map((option) => (
-                        <li key={option.value} role="option" aria-selected={streamingCountry === option.value}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsStreamingCountryMenuOpen(false);
-                              void handleStreamingCountryChange(option.value);
-                            }}
-                            className={`flex w-full items-center rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300/35 ${
-                              streamingCountry === option.value
-                                ? "bg-slate-500/25 text-slate-100"
-                                : "text-zinc-100 hover:bg-slate-600/25"
-                            }`}
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <img
-                                src={option.flagSrc}
-                                alt=""
-                                aria-hidden="true"
-                                className="h-3.5 w-5 rounded-[2px] object-cover"
-                              />
-                              <span>{option.value}</span>
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="absolute right-0 top-10 z-40 w-64 overflow-hidden rounded-xl border border-white/20 bg-zinc-900/98 p-1 shadow-[0_14px_26px_rgba(0,0,0,0.5)]">
+                      <input
+                        type="text"
+                        value={streamingCountrySearch}
+                        onChange={(event) => setStreamingCountrySearch(event.target.value)}
+                        placeholder="Buscar país"
+                        className="mb-1 h-8 w-full rounded-lg border border-white/10 bg-zinc-950/80 px-2 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-slate-300/45 focus:outline-none"
+                        aria-label="Buscar país de streaming"
+                      />
+                      <ul role="listbox" aria-label="País de streaming" className="streaming-country-scrollbar max-h-64 overflow-y-auto pr-1">
+                        {filteredStreamingCountryOptions.length > 0 ? (
+                          filteredStreamingCountryOptions.map((option) => (
+                            <li key={option.value} role="option" aria-selected={streamingCountry === option.value}>
+                              <button
+                                type="button"
+                                title={option.name}
+                                onClick={() => {
+                                  setIsStreamingCountryMenuOpen(false);
+                                  void handleStreamingCountryChange(option.value);
+                                }}
+                                className={`flex w-full items-center rounded-lg px-2 py-1.5 text-left text-xs font-semibold transition focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300/35 ${
+                                  streamingCountry === option.value
+                                    ? "bg-slate-500/25 text-slate-100"
+                                    : "text-zinc-100 hover:bg-slate-600/25"
+                                }`}
+                              >
+                                <span className="flex min-w-0 items-center gap-1.5">
+                                  <img
+                                    src={option.flagSrc}
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover"
+                                  />
+                                  <span className="shrink-0">{option.value}</span>
+                                  <span className="truncate text-[11px] font-medium text-zinc-300">{option.name}</span>
+                                </span>
+                              </button>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="px-2 py-2 text-xs text-zinc-400">Sin resultados</li>
+                        )}
+                      </ul>
+                    </div>
                   ) : null}
                   {streamingCountryError ? <p className="text-[10px] text-red-300">{streamingCountryError}</p> : null}
                 </div>

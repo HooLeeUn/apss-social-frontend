@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Chile</title>
+  <desc id="desc">Franja blanca y roja con cantón azul y estrella.</desc>
+  <rect width="60" height="20" fill="#FFF"/><rect y="20" width="60" height="20" fill="#D52B1E"/><rect width="20" height="20" fill="#0039A6"/><polygon points="10,5 11.5,8.5 15.2,8.5 12.2,10.8 13.3,14.5 10,12.3 6.7,14.5 7.8,10.8 4.8,8.5 8.5,8.5" fill="#FFF"/>
+</svg>

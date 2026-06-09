@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Uruguay</title>
+  <desc id="desc">Franjas blancas y azules con sol en cantón.</desc>
+  <rect width="60" height="40" fill="#FFF"/><g fill="#0038A8"><rect y="4.44" width="60" height="4.44"/><rect y="13.33" width="60" height="4.44"/><rect y="22.22" width="60" height="4.44"/><rect y="31.11" width="60" height="4.44"/></g><rect width="22" height="22" fill="#FFF"/><circle cx="11" cy="11" r="4" fill="#FCD116"/>
+</svg>

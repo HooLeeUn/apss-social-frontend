@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Canadá</title>
+  <desc id="desc">Franjas rojas laterales y campo blanco.</desc>
+  <rect width="15" height="40" fill="#D52B1E"/><rect x="15" width="30" height="40" fill="#FFF"/><rect x="45" width="15" height="40" fill="#D52B1E"/><polygon points="30,9 32,16 38,14 35,20 40,24 33,24 34,31 30,27 26,31 27,24 20,24 25,20 22,14 28,16" fill="#D52B1E"/>
+</svg>

@@ -1,5 +1,28 @@
 export type Locale = "es" | "en";
-export type Country = "CO" | "US";
+export type Country =
+  | "CO"
+  | "MX"
+  | "AR"
+  | "CL"
+  | "PE"
+  | "EC"
+  | "VE"
+  | "BO"
+  | "PY"
+  | "UY"
+  | "CR"
+  | "PA"
+  | "GT"
+  | "HN"
+  | "SV"
+  | "NI"
+  | "DO"
+  | "PR"
+  | "ES"
+  | "US"
+  | "CA"
+  | "UK"
+  | "BZ";
 
 const STORAGE_KEY = "app_locale_country";
 const USER_STORAGE_KEY_PREFIX = "app_locale_country:";
@@ -458,7 +481,61 @@ const translations = {
 
 type TranslationKey = keyof typeof translations.es;
 
-export function countryToLocale(country: Country): Locale { return country === "US" ? "en" : "es"; }
+const COUNTRY_LANGUAGE_MAP: Record<Country, Locale> = {
+  CO: "es",
+  MX: "es",
+  AR: "es",
+  CL: "es",
+  PE: "es",
+  EC: "es",
+  VE: "es",
+  BO: "es",
+  PY: "es",
+  UY: "es",
+  CR: "es",
+  PA: "es",
+  GT: "es",
+  HN: "es",
+  SV: "es",
+  NI: "es",
+  DO: "es",
+  PR: "es",
+  ES: "es",
+  US: "en",
+  CA: "en",
+  UK: "en",
+  BZ: "en",
+};
+
+const SUPPORTED_COUNTRIES = new Set<Country>(Object.keys(COUNTRY_LANGUAGE_MAP) as Country[]);
+
+export interface LocaleSelection {
+  country: Country;
+  language: Locale;
+}
+
+function isSupportedCountry(value: unknown): value is Country {
+  return typeof value === "string" && SUPPORTED_COUNTRIES.has(value.toUpperCase() as Country);
+}
+
+function normalizeCountry(value: unknown): Country {
+  return isSupportedCountry(value) ? (value.toUpperCase() as Country) : "CO";
+}
+
+function parseStoredLocaleSelection(value: string | null): LocaleSelection {
+  if (!value) return { country: "CO", language: "es" };
+
+  try {
+    const parsed = JSON.parse(value) as Partial<LocaleSelection> | null;
+    const country = normalizeCountry(parsed?.country);
+    return { country, language: countryToLocale(country) };
+  } catch {
+    const country = normalizeCountry(value);
+    return { country, language: countryToLocale(country) };
+  }
+}
+
+export function countryToLocale(country: Country): Locale { return COUNTRY_LANGUAGE_MAP[country] ?? "es"; }
 export function localeToCountry(locale: Locale): Country { return locale === "en" ? "US" : "CO"; }
 
 function normalizeUsername(username?: string | null): string | null {
@@ -497,7 +574,7 @@ export function setActiveLocaleScope(scope?: LocaleUserScope | null): Country {
     window.localStorage.setItem(ACTIVE_SCOPE_STORAGE_KEY, scopeKey);
   }
   const country = getStoredCountry(scope);
-  window.dispatchEvent(new CustomEvent(localeEventName, { detail: { country, locale: countryToLocale(country), scopeKey } }));
+  window.dispatchEvent(new CustomEvent(localeEventName, { detail: { country, language: countryToLocale(country), locale: countryToLocale(country), scopeKey } }));
   return country;
 }
 
@@ -507,19 +584,24 @@ export function getStoredCountry(scope?: LocaleUserScope | null): Country {
   const value = scopeKey
     ? window.localStorage.getItem(buildScopedStorageKey(scopeKey)) ?? window.localStorage.getItem(STORAGE_KEY)
     : window.localStorage.getItem(STORAGE_KEY);
-  return value === "US" ? "US" : "CO";
+  return parseStoredLocaleSelection(value).country;
+}
+
+export function getStoredLocaleSelection(scope?: LocaleUserScope | null): LocaleSelection {
+  const country = getStoredCountry(scope);
+  return { country, language: countryToLocale(country) };
 }
 
 export function setStoredCountry(country: Country, scope?: LocaleUserScope | null) {
   if (typeof window === "undefined") return;
   const scopeKey = resolveLocaleScope(scope);
   if (scopeKey) {
-    window.localStorage.setItem(buildScopedStorageKey(scopeKey), country);
+    window.localStorage.setItem(buildScopedStorageKey(scopeKey), JSON.stringify({ country, language: countryToLocale(country) }));
     window.localStorage.setItem(ACTIVE_SCOPE_STORAGE_KEY, scopeKey);
   } else {
-    window.localStorage.setItem(STORAGE_KEY, country);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ country, language: countryToLocale(country) }));
   }
-  window.dispatchEvent(new CustomEvent(localeEventName, { detail: { country, locale: countryToLocale(country), scopeKey } }));
+  window.dispatchEvent(new CustomEvent(localeEventName, { detail: { country, language: countryToLocale(country), locale: countryToLocale(country), scopeKey } }));
 }
 
 export function t(locale: Locale, key: TranslationKey): string {

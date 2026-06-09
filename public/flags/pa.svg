@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Panamá</title>
+  <desc id="desc">Cuarteles blanco, rojo y azul con estrellas.</desc>
+  <rect width="30" height="20" fill="#FFF"/><rect x="30" width="30" height="20" fill="#D21034"/><rect y="20" width="30" height="20" fill="#005293"/><rect x="30" y="20" width="30" height="20" fill="#FFF"/><polygon points="15,6 16.2,9 19.4,9 16.8,11 17.8,14 15,12.2 12.2,14 13.2,11 10.6,9 13.8,9" fill="#005293"/><polygon points="45,26 46.2,29 49.4,29 46.8,31 47.8,34 45,32.2 42.2,34 43.2,31 40.6,29 43.8,29" fill="#D21034"/>
+</svg>
