@@ -180,7 +180,7 @@ function MovieCard({
           className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${
             showExtendedMetadata
               ? extendedMetadataMiddleSlot
-                ? "md:grid md:grid-cols-[minmax(0,0.86fr)_auto_minmax(0,1fr)] md:items-start md:gap-4 lg:gap-5 md:space-y-0"
+                ? "md:grid md:grid-cols-[minmax(0,0.72fr)_minmax(132px,auto)_minmax(0,1.2fr)] md:items-start md:gap-x-3 md:gap-y-2 lg:gap-x-7 md:space-y-0"
                 : "md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] md:gap-6 md:space-y-0"
               : ""
           }`}
