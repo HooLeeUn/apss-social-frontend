@@ -6,7 +6,7 @@ import { getStoredCountry, localeEventName } from "../lib/i18n";
 import type { Country } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
 
-const MAX_VISIBLE_PROVIDERS = 5;
+const MAX_INLINE_PROVIDERS = 8;
 const TMDB_LOGO_BASE_URL = "https://image.tmdb.org/t/p/w92";
 
 type ProviderBucket = "flatrate" | "rent" | "buy";
@@ -150,8 +150,10 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
     };
   }, [country, movieId]);
 
-  const visibleProviders = useMemo(() => providers.slice(0, MAX_VISIBLE_PROVIDERS), [providers]);
-  const hiddenProvidersCount = Math.max(0, providers.length - visibleProviders.length);
+  const visibleProviders = useMemo(() => providers.slice(0, MAX_INLINE_PROVIDERS), [providers]);
+  const hiddenProviders = useMemo(() => providers.slice(MAX_INLINE_PROVIDERS), [providers]);
+  const hiddenProvidersCount = hiddenProviders.length;
+  const logoSizeClassName = providers.length > 5 ? "h-8 w-8" : "h-9 w-9";
 
   return (
     <aside className="min-w-0 md:min-w-[150px] md:max-w-[220px]">
@@ -172,7 +174,8 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
             ) : (
               <span className="text-[10px] font-semibold text-zinc-300">{provider.name.slice(0, 2).toUpperCase()}</span>
             );
-            const logoClassName = `flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full transition ${
+            const tooltip = `Disponible en ${provider.name}`;
+            const logoClassName = `flex ${logoSizeClassName} flex-shrink-0 items-center justify-center overflow-hidden rounded-full transition ${
               provider.isClickable
                 ? "hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 : "cursor-default opacity-70"
@@ -184,27 +187,76 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
                 href={provider.monetizedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title={provider.name}
+                title={tooltip}
                 aria-label={`Ver ${provider.name}`}
                 className={logoClassName}
               >
                 {logo}
               </a>
             ) : (
-              <span
-                key={provider.id}
-                title="Disponible, enlace directo no configurado"
-                aria-label={provider.name}
-                className={logoClassName}
-              >
+              <span key={provider.id} title={tooltip} aria-label={tooltip} className={logoClassName}>
                 {logo}
               </span>
             );
           })}
           {hiddenProvidersCount > 0 ? (
-            <span title={`${hiddenProvidersCount} plataformas más`} className="text-xs font-semibold text-zinc-400">
-              +{hiddenProvidersCount}
-            </span>
+            <div className="group relative inline-flex">
+              <button
+                type="button"
+                title={`${hiddenProvidersCount} plataformas más`}
+                aria-label={`Ver ${hiddenProvidersCount} plataformas más`}
+                className="rounded-full px-1 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              >
+                +{hiddenProvidersCount}
+              </button>
+              <div className="pointer-events-none absolute left-1/2 top-full z-20 w-52 -translate-x-1/2 rounded-xl bg-zinc-950/95 p-3 opacity-0 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                <div className="grid max-h-56 gap-2 overflow-y-auto pr-1">
+                  {hiddenProviders.map((provider) => {
+                    const tooltip = `Disponible en ${provider.name}`;
+                    const content = (
+                      <>
+                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-900">
+                          {provider.logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={provider.logoUrl}
+                              alt={provider.name}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <span className="text-[9px] font-semibold text-zinc-300">
+                              {provider.name.slice(0, 2).toUpperCase()}
+                            </span>
+                          )}
+                        </span>
+                        <span className="min-w-0 truncate">{provider.name}</span>
+                      </>
+                    );
+                    const itemClassName = "flex items-center gap-2 rounded-lg p-1 text-xs text-zinc-200 transition";
+
+                    return provider.isClickable && provider.monetizedUrl ? (
+                      <a
+                        key={provider.id}
+                        href={provider.monetizedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={tooltip}
+                        aria-label={`Ver ${provider.name}`}
+                        className={`${itemClassName} hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80`}
+                      >
+                        {content}
+                      </a>
+                    ) : (
+                      <div key={provider.id} className={`${itemClassName} cursor-default opacity-80`} title={tooltip} aria-label={tooltip}>
+                        {content}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           ) : null}
         </div>
       ) : null}
