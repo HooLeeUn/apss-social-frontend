@@ -3,6 +3,7 @@ export type ReactionType = "like" | "dislike" | null;
 export interface Friend {
   id: number | string;
   username: string;
+  displayName: string | null;
   avatarUrl: string | null;
 }
 
@@ -77,6 +78,12 @@ function normalizeUsername(value: unknown): string | null {
   const raw = toStringOrNull(value);
   if (!raw) return null;
   return raw.replace(/^@+/, "");
+}
+
+function buildFullName(firstName: unknown, lastName: unknown): string | null {
+  const normalizedFirstName = toStringOrNull(firstName);
+  const normalizedLastName = toStringOrNull(lastName);
+  return toStringOrNull([normalizedFirstName, normalizedLastName].filter(Boolean).join(" "));
 }
 
 export function getUserIdentity(value: unknown): UserIdentity {
@@ -245,9 +252,30 @@ export function parseFriends(payload: unknown): Friend[] {
             friendship.userName,
           ),
         ) || `amigo-${index + 1}`;
+      const displayName =
+        buildFullName(
+          pickFirst(friend.first_name, friend.firstName, friendship.first_name, friendship.firstName),
+          pickFirst(friend.last_name, friend.lastName, friendship.last_name, friendship.lastName),
+        ) ||
+        toStringOrNull(
+          pickFirst(
+            friend.display_name,
+            friend.displayName,
+            friend.full_name,
+            friend.fullName,
+            friend.name,
+            friendship.display_name,
+            friendship.displayName,
+            friendship.full_name,
+            friendship.fullName,
+            friendship.name,
+          ),
+        );
+
       return {
         id: pickFirst(friend.id, friend.user_id, friendship.id, username) as number | string,
         username,
+        displayName,
         avatarUrl: toStringOrNull(pickFirst(friend.avatar, friend.avatar_url, friend.profile_image, friend.photo_url)),
       };
     })

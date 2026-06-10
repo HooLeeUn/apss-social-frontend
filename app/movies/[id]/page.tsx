@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AppLogo from "../../../components/AppLogo";
 import CommentComposer from "../../../components/social/CommentComposer";
@@ -34,6 +34,8 @@ import { useAppBranding } from "../../../hooks/useAppBranding";
 import { useI18n } from "../../../hooks/useI18n";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
 import { getProfilePrivacySettings } from "../../../lib/privacy";
+import { getTopFollowing } from "../../../lib/profile-feed/adapters";
+import { SocialUser } from "../../../lib/profile-feed/types";
 import { t as translate } from "../../../lib/i18n";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
@@ -618,6 +620,189 @@ function removeCommentFromCollection(collection: SocialComment[], commentId: num
   return collection.filter((comment) => String(comment.id) !== String(commentId));
 }
 
+
+interface CommentFilterUser {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+function buildCommentFilterDisplayName(firstName: string | null | undefined, lastName: string | null | undefined, displayName?: string | null): string | null {
+  const fullName = [firstName, lastName]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return fullName || displayName?.trim() || null;
+}
+
+function getCommentFilterUserKey(user: CommentFilterUser): string {
+  return normalizeUsername(user.username)?.toLowerCase() || `id:${user.id}`;
+}
+
+function getCommentFilterUserLabel(user: CommentFilterUser): string {
+  return user.displayName || user.username || "Usuario";
+}
+
+function getCommentFilterUserDropdownLabel(user: CommentFilterUser): string {
+  return user.displayName || (user.username ? `@${user.username}` : "Usuario");
+}
+
+function doesPublicCommentBelongToUser(comment: SocialComment, user: CommentFilterUser): boolean {
+  const userId = normalizeId(user.id);
+  const userUsername = normalizeUsername(user.username)?.toLowerCase();
+  const commentAuthorId = normalizeId(comment.authorId);
+  const commentAuthorUsername = normalizeUsername(comment.authorUsername)?.toLowerCase();
+
+  return Boolean((userId && commentAuthorId === userId) || (userUsername && commentAuthorUsername === userUsername));
+}
+
+function doesConversationBelongToUser(conversation: DirectedConversation, user: CommentFilterUser): boolean {
+  const userId = normalizeId(user.id);
+  const userUsername = normalizeUsername(user.username)?.toLowerCase();
+  const normalizedCounterpartKey = conversation.counterpartKey.toLowerCase();
+  const conversationUsername = normalizeUsername(conversation.otherUsername)?.toLowerCase();
+
+  return Boolean(
+    (userId && normalizedCounterpartKey === `counterpart:${userId}`) ||
+      (userUsername && (conversationUsername === userUsername || normalizedCounterpartKey === `username:${userUsername}`)),
+  );
+}
+
+function mergeCommentFilterUsers(...groups: CommentFilterUser[][]): CommentFilterUser[] {
+  const usersByKey = new Map<string, CommentFilterUser>();
+
+  groups.flat().forEach((user) => {
+    const key = getCommentFilterUserKey(user);
+    const existing = usersByKey.get(key);
+    if (!existing) {
+      usersByKey.set(key, user);
+      return;
+    }
+
+    usersByKey.set(key, {
+      ...existing,
+      id: existing.id || user.id,
+      displayName: existing.displayName || user.displayName,
+      avatarUrl: existing.avatarUrl || user.avatarUrl,
+    });
+  });
+
+  return [...usersByKey.values()].sort((a, b) => getCommentFilterUserLabel(a).localeCompare(getCommentFilterUserLabel(b)));
+}
+
+interface CommentUserSearchProps {
+  users: CommentFilterUser[];
+  query: string;
+  selectedUser: CommentFilterUser | null;
+  isOpen: boolean;
+  placeholder: string;
+  allLabel: string;
+  hasContentLabel: string;
+  noContentLabel: string;
+  getHasContent: (user: CommentFilterUser) => boolean;
+  onQueryChange: (value: string) => void;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (user: CommentFilterUser | null) => void;
+}
+
+function CommentUserSearch({
+  users,
+  query,
+  selectedUser,
+  isOpen,
+  placeholder,
+  allLabel,
+  hasContentLabel,
+  noContentLabel,
+  getHasContent,
+  onQueryChange,
+  onOpenChange,
+  onSelect,
+}: CommentUserSearchProps) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const shouldShowDropdown = isOpen && normalizedQuery.length > 0;
+  const visibleUsers = users.filter((user) => {
+    const label = getCommentFilterUserLabel(user).toLowerCase();
+    const username = normalizeUsername(user.username)?.toLowerCase() ?? "";
+    return label.includes(normalizedQuery) || username.includes(normalizedQuery);
+  });
+
+  return (
+    <div className="relative w-full sm:w-56">
+      <div className="flex items-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] focus-within:border-[#86ADE0]/70">
+        <input
+          type="text"
+          value={selectedUser ? getCommentFilterUserLabel(selectedUser) : query}
+          onChange={(event) => {
+            const nextQuery = event.target.value;
+            onSelect(null);
+            onQueryChange(nextQuery);
+            onOpenChange(nextQuery.trim().length > 0);
+          }}
+          onBlur={() => onOpenChange(false)}
+          placeholder={placeholder}
+          className="min-w-0 flex-1 bg-transparent text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+        />
+        {selectedUser || query ? (
+          <button
+            type="button"
+            aria-label={allLabel}
+            className="ml-2 text-xs font-semibold text-zinc-500 transition hover:text-zinc-100"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              onSelect(null);
+              onQueryChange("");
+              onOpenChange(false);
+            }}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+
+      {shouldShowDropdown ? (
+        <div
+          className="scrollbar-dark absolute right-0 z-40 mt-2 max-h-64 w-full min-w-[15rem] overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur"
+          onMouseDown={(event) => event.preventDefault()}
+        >
+          {visibleUsers.map((user) => {
+            const hasContent = getHasContent(user);
+            return (
+              <button
+                type="button"
+                key={getCommentFilterUserKey(user)}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white/10"
+                onClick={() => {
+                  onSelect(user);
+                  onQueryChange("");
+                  onOpenChange(false);
+                }}
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 bg-zinc-900 text-[11px] font-semibold text-zinc-200">
+                  {user.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.avatarUrl} alt={getCommentFilterUserLabel(user)} className="h-7 w-7 rounded-full object-cover" />
+                  ) : (
+                    getCommentFilterUserLabel(user).charAt(0).toUpperCase()
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold text-zinc-100">{getCommentFilterUserDropdownLabel(user)}</span>
+                  <span className={`mt-0.5 block w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${hasContent ? "bg-emerald-500/15 text-emerald-200" : "bg-zinc-800 text-zinc-400"}`}>
+                    {hasContent ? hasContentLabel : noContentLabel}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function MovieDetailPage() {
   const router = useRouter();
   const branding = useAppBranding();
@@ -630,6 +815,7 @@ export default function MovieDetailPage() {
   const [movieError, setMovieError] = useState("");
 
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [followingUsers, setFollowingUsers] = useState<SocialUser[]>([]);
   const [authenticatedUsername, setAuthenticatedUsername] = useState("");
   const [friendRequestsRestricted, setFriendRequestsRestricted] = useState<boolean | null>(null);
 
@@ -655,6 +841,12 @@ export default function MovieDetailPage() {
   const [savingEditCommentId, setSavingEditCommentId] = useState<string | null>(null);
   const [deletingCommentIds, setDeletingCommentIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publicSearchQuery, setPublicSearchQuery] = useState("");
+  const [directedSearchQuery, setDirectedSearchQuery] = useState("");
+  const [selectedPublicFilterUser, setSelectedPublicFilterUser] = useState<CommentFilterUser | null>(null);
+  const [selectedDirectedFilterUser, setSelectedDirectedFilterUser] = useState<CommentFilterUser | null>(null);
+  const [isPublicSearchOpen, setIsPublicSearchOpen] = useState(false);
+  const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
 
   const canShowDirectedComments = friendRequestsRestricted === false;
 
@@ -727,6 +919,10 @@ export default function MovieDetailPage() {
       setFriendRequestsRestricted(null);
       setDirectedConversations([]);
       setExpandedConversationKey(null);
+      setSelectedPublicFilterUser(null);
+      setSelectedDirectedFilterUser(null);
+      setPublicSearchQuery("");
+      setDirectedSearchQuery("");
 
       try {
         const normalizedMovie = await fetchMovieDetail();
@@ -749,9 +945,13 @@ export default function MovieDetailPage() {
 
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
 
-      const [friendsResult, meResult, publicResult, privacyResult] = await Promise.all([
+      const [friendsResult, followingResult, meResult, publicResult, privacyResult] = await Promise.all([
         fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
           ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
+          (error) => ({ ok: false as const, error }),
+        ),
+        getTopFollowing().then(
+          (payload) => ({ ok: true as const, payload }),
           (error) => ({ ok: false as const, error }),
         ),
         apiFetch("/me/").then(
@@ -781,6 +981,10 @@ export default function MovieDetailPage() {
         router.replace("/login");
         return;
       }
+      if (!followingResult.ok && followingResult.error instanceof ApiError && followingResult.error.status === 401) {
+        router.replace("/login");
+        return;
+      }
       if (!meResult.ok && meResult.error instanceof ApiError && meResult.error.status === 401) {
         router.replace("/login");
         return;
@@ -805,6 +1009,11 @@ export default function MovieDetailPage() {
         const normalizedFriends = parseFriends(friendsResult.payload);
         console.log("[mentions-debug] Normalized friends list:", normalizedFriends);
         setFriends(normalizedFriends);
+      }
+      if (followingResult.ok) {
+        setFollowingUsers(followingResult.payload);
+      } else {
+        setFollowingUsers([]);
       }
       if (meResult.ok) {
         const meUsername = getCurrentUsernameFromPayload(meResult.payload);
@@ -1310,6 +1519,50 @@ export default function MovieDetailPage() {
     [editingCommentId, isMyComment, router],
   );
 
+  const friendFilterUsers = useMemo<CommentFilterUser[]>(
+    () =>
+      friends.map((friend) => ({
+        id: String(friend.id),
+        username: friend.username,
+        displayName: friend.displayName,
+        avatarUrl: friend.avatarUrl,
+      })),
+    [friends],
+  );
+
+  const followingFilterUsers = useMemo<CommentFilterUser[]>(
+    () =>
+      followingUsers.map((user) => ({
+        id: user.id,
+        username: user.username,
+        displayName: buildCommentFilterDisplayName(user.firstName, user.lastName, user.displayName),
+        avatarUrl: user.avatarUrl,
+      })),
+    [followingUsers],
+  );
+
+  const publicFilterUsers = useMemo(
+    () => mergeCommentFilterUsers(friendFilterUsers, followingFilterUsers),
+    [friendFilterUsers, followingFilterUsers],
+  );
+
+  const filteredPublicComments = useMemo(
+    () =>
+      selectedPublicFilterUser
+        ? publicComments.filter((comment) => doesPublicCommentBelongToUser(comment, selectedPublicFilterUser))
+        : publicComments,
+    [publicComments, selectedPublicFilterUser],
+  );
+
+  const filteredDirectedConversations = useMemo(
+    () =>
+      selectedDirectedFilterUser
+        ? directedConversations.filter((conversation) => doesConversationBelongToUser(conversation, selectedDirectedFilterUser))
+        : directedConversations,
+    [directedConversations, selectedDirectedFilterUser],
+  );
+
+
   const composerFriends = canShowDirectedComments ? friends : [];
 
   return (
@@ -1354,9 +1607,25 @@ export default function MovieDetailPage() {
 
         <div className={`grid grid-cols-1 gap-4 ${canShowDirectedComments ? "lg:grid-cols-2" : ""}`}>
           <section className="space-y-3">
-            <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2>
+              <CommentUserSearch
+                users={publicFilterUsers}
+                query={publicSearchQuery}
+                selectedUser={selectedPublicFilterUser}
+                isOpen={isPublicSearchOpen}
+                placeholder={t("movieDetailSearchUser")}
+                allLabel={t("movieDetailAll")}
+                hasContentLabel={t("movieDetailHasComments")}
+                noContentLabel={t("movieDetailNoComments")}
+                getHasContent={(user) => publicComments.some((comment) => doesPublicCommentBelongToUser(comment, user))}
+                onQueryChange={setPublicSearchQuery}
+                onOpenChange={setIsPublicSearchOpen}
+                onSelect={setSelectedPublicFilterUser}
+              />
+            </div>
             <CommentsList
-              comments={publicComments}
+              comments={filteredPublicComments}
               loading={loadingPublic}
               error={publicError}
               emptyMessage={t("movieDetailNoPublicComments")}
@@ -1382,20 +1651,36 @@ export default function MovieDetailPage() {
 
           {canShowDirectedComments ? (
             <section className="space-y-3">
-              <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2>
+                <CommentUserSearch
+                  users={friendFilterUsers}
+                  query={directedSearchQuery}
+                  selectedUser={selectedDirectedFilterUser}
+                  isOpen={isDirectedSearchOpen}
+                  placeholder={t("movieDetailSearchUser")}
+                  allLabel={t("movieDetailAll")}
+                  hasContentLabel={t("movieDetailHasConversation")}
+                  noContentLabel={t("movieDetailNoComments")}
+                  getHasContent={(user) => directedConversations.some((conversation) => doesConversationBelongToUser(conversation, user))}
+                  onQueryChange={setDirectedSearchQuery}
+                  onOpenChange={setIsDirectedSearchOpen}
+                  onSelect={setSelectedDirectedFilterUser}
+                />
+              </div>
               {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">{t("movieDetailLoadingComments")}</div> : null}
               {!loadingDirected && directedError ? (
                 <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
               ) : null}
-              {!loadingDirected && !directedError && directedConversations.length === 0 ? (
+              {!loadingDirected && !directedError && filteredDirectedConversations.length === 0 ? (
                 <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
-                  {t("movieDetailNoDirectedComments")}
+                  {selectedDirectedFilterUser ? t("movieDetailNoDirectedCommentsWithUser") : t("movieDetailNoDirectedComments")}
                 </div>
               ) : null}
               {!loadingDirected && !directedError ? (
                 <div className="scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/45 p-3">
                   <div className="space-y-3">
-                    {directedConversations.map((conversation) => {
+                    {filteredDirectedConversations.map((conversation) => {
                       const isExpanded = expandedConversationKey === conversation.key;
                       return (
                         <article
