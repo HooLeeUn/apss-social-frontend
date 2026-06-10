@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { memo, useState } from "react";
+import type { ReactNode } from "react";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
@@ -25,6 +26,7 @@ interface MovieCardProps {
   isInMyRecommendationsOverride?: boolean;
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   stretchPosterColumn?: boolean;
+  extendedMetadataMiddleSlot?: ReactNode;
 }
 
 function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
@@ -51,6 +53,7 @@ function MovieCard({
   isInMyRecommendationsOverride,
   onToggleMyRecommendations,
   stretchPosterColumn = false,
+  extendedMetadataMiddleSlot,
 }: MovieCardProps) {
   const { locale, t } = useI18n();
   const isLarge = variant === "large";
@@ -173,7 +176,15 @@ function MovieCard({
       </div>
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
-        <div className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${showExtendedMetadata ? "md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] md:gap-6 md:space-y-0" : ""}`}>
+        <div
+          className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${
+            showExtendedMetadata
+              ? extendedMetadataMiddleSlot
+                ? "md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,0.9fr)] md:items-start md:gap-5 md:space-y-0"
+                : "md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] md:gap-6 md:space-y-0"
+              : ""
+          }`}
+        >
           <div className="min-w-0 space-y-1.5">
             <div className="min-w-0">
               <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
@@ -204,6 +215,9 @@ function MovieCard({
             <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || t("movieDetailUnknown")}</p>
             <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
           </div>
+          {showExtendedMetadata && extendedMetadataMiddleSlot ? (
+            <div className="min-w-0 md:pt-0.5">{extendedMetadataMiddleSlot}</div>
+          ) : null}
           {showExtendedMetadata && (hasDirector || hasCast) ? (
             <div className="space-y-1.5 md:pt-0.5">
               {hasDirector ? (
