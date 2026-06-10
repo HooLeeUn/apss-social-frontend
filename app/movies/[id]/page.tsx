@@ -7,6 +7,7 @@ import AppLogo from "../../../components/AppLogo";
 import CommentComposer from "../../../components/social/CommentComposer";
 import CommentsList from "../../../components/social/CommentsList";
 import MovieCard from "../../../components/MovieCard";
+import StreamingProviders from "../../../components/StreamingProviders";
 import { apiFetch, ApiError, API_BASE_URL } from "../../../lib/api";
 import { getToken } from "../../../lib/auth";
 import {
@@ -1597,6 +1598,7 @@ export default function MovieDetailPage() {
             showExtendedMetadata
             highlightMyRatingSlot
             enlargeInteractionIcons
+            extendedMetadataMiddleSlot={<StreamingProviders movieId={movie.id} />}
             onRated={handleMovieRated}
           />
         ) : null}
