@@ -628,12 +628,25 @@ interface CommentFilterUser {
   avatarUrl: string | null;
 }
 
+function buildCommentFilterDisplayName(firstName: string | null | undefined, lastName: string | null | undefined, displayName?: string | null): string | null {
+  const fullName = [firstName, lastName]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return fullName || displayName?.trim() || null;
+}
+
 function getCommentFilterUserKey(user: CommentFilterUser): string {
   return normalizeUsername(user.username)?.toLowerCase() || `id:${user.id}`;
 }
 
 function getCommentFilterUserLabel(user: CommentFilterUser): string {
   return user.displayName || user.username || "Usuario";
+}
+
+function getCommentFilterUserDropdownLabel(user: CommentFilterUser): string {
+  return user.displayName || (user.username ? `@${user.username}` : "Usuario");
 }
 
 function doesPublicCommentBelongToUser(comment: SocialComment, user: CommentFilterUser): boolean {
@@ -709,8 +722,8 @@ function CommentUserSearch({
   onSelect,
 }: CommentUserSearchProps) {
   const normalizedQuery = query.trim().toLowerCase();
+  const shouldShowDropdown = isOpen && normalizedQuery.length > 0;
   const visibleUsers = users.filter((user) => {
-    if (!normalizedQuery) return true;
     const label = getCommentFilterUserLabel(user).toLowerCase();
     const username = normalizeUsername(user.username)?.toLowerCase() ?? "";
     return label.includes(normalizedQuery) || username.includes(normalizedQuery);
@@ -723,11 +736,11 @@ function CommentUserSearch({
           type="text"
           value={selectedUser ? getCommentFilterUserLabel(selectedUser) : query}
           onChange={(event) => {
+            const nextQuery = event.target.value;
             onSelect(null);
-            onQueryChange(event.target.value);
-            onOpenChange(true);
+            onQueryChange(nextQuery);
+            onOpenChange(nextQuery.trim().length > 0);
           }}
-          onFocus={() => onOpenChange(true)}
           onBlur={() => onOpenChange(false)}
           placeholder={placeholder}
           className="min-w-0 flex-1 bg-transparent text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
@@ -749,22 +762,11 @@ function CommentUserSearch({
         ) : null}
       </div>
 
-      {isOpen ? (
+      {shouldShowDropdown ? (
         <div
           className="scrollbar-dark absolute right-0 z-40 mt-2 max-h-64 w-full min-w-[15rem] overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur"
           onMouseDown={(event) => event.preventDefault()}
         >
-          <button
-            type="button"
-            className="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#86ADE0] transition hover:bg-white/10"
-            onClick={() => {
-              onSelect(null);
-              onQueryChange("");
-              onOpenChange(false);
-            }}
-          >
-            {allLabel}
-          </button>
           {visibleUsers.map((user) => {
             const hasContent = getHasContent(user);
             return (
@@ -787,11 +789,10 @@ function CommentUserSearch({
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-semibold text-zinc-100">{getCommentFilterUserLabel(user)}</span>
-                  <span className="block truncate text-[11px] text-zinc-500">@{user.username}</span>
-                </span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${hasContent ? "bg-emerald-500/15 text-emerald-200" : "bg-zinc-800 text-zinc-400"}`}>
-                  {hasContent ? hasContentLabel : noContentLabel}
+                  <span className="block truncate text-xs font-semibold text-zinc-100">{getCommentFilterUserDropdownLabel(user)}</span>
+                  <span className={`mt-0.5 block w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${hasContent ? "bg-emerald-500/15 text-emerald-200" : "bg-zinc-800 text-zinc-400"}`}>
+                    {hasContent ? hasContentLabel : noContentLabel}
+                  </span>
                 </span>
               </button>
             );
@@ -1523,7 +1524,7 @@ export default function MovieDetailPage() {
       friends.map((friend) => ({
         id: String(friend.id),
         username: friend.username,
-        displayName: null,
+        displayName: friend.displayName,
         avatarUrl: friend.avatarUrl,
       })),
     [friends],
@@ -1534,7 +1535,7 @@ export default function MovieDetailPage() {
       followingUsers.map((user) => ({
         id: user.id,
         username: user.username,
-        displayName: user.displayName,
+        displayName: buildCommentFilterDisplayName(user.firstName, user.lastName, user.displayName),
         avatarUrl: user.avatarUrl,
       })),
     [followingUsers],
