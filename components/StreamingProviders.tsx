@@ -15,7 +15,8 @@ interface StreamingProvider {
   id: string;
   name: string;
   logoUrl: string | null;
-  watchUrl: string;
+  monetizedUrl: string | null;
+  isClickable: boolean;
 }
 
 interface StreamingProvidersProps {
@@ -67,24 +68,18 @@ function normalizeProvider(rawProvider: unknown, index: number, bucket: Provider
   if (!provider) return null;
 
   const name = pickString(provider.provider_name, provider.providerName, provider.name, provider.title);
-  const watchUrl = pickString(
-    provider.monetized_url,
-    provider.monetizedUrl,
-    provider.direct_url,
-    provider.directUrl,
-    provider.fallback_url,
-    provider.fallbackUrl,
-    provider.link,
-  );
-  if (!name || !watchUrl) return null;
+  if (!name) return null;
 
+  const monetizedUrl = pickString(provider.monetized_url, provider.monetizedUrl);
+  const isClickable = provider.is_clickable === true || provider.isClickable === true;
   const id = pickString(provider.provider_id, provider.providerId, provider.id) ?? `${bucket}:${name}:${index}`;
 
   return {
     id,
     name,
     logoUrl: resolveLogoUrl(provider),
-    watchUrl,
+    monetizedUrl,
+    isClickable: isClickable && Boolean(monetizedUrl),
   };
 }
 
@@ -101,13 +96,13 @@ function parseStreamingProviders(payload: unknown, country: Country): StreamingP
     .map((provider, index) => normalizeProvider(provider, index, bucket))
     .filter((provider): provider is StreamingProvider => Boolean(provider));
 
-  const dedupedByUrl = new Map<string, StreamingProvider>();
+  const dedupedByProvider = new Map<string, StreamingProvider>();
   providers.forEach((provider) => {
-    const key = `${provider.id}:${provider.watchUrl}`;
-    if (!dedupedByUrl.has(key)) dedupedByUrl.set(key, provider);
+    const key = String(provider.id);
+    if (!dedupedByProvider.has(key)) dedupedByProvider.set(key, provider);
   });
 
-  return [...dedupedByUrl.values()];
+  return [...dedupedByProvider.values()];
 }
 
 function buildWatchProvidersEndpoint(movieId: Movie["id"], country: Country): string {
@@ -170,29 +165,44 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
 
       {!loading && !error && providers.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
-          {visibleProviders.map((provider) => (
-            <a
-              key={`${provider.id}-${provider.watchUrl}`}
-              href={provider.watchUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={provider.name}
-              aria-label={`Ver ${provider.name}`}
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-zinc-900 text-[10px] font-semibold text-zinc-200 shadow-sm transition hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:shadow-[0_0_14px_rgba(134,173,224,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-              {provider.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={provider.logoUrl} alt={provider.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-              ) : (
-                provider.name.slice(0, 2).toUpperCase()
-              )}
-            </a>
-          ))}
+          {visibleProviders.map((provider) => {
+            const logo = provider.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={provider.logoUrl} alt={provider.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+            ) : (
+              <span className="text-[10px] font-semibold text-zinc-300">{provider.name.slice(0, 2).toUpperCase()}</span>
+            );
+            const logoClassName = `flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full transition ${
+              provider.isClickable
+                ? "hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                : "cursor-default opacity-70"
+            }`;
+
+            return provider.isClickable && provider.monetizedUrl ? (
+              <a
+                key={provider.id}
+                href={provider.monetizedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={provider.name}
+                aria-label={`Ver ${provider.name}`}
+                className={logoClassName}
+              >
+                {logo}
+              </a>
+            ) : (
+              <span
+                key={provider.id}
+                title="Disponible, enlace directo no configurado"
+                aria-label={provider.name}
+                className={logoClassName}
+              >
+                {logo}
+              </span>
+            );
+          })}
           {hiddenProvidersCount > 0 ? (
-            <span
-              title={`${hiddenProvidersCount} plataformas más`}
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300"
-            >
+            <span title={`${hiddenProvidersCount} plataformas más`} className="text-xs font-semibold text-zinc-400">
               +{hiddenProvidersCount}
             </span>
           ) : null}
