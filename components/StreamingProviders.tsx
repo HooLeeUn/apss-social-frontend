@@ -15,7 +15,7 @@ interface StreamingProvider {
   id: string;
   name: string;
   logoUrl: string | null;
-  monetizedUrl: string;
+  watchUrl: string;
 }
 
 interface StreamingProvidersProps {
@@ -67,8 +67,16 @@ function normalizeProvider(rawProvider: unknown, index: number, bucket: Provider
   if (!provider) return null;
 
   const name = pickString(provider.provider_name, provider.providerName, provider.name, provider.title);
-  const monetizedUrl = pickString(provider.monetized_url, provider.monetizedUrl, provider.url, provider.link, provider.watch_url, provider.watchUrl);
-  if (!name || !monetizedUrl) return null;
+  const watchUrl = pickString(
+    provider.monetized_url,
+    provider.monetizedUrl,
+    provider.direct_url,
+    provider.directUrl,
+    provider.fallback_url,
+    provider.fallbackUrl,
+    provider.link,
+  );
+  if (!name || !watchUrl) return null;
 
   const id = pickString(provider.provider_id, provider.providerId, provider.id) ?? `${bucket}:${name}:${index}`;
 
@@ -76,7 +84,7 @@ function normalizeProvider(rawProvider: unknown, index: number, bucket: Provider
     id,
     name,
     logoUrl: resolveLogoUrl(provider),
-    monetizedUrl,
+    watchUrl,
   };
 }
 
@@ -95,7 +103,7 @@ function parseStreamingProviders(payload: unknown, country: Country): StreamingP
 
   const dedupedByUrl = new Map<string, StreamingProvider>();
   providers.forEach((provider) => {
-    const key = `${provider.id}:${provider.monetizedUrl}`;
+    const key = `${provider.id}:${provider.watchUrl}`;
     if (!dedupedByUrl.has(key)) dedupedByUrl.set(key, provider);
   });
 
@@ -151,7 +159,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
   const hiddenProvidersCount = Math.max(0, providers.length - visibleProviders.length);
 
   return (
-    <aside className="min-w-0 rounded-xl border border-white/10 bg-black/35 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:min-w-[150px] md:max-w-[220px]">
+    <aside className="min-w-0 md:min-w-[150px] md:max-w-[220px]">
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">Disponible en</p>
 
       {loading ? <p className="text-xs text-zinc-500">Cargando...</p> : null}
@@ -161,11 +169,11 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
       ) : null}
 
       {!loading && !error && providers.length > 0 ? (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {visibleProviders.map((provider) => (
             <a
-              key={`${provider.id}-${provider.monetizedUrl}`}
-              href={provider.monetizedUrl}
+              key={`${provider.id}-${provider.watchUrl}`}
+              href={provider.watchUrl}
               target="_blank"
               rel="noopener noreferrer"
               title={provider.name}
