@@ -118,12 +118,12 @@ function MovieCard({
 
   const cardContent = (
     <article
-      className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
+      className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
       } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}
     >
       <div
-        className={`group relative flex-shrink-0 ${
+        className={`group relative flex-shrink-0 overflow-hidden ${
           isFeed
             ? `${stretchPosterColumn ? "h-auto self-stretch" : "h-[164px] sm:h-[172px]"} w-[108px] bg-zinc-900 sm:w-[114px]`
             : "bg-gray-200"
@@ -216,7 +216,7 @@ function MovieCard({
             <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
           </div>
           {showExtendedMetadata && extendedMetadataMiddleSlot ? (
-            <div className="min-w-0 md:pt-0.5">{extendedMetadataMiddleSlot}</div>
+            <div className="relative z-30 min-w-0 overflow-visible md:pt-0.5">{extendedMetadataMiddleSlot}</div>
           ) : null}
           {showExtendedMetadata && (hasDirector || hasCast) ? (
             <div className="space-y-1.5 md:pt-0.5">

@@ -204,7 +204,7 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
   const labels = getStreamingLabels(locale);
 
   return (
-    <div className="group relative inline-flex">
+    <div className="group relative z-50 inline-flex overflow-visible">
       <button
         type="button"
         title={labels.moreTitle(providers.length)}
@@ -213,17 +213,12 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
       >
         +{providers.length}
       </button>
-      <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 w-52 -translate-x-1/2 rounded-xl border border-white/10 bg-zinc-950/95 p-2 opacity-0 shadow-2xl ring-1 ring-black/40 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-        <div className="scrollbar-metallic-blue grid max-h-56 gap-1.5 overflow-y-auto overscroll-contain pr-1">
+      <div className="pointer-events-none absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 opacity-0 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+        <div className="scrollbar-metallic-blue grid max-h-56 grid-cols-4 gap-1.5 overflow-y-auto overscroll-contain pr-1">
           {providers.map((provider) => {
             const tooltip = getAvailabilityTooltip(provider, locale);
-            const itemClassName = "flex items-center gap-2 rounded-lg p-1 text-xs text-zinc-200 transition";
-            const content = (
-              <>
-                <ProviderLogoMark provider={provider} sizeClassName="h-7 w-7" />
-                <span className="min-w-0 flex-1 truncate">{provider.name}</span>
-              </>
-            );
+            const itemClassName = "flex items-center justify-center rounded-lg p-1 transition";
+            const content = <ProviderLogoMark provider={provider} sizeClassName="h-7 w-7" />;
 
             return provider.isClickable && provider.monetizedUrl ? (
               <a
@@ -256,8 +251,8 @@ function ProviderRow({ providers, label, locale }: { providers: StreamingProvide
   const hiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex flex-wrap items-center justify-center gap-2">
+    <div className="space-y-1.5 overflow-visible">
+      <div className="flex flex-wrap items-center justify-center gap-2 overflow-visible">
         {visibleProviders.map((provider) => (
           <ProviderLogo key={provider.id} provider={provider} locale={locale} />
         ))}
@@ -327,7 +322,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
   const hasProviders = subscriptionProviders.length > 0 || rentBuyProviders.length > 0;
 
   return (
-    <aside className="min-w-0 md:min-w-[150px] md:max-w-[220px]">
+    <aside className="relative z-30 min-w-0 overflow-visible md:min-w-[150px] md:max-w-[220px]">
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">{labels.title}</p>
 
       {loading ? <p className="text-xs text-zinc-500">{labels.loading}</p> : null}
