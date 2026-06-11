@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../lib/api";
-import { getStoredCountry, localeEventName } from "../lib/i18n";
-import type { Country } from "../lib/i18n";
+import { getStoredLocaleSelection, localeEventName } from "../lib/i18n";
+import type { Country, Locale } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
 
-const MAX_INLINE_PROVIDERS = 8;
+const MAX_INLINE_PROVIDERS = 4;
 const TMDB_LOGO_BASE_URL = "https://image.tmdb.org/t/p/w92";
 
 type ProviderBucket = "flatrate" | "rent" | "buy";
@@ -130,35 +130,142 @@ function parseStreamingProviders(payload: unknown, country: Country): StreamingP
   return [...providersById.values()];
 }
 
-function getAvailabilityLabels(availability: ProviderBucket[]): string[] {
-  const labels: Record<ProviderBucket, string> = {
-    flatrate: "Suscripción",
-    rent: "Alquiler",
-    buy: "Compra",
-  };
-
-  return availability.map((bucket) => labels[bucket]);
+function getAvailabilityTooltip(provider: StreamingProvider, locale: Locale): string {
+  return locale === "en" ? `Available on ${provider.name}` : `Disponible en ${provider.name}`;
 }
 
-function getAvailabilityTooltip(provider: StreamingProvider): string {
-  const hasFlatrate = provider.availability.includes("flatrate");
-  const hasRent = provider.availability.includes("rent");
-  const hasBuy = provider.availability.includes("buy");
-
-  if (hasRent && hasBuy && !hasFlatrate) return `Disponible en ${provider.name} para alquilar/comprar`;
-  if (hasRent && !hasFlatrate) return `Disponible en ${provider.name} para alquilar`;
-  if (hasBuy && !hasFlatrate) return `Disponible en ${provider.name} para comprar`;
-
-  const extraOptions = getAvailabilityLabels(provider.availability.filter((bucket) => bucket !== "flatrate"));
-  if (extraOptions.length > 0) {
-    return `Disponible en ${provider.name} (Suscripción, ${extraOptions.join("/")})`;
-  }
-
-  return `Disponible en ${provider.name}`;
+function getStreamingLabels(locale: Locale) {
+  return locale === "en"
+    ? {
+        title: "AVAILABLE ON",
+        subscription: "Subscription",
+        rentBuy: "Rent/Buy",
+        loading: "Loading...",
+        loadError: "We couldn't load availability",
+        empty: "No availability for your country",
+        moreTitle: (count: number) => `${count} more platforms`,
+        moreAria: (count: number) => `View ${count} more platforms`,
+      }
+    : {
+        title: "DISPONIBLE EN",
+        subscription: "Suscripción",
+        rentBuy: "Renta/Compra",
+        loading: "Cargando...",
+        loadError: "No pudimos cargar disponibilidad",
+        empty: "Sin disponibilidad para tu país",
+        moreTitle: (count: number) => `${count} plataformas más`,
+        moreAria: (count: number) => `Ver ${count} plataformas más`,
+      };
 }
 
-function getAvailabilityBadge(provider: StreamingProvider): string {
-  return getAvailabilityLabels(provider.availability).join("/");
+function ProviderLogoMark({ provider, sizeClassName = "h-9 w-9" }: { provider: StreamingProvider; sizeClassName?: string }) {
+  return (
+    <span className={`flex ${sizeClassName} items-center justify-center overflow-hidden rounded-full bg-zinc-900`}>
+      {provider.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={provider.logoUrl} alt={provider.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+      ) : (
+        <span className="text-[10px] font-semibold text-zinc-300">{provider.name.slice(0, 2).toUpperCase()}</span>
+      )}
+    </span>
+  );
+}
+
+function ProviderLogo({ provider, locale }: { provider: StreamingProvider; locale: Locale }) {
+  const tooltip = getAvailabilityTooltip(provider, locale);
+  const providerClassName = `flex flex-shrink-0 items-center justify-center transition ${
+    provider.isClickable
+      ? "hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      : "cursor-default opacity-70"
+  }`;
+  const content = <ProviderLogoMark provider={provider} />;
+
+  return provider.isClickable && provider.monetizedUrl ? (
+    <a
+      href={provider.monetizedUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={tooltip}
+      aria-label={tooltip}
+      className={providerClassName}
+    >
+      {content}
+    </a>
+  ) : (
+    <span title={tooltip} aria-label={tooltip} className={providerClassName}>
+      {content}
+    </span>
+  );
+}
+
+function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvider[]; locale: Locale }) {
+  if (providers.length === 0) return null;
+
+  const labels = getStreamingLabels(locale);
+
+  return (
+    <div className="group relative inline-flex">
+      <button
+        type="button"
+        title={labels.moreTitle(providers.length)}
+        aria-label={labels.moreAria(providers.length)}
+        className="rounded-full px-1 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      >
+        +{providers.length}
+      </button>
+      <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 w-52 -translate-x-1/2 rounded-xl border border-white/10 bg-zinc-950/95 p-2 opacity-0 shadow-2xl ring-1 ring-black/40 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+        <div className="scrollbar-metallic-blue grid max-h-56 gap-1.5 overflow-y-auto overscroll-contain pr-1">
+          {providers.map((provider) => {
+            const tooltip = getAvailabilityTooltip(provider, locale);
+            const itemClassName = "flex items-center gap-2 rounded-lg p-1 text-xs text-zinc-200 transition";
+            const content = (
+              <>
+                <ProviderLogoMark provider={provider} sizeClassName="h-7 w-7" />
+                <span className="min-w-0 flex-1 truncate">{provider.name}</span>
+              </>
+            );
+
+            return provider.isClickable && provider.monetizedUrl ? (
+              <a
+                key={provider.id}
+                href={provider.monetizedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={tooltip}
+                aria-label={tooltip}
+                className={`${itemClassName} hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80`}
+              >
+                {content}
+              </a>
+            ) : (
+              <div key={provider.id} className={`${itemClassName} cursor-default opacity-80`} title={tooltip} aria-label={tooltip}>
+                {content}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProviderRow({ providers, label, locale }: { providers: StreamingProvider[]; label: string; locale: Locale }) {
+  if (providers.length === 0) return null;
+
+  const visibleProviders = providers.slice(0, MAX_INLINE_PROVIDERS);
+  const hiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {visibleProviders.map((provider) => (
+          <ProviderLogo key={provider.id} provider={provider} locale={locale} />
+        ))}
+        <ProviderOverflowMenu providers={hiddenProviders} locale={locale} />
+      </div>
+      <p className="text-center text-[10px] font-medium leading-none text-zinc-500">{label}</p>
+    </div>
+  );
 }
 
 function buildWatchProvidersEndpoint(movieId: Movie["id"], country: Country): string {
@@ -167,12 +274,17 @@ function buildWatchProvidersEndpoint(movieId: Movie["id"], country: Country): st
 
 export default function StreamingProviders({ movieId }: StreamingProvidersProps) {
   const [country, setCountry] = useState<Country>("CO");
+  const [locale, setLocale] = useState<Locale>("es");
   const [providers, setProviders] = useState<StreamingProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const syncCountry = () => setCountry(getStoredCountry(null));
+    const syncCountry = () => {
+      const selection = getStoredLocaleSelection(null);
+      setCountry(selection.country);
+      setLocale(selection.language);
+    };
     syncCountry();
     window.addEventListener(localeEventName, syncCountry as EventListener);
     return () => window.removeEventListener(localeEventName, syncCountry as EventListener);
@@ -193,7 +305,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
         console.warn("No se pudieron cargar plataformas de streaming.", loadError);
         if (cancelled) return;
         setProviders([]);
-        setError("No pudimos cargar disponibilidad");
+        setError(getStreamingLabels(locale).loadError);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -204,130 +316,28 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
     return () => {
       cancelled = true;
     };
-  }, [country, movieId]);
+  }, [country, locale, movieId]);
 
-  const visibleProviders = useMemo(() => providers.slice(0, MAX_INLINE_PROVIDERS), [providers]);
-  const hiddenProviders = useMemo(() => providers.slice(MAX_INLINE_PROVIDERS), [providers]);
-  const hiddenProvidersCount = hiddenProviders.length;
-  const logoSizeClassName = providers.length > 5 ? "h-8 w-8" : "h-9 w-9";
+  const labels = getStreamingLabels(locale);
+  const subscriptionProviders = useMemo(() => providers.filter((provider) => provider.availability.includes("flatrate")), [providers]);
+  const rentBuyProviders = useMemo(
+    () => providers.filter((provider) => provider.availability.includes("rent") || provider.availability.includes("buy")),
+    [providers],
+  );
+  const hasProviders = subscriptionProviders.length > 0 || rentBuyProviders.length > 0;
 
   return (
     <aside className="min-w-0 md:min-w-[150px] md:max-w-[220px]">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">Disponible en</p>
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">{labels.title}</p>
 
-      {loading ? <p className="text-xs text-zinc-500">Cargando...</p> : null}
+      {loading ? <p className="text-xs text-zinc-500">{labels.loading}</p> : null}
       {!loading && error ? <p className="text-xs leading-snug text-zinc-500">{error}</p> : null}
-      {!loading && !error && providers.length === 0 ? (
-        <p className="text-xs leading-snug text-zinc-500">Sin disponibilidad para tu país</p>
-      ) : null}
+      {!loading && !error && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
 
-      {!loading && !error && providers.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {visibleProviders.map((provider) => {
-            const logo = provider.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={provider.logoUrl} alt={provider.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-            ) : (
-              <span className="text-[10px] font-semibold text-zinc-300">{provider.name.slice(0, 2).toUpperCase()}</span>
-            );
-            const tooltip = getAvailabilityTooltip(provider);
-            const badge = getAvailabilityBadge(provider);
-            const logoShellClassName = `flex ${logoSizeClassName} items-center justify-center overflow-hidden rounded-full`;
-            const providerClassName = `flex max-w-[56px] flex-shrink-0 flex-col items-center gap-0.5 text-center transition ${
-              provider.isClickable
-                ? "hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                : "cursor-default opacity-70"
-            }`;
-            const content = (
-              <>
-                <span className={logoShellClassName}>{logo}</span>
-                <span className="max-w-full truncate text-[8px] font-medium uppercase leading-none tracking-[0.08em] text-zinc-500">
-                  {badge}
-                </span>
-              </>
-            );
-
-            return provider.isClickable && provider.monetizedUrl ? (
-              <a
-                key={provider.id}
-                href={provider.monetizedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={tooltip}
-                aria-label={tooltip}
-                className={providerClassName}
-              >
-                {content}
-              </a>
-            ) : (
-              <span key={provider.id} title={tooltip} aria-label={tooltip} className={providerClassName}>
-                {content}
-              </span>
-            );
-          })}
-          {hiddenProvidersCount > 0 ? (
-            <div className="group relative inline-flex">
-              <button
-                type="button"
-                title={`${hiddenProvidersCount} plataformas más`}
-                aria-label={`Ver ${hiddenProvidersCount} plataformas más`}
-                className="rounded-full px-1 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-              >
-                +{hiddenProvidersCount}
-              </button>
-              <div className="pointer-events-none absolute left-1/2 top-full z-20 w-52 -translate-x-1/2 rounded-xl bg-zinc-950/95 p-3 opacity-0 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                <div className="grid max-h-56 gap-2 overflow-y-auto pr-1">
-                  {hiddenProviders.map((provider) => {
-                    const tooltip = getAvailabilityTooltip(provider);
-                    const badge = getAvailabilityBadge(provider);
-                    const content = (
-                      <>
-                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-900">
-                          {provider.logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={provider.logoUrl}
-                              alt={provider.name}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <span className="text-[9px] font-semibold text-zinc-300">
-                              {provider.name.slice(0, 2).toUpperCase()}
-                            </span>
-                          )}
-                        </span>
-                        <span className="grid min-w-0 flex-1">
-                          <span className="truncate">{provider.name}</span>
-                          <span className="truncate text-[9px] font-medium uppercase tracking-[0.08em] text-zinc-500">{badge}</span>
-                        </span>
-                      </>
-                    );
-                    const itemClassName = "flex items-center gap-2 rounded-lg p-1 text-xs text-zinc-200 transition";
-
-                    return provider.isClickable && provider.monetizedUrl ? (
-                      <a
-                        key={provider.id}
-                        href={provider.monetizedUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={tooltip}
-                        aria-label={tooltip}
-                        className={`${itemClassName} hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80`}
-                      >
-                        {content}
-                      </a>
-                    ) : (
-                      <div key={provider.id} className={`${itemClassName} cursor-default opacity-80`} title={tooltip} aria-label={tooltip}>
-                        {content}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          ) : null}
+      {!loading && !error && hasProviders ? (
+        <div className="space-y-3">
+          <ProviderRow providers={subscriptionProviders} label={labels.subscription} locale={locale} />
+          <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} />
         </div>
       ) : null}
     </aside>
