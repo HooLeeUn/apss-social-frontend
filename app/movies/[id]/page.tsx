@@ -1599,6 +1599,7 @@ export default function MovieDetailPage() {
             highlightMyRatingSlot
             enlargeInteractionIcons
             extendedMetadataMiddleSlot={<StreamingProviders movieId={movie.id} />}
+            separateRatingsActionsCard
             onRated={handleMovieRated}
           />
         ) : null}

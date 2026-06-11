@@ -124,6 +124,7 @@ textarea,
 
 .scrollbar-metallic-blue::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 .scrollbar-metallic-blue::-webkit-scrollbar-track {
