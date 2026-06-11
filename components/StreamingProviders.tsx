@@ -1,14 +1,50 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { apiFetch } from "../lib/api";
 import { getStoredLocaleSelection, localeEventName } from "../lib/i18n";
 import type { Country, Locale } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
+import { STREAMING_COUNTRY_OPTIONS } from "../lib/streaming-countries";
 
 const MAX_INLINE_PROVIDERS = 4;
 const TMDB_LOGO_BASE_URL = "https://image.tmdb.org/t/p/w92";
+const TOOLTIP_OFFSET_PX = 10;
+const TOOLTIP_VIEWPORT_PADDING_PX = 16;
+const TOOLTIP_MAX_WIDTH_PX = 280;
+
+const COUNTRY_NAMES_BY_LOCALE: Record<Locale, Partial<Record<Country, string>>> = {
+  es: Object.fromEntries(STREAMING_COUNTRY_OPTIONS.map((countryOption) => [countryOption.value, countryOption.name])) as Partial<
+    Record<Country, string>
+  >,
+  en: {
+    AR: "Argentina",
+    BO: "Bolivia",
+    BZ: "Belize",
+    CA: "Canada",
+    CL: "Chile",
+    CO: "Colombia",
+    CR: "Costa Rica",
+    DO: "Dominican Republic",
+    EC: "Ecuador",
+    ES: "Spain",
+    GT: "Guatemala",
+    HN: "Honduras",
+    MX: "Mexico",
+    NI: "Nicaragua",
+    PA: "Panama",
+    PE: "Peru",
+    PR: "Puerto Rico",
+    PY: "Paraguay",
+    SV: "El Salvador",
+    UK: "United Kingdom",
+    US: "United States",
+    UY: "Uruguay",
+    VE: "Venezuela",
+  },
+};
 
 type ProviderBucket = "flatrate" | "rent" | "buy";
 
@@ -23,6 +59,83 @@ interface StreamingProvider {
 
 interface StreamingProvidersProps {
   movieId: Movie["id"];
+}
+
+interface TooltipPosition {
+  left: number;
+  top: number;
+  transform: string;
+}
+
+function getCountryName(country: Country, locale: Locale): string {
+  return COUNTRY_NAMES_BY_LOCALE[locale][country] ?? COUNTRY_NAMES_BY_LOCALE.es[country] ?? country;
+}
+
+function getCountryAvailabilityWarning(country: Country, locale: Locale): string {
+  const countryName = getCountryName(country, locale);
+
+  return locale === "en"
+    ? `Availability based on selected country: ${countryName}.\nThis availability corresponds to the country selected in QNext. Actual availability may vary depending on your location, account, or platform region.`
+    : `Disponibilidad según país seleccionado: ${countryName}.\nEsta disponibilidad corresponde al país seleccionado en QNext. La disponibilidad real puede variar según tu ubicación, cuenta o región de la plataforma.`;
+}
+
+function getTooltipPosition(target: HTMLElement): TooltipPosition {
+  const rect = target.getBoundingClientRect();
+  const centeredLeft = rect.left + rect.width / 2;
+  const minLeft = TOOLTIP_VIEWPORT_PADDING_PX + TOOLTIP_MAX_WIDTH_PX / 2;
+  const maxLeft = window.innerWidth - TOOLTIP_VIEWPORT_PADDING_PX - TOOLTIP_MAX_WIDTH_PX / 2;
+  const left = Math.min(Math.max(centeredLeft, minLeft), Math.max(minLeft, maxLeft));
+  const shouldShowBelow = rect.top < 96;
+
+  return {
+    left,
+    top: shouldShowBelow ? rect.bottom + TOOLTIP_OFFSET_PX : rect.top - TOOLTIP_OFFSET_PX,
+    transform: shouldShowBelow ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+  };
+}
+
+function QNextTooltip({ text, position }: { text: string; position: TooltipPosition }) {
+  return createPortal(
+    <div
+      role="tooltip"
+      className="pointer-events-none fixed z-[9999] whitespace-pre-line rounded-lg border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-center text-[11px] font-medium leading-snug text-zinc-100 shadow-[0_14px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/40 backdrop-blur-sm"
+      style={{
+        left: position.left,
+        top: position.top,
+        maxWidth: TOOLTIP_MAX_WIDTH_PX,
+        transform: position.transform,
+      }}
+    >
+      {text}
+    </div>,
+    document.body,
+  );
+}
+
+function TooltipTarget({ text, children }: { text: string; children: ReactNode }) {
+  const targetRef = useRef<HTMLSpanElement | null>(null);
+  const [position, setPosition] = useState<TooltipPosition | null>(null);
+
+  const showTooltip = () => {
+    if (!targetRef.current) return;
+    setPosition(getTooltipPosition(targetRef.current));
+  };
+
+  const hideTooltip = () => setPosition(null);
+
+  return (
+    <span
+      ref={targetRef}
+      className="inline-flex"
+      onMouseEnter={showTooltip}
+      onMouseLeave={hideTooltip}
+      onFocus={showTooltip}
+      onBlur={hideTooltip}
+    >
+      {children}
+      {position ? <QNextTooltip text={text} position={position} /> : null}
+    </span>
+  );
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {
@@ -144,7 +257,6 @@ function getStreamingLabels(locale: Locale) {
         loading: "Loading...",
         loadError: "We couldn't load availability",
         empty: "No availability for your country",
-        moreTitle: (count: number) => `${count} more platforms`,
         moreAria: (count: number) => `View ${count} more platforms`,
       }
     : {
@@ -154,7 +266,6 @@ function getStreamingLabels(locale: Locale) {
         loading: "Cargando...",
         loadError: "No pudimos cargar disponibilidad",
         empty: "Sin disponibilidad para tu país",
-        moreTitle: (count: number) => `${count} plataformas más`,
         moreAria: (count: number) => `Ver ${count} plataformas más`,
       };
 }
@@ -181,21 +292,18 @@ function ProviderLogo({ provider, locale }: { provider: StreamingProvider; local
   }`;
   const content = <ProviderLogoMark provider={provider} />;
 
-  return provider.isClickable && provider.monetizedUrl ? (
-    <a
-      href={provider.monetizedUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={tooltip}
-      aria-label={tooltip}
-      className={providerClassName}
-    >
-      {content}
-    </a>
-  ) : (
-    <span title={tooltip} aria-label={tooltip} className={providerClassName}>
-      {content}
-    </span>
+  return (
+    <TooltipTarget text={tooltip}>
+      {provider.isClickable && provider.monetizedUrl ? (
+        <a href={provider.monetizedUrl} target="_blank" rel="noopener noreferrer" aria-label={tooltip} className={providerClassName}>
+          {content}
+        </a>
+      ) : (
+        <span aria-label={tooltip} className={providerClassName}>
+          {content}
+        </span>
+      )}
+    </TooltipTarget>
   );
 }
 
@@ -212,7 +320,6 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
     <div className="group relative z-50 inline-flex overflow-visible">
       <button
         type="button"
-        title={labels.moreTitle(providers.length)}
         aria-label={labels.moreAria(providers.length)}
         className="rounded-full px-1 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
       >
@@ -228,27 +335,45 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
             const itemClassName = "flex w-9 flex-shrink-0 items-center justify-center rounded-lg p-1 transition";
             const content = <ProviderLogoMark provider={provider} sizeClassName="h-7 w-7" />;
 
-            return provider.isClickable && provider.monetizedUrl ? (
-              <a
-                key={provider.id}
-                href={provider.monetizedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={tooltip}
-                aria-label={tooltip}
-                className={`${itemClassName} hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80`}
-              >
-                {content}
-              </a>
-            ) : (
-              <div key={provider.id} className={`${itemClassName} cursor-default opacity-80`} title={tooltip} aria-label={tooltip}>
-                {content}
-              </div>
+            return (
+              <TooltipTarget key={provider.id} text={tooltip}>
+                {provider.isClickable && provider.monetizedUrl ? (
+                  <a
+                    href={provider.monetizedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={tooltip}
+                    className={`${itemClassName} hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80`}
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <div className={`${itemClassName} cursor-default opacity-80`} aria-label={tooltip}>
+                    {content}
+                  </div>
+                )}
+              </TooltipTarget>
             );
           })}
         </div>
       </div>
     </div>
+  );
+}
+
+function AvailabilityCountryWarning({ country, locale }: { country: Country; locale: Locale }) {
+  const tooltip = getCountryAvailabilityWarning(country, locale);
+
+  return (
+    <TooltipTarget text={tooltip}>
+      <button
+        type="button"
+        aria-label={tooltip}
+        className="-mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[11px] font-bold leading-none text-[#86ADE0]/80 transition hover:text-[#AFC7E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      >
+        *
+      </button>
+    </TooltipTarget>
   );
 }
 
@@ -331,7 +456,10 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
 
   return (
     <aside className="relative z-30 min-w-0 overflow-visible md:min-w-[150px] md:max-w-[220px]">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">{labels.title}</p>
+      <div className="mb-2 inline-flex items-center gap-1.5 align-middle">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">{labels.title}</p>
+        <AvailabilityCountryWarning country={country} locale={locale} />
+      </div>
 
       {loading ? <p className="text-xs text-zinc-500">{labels.loading}</p> : null}
       {!loading && error ? <p className="text-xs leading-snug text-zinc-500">{error}</p> : null}
