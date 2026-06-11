@@ -161,7 +161,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
   };
 
   return (
-    <section className="rounded-2xl border-2 border-white/25 bg-zinc-950/55 p-4">
+    <section className="rounded-2xl bg-zinc-950/55 p-4">
       <h3 className="mb-3 text-xl font-bold text-[#86ADE0]">{t("movieDetailCommentTitle")}</h3>
 
       <div className="relative">
