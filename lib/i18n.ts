@@ -606,13 +606,16 @@ export function getStoredLocaleSelection(scope?: LocaleUserScope | null): Locale
 
 export function setStoredCountry(country: Country, scope?: LocaleUserScope | null) {
   if (typeof window === "undefined") return;
-  const scopeKey = resolveLocaleScope(scope);
+  const scopeKey = resolveLocaleScope(scope) ?? getActiveScopeKey();
+  const selection = JSON.stringify({ country, language: countryToLocale(country) });
+
+  window.localStorage.setItem(STORAGE_KEY, selection);
+
   if (scopeKey) {
-    window.localStorage.setItem(buildScopedStorageKey(scopeKey), JSON.stringify({ country, language: countryToLocale(country) }));
+    window.localStorage.setItem(buildScopedStorageKey(scopeKey), selection);
     window.localStorage.setItem(ACTIVE_SCOPE_STORAGE_KEY, scopeKey);
-  } else {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ country, language: countryToLocale(country) }));
   }
+
   window.dispatchEvent(new CustomEvent(localeEventName, { detail: { country, language: countryToLocale(country), locale: countryToLocale(country), scopeKey } }));
 }
 
