@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { apiFetch } from "../lib/api";
 import { getStoredLocaleSelection, localeEventName } from "../lib/i18n";
 import type { Country, Locale } from "../lib/i18n";
@@ -202,6 +203,10 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
   if (providers.length === 0) return null;
 
   const labels = getStreamingLabels(locale);
+  const visibleColumns = Math.min(providers.length, MAX_INLINE_PROVIDERS);
+  const overflowListStyle = {
+    width: `calc(${visibleColumns} * 2.25rem + ${Math.max(visibleColumns - 1, 0)} * 0.375rem)`,
+  } satisfies CSSProperties;
 
   return (
     <div className="group relative z-50 inline-flex overflow-visible">
@@ -214,10 +219,13 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
         +{providers.length}
       </button>
       <div className="pointer-events-none absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 opacity-0 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-        <div className="scrollbar-metallic-blue grid max-h-56 grid-cols-4 gap-1.5 overflow-y-auto overscroll-contain pr-1">
+        <div
+          className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1"
+          style={overflowListStyle}
+        >
           {providers.map((provider) => {
             const tooltip = getAvailabilityTooltip(provider, locale);
-            const itemClassName = "flex items-center justify-center rounded-lg p-1 transition";
+            const itemClassName = "flex w-9 flex-shrink-0 items-center justify-center rounded-lg p-1 transition";
             const content = <ProviderLogoMark provider={provider} sizeClassName="h-7 w-7" />;
 
             return provider.isClickable && provider.monetizedUrl ? (
