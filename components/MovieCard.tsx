@@ -1,14 +1,84 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
+
+const TOOLTIP_OFFSET_PX = 10;
+const TOOLTIP_VIEWPORT_PADDING_PX = 16;
+const TOOLTIP_MAX_WIDTH_PX = 280;
+
+interface TooltipPosition {
+  left: number;
+  top: number;
+  transform: string;
+}
+
+function getTooltipPosition(target: HTMLElement): TooltipPosition {
+  const rect = target.getBoundingClientRect();
+  const centeredLeft = rect.left + rect.width / 2;
+  const minLeft = TOOLTIP_VIEWPORT_PADDING_PX + TOOLTIP_MAX_WIDTH_PX / 2;
+  const maxLeft = window.innerWidth - TOOLTIP_VIEWPORT_PADDING_PX - TOOLTIP_MAX_WIDTH_PX / 2;
+  const left = Math.min(Math.max(centeredLeft, minLeft), Math.max(minLeft, maxLeft));
+  const shouldShowBelow = rect.top < 96;
+
+  return {
+    left,
+    top: shouldShowBelow ? rect.bottom + TOOLTIP_OFFSET_PX : rect.top - TOOLTIP_OFFSET_PX,
+    transform: shouldShowBelow ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+  };
+}
+
+function QNextTooltip({ text, position }: { text: string; position: TooltipPosition }) {
+  return createPortal(
+    <div
+      role="tooltip"
+      className="pointer-events-none fixed z-[9999] whitespace-pre-line rounded-lg border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-center text-[11px] font-medium leading-snug text-zinc-100 shadow-[0_14px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/40 backdrop-blur-sm"
+      style={{
+        left: position.left,
+        top: position.top,
+        maxWidth: TOOLTIP_MAX_WIDTH_PX,
+        transform: position.transform,
+      }}
+    >
+      {text}
+    </div>,
+    document.body,
+  );
+}
+
+function TooltipTarget({ text, children }: { text: string; children: ReactNode }) {
+  const targetRef = useRef<HTMLSpanElement | null>(null);
+  const [position, setPosition] = useState<TooltipPosition | null>(null);
+
+  const showTooltip = () => {
+    if (!targetRef.current) return;
+    setPosition(getTooltipPosition(targetRef.current));
+  };
+
+  const hideTooltip = () => setPosition(null);
+
+  return (
+    <span
+      ref={targetRef}
+      className="inline-flex"
+      onMouseEnter={showTooltip}
+      onMouseLeave={hideTooltip}
+      onFocus={showTooltip}
+      onBlur={hideTooltip}
+    >
+      {children}
+      {position ? <QNextTooltip text={text} position={position} /> : null}
+    </span>
+  );
+}
 
 interface MovieCardProps {
   movie: Movie;
@@ -244,17 +314,18 @@ function MovieCard({
             <div className="mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] md:w-[290px]">
               <div aria-hidden="true" />
               {tmdbUrl ? (
-                <a
-                  href={tmdbUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={tmdbTooltip}
-                  aria-label={tmdbTooltip}
-                  className="inline-flex h-8 w-[82px] shrink-0 items-center justify-center justify-self-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
-                </a>
+                <TooltipTarget text={tmdbTooltip}>
+                  <a
+                    href={tmdbUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={tmdbTooltip}
+                    className="inline-flex h-8 w-[82px] shrink-0 items-center justify-center justify-self-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
+                  </a>
+                </TooltipTarget>
               ) : null}
               {ratingsActionsTmdbSlot ? <div className="relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10">{ratingsActionsTmdbSlot}</div> : null}
             </div>
