@@ -27,6 +27,7 @@ interface MovieCardProps {
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   stretchPosterColumn?: boolean;
   extendedMetadataMiddleSlot?: ReactNode;
+  separateRatingsActionsCard?: boolean;
 }
 
 function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
@@ -54,6 +55,7 @@ function MovieCard({
   onToggleMyRecommendations,
   stretchPosterColumn = false,
   extendedMetadataMiddleSlot,
+  separateRatingsActionsCard = false,
 }: MovieCardProps) {
   const { locale, t } = useI18n();
   const isLarge = variant === "large";
@@ -115,15 +117,140 @@ function MovieCard({
   };
 
   const tagIconClassName = `interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
+  const splitFeedActions = isFeed && separateRatingsActionsCard;
+  const feedRatingsCardClassName = `rounded-lg border border-white/10 bg-black/35 px-2.5 py-2 text-zinc-200 ${
+    compactRatingsRow ? "gap-3 sm:gap-4" : "gap-2"
+  }`;
+
+  const ratingsActionsRow = (
+    <div
+      className={`${splitFeedActions ? "" : "mt-2"} ${
+        isFeed
+          ? `${splitFeedActions ? "flex flex-wrap items-center" : "flex items-center"} ${feedRatingsCardClassName}`
+          : "grid grid-cols-3 gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-center text-gray-700"
+      }`}
+    >
+      <div className={isFeed ? `flex items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
+        {isFeed ? (
+          <>
+            <span aria-hidden="true">⭐</span>
+            <span aria-label="Calificación general">{formatAverageRating(movie.displayRating)}</span>
+          </>
+        ) : (
+          <>
+            <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>General</p>
+            <p className="text-sm font-semibold">{formatAverageRating(movie.displayRating)}</p>
+          </>
+        )}
+      </div>
+      <div className={isFeed ? `flex items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
+        {isFeed ? (
+          <div className="flex leading-tight" title={formatFollowingRatingsCount(movie.followingRatingsCount) || undefined}>
+            <span className="font-semibold" aria-label="Calificación de seguidos">
+              👥 {formatFollowingRating(movie.followingAvgRating)}
+            </span>
+            {!compactRatingsRow && formatFollowingRatingsCount(movie.followingRatingsCount) ? (
+              <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</span>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>{t("following")}</p>
+            <p className="text-sm font-semibold">{formatFollowingRating(movie.followingAvgRating)}</p>
+            {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
+              <p className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</p>
+            ) : null}
+          </>
+        )}
+      </div>
+      <div
+        className={
+          isFeed
+            ? `flex items-center ${compactRatingsRow ? "gap-1.5" : "gap-1"} rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
+                highlightMyRatingSlot && !onRated
+                  ? "border-blue-400/65 bg-blue-950/40 shadow-[0_4px_12px_rgba(59,130,246,0.24)] hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_8px_16px_rgba(59,130,246,0.3)]"
+                  : ""
+              }`
+            : ""
+        }
+      >
+        {isFeed ? (
+          onRated ? (
+            <RatingPopover
+              movieId={movie.id}
+              currentRating={movie.myRating}
+              onRated={(score, payload) => onRated(movie.id, score, payload)}
+              nullLabel="—"
+              ariaLabel="Mi calificación"
+              className={
+                highlightMyRatingSlot
+                  ? "[&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
+                  : ""
+              }
+            />
+          ) : (
+            <>
+              <span aria-hidden="true" className={highlightMyRatingSlot ? "text-blue-100" : ""}>🙋</span>
+              <span aria-label="Mi calificación" className={highlightMyRatingSlot ? "text-blue-100" : ""}>
+                {formatMyRating(movie.myRating)}
+              </span>
+            </>
+          )
+        ) : (
+          <>
+            <p className={`text-[11px] uppercase tracking-wide whitespace-nowrap ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>{t("myRating")}</p>
+            <p className="text-sm font-semibold">{formatMyRating(movie.myRating)}</p>
+          </>
+        )}
+      </div>
+      {isFeed ? (
+        <div className={`relative ml-auto ${splitFeedActions ? "flex min-w-fit items-center gap-2" : highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
+          {splitFeedActions ? (
+            <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
+          ) : null}
+          {showBottomInteractionIcons ? (
+            <div
+              className={`interaction-icons z-10 ${
+                splitFeedActions
+                  ? "static"
+                  : `absolute ${highlightMyRatingSlot ? (showExtendedMetadata ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2" : "hidden") : "right-10 -top-7"}`
+              }`}
+            >
+              <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+              </button>
+              <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+              </button>
+            </div>
+          ) : null}
+          {!splitFeedActions ? (
+            <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
+          ) : null}
+        </div>
+      ) : (
+        <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
+          <div className="interaction-icons">
+            <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+              <img src="/icons/tag.png" alt="" className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
+            </button>
+            <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+              <img src="/icons/Ticket.png" alt="" className={`${compactInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const cardContent = (
     <article
-      className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
+      className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
       } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}
     >
       <div
-        className={`group relative flex-shrink-0 ${
+        className={`group relative flex-shrink-0 overflow-hidden ${
           isFeed
             ? `${stretchPosterColumn ? "h-auto self-stretch" : "h-[164px] sm:h-[172px]"} w-[108px] bg-zinc-900 sm:w-[114px]`
             : "bg-gray-200"
@@ -216,7 +343,7 @@ function MovieCard({
             <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
           </div>
           {showExtendedMetadata && extendedMetadataMiddleSlot ? (
-            <div className="min-w-0 md:pt-0.5">{extendedMetadataMiddleSlot}</div>
+            <div className="relative z-30 min-w-0 overflow-visible md:pt-0.5">{extendedMetadataMiddleSlot}</div>
           ) : null}
           {showExtendedMetadata && (hasDirector || hasCast) ? (
             <div className="space-y-1.5 md:pt-0.5">
@@ -245,125 +372,19 @@ function MovieCard({
             </div>
           ) : null}
         </div>
-        <div
-          className={`mt-2 rounded-lg border ${
-            isFeed
-              ? `flex items-center border-white/10 bg-black/35 px-2.5 py-2 text-zinc-200 ${compactRatingsRow ? "gap-3 sm:gap-4" : "gap-2"}`
-              : "grid grid-cols-3 gap-1.5 border-gray-200 bg-gray-50 px-2 py-2 text-center text-gray-700"
-          }`}
-        >
-          <div className={isFeed ? `flex items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
-            {isFeed ? (
-              <>
-                <span aria-hidden="true">⭐</span>
-                <span aria-label="Calificación general">{formatAverageRating(movie.displayRating)}</span>
-              </>
-            ) : (
-              <>
-                <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>General</p>
-                <p className="text-sm font-semibold">{formatAverageRating(movie.displayRating)}</p>
-              </>
-            )}
-          </div>
-          <div className={isFeed ? `flex items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
-            {isFeed ? (
-              <div
-                className="flex leading-tight"
-                title={formatFollowingRatingsCount(movie.followingRatingsCount) || undefined}
-              >
-                <span className="font-semibold" aria-label="Calificación de seguidos">👥 {formatFollowingRating(movie.followingAvgRating)}</span>
-                {!compactRatingsRow && formatFollowingRatingsCount(movie.followingRatingsCount) ? (
-                  <span className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</span>
-                ) : null}
-              </div>
-            ) : (
-              <>
-                <p className={`text-[10px] uppercase tracking-[0.12em] ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>{t("following")}</p>
-                <p className="text-sm font-semibold">{formatFollowingRating(movie.followingAvgRating)}</p>
-                {formatFollowingRatingsCount(movie.followingRatingsCount) ? (
-                  <p className="text-[10px] font-normal text-zinc-500">{formatFollowingRatingsCount(movie.followingRatingsCount)}</p>
-                ) : null}
-              </>
-            )}
-          </div>
-          <div
-            className={
-              isFeed
-                ? `flex items-center ${compactRatingsRow ? "gap-1.5" : "gap-1"} rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
-                    highlightMyRatingSlot && !onRated
-                      ? "border-blue-400/65 bg-blue-950/40 shadow-[0_4px_12px_rgba(59,130,246,0.24)] hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_8px_16px_rgba(59,130,246,0.3)]"
-                      : ""
-                  }`
-                : ""
-            }
-          >
-            {isFeed ? (
-              onRated ? (
-                <RatingPopover
-                  movieId={movie.id}
-                  currentRating={movie.myRating}
-                  onRated={(score, payload) => onRated(movie.id, score, payload)}
-                  nullLabel="—"
-                  ariaLabel="Mi calificación"
-                  className={
-                    highlightMyRatingSlot
-                      ? "[&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
-                      : ""
-                  }
-                />
-              ) : (
-                <>
-                  <span aria-hidden="true" className={highlightMyRatingSlot ? "text-blue-100" : ""}>🙋</span>
-                  <span aria-label="Mi calificación" className={highlightMyRatingSlot ? "text-blue-100" : ""}>
-                    {formatMyRating(movie.myRating)}
-                  </span>
-                </>
-              )
-            ) : (
-              <>
-                <p className={`text-[11px] uppercase tracking-wide whitespace-nowrap ${isFeed ? "text-zinc-500" : "text-gray-500"}`}>{t("myRating")}</p>
-                <p className="text-sm font-semibold">{formatMyRating(movie.myRating)}</p>
-              </>
-            )}
-          </div>
-          {isFeed ? (
-            <div className={`relative ml-auto ${highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
-              {showBottomInteractionIcons ? (
-                <div
-                  className={`interaction-icons absolute z-10 ${
-                    highlightMyRatingSlot
-                      ? showExtendedMetadata
-                        ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2"
-                        : "hidden"
-                        : "right-10 -top-7"
-                  }`}
-                >
-                  <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-                <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
-              </button>
-                  <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
-                    <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
-                  </button>
-                </div>
-              ) : null}
-              <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
-            </div>
-          ) : (
-            <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
-              <div className="interaction-icons">
-                <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-                <img src="/icons/tag.png" alt="" className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
-              </button>
-                <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
-                  <img src="/icons/Ticket.png" alt="" className={`${compactInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {!splitFeedActions ? ratingsActionsRow : null}
       </div>
     </article>
   );
+
+  if (splitFeedActions) {
+    return (
+      <div className="space-y-2">
+        {cardContent}
+        {ratingsActionsRow}
+      </div>
+    );
+  }
 
   if (!linkToDetail || isFeed) {
     return cardContent;
