@@ -1610,7 +1610,7 @@ export default function MovieDetailPage() {
 
         <div className={`relative grid grid-cols-1 gap-6 ${canShowDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
           {canShowDirectedComments ? (
-            <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
+            <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
           ) : null}
           <section className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1693,7 +1693,7 @@ export default function MovieDetailPage() {
                         <article
                           key={conversation.key}
                           className={`border-b border-white/10 px-3 py-4 transition-colors ${
-                            isExpanded ? "bg-[#86ADE0]/5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]" : "bg-transparent hover:bg-white/[0.03]"
+                            isExpanded ? "bg-transparent" : "bg-transparent hover:bg-white/[0.03]"
                           }`}
                         >
                           <button
@@ -1724,7 +1724,7 @@ export default function MovieDetailPage() {
 
                           {isExpanded ? (
                             <div
-                              className="scrollbar-metallic-blue mt-3 max-h-[24rem] overflow-y-auto border-t border-[#86ADE0]/20 pt-3"
+                              className="scrollbar-metallic-blue mt-3 max-h-[24rem] overflow-y-auto rounded-xl border border-[#86ADE0]/30 border-l-4 border-l-[#86ADE0] bg-[#0b1f3a]/35 px-3 py-3 shadow-[0_0_24px_rgba(134,173,224,0.12)]"
                               onScroll={(event) => {
                                 const target = event.currentTarget;
                                 if (
