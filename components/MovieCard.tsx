@@ -38,6 +38,37 @@ function formatContentType(contentType: string, labels: { movie: string; series:
   return contentType;
 }
 
+function appendTmdbLocale(url: string, countryCode: string): string {
+  const trimmedUrl = url.trim();
+  const normalizedCountryCode = countryCode.trim().toUpperCase();
+
+  if (!trimmedUrl || !normalizedCountryCode) return trimmedUrl;
+  if (/[?&]locale=/i.test(trimmedUrl)) return trimmedUrl;
+
+  const hashIndex = trimmedUrl.indexOf("#");
+  const baseUrl = hashIndex >= 0 ? trimmedUrl.slice(0, hashIndex) : trimmedUrl;
+  const hash = hashIndex >= 0 ? trimmedUrl.slice(hashIndex) : "";
+  const separator = baseUrl.includes("?") ? "&" : "?";
+
+  return `${baseUrl}${separator}locale=${encodeURIComponent(normalizedCountryCode)}${hash}`;
+}
+
+function resolveTmdbUrl(movie: Movie, countryCode: string): string | null {
+  const directUrl = movie.tmdbWatchUrl || movie.link;
+
+  if (directUrl) return appendTmdbLocale(directUrl, countryCode);
+
+  if (movie.tmdbId === null || movie.tmdbId === undefined) return null;
+
+  const normalizedTmdbId = String(movie.tmdbId).trim();
+  if (!normalizedTmdbId) return null;
+
+  const normalizedContentType = movie.contentType.trim().toLowerCase();
+  const tmdbPath = normalizedContentType === "series" || normalizedContentType === "tv series" || normalizedContentType === "tvseries" ? "tv" : "movie";
+
+  return appendTmdbLocale(`https://www.themoviedb.org/${tmdbPath}/${encodeURIComponent(normalizedTmdbId)}/watch`, countryCode);
+}
+
 function MovieCard({
   movie,
   variant = "compact",
@@ -57,7 +88,7 @@ function MovieCard({
   extendedMetadataMiddleSlot,
   separateRatingsActionsCard = false,
 }: MovieCardProps) {
-  const { locale, t } = useI18n();
+  const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
@@ -118,6 +149,8 @@ function MovieCard({
 
   const tagIconClassName = `interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
   const splitFeedActions = isFeed && separateRatingsActionsCard;
+  const tmdbUrl = splitFeedActions ? resolveTmdbUrl(movie, country) : null;
+  const tmdbTooltip = locale === "en" ? "View on TMDb" : "Ver en TMDb";
   const feedRatingsCardClassName = `rounded-lg border border-white/10 bg-black/35 px-2.5 py-2 text-zinc-200 ${
     compactRatingsRow ? "gap-3 sm:gap-4" : "gap-2"
   }`;
@@ -204,30 +237,45 @@ function MovieCard({
         )}
       </div>
       {isFeed ? (
-        <div className={`relative ml-auto ${splitFeedActions ? "flex min-w-fit items-center gap-2" : highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
-          {splitFeedActions ? (
-            <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
-          ) : null}
-          {showBottomInteractionIcons ? (
-            <div
-              className={`interaction-icons z-10 ${
-                splitFeedActions
-                  ? "static"
-                  : `absolute ${highlightMyRatingSlot ? (showExtendedMetadata ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2" : "hidden") : "right-10 -top-7"}`
-              }`}
+        <>
+          {tmdbUrl ? (
+            <a
+              href={tmdbUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={tmdbTooltip}
+              aria-label={tmdbTooltip}
+              className="mx-auto inline-flex h-8 w-[82px] shrink-0 items-center justify-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
-              <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-                <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
-              </button>
-              <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
-                <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
-              </button>
-            </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
+            </a>
           ) : null}
-          {!splitFeedActions ? (
-            <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
-          ) : null}
-        </div>
+          <div className={`relative ml-auto ${splitFeedActions ? "flex min-w-fit items-center gap-2" : highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
+            {splitFeedActions ? (
+              <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
+            ) : null}
+            {showBottomInteractionIcons ? (
+              <div
+                className={`interaction-icons z-10 ${
+                  splitFeedActions
+                    ? "static"
+                    : `absolute ${highlightMyRatingSlot ? (showExtendedMetadata ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2" : "hidden") : "right-10 -top-7"}`
+                }`}
+              >
+                <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                  <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+                </button>
+                <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                  <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+                </button>
+              </div>
+            ) : null}
+            {!splitFeedActions ? (
+              <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
+            ) : null}
+          </div>
+        </>
       ) : (
         <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
           <div className="interaction-icons">
