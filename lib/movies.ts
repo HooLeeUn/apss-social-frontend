@@ -17,6 +17,8 @@ export interface Movie {
   contentType: string;
   tmdbId: number | string | null;
   tmdbUrl: string | null;
+  tmdbWatchUrl: string | null;
+  link: string | null;
   year: string;
   genres: string[];
   director: string | null;
@@ -342,6 +344,8 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   const contentType = pickFirst(raw.type, nestedMovie?.type);
   const tmdbId = pickFirst(raw.tmdb_id, nestedMovie?.tmdb_id, raw.tmdbId, nestedMovie?.tmdbId);
   const tmdbUrl = pickFirstNonEmptyString(raw.tmdb_url, nestedMovie?.tmdb_url, raw.tmdbUrl, nestedMovie?.tmdbUrl);
+  const tmdbWatchUrl = pickFirstNonEmptyString(raw.tmdb_watch_url, nestedMovie?.tmdb_watch_url, raw.tmdbWatchUrl, nestedMovie?.tmdbWatchUrl);
+  const link = pickFirstNonEmptyString(raw.link, nestedMovie?.link);
   const director = pickFirstNonEmptyString(raw.director, nestedMovie?.director, raw.director_name, nestedMovie?.director_name);
   const castMembers = toStringList(pickFirst(raw.cast_members, nestedMovie?.cast_members, raw.cast, nestedMovie?.cast));
   const synopsis = pickFirstNonEmptyString(
@@ -388,6 +392,8 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     contentType: normalizeContentType(contentType),
     tmdbId: typeof tmdbId === "number" || typeof tmdbId === "string" ? tmdbId : null,
     tmdbUrl,
+    tmdbWatchUrl,
+    link,
     year,
     genres,
     director,
