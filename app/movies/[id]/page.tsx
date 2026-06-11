@@ -1599,6 +1599,7 @@ export default function MovieDetailPage() {
             highlightMyRatingSlot
             enlargeInteractionIcons
             extendedMetadataMiddleSlot={<StreamingProviders movieId={movie.id} />}
+            separateRatingsActionsCard
             onRated={handleMovieRated}
           />
         ) : null}
@@ -1607,7 +1608,10 @@ export default function MovieDetailPage() {
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
-        <div className={`grid grid-cols-1 gap-4 ${canShowDirectedComments ? "lg:grid-cols-2" : ""}`}>
+        <div className={`relative grid grid-cols-1 gap-6 ${canShowDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
+          {canShowDirectedComments ? (
+            <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
+          ) : null}
           <section className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2>
@@ -1648,6 +1652,7 @@ export default function MovieDetailPage() {
               onDeleteComment={handleDeleteComment}
               deletingCommentIds={deletingCommentIds}
               actionErrorByCommentId={commentActionErrorById}
+              borderlessContainer
             />
           </section>
 
@@ -1670,27 +1675,27 @@ export default function MovieDetailPage() {
                   onSelect={setSelectedDirectedFilterUser}
                 />
               </div>
-              {loadingDirected ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-sm text-zinc-300">{t("movieDetailLoadingComments")}</div> : null}
+              {loadingDirected ? <div className="p-4 text-sm text-zinc-300">{t("movieDetailLoadingComments")}</div> : null}
               {!loadingDirected && directedError ? (
                 <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
               ) : null}
               {!loadingDirected && !directedError && filteredDirectedConversations.length === 0 ? (
-                <div className="rounded-xl border border-white/10 bg-zinc-950/45 p-4 text-sm text-zinc-400">
+                <p className="p-4 text-sm text-zinc-400">
                   {selectedDirectedFilterUser ? t("movieDetailNoDirectedCommentsWithUser") : t("movieDetailNoDirectedComments")}
-                </div>
+                </p>
               ) : null}
               {!loadingDirected && !directedError ? (
-                <div className="scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/45 p-3">
-                  <div className="space-y-3">
+                <div className="scrollbar-dark max-h-[28rem] overflow-y-auto px-1 py-2">
+                  <div className="space-y-0">
                     {filteredDirectedConversations.map((conversation) => {
                       const isExpanded = expandedConversationKey === conversation.key;
                       return (
                         <article
                           key={conversation.key}
-                          className={`rounded-xl p-4 transition-colors ${
+                          className={`px-3 py-4 transition-colors ${
                             isExpanded
-                              ? "border border-[#86ADE0]/70 bg-[#86ADE0]/10 shadow-[0_0_18px_rgba(134,173,224,0.18)]"
-                              : "border border-transparent border-b-neutral-800/60 bg-transparent hover:bg-white/[0.03]"
+                              ? "my-2 rounded-xl border border-[#86ADE0]/30 border-l-4 border-l-[#86ADE0] bg-[#0b1f3a]/35 shadow-[0_0_24px_rgba(134,173,224,0.12)]"
+                              : "border-b border-white/10 bg-transparent hover:bg-white/[0.03]"
                           }`}
                         >
                           <button
@@ -1721,7 +1726,7 @@ export default function MovieDetailPage() {
 
                           {isExpanded ? (
                             <div
-                              className="scrollbar-metallic-blue mt-3 max-h-[24rem] overflow-y-auto rounded-lg border border-[#86ADE0]/30 bg-black/20 p-3"
+                              className="scrollbar-metallic-blue mt-3 max-h-[24rem] overflow-y-auto border-t border-white/10 pt-3"
                               onScroll={(event) => {
                                 const target = event.currentTarget;
                                 if (
