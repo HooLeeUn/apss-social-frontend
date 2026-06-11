@@ -27,6 +27,7 @@ interface MovieCardProps {
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   stretchPosterColumn?: boolean;
   extendedMetadataMiddleSlot?: ReactNode;
+  ratingsActionsTmdbSlot?: ReactNode;
   separateRatingsActionsCard?: boolean;
 }
 
@@ -86,6 +87,7 @@ function MovieCard({
   onToggleMyRecommendations,
   stretchPosterColumn = false,
   extendedMetadataMiddleSlot,
+  ratingsActionsTmdbSlot,
   separateRatingsActionsCard = false,
 }: MovieCardProps) {
   const { locale, country, t } = useI18n();
@@ -238,18 +240,24 @@ function MovieCard({
       </div>
       {isFeed ? (
         <>
-          {tmdbUrl ? (
-            <a
-              href={tmdbUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={tmdbTooltip}
-              aria-label={tmdbTooltip}
-              className="mx-auto inline-flex h-8 w-[82px] shrink-0 items-center justify-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
-            </a>
+          {tmdbUrl || ratingsActionsTmdbSlot ? (
+            <div className="mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] md:w-[290px]">
+              <div aria-hidden="true" />
+              {tmdbUrl ? (
+                <a
+                  href={tmdbUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={tmdbTooltip}
+                  aria-label={tmdbTooltip}
+                  className="inline-flex h-8 w-[82px] shrink-0 items-center justify-center justify-self-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
+                </a>
+              ) : null}
+              {ratingsActionsTmdbSlot ? <div className="relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10">{ratingsActionsTmdbSlot}</div> : null}
+            </div>
           ) : null}
           <div className={`relative ml-auto ${splitFeedActions ? "flex min-w-fit items-center gap-2" : highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
             {splitFeedActions ? (
