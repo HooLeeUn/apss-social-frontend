@@ -18,6 +18,7 @@ import {
   Movie,
   normalizeMovie,
 } from "../../../lib/movies";
+import { fetchMovieCredits } from "../../../lib/people";
 import {
   buildCommentDetailEndpoint,
   buildReactionEndpoint,
@@ -882,7 +883,21 @@ export default function MovieDetailPage() {
         const rawMovie = toRecord(response.body);
         if (!rawMovie) return null;
 
-        return normalizeMovie(rawMovie, 0);
+        const normalizedMovie = normalizeMovie(rawMovie, 0);
+
+        try {
+          const credits = await fetchMovieCredits(normalizedMovie.id);
+          return {
+            ...normalizedMovie,
+            cast: credits.cast.length ? credits.cast : normalizedMovie.cast,
+            castMembers: credits.cast.length ? credits.cast.map((credit) => credit.name) : normalizedMovie.castMembers,
+            directors: credits.directors.length ? credits.directors : normalizedMovie.directors,
+            director: credits.directors.length ? credits.directors.map((credit) => credit.name).join(" · ") : normalizedMovie.director,
+          };
+        } catch (creditsError) {
+          console.warn("[movie-detail-debug] credits request failed", creditsError);
+          return normalizedMovie;
+        }
       } catch (error) {
         const status = error instanceof ApiError ? error.status : null;
         console.log("[movie-detail-debug] detail response", {

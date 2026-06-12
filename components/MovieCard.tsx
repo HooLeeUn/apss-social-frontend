@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
+import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
@@ -77,6 +78,266 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
       {children}
       {position ? <QNextTooltip text={text} position={position} /> : null}
     </span>
+  );
+}
+
+
+const PERSON_CARD_OFFSET_PX = 12;
+const PERSON_CARD_WIDTH_PX = 320;
+const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
+
+type PersonDetailCache = Record<string, { loading: boolean; detail: PersonDetail | null; error: boolean }>;
+
+function getPersonCacheKey(person: MoviePersonCredit): string {
+  return person.id !== null && person.id !== undefined ? `id:${person.id}` : `name:${person.name.toLowerCase()}`;
+}
+
+function getFloatingPosition(target: HTMLElement, width: number): TooltipPosition {
+  const rect = target.getBoundingClientRect();
+  const centeredLeft = rect.left + rect.width / 2;
+  const minLeft = TOOLTIP_VIEWPORT_PADDING_PX + width / 2;
+  const maxLeft = window.innerWidth - TOOLTIP_VIEWPORT_PADDING_PX - width / 2;
+  const left = Math.min(Math.max(centeredLeft, minLeft), Math.max(minLeft, maxLeft));
+  const estimatedHeight = 250;
+  const shouldShowBelow = rect.top < estimatedHeight + TOOLTIP_VIEWPORT_PADDING_PX;
+
+  return {
+    left,
+    top: shouldShowBelow ? rect.bottom + PERSON_CARD_OFFSET_PX : rect.top - PERSON_CARD_OFFSET_PX,
+    transform: shouldShowBelow ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+  };
+}
+
+function PersonAvatar({ detail, person }: { detail: PersonDetail | null; person: MoviePersonCredit }) {
+  const imageUrl = detail?.profileUrl ?? person.profileUrl ?? null;
+  const displayName = detail?.name ?? person.name;
+
+  return (
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-zinc-900 text-xl font-bold text-[#86ADE0] shadow-inner">
+      {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageUrl} alt={displayName} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+      ) : (
+        displayName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part.charAt(0).toUpperCase())
+          .join("") || "—"
+      )}
+    </div>
+  );
+}
+
+function PersonInfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div className="grid grid-cols-[6.7rem_minmax(0,1fr)] gap-2 text-[11px] leading-snug">
+      <span className="text-zinc-500">{label}</span>
+      <span className="min-w-0 text-zinc-200">{value}</span>
+    </div>
+  );
+}
+
+function PersonSocialLink({ href, label }: { href: string | null | undefined; label: string }) {
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100 transition hover:border-[#86ADE0]/60 hover:bg-[#86ADE0]/20"
+    >
+      {label}
+    </a>
+  );
+}
+
+function PersonFloatingCard({ person, cacheEntry, position, locale }: { person: MoviePersonCredit; cacheEntry: PersonDetailCache[string] | undefined; position: TooltipPosition; locale: string }) {
+  const isEnglish = locale === "en";
+  const detail = cacheEntry?.detail ?? null;
+  const hasSocials = Boolean(detail?.facebookUrl || detail?.xUrl || detail?.instagramUrl);
+
+  return createPortal(
+    <div
+      role="tooltip"
+      className="fixed z-[10050] w-[min(320px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-3 text-left text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.6)] ring-1 ring-black/50 backdrop-blur-md"
+      style={{ left: position.left, top: position.top, transform: position.transform }}
+    >
+      <div className="flex gap-3">
+        <PersonAvatar detail={detail} person={person} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-zinc-50">{detail?.name ?? person.name}</p>
+          {cacheEntry?.loading ? <p className="mt-1 text-[11px] text-zinc-500">{isEnglish ? "Loading details…" : "Cargando ficha…"}</p> : null}
+          {hasSocials ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <PersonSocialLink href={detail?.facebookUrl} label="Facebook" />
+              <PersonSocialLink href={detail?.xUrl} label="X" />
+              <PersonSocialLink href={detail?.instagramUrl} label="Instagram" />
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
+        <PersonInfoRow label={isEnglish ? "Known For" : "Conocido(a) por"} value={detail?.knownFor} />
+        <PersonInfoRow label={isEnglish ? "Birthday" : "Nacimiento"} value={detail?.birthday} />
+        <PersonInfoRow label={isEnglish ? "Day of Death" : "Fallecimiento"} value={detail?.deathday} />
+        <PersonInfoRow label={isEnglish ? "Place of Birth" : "Lugar de nacimiento"} value={detail?.placeOfBirth} />
+        {!cacheEntry?.loading && !detail?.knownFor && !detail?.birthday && !detail?.deathday && !detail?.placeOfBirth ? (
+          <p className="text-[11px] text-zinc-500">—</p>
+        ) : null}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function PersonName({ person, cache, onEnsureDetail, className = "" }: { person: MoviePersonCredit; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; className?: string }) {
+  const { locale } = useI18n();
+  const targetRef = useRef<HTMLSpanElement | null>(null);
+  const [position, setPosition] = useState<TooltipPosition | null>(null);
+  const cacheKey = getPersonCacheKey(person);
+
+  const showCard = () => {
+    if (!targetRef.current) return;
+    onEnsureDetail(person);
+    setPosition(getFloatingPosition(targetRef.current, PERSON_CARD_WIDTH_PX));
+  };
+  const hideCard = () => setPosition(null);
+
+  return (
+    <span ref={targetRef} className={`inline-flex min-w-0 ${className}`} onMouseEnter={showCard} onMouseLeave={hideCard} onFocus={showCard} onBlur={hideCard} tabIndex={0}>
+      <span className="cursor-default truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
+      {position ? <PersonFloatingCard person={person} cacheEntry={cache[cacheKey]} position={position} locale={locale} /> : null}
+    </span>
+  );
+}
+
+function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; onMouseEnter: () => void; onMouseLeave: () => void }) {
+  return createPortal(
+    <div
+      role="tooltip"
+      className="fixed z-[10040] w-[min(310px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-2.5 text-sm text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.58)] ring-1 ring-black/50 backdrop-blur-md"
+      style={{ left: position.left, top: position.top, transform: position.transform }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto pr-1">
+        {people.map((person, index) => (
+          <div key={`${getPersonCacheKey(person)}-${index}`} className="rounded-lg px-2 py-1.5 transition hover:bg-white/10">
+            <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} className="max-w-full" />
+          </div>
+        ))}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: string; people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; isFeed: boolean }) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(Math.min(people.length, 4));
+  const [overflowPosition, setOverflowPosition] = useState<TooltipPosition | null>(null);
+
+  useEffect(() => () => {
+    if (hideTimerRef.current !== null) window.clearTimeout(hideTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const updateVisibleCount = () => {
+      if (!rowRef.current || !measureRef.current) return;
+      const availableWidth = rowRef.current.getBoundingClientRect().width;
+      const items = Array.from(measureRef.current.querySelectorAll<HTMLElement>("[data-cast-measure]"));
+      const more = measureRef.current.querySelector<HTMLElement>("[data-cast-more-measure]");
+      if (!items.length || !more) return;
+      const labelWidth = measureRef.current.querySelector<HTMLElement>("[data-cast-label-measure]")?.getBoundingClientRect().width ?? 0;
+      const moreWidth = more.getBoundingClientRect().width;
+      let used = labelWidth;
+      let count = 0;
+      for (const item of items) {
+        const width = item.getBoundingClientRect().width;
+        const needsMore = count < people.length - 1;
+        if (used + width + (needsMore ? moreWidth : 0) <= availableWidth) {
+          used += width;
+          count += 1;
+        } else {
+          break;
+        }
+      }
+      setVisibleCount(Math.max(1, Math.min(count, people.length)));
+    };
+
+    updateVisibleCount();
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateVisibleCount) : null;
+    if (rowRef.current && resizeObserver) resizeObserver.observe(rowRef.current);
+    window.addEventListener("resize", updateVisibleCount);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateVisibleCount);
+    };
+  }, [label, people]);
+
+  const visiblePeople = people.slice(0, visibleCount);
+  const hiddenPeople = people.slice(visibleCount);
+  const hasOverflow = hiddenPeople.length > 0;
+
+  const cancelHide = () => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+  const showOverflow = () => {
+    cancelHide();
+    if (!moreRef.current) return;
+    setOverflowPosition(getFloatingPosition(moreRef.current, CAST_OVERFLOW_POPOVER_WIDTH_PX));
+  };
+  const scheduleHide = () => {
+    cancelHide();
+    hideTimerRef.current = window.setTimeout(() => setOverflowPosition(null), 120);
+  };
+
+  return (
+    <div ref={rowRef} className={`relative min-w-0 overflow-visible whitespace-nowrap text-sm leading-snug ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+      <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{label}:</span>{" "}
+      {visiblePeople.map((person, index) => (
+        <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
+          {index > 0 ? <span className="mx-1.5 text-zinc-600">·</span> : null}
+          <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} />
+        </span>
+      ))}
+      {hasOverflow ? (
+        <>
+          <span className="mx-1.5 text-zinc-600">·</span>
+          <button
+            ref={moreRef}
+            type="button"
+            className="inline-flex rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0.5 text-xs font-bold text-blue-100 shadow-sm transition hover:border-[#86ADE0]/55 hover:bg-[#86ADE0]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/60"
+            onMouseEnter={showOverflow}
+            onMouseLeave={scheduleHide}
+            onFocus={showOverflow}
+            onBlur={scheduleHide}
+          >
+            +{hiddenPeople.length}
+          </button>
+          {overflowPosition ? (
+            <CastOverflowPopover people={hiddenPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
+          ) : null}
+        </>
+      ) : null}
+      <div ref={measureRef} className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap text-sm leading-snug opacity-0" aria-hidden="true">
+        <span data-cast-label-measure className="font-semibold">{label}: </span>
+        {people.map((person, index) => (
+          <span key={`${person.name}-${index}`} data-cast-measure>
+            {index > 0 ? " · " : ""}{person.name}
+          </span>
+        ))}
+        <span data-cast-more-measure> · +99</span>
+      </div>
+    </div>
   );
 }
 
@@ -171,9 +432,16 @@ function MovieCard({
   const resolvedTitles = resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.displayTitle || movie.title);
   const displayTitle = resolvedTitles.primary;
   const displaySecondaryTitle = resolvedTitles.secondary ?? movie.displaySecondaryTitle ?? null;
-  const hasDirector = Boolean(movie.director?.trim());
-  const castPreview = movie.castMembers.slice(0, 4);
-  const hasCast = castPreview.length > 0;
+  const directorPeople = useMemo<MoviePersonCredit[]>(() => {
+    if (movie.directors.length) return movie.directors;
+    return movie.director?.trim() ? [{ id: null, name: movie.director.trim() }] : [];
+  }, [movie.director, movie.directors]);
+  const castPeople = useMemo<MoviePersonCredit[]>(() => {
+    if (movie.cast.length) return movie.cast;
+    return movie.castMembers.map((name) => ({ id: null, name })).filter((person) => person.name.trim());
+  }, [movie.cast, movie.castMembers]);
+  const hasDirector = directorPeople.length > 0;
+  const hasCast = castPeople.length > 0;
   const canNavigateToDetail = linkToDetail;
   const titleLinkClassName = `inline-block max-w-full truncate transition-colors duration-150 ${
     isFeed ? "cursor-pointer hover:text-blue-100 focus-visible:text-blue-100" : "cursor-pointer hover:text-sky-700 focus-visible:text-sky-700"
@@ -184,10 +452,28 @@ function MovieCard({
   const [localIsInMyList, setLocalIsInMyList] = useState<boolean | null>(null);
   const [localIsInMyRecommendations, setLocalIsInMyRecommendations] = useState<boolean | null>(null);
   const [posterFailedSrc, setPosterFailedSrc] = useState<string | null>(null);
+  const [personDetailCache, setPersonDetailCache] = useState<PersonDetailCache>({});
+  const requestedPersonKeysRef = useRef<Set<string>>(new Set());
   const isInMyList = localIsInMyList ?? Boolean(isInMyListOverride ?? movie.isInMyList);
   const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
   const posterSrc = movie.image || movie.posterUrl;
   const hasPosterError = Boolean(posterSrc && posterFailedSrc === posterSrc);
+
+  const ensurePersonDetail = useCallback((person: MoviePersonCredit) => {
+    const cacheKey = getPersonCacheKey(person);
+    if (requestedPersonKeysRef.current.has(cacheKey)) return;
+
+    requestedPersonKeysRef.current.add(cacheKey);
+    setPersonDetailCache((cache) => ({ ...cache, [cacheKey]: { loading: true, detail: null, error: false } }));
+    fetchPersonDetail(person)
+      .then((detail) => {
+        setPersonDetailCache((cache) => ({ ...cache, [cacheKey]: { loading: false, detail, error: false } }));
+      })
+      .catch((error) => {
+        console.warn("No se pudo cargar la ficha de persona.", error);
+        setPersonDetailCache((cache) => ({ ...cache, [cacheKey]: { loading: false, detail: null, error: true } }));
+      });
+  }, []);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
@@ -473,17 +759,19 @@ function MovieCard({
             <div className="relative z-30 min-w-0 overflow-visible md:pt-0.5">{extendedMetadataMiddleSlot}</div>
           ) : null}
           {showExtendedMetadata && (hasDirector || hasCast) ? (
-            <div className="space-y-1.5 md:pt-0.5">
+            <div className="min-w-0 space-y-1.5 overflow-visible md:pt-0.5">
               {hasDirector ? (
-                <p className={`text-sm leading-snug ${isFeed ? "text-zinc-300" : "text-gray-600"}`}>
-                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailDirector")}:</span> {movie.director}
+                <p className={`min-w-0 overflow-visible whitespace-nowrap text-sm leading-snug ${isFeed ? "text-zinc-300" : "text-gray-600"}`}>
+                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailDirector")}:</span>{" "}
+                  {directorPeople.map((person, index) => (
+                    <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
+                      {index > 0 ? <span className="mx-1.5 text-zinc-600">·</span> : null}
+                      <PersonName person={person} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} />
+                    </span>
+                  ))}
                 </p>
               ) : null}
-              {hasCast ? (
-                <p className={`line-clamp-2 text-sm leading-snug ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
-                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailCast")}:</span> {castPreview.join(" · ")}
-                </p>
-              ) : null}
+              {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
             </div>
           ) : null}
           {isFeed && (highlightMyRatingSlot || pinInteractionIconsToMetadataRow) && !showExtendedMetadata ? (
