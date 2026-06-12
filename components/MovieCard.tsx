@@ -6,7 +6,9 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
+import type { Locale } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
+import { translateKnownForDepartment } from "../lib/personDepartments";
 import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
@@ -22,13 +24,13 @@ interface TooltipPosition {
   transform: string;
 }
 
-function getTooltipPosition(target: HTMLElement): TooltipPosition {
+function getTooltipPosition(target: HTMLElement, placement: "auto" | "top" = "auto"): TooltipPosition {
   const rect = target.getBoundingClientRect();
   const centeredLeft = rect.left + rect.width / 2;
   const minLeft = TOOLTIP_VIEWPORT_PADDING_PX + TOOLTIP_MAX_WIDTH_PX / 2;
   const maxLeft = window.innerWidth - TOOLTIP_VIEWPORT_PADDING_PX - TOOLTIP_MAX_WIDTH_PX / 2;
   const left = Math.min(Math.max(centeredLeft, minLeft), Math.max(minLeft, maxLeft));
-  const shouldShowBelow = rect.top < 96;
+  const shouldShowBelow = placement === "auto" && rect.top < 96;
 
   return {
     left,
@@ -41,7 +43,7 @@ function QNextTooltip({ text, position }: { text: string; position: TooltipPosit
   return createPortal(
     <div
       role="tooltip"
-      className="pointer-events-none fixed z-[9999] whitespace-pre-line rounded-lg border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-center text-[11px] font-medium leading-snug text-zinc-100 shadow-[0_14px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/40 backdrop-blur-sm"
+      className="pointer-events-none fixed z-[10100] whitespace-pre-line rounded-lg border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-center text-[11px] font-medium leading-snug text-zinc-100 shadow-[0_14px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/40 backdrop-blur-sm"
       style={{
         left: position.left,
         top: position.top,
@@ -55,13 +57,13 @@ function QNextTooltip({ text, position }: { text: string; position: TooltipPosit
   );
 }
 
-function TooltipTarget({ text, children }: { text: string; children: ReactNode }) {
+function TooltipTarget({ text, children, placement = "auto" }: { text: string; children: ReactNode; placement?: "auto" | "top" }) {
   const targetRef = useRef<HTMLSpanElement | null>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
 
   const showTooltip = () => {
     if (!targetRef.current) return;
-    setPosition(getTooltipPosition(targetRef.current));
+    setPosition(getTooltipPosition(targetRef.current, placement));
   };
 
   const hideTooltip = () => setPosition(null);
@@ -212,7 +214,7 @@ function PersonSocialLink({ href, label, network }: { href: string | null | unde
   if (!href) return null;
 
   return (
-    <TooltipTarget text={label}>
+    <TooltipTarget text={label} placement="top">
       <a
         href={href}
         target="_blank"
@@ -226,10 +228,11 @@ function PersonSocialLink({ href, label, network }: { href: string | null | unde
   );
 }
 
-function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter, onMouseLeave }: { person: MoviePersonCredit; cacheEntry: PersonDetailCacheEntry | undefined; position: TooltipPosition; locale: string; onMouseEnter: () => void; onMouseLeave: () => void }) {
+function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter, onMouseLeave }: { person: MoviePersonCredit; cacheEntry: PersonDetailCacheEntry | undefined; position: TooltipPosition; locale: Locale; onMouseEnter: () => void; onMouseLeave: () => void }) {
   const isEnglish = locale === "en";
   const detail = cacheEntry?.detail ?? null;
   const hasSocials = Boolean(detail?.facebookUrl || detail?.xUrl || detail?.instagramUrl);
+  const knownFor = translateKnownForDepartment(detail?.knownFor, locale);
 
   return createPortal(
     <div
@@ -255,12 +258,12 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
         </div>
       </div>
       <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
-        <PersonInfoRow label={isEnglish ? "Known For" : "Conocido(a) por"} value={detail?.knownFor} />
+        <PersonInfoRow label={isEnglish ? "Known For" : "Conocido(a) por"} value={knownFor} />
         <PersonInfoRow label={isEnglish ? "Gender" : "Género"} value={detail?.gender} />
         <PersonInfoRow label={isEnglish ? "Birthday" : "Nacimiento"} value={detail?.birthday} />
         <PersonInfoRow label={isEnglish ? "Day of Death" : "Fallecimiento"} value={detail?.deathday} />
         <PersonInfoRow label={isEnglish ? "Place of Birth" : "Lugar de nacimiento"} value={detail?.placeOfBirth} />
-        {!cacheEntry?.loading && !cacheEntry?.error && !detail?.knownFor && !detail?.gender && !detail?.birthday && !detail?.deathday && !detail?.placeOfBirth ? (
+        {!cacheEntry?.loading && !cacheEntry?.error && !knownFor && !detail?.gender && !detail?.birthday && !detail?.deathday && !detail?.placeOfBirth ? (
           <p className="text-[11px] text-zinc-500">—</p>
         ) : null}
       </div>
