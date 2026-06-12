@@ -1664,6 +1664,7 @@ export default function MovieDetailPage() {
             separateRatingsActionsCard
             onRated={handleMovieRated}
             creditsLoading={creditsLoading}
+            preloadPersonDetails
           />
         ) : null}
 

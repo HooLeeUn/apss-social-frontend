@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FocusEvent, MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
@@ -99,6 +99,29 @@ function notifyPersonDetailSubscribers() {
   personDetailSubscribers.forEach((subscriber) => subscriber());
 }
 
+function ensurePersonDetailCached(person: MoviePersonCredit) {
+  const cacheKey = getPersonCacheKey(person);
+  if (personDetailMemoryCache[cacheKey]?.detail || personDetailMemoryCache[cacheKey]?.error || personDetailMemoryCache[cacheKey]?.loading) return;
+
+  personDetailMemoryCache[cacheKey] = { loading: true, detail: null, error: false };
+  notifyPersonDetailSubscribers();
+
+  const request = personDetailRequests.get(cacheKey) ?? fetchPersonDetail(person);
+  personDetailRequests.set(cacheKey, request);
+  request
+    .then((detail) => {
+      personDetailMemoryCache[cacheKey] = { loading: false, detail, error: false };
+    })
+    .catch((error) => {
+      console.warn("No se pudo cargar la ficha de persona.", error);
+      personDetailMemoryCache[cacheKey] = { loading: false, detail: null, error: true };
+    })
+    .finally(() => {
+      if (personDetailRequests.get(cacheKey) === request) personDetailRequests.delete(cacheKey);
+      notifyPersonDetailSubscribers();
+    });
+}
+
 function getPersonCacheKey(person: MoviePersonCredit): string {
   const tmdbPersonId = person.tmdbPersonId ?? person.id;
   return tmdbPersonId !== null && tmdbPersonId !== undefined ? `tmdb:${tmdbPersonId}` : `name:${person.name.toLowerCase()}`;
@@ -115,21 +138,8 @@ function getFloatingPosition(target: HTMLElement, width: number): TooltipPositio
 
   return {
     left,
-    top: shouldShowBelow ? rect.bottom + PERSON_CARD_OFFSET_PX : rect.top - PERSON_CARD_OFFSET_PX,
-    transform: shouldShowBelow ? "translate(-50%, 0)" : "translate(-50%, -100%)",
-  };
-}
-
-function getCursorFloatingPosition(event: Pick<MouseEvent, "clientX" | "clientY">, width: number): TooltipPosition {
-  const left = Math.min(Math.max(event.clientX + PERSON_CARD_OFFSET_PX, TOOLTIP_VIEWPORT_PADDING_PX), window.innerWidth - width - TOOLTIP_VIEWPORT_PADDING_PX);
-  const estimatedHeight = 270;
-  const belowTop = event.clientY + PERSON_CARD_OFFSET_PX;
-  const shouldShowAbove = belowTop + estimatedHeight > window.innerHeight - TOOLTIP_VIEWPORT_PADDING_PX;
-
-  return {
-    left,
-    top: shouldShowAbove ? Math.max(TOOLTIP_VIEWPORT_PADDING_PX, event.clientY - PERSON_CARD_OFFSET_PX) : belowTop,
-    transform: shouldShowAbove ? "translate(0, -100%)" : "translate(0, 0)",
+    top: shouldShowBelow ? rect.bottom + PERSON_CARD_OFFSET_PX : Math.max(TOOLTIP_VIEWPORT_PADDING_PX, rect.top - PERSON_CARD_OFFSET_PX - estimatedHeight),
+    transform: "translateX(-50%)",
   };
 }
 
@@ -227,6 +237,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   const hoverTimerRef = useRef<number | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
+  const positionRef = useRef<TooltipPosition | null>(null);
   const isPointerOverNameRef = useRef(false);
   const isPointerOverCardRef = useRef(false);
   const cacheKey = getPersonCacheKey(person);
@@ -245,35 +256,45 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     }
   }, []);
 
+  const updatePosition = useCallback((nextPosition: TooltipPosition | null) => {
+    positionRef.current = nextPosition;
+    setPosition(nextPosition);
+  }, []);
+
   const hideCard = useCallback(() => {
     clearHoverTimer();
     cancelHide();
     isPointerOverNameRef.current = false;
     isPointerOverCardRef.current = false;
-    setPosition(null);
-  }, [cancelHide, clearHoverTimer]);
+    updatePosition(null);
+  }, [cancelHide, clearHoverTimer, updatePosition]);
 
   useEffect(() => {
-    const handleHideAll = () => hideCard();
+    const handleHideAll = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail?.cacheKey === cacheKey) return;
+      hideCard();
+    };
     window.addEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
     return () => {
       window.removeEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
       clearHoverTimer();
       cancelHide();
     };
-  }, [cancelHide, clearHoverTimer, hideCard]);
+  }, [cacheKey, cancelHide, clearHoverTimer, hideCard]);
 
-  const scheduleShow = (event: MouseEvent<HTMLSpanElement> | FocusEvent<HTMLSpanElement>) => {
+  const scheduleShow = () => {
     isPointerOverNameRef.current = true;
     clearHoverTimer();
     cancelHide();
-    const clientX = "clientX" in event ? event.clientX : targetRef.current?.getBoundingClientRect().left ?? 0;
-    const clientY = "clientY" in event ? event.clientY : targetRef.current?.getBoundingClientRect().bottom ?? 0;
-    const initialPosition = getCursorFloatingPosition({ clientX, clientY }, PERSON_CARD_WIDTH_PX);
+    if (positionRef.current) return;
+
     hoverTimerRef.current = window.setTimeout(() => {
-      window.dispatchEvent(new Event(PERSON_POPOVER_HIDE_EVENT));
+      if (!targetRef.current || !isPointerOverNameRef.current) return;
+      const initialPosition = getFloatingPosition(targetRef.current, PERSON_CARD_WIDTH_PX);
+      window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
+      isPointerOverNameRef.current = true;
       onEnsureDetail(person);
-      setPosition(initialPosition);
+      updatePosition(initialPosition);
     }, PERSON_HOVER_DELAY_MS);
   };
 
@@ -282,7 +303,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     clearHoverTimer();
     cancelHide();
     hideTimerRef.current = window.setTimeout(() => {
-      if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) setPosition(null);
+      if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
     }, 140);
   };
 
@@ -295,7 +316,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     isPointerOverCardRef.current = false;
     if (!isPointerOverNameRef.current) {
       hideTimerRef.current = window.setTimeout(() => {
-        if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) setPosition(null);
+        if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
       }, 120);
     }
   };
@@ -457,6 +478,7 @@ interface MovieCardProps {
   ratingsActionsTmdbSlot?: ReactNode;
   separateRatingsActionsCard?: boolean;
   creditsLoading?: boolean;
+  preloadPersonDetails?: boolean;
 }
 
 function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
@@ -518,6 +540,7 @@ function MovieCard({
   ratingsActionsTmdbSlot,
   separateRatingsActionsCard = false,
   creditsLoading = false,
+  preloadPersonDetails = false,
 }: MovieCardProps) {
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
@@ -565,26 +588,14 @@ function MovieCard({
   }, []);
 
   const ensurePersonDetail = useCallback((person: MoviePersonCredit) => {
-    const cacheKey = getPersonCacheKey(person);
-    if (personDetailMemoryCache[cacheKey]) return;
-
-    personDetailMemoryCache[cacheKey] = { loading: true, detail: null, error: false };
-    notifyPersonDetailSubscribers();
-    const request = personDetailRequests.get(cacheKey) ?? fetchPersonDetail(person);
-    personDetailRequests.set(cacheKey, request);
-    request
-      .then((detail) => {
-        personDetailMemoryCache[cacheKey] = { loading: false, detail, error: false };
-      })
-      .catch((error) => {
-        console.warn("No se pudo cargar la ficha de persona.", error);
-        personDetailMemoryCache[cacheKey] = { loading: false, detail: null, error: true };
-      })
-      .finally(() => {
-        personDetailRequests.delete(cacheKey);
-        notifyPersonDetailSubscribers();
-      });
+    ensurePersonDetailCached(person);
   }, []);
+
+  useEffect(() => {
+    if (!preloadPersonDetails) return;
+    const peopleToPreload = [...directorPeople, ...castPeople.slice(0, 8)];
+    peopleToPreload.forEach(ensurePersonDetail);
+  }, [castPeople, directorPeople, ensurePersonDetail, preloadPersonDetails]);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
