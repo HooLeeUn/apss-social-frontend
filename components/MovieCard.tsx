@@ -174,17 +174,55 @@ function PersonInfoRow({ label, value }: { label: string; value: string | null |
   );
 }
 
-function PersonSocialLink({ href, label }: { href: string | null | undefined; label: string }) {
-  if (!href) return null;
+function FacebookIcon() {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100 transition hover:border-[#86ADE0]/60 hover:bg-[#86ADE0]/20"
-    >
-      {label}
-    </a>
+    <svg viewBox="0 0 320 512" aria-hidden="true" className="h-[17px] w-[17px]" fill="currentColor">
+      <path d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06H297V6.26S260.43 0 225.36 0C152.14 0 104.17 44.38 104.17 124.72v70.62H22.89V288h81.28v224h100.28V288z" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[16px] w-[16px]" fill="currentColor">
+      <path d="M18.9 2h3.68l-8.04 9.19L24 22h-7.41l-5.8-7.59L4.15 22H.47l8.6-9.83L0 2h7.59l5.24 6.93L18.9 2Zm-1.29 18.1h2.04L6.48 3.8H4.29L17.61 20.1Z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+type PersonSocialNetwork = "facebook" | "x" | "instagram";
+
+const PERSON_SOCIAL_ICONS: Record<PersonSocialNetwork, ReactNode> = {
+  facebook: <FacebookIcon />,
+  x: <XIcon />,
+  instagram: <InstagramIcon />,
+};
+
+function PersonSocialLink({ href, label, network }: { href: string | null | undefined; label: string; network: PersonSocialNetwork }) {
+  if (!href) return null;
+
+  return (
+    <TooltipTarget text={label}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={label}
+        className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+      >
+        {PERSON_SOCIAL_ICONS[network]}
+      </a>
+    </TooltipTarget>
   );
 }
 
@@ -209,9 +247,9 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
           {cacheEntry?.error ? <p className="mt-1 text-[11px] text-zinc-500">{isEnglish ? "Information not available" : "Información no disponible"}</p> : null}
           {hasSocials ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <PersonSocialLink href={detail?.facebookUrl} label="Facebook" />
-              <PersonSocialLink href={detail?.xUrl} label="X" />
-              <PersonSocialLink href={detail?.instagramUrl} label="Instagram" />
+              <PersonSocialLink href={detail?.facebookUrl} label="Facebook" network="facebook" />
+              <PersonSocialLink href={detail?.xUrl} label="X" network="x" />
+              <PersonSocialLink href={detail?.instagramUrl} label="Instagram" network="instagram" />
             </div>
           ) : null}
         </div>
