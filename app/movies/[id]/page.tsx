@@ -815,6 +815,7 @@ export default function MovieDetailPage() {
 
   const [movie, setMovie] = useState<Movie | null>(null);
   const [movieLoading, setMovieLoading] = useState(true);
+  const [creditsLoading, setCreditsLoading] = useState(false);
   const [movieError, setMovieError] = useState("");
 
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -852,6 +853,7 @@ export default function MovieDetailPage() {
   const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
 
   const canShowDirectedComments = friendRequestsRestricted === false;
+  const shouldRenderDirectedComments = friendRequestsRestricted !== true;
 
   const fetchMovieDetail = useCallback(async () => {
     if (!movieId) return null;
@@ -883,21 +885,7 @@ export default function MovieDetailPage() {
         const rawMovie = toRecord(response.body);
         if (!rawMovie) return null;
 
-        const normalizedMovie = normalizeMovie(rawMovie, 0);
-
-        try {
-          const credits = await fetchMovieCredits(normalizedMovie.id);
-          return {
-            ...normalizedMovie,
-            cast: credits.cast.length ? credits.cast : normalizedMovie.cast,
-            castMembers: credits.cast.length ? credits.cast.map((credit) => credit.name) : normalizedMovie.castMembers,
-            directors: credits.directors.length ? credits.directors : normalizedMovie.directors,
-            director: credits.directors.length ? credits.directors.map((credit) => credit.name).join(" · ") : normalizedMovie.director,
-          };
-        } catch (creditsError) {
-          console.warn("[movie-detail-debug] credits request failed", creditsError);
-          return normalizedMovie;
-        }
+        return normalizeMovie(rawMovie, 0);
       } catch (error) {
         const status = error instanceof ApiError ? error.status : null;
         console.log("[movie-detail-debug] detail response", {
@@ -926,30 +914,62 @@ export default function MovieDetailPage() {
 
     if (!movieId) return;
 
-    const loadData = async () => {
-      setMovieLoading(true);
-      setLoadingPublic(true);
-      setLoadingDirected(true);
-      setMovieError("");
-      setPublicError("");
-      setDirectedError("");
-      setFriendRequestsRestricted(null);
-      setDirectedConversations([]);
-      setExpandedConversationKey(null);
-      setSelectedPublicFilterUser(null);
-      setSelectedDirectedFilterUser(null);
-      setPublicSearchQuery("");
-      setDirectedSearchQuery("");
+    let cancelled = false;
 
+    setMovie(null);
+    setMovieLoading(true);
+    setCreditsLoading(false);
+    setMovieError("");
+    setPublicError("");
+    setDirectedError("");
+    setFriendRequestsRestricted(null);
+    setFriends([]);
+    setFollowingUsers([]);
+    setPublicComments([]);
+    setPublicNext(null);
+    setDirectedConversations([]);
+    setExpandedConversationKey(null);
+    setSelectedPublicFilterUser(null);
+    setSelectedDirectedFilterUser(null);
+    setPublicSearchQuery("");
+    setDirectedSearchQuery("");
+
+    const loadMovie = async () => {
       try {
         const normalizedMovie = await fetchMovieDetail();
+        if (cancelled) return;
 
         if (!normalizedMovie) {
           setMovieError(translate(locale, "movieDetailMovieParseError"));
-        } else {
-          setMovie(normalizedMovie);
+          return;
         }
+
+        setMovie(normalizedMovie);
+        setCreditsLoading(true);
+
+        void fetchMovieCredits(normalizedMovie.id)
+          .then((credits) => {
+            if (cancelled) return;
+            if (!credits.cast.length && !credits.directors.length) return;
+            setMovie((current) => {
+              if (!current || String(current.id) !== String(normalizedMovie.id)) return current;
+              return {
+                ...current,
+                cast: credits.cast.length ? credits.cast : current.cast,
+                castMembers: credits.cast.length ? credits.cast.map((credit) => credit.name) : current.castMembers,
+                directors: credits.directors.length ? credits.directors : current.directors,
+                director: credits.directors.length ? credits.directors.map((credit) => credit.name).join(" · ") : current.director,
+              };
+            });
+          })
+          .catch((creditsError) => {
+            if (!cancelled) console.warn("[movie-detail-debug] credits request failed", creditsError);
+          })
+          .finally(() => {
+            if (!cancelled) setCreditsLoading(false);
+          });
       } catch (error) {
+        if (cancelled) return;
         if (error instanceof ApiError && error.status === 401) {
           router.replace("/login");
           return;
@@ -957,12 +977,39 @@ export default function MovieDetailPage() {
 
         setMovieError(translate(locale, "movieDetailMovieLoadError"));
       } finally {
-        setMovieLoading(false);
+        if (!cancelled) setMovieLoading(false);
       }
+    };
 
+    const loadPublicComments = async () => {
+      setLoadingPublic(true);
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
+      console.log("[movie-comments-debug] public GET url", joinApiUrl(publicEndpoint));
+      try {
+        const response = await debugApiRequest(publicEndpoint);
+        if (cancelled) return;
+        console.log("[movie-comments-debug] public GET status", response.status);
+        console.log("[movie-comments-debug] public GET response", response.body);
+        const parsed = parseCommentsPage(response.body, "public");
+        setPublicComments(parsed.comments);
+        setPublicNext(normalizeEndpointPath(parsed.next));
+        setPublicError("");
+      } catch (error) {
+        if (cancelled) return;
+        console.log("[movie-comments-debug] public GET status", error instanceof ApiError ? error.status : null);
+        console.log("[movie-comments-debug] public GET response", error instanceof Error ? error.message : String(error));
+        if (error instanceof ApiError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        setPublicError(translate(locale, "movieDetailPublicCommentsLoadError"));
+      } finally {
+        if (!cancelled) setLoadingPublic(false);
+      }
+    };
 
-      const [friendsResult, followingResult, meResult, publicResult, privacyResult] = await Promise.all([
+    const loadMentionUsers = async () => {
+      const [friendsResult, followingResult] = await Promise.all([
         fetchWithFallbacks<unknown>([FRIENDS_ENDPOINT, ...FRIENDS_FALLBACK_ENDPOINTS], "[mentions-debug]").then(
           ({ payload, endpoint, usedFallback }) => ({ ok: true as const, payload, endpoint, usedFallback }),
           (error) => ({ ok: false as const, error }),
@@ -971,29 +1018,9 @@ export default function MovieDetailPage() {
           (payload) => ({ ok: true as const, payload }),
           (error) => ({ ok: false as const, error }),
         ),
-        apiFetch("/me/").then(
-          (payload) => ({ ok: true as const, payload }),
-          (error) => ({ ok: false as const, error }),
-        ),
-        (async () => {
-          console.log("[movie-comments-debug] public GET url", joinApiUrl(publicEndpoint));
-          try {
-            const response = await debugApiRequest(publicEndpoint);
-            console.log("[movie-comments-debug] public GET status", response.status);
-            console.log("[movie-comments-debug] public GET response", response.body);
-            return { ok: true as const, payload: response.body };
-          } catch (error) {
-            console.log("[movie-comments-debug] public GET status", error instanceof ApiError ? error.status : null);
-            console.log("[movie-comments-debug] public GET response", error instanceof Error ? error.message : String(error));
-            return { ok: false as const, error };
-          }
-        })(),
-        getProfilePrivacySettings().then(
-          (payload) => ({ ok: true as const, payload }),
-          (error) => ({ ok: false as const, error }),
-        ),
       ]);
 
+      if (cancelled) return;
       if (!friendsResult.ok && friendsResult.error instanceof ApiError && friendsResult.error.status === 401) {
         router.replace("/login");
         return;
@@ -1002,21 +1029,6 @@ export default function MovieDetailPage() {
         router.replace("/login");
         return;
       }
-      if (!meResult.ok && meResult.error instanceof ApiError && meResult.error.status === 401) {
-        router.replace("/login");
-        return;
-      }
-
-      if (!publicResult.ok && publicResult.error instanceof ApiError && publicResult.error.status === 401) {
-        router.replace("/login");
-        return;
-      }
-
-      if (!privacyResult.ok && privacyResult.error instanceof ApiError && privacyResult.error.status === 401) {
-        router.replace("/login");
-        return;
-      }
-
       if (friendsResult.ok) {
         console.log("[mentions-debug] Friends payload:", {
           endpoint: friendsResult.endpoint,
@@ -1027,39 +1039,56 @@ export default function MovieDetailPage() {
         console.log("[mentions-debug] Normalized friends list:", normalizedFriends);
         setFriends(normalizedFriends);
       }
-      if (followingResult.ok) {
-        setFollowingUsers(followingResult.payload);
-      } else {
-        setFollowingUsers([]);
-      }
-      if (meResult.ok) {
-        const meUsername = getCurrentUsernameFromPayload(meResult.payload);
+      setFollowingUsers(followingResult.ok ? followingResult.payload : []);
+    };
+
+    const loadDirectedComments = async () => {
+      setLoadingDirected(true);
+      try {
+        const [meResult, privacyResult] = await Promise.all([
+          apiFetch("/me/").then(
+            (payload) => ({ ok: true as const, payload }),
+            (error) => ({ ok: false as const, error }),
+          ),
+          getProfilePrivacySettings().then(
+            (payload) => ({ ok: true as const, payload }),
+            (error) => ({ ok: false as const, error }),
+          ),
+        ]);
+
+        if (cancelled) return;
+        if (!meResult.ok && meResult.error instanceof ApiError && meResult.error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (!privacyResult.ok && privacyResult.error instanceof ApiError && privacyResult.error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+
+        const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
         if (meUsername) setAuthenticatedUsername(meUsername);
-      }
 
-      if (publicResult.ok) {
-        const parsed = parseCommentsPage(publicResult.payload, "public");
-        setPublicComments(parsed.comments);
-        setPublicNext(normalizeEndpointPath(parsed.next));
-        setPublicError("");
-      } else {
-        setPublicError(translate(locale, "movieDetailPublicCommentsLoadError"));
-      }
+        if (!privacyResult.ok) {
+          setDirectedError(translate(locale, "movieDetailDirectedCommentsLoadError"));
+          return;
+        }
 
-      if (privacyResult.ok) {
         setFriendRequestsRestricted(privacyResult.payload.friendRequestsRestricted);
-      }
+        if (privacyResult.payload.friendRequestsRestricted) {
+          setDirectedConversations([]);
+          return;
+        }
 
-      if (privacyResult.ok && !privacyResult.payload.friendRequestsRestricted) {
         const directedEndpoints = buildMovieDirectedFetchEndpoints(movieId);
         const directedEndpoint = directedEndpoints[0];
         console.log("[movie-comments-debug] directed GET url", joinApiUrl(directedEndpoint));
-        const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
         const directedReceivedResult = await fetchDirectedConversationsWithFallbacks(directedEndpoints, meUsername, movieId).then(
           ({ conversations, payload, endpoint, usedFallback }) => ({ ok: true as const, conversations, payload, endpoint, usedFallback }),
           (error) => ({ ok: false as const, error }),
         );
 
+        if (cancelled) return;
         if (directedReceivedResult.ok) {
           console.log("[movie-comments-debug] directed GET endpoint", {
             endpoint: directedReceivedResult.endpoint,
@@ -1079,13 +1108,19 @@ export default function MovieDetailPage() {
           }
           setDirectedError(translate(locale, "movieDetailDirectedCommentsLoadError"));
         }
+      } finally {
+        if (!cancelled) setLoadingDirected(false);
       }
-
-      setLoadingPublic(false);
-      setLoadingDirected(false);
     };
 
-    void loadData();
+    void loadMovie();
+    void loadPublicComments();
+    void loadMentionUsers();
+    void loadDirectedComments();
+
+    return () => {
+      cancelled = true;
+    };
   }, [fetchMovieDetail, locale, movieId, router]);
 
   const handleMovieRated = useCallback(
@@ -1094,7 +1129,17 @@ export default function MovieDetailPage() {
       try {
         const refreshedMovie = await fetchMovieDetail();
         if (refreshedMovie) {
-          setMovie(refreshedMovie);
+          setMovie((current) =>
+            current && String(current.id) === String(refreshedMovie.id)
+              ? {
+                  ...refreshedMovie,
+                  cast: current.cast.length ? current.cast : refreshedMovie.cast,
+                  castMembers: current.castMembers.length ? current.castMembers : refreshedMovie.castMembers,
+                  directors: current.directors.length ? current.directors : refreshedMovie.directors,
+                  director: current.director || refreshedMovie.director,
+                }
+              : refreshedMovie,
+          );
           setMovieError("");
           return;
         }
@@ -1618,6 +1663,7 @@ export default function MovieDetailPage() {
             ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
             separateRatingsActionsCard
             onRated={handleMovieRated}
+            creditsLoading={creditsLoading}
           />
         ) : null}
 
@@ -1625,8 +1671,8 @@ export default function MovieDetailPage() {
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
-        <div className={`relative grid grid-cols-1 gap-6 ${canShowDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
-          {canShowDirectedComments ? (
+        <div className={`relative grid grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
+          {shouldRenderDirectedComments ? (
             <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
           ) : null}
           <section className="space-y-3">
@@ -1673,7 +1719,7 @@ export default function MovieDetailPage() {
             />
           </section>
 
-          {canShowDirectedComments ? (
+          {shouldRenderDirectedComments ? (
             <section className="space-y-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2>

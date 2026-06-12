@@ -15,6 +15,7 @@ export interface PersonDetail {
   xUrl: string | null;
   instagramUrl: string | null;
   knownFor: string | null;
+  gender: string | null;
   birthday: string | null;
   deathday: string | null;
   placeOfBirth: string | null;
@@ -149,7 +150,7 @@ export function normalizeMovieCredits(payload: unknown): MovieCredits {
 export function normalizePersonDetail(payload: unknown, fallback?: MoviePersonCredit): PersonDetail | null {
   const root = toRecord(payload);
   const record = toRecord(root?.person) ?? root;
-  if (!record) return fallback ? { id: fallback.id, name: fallback.name, profileUrl: fallback.profileUrl ?? null, facebookUrl: null, xUrl: null, instagramUrl: null, knownFor: null, birthday: null, deathday: null, placeOfBirth: null } : null;
+  if (!record) return fallback ? { id: fallback.id, name: fallback.name, profileUrl: fallback.profileUrl ?? null, facebookUrl: null, xUrl: null, instagramUrl: null, knownFor: null, gender: null, birthday: null, deathday: null, placeOfBirth: null } : null;
   const externalIds = toRecord(record.external_ids) ?? toRecord(record.externalIds) ?? toRecord(record.socials) ?? toRecord(record.social);
   const name = pickFirstString(record.name, record.full_name, fallback?.name);
   if (!name) return null;
@@ -162,6 +163,7 @@ export function normalizePersonDetail(payload: unknown, fallback?: MoviePersonCr
     xUrl: normalizeSocialUrl("x", pickFirstPresent(record.x, record.twitter, record.twitter_url, record.x_url, externalIds?.twitter_id, externalIds?.x, externalIds?.twitter)),
     instagramUrl: normalizeSocialUrl("instagram", pickFirstPresent(record.instagram, record.instagram_url, externalIds?.instagram_id, externalIds?.instagram)),
     knownFor: pickFirstString(record.known_for_department, record.known_for, record.department),
+    gender: pickFirstString(record.gender_label, record.gender_name, record.gender),
     birthday: pickFirstString(record.birthday, record.birth_date, record.date_of_birth),
     deathday: pickFirstString(record.deathday, record.day_of_death, record.death_date, record.date_of_death),
     placeOfBirth: pickFirstString(record.place_of_birth, record.birthplace, record.birth_place),

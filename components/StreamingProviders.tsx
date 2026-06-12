@@ -461,7 +461,16 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
         <AvailabilityCountryWarning country={country} locale={locale} />
       </div>
 
-      {loading ? <p className="text-xs text-zinc-500">{labels.loading}</p> : null}
+      {loading ? (
+        <div className="space-y-2" aria-label={labels.loading}>
+          <div className="h-3 w-20 animate-pulse rounded-full bg-white/10" />
+          <div className="flex items-center justify-center gap-2">
+            <span className="h-9 w-9 animate-pulse rounded-full bg-white/10" />
+            <span className="h-9 w-9 animate-pulse rounded-full bg-white/10" />
+            <span className="h-9 w-9 animate-pulse rounded-full bg-white/10" />
+          </div>
+        </div>
+      ) : null}
       {!loading && error ? <p className="text-xs leading-snug text-zinc-500">{error}</p> : null}
       {!loading && !error && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
 
