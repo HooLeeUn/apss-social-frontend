@@ -2,6 +2,7 @@ import { API_BASE_URL, ApiError, apiFetch } from "./api";
 
 export interface MoviePersonCredit {
   id: number | string | null;
+  tmdbPersonId?: number | string | null;
   name: string;
   character?: string | null;
   profileUrl?: string | null;
@@ -33,8 +34,8 @@ const CREDITS_FALLBACK_ENDPOINT_TEMPLATES = (process.env.NEXT_PUBLIC_MOVIE_CREDI
   .filter(Boolean)
   .filter((endpoint) => endpoint !== CREDITS_ENDPOINT_TEMPLATE);
 
-const PERSON_DETAIL_ENDPOINT_TEMPLATE = process.env.NEXT_PUBLIC_PERSON_DETAIL_ENDPOINT_TEMPLATE || "/people/{id}/";
-const PERSON_DETAIL_FALLBACK_ENDPOINT_TEMPLATES = (process.env.NEXT_PUBLIC_PERSON_DETAIL_FALLBACK_ENDPOINT_TEMPLATES || "/persons/{id}/,/person/{id}/,/people/{id}")
+const PERSON_DETAIL_ENDPOINT_TEMPLATE = process.env.NEXT_PUBLIC_PERSON_DETAIL_ENDPOINT_TEMPLATE || "/tmdb/people/{id}/";
+const PERSON_DETAIL_FALLBACK_ENDPOINT_TEMPLATES = (process.env.NEXT_PUBLIC_PERSON_DETAIL_FALLBACK_ENDPOINT_TEMPLATES || "/people/{id}/,/persons/{id}/,/person/{id}/,/people/{id}")
   .split(",")
   .map((endpoint) => endpoint.trim())
   .filter(Boolean)
@@ -108,11 +109,13 @@ export function normalizePersonCredit(value: unknown): MoviePersonCredit | null 
   if (!record) return null;
 
   const person = toRecord(record.person) ?? toRecord(record.people) ?? toRecord(record.profile);
+  const tmdbPersonId = pickFirstPresent(record.tmdb_person_id as number | string | null | undefined, record.tmdb_id as number | string | null | undefined, person?.tmdb_person_id as number | string | null | undefined, person?.tmdb_id as number | string | null | undefined);
   const name = pickFirstString(record.name, person?.name, record.full_name, person?.full_name, record.original_name, person?.original_name);
   if (!name) return null;
 
   return {
-    id: pickFirstPresent(record.person_id as number | string | null | undefined, record.tmdb_id as number | string | null | undefined, person?.id as number | string | null | undefined, record.id as number | string | null | undefined),
+    id: pickFirstPresent(tmdbPersonId, record.person_id as number | string | null | undefined, person?.id as number | string | null | undefined, record.id as number | string | null | undefined),
+    tmdbPersonId,
     name,
     character: pickFirstString(record.character, record.role, record.job),
     profileUrl: resolveBackendAssetUrl(pickFirstPresent(record.profile_path, person?.profile_path, record.profile_url, person?.profile_url, record.photo, person?.photo, record.image, person?.image)),
@@ -122,7 +125,8 @@ export function normalizePersonCredit(value: unknown): MoviePersonCredit | null 
 function uniqueCredits(credits: MoviePersonCredit[]): MoviePersonCredit[] {
   const seen = new Set<string>();
   return credits.filter((credit) => {
-    const key = credit.id !== null && credit.id !== undefined ? `id:${credit.id}` : `name:${credit.name.toLowerCase()}`;
+    const tmdbPersonId = credit.tmdbPersonId ?? credit.id;
+    const key = tmdbPersonId !== null && tmdbPersonId !== undefined ? `tmdb:${tmdbPersonId}` : `name:${credit.name.toLowerCase()}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -183,8 +187,9 @@ export async function fetchMovieCredits(movieId: number | string): Promise<Movie
 }
 
 export async function fetchPersonDetail(person: MoviePersonCredit): Promise<PersonDetail | null> {
-  if (person.id === null || person.id === undefined) return normalizePersonDetail(null, person);
-  const endpoints = [PERSON_DETAIL_ENDPOINT_TEMPLATE, ...PERSON_DETAIL_FALLBACK_ENDPOINT_TEMPLATES].map((template) => buildEndpoint(template, person.id as number | string));
+  const tmdbPersonId = pickFirstPresent(person.tmdbPersonId, person.id);
+  if (tmdbPersonId === null || tmdbPersonId === undefined) return normalizePersonDetail(null, person);
+  const endpoints = [PERSON_DETAIL_ENDPOINT_TEMPLATE, ...PERSON_DETAIL_FALLBACK_ENDPOINT_TEMPLATES].map((template) => buildEndpoint(template, tmdbPersonId as number | string));
   for (let index = 0; index < endpoints.length; index += 1) {
     try {
       return normalizePersonDetail(await apiFetch(endpoints[index]), person);

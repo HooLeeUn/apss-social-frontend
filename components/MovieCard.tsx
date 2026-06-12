@@ -100,7 +100,8 @@ function notifyPersonDetailSubscribers() {
 }
 
 function getPersonCacheKey(person: MoviePersonCredit): string {
-  return person.id !== null && person.id !== undefined ? `id:${person.id}` : `name:${person.name.toLowerCase()}`;
+  const tmdbPersonId = person.tmdbPersonId ?? person.id;
+  return tmdbPersonId !== null && tmdbPersonId !== undefined ? `tmdb:${tmdbPersonId}` : `name:${person.name.toLowerCase()}`;
 }
 
 function getFloatingPosition(target: HTMLElement, width: number): TooltipPosition {
@@ -195,6 +196,7 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-zinc-50">{detail?.name ?? person.name}</p>
           {cacheEntry?.loading ? <p className="mt-1 text-[11px] text-zinc-500">{isEnglish ? "Loading details…" : "Cargando ficha…"}</p> : null}
+          {cacheEntry?.error ? <p className="mt-1 text-[11px] text-zinc-500">{isEnglish ? "Information not available" : "Información no disponible"}</p> : null}
           {hasSocials ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               <PersonSocialLink href={detail?.facebookUrl} label="Facebook" />
@@ -210,7 +212,7 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
         <PersonInfoRow label={isEnglish ? "Birthday" : "Nacimiento"} value={detail?.birthday} />
         <PersonInfoRow label={isEnglish ? "Day of Death" : "Fallecimiento"} value={detail?.deathday} />
         <PersonInfoRow label={isEnglish ? "Place of Birth" : "Lugar de nacimiento"} value={detail?.placeOfBirth} />
-        {!cacheEntry?.loading && !detail?.knownFor && !detail?.gender && !detail?.birthday && !detail?.deathday && !detail?.placeOfBirth ? (
+        {!cacheEntry?.loading && !cacheEntry?.error && !detail?.knownFor && !detail?.gender && !detail?.birthday && !detail?.deathday && !detail?.placeOfBirth ? (
           <p className="text-[11px] text-zinc-500">—</p>
         ) : null}
       </div>
@@ -225,6 +227,8 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   const hoverTimerRef = useRef<number | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
+  const isPointerOverNameRef = useRef(false);
+  const isPointerOverCardRef = useRef(false);
   const cacheKey = getPersonCacheKey(person);
 
   const clearHoverTimer = useCallback(() => {
@@ -244,6 +248,8 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   const hideCard = useCallback(() => {
     clearHoverTimer();
     cancelHide();
+    isPointerOverNameRef.current = false;
+    isPointerOverCardRef.current = false;
     setPosition(null);
   }, [cancelHide, clearHoverTimer]);
 
@@ -258,27 +264,46 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   }, [cancelHide, clearHoverTimer, hideCard]);
 
   const scheduleShow = (event: MouseEvent<HTMLSpanElement> | FocusEvent<HTMLSpanElement>) => {
+    isPointerOverNameRef.current = true;
     clearHoverTimer();
     cancelHide();
     const clientX = "clientX" in event ? event.clientX : targetRef.current?.getBoundingClientRect().left ?? 0;
     const clientY = "clientY" in event ? event.clientY : targetRef.current?.getBoundingClientRect().bottom ?? 0;
+    const initialPosition = getCursorFloatingPosition({ clientX, clientY }, PERSON_CARD_WIDTH_PX);
     hoverTimerRef.current = window.setTimeout(() => {
       window.dispatchEvent(new Event(PERSON_POPOVER_HIDE_EVENT));
       onEnsureDetail(person);
-      setPosition(getCursorFloatingPosition({ clientX, clientY }, PERSON_CARD_WIDTH_PX));
+      setPosition(initialPosition);
     }, PERSON_HOVER_DELAY_MS);
   };
 
   const scheduleHide = () => {
+    isPointerOverNameRef.current = false;
     clearHoverTimer();
     cancelHide();
-    hideTimerRef.current = window.setTimeout(() => setPosition(null), 140);
+    hideTimerRef.current = window.setTimeout(() => {
+      if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) setPosition(null);
+    }, 140);
+  };
+
+  const handleCardMouseEnter = () => {
+    isPointerOverCardRef.current = true;
+    cancelHide();
+  };
+
+  const handleCardMouseLeave = () => {
+    isPointerOverCardRef.current = false;
+    if (!isPointerOverNameRef.current) {
+      hideTimerRef.current = window.setTimeout(() => {
+        if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) setPosition(null);
+      }, 120);
+    }
   };
 
   return (
     <span ref={targetRef} className={`inline-flex min-w-0 ${className}`} onMouseEnter={scheduleShow} onMouseLeave={scheduleHide} onFocus={scheduleShow} onBlur={scheduleHide} tabIndex={0}>
       <span className="cursor-default truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
-      {position ? <PersonFloatingCard person={person} cacheEntry={cache[cacheKey]} position={position} locale={locale} onMouseEnter={cancelHide} onMouseLeave={hideCard} /> : null}
+      {position ? <PersonFloatingCard person={person} cacheEntry={cache[cacheKey]} position={position} locale={locale} onMouseEnter={handleCardMouseEnter} onMouseLeave={handleCardMouseLeave} /> : null}
     </span>
   );
 }
@@ -372,7 +397,7 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
   };
 
   return (
-    <div ref={rowRef} className={`relative max-h-[5.5rem] min-w-0 overflow-hidden text-sm leading-snug ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+    <div ref={rowRef} className={`relative max-h-[4.95rem] min-w-0 overflow-hidden text-sm leading-[1.18] ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
       <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{label}:</span>{" "}
       {visiblePeople.map((person, index) => (
         <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
@@ -386,7 +411,7 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
           <button
             ref={moreRef}
             type="button"
-            className="inline-flex rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0.5 text-xs font-bold text-blue-100 shadow-sm transition hover:border-[#86ADE0]/55 hover:bg-[#86ADE0]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/60"
+            className="inline-flex rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0 text-xs font-bold leading-[1.18] text-blue-100 shadow-sm transition hover:border-[#86ADE0]/55 hover:bg-[#86ADE0]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/60"
             onMouseEnter={showOverflow}
             onMouseLeave={scheduleHide}
             onFocus={showOverflow}
@@ -399,7 +424,7 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
           ) : null}
         </>
       ) : null}
-      <div ref={measureRef} className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap text-sm leading-snug opacity-0" aria-hidden="true">
+      <div ref={measureRef} className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap text-sm leading-[1.18] opacity-0" aria-hidden="true">
         <span data-cast-label-measure className="font-semibold">{label}: </span>
         {people.map((person, index) => (
           <span key={`${person.name}-${index}`} data-cast-measure>
@@ -541,7 +566,7 @@ function MovieCard({
 
   const ensurePersonDetail = useCallback((person: MoviePersonCredit) => {
     const cacheKey = getPersonCacheKey(person);
-    if (personDetailMemoryCache[cacheKey]?.detail || personDetailMemoryCache[cacheKey]?.loading) return;
+    if (personDetailMemoryCache[cacheKey]) return;
 
     personDetailMemoryCache[cacheKey] = { loading: true, detail: null, error: false };
     notifyPersonDetailSubscribers();
@@ -845,9 +870,9 @@ function MovieCard({
             <div className="relative z-30 min-w-0 overflow-visible md:pt-0.5">{extendedMetadataMiddleSlot}</div>
           ) : null}
           {showExtendedMetadata && (hasDirector || hasCast || creditsLoading) ? (
-            <div className="min-w-0 space-y-1.5 overflow-visible md:pt-0.5">
+            <div className="min-w-0 space-y-1 overflow-visible md:pt-0">
               {hasDirector ? (
-                <p className={`min-w-0 overflow-visible whitespace-nowrap text-sm leading-snug ${isFeed ? "text-zinc-300" : "text-gray-600"}`}>
+                <p className={`min-w-0 overflow-visible whitespace-nowrap text-sm leading-[1.18] ${isFeed ? "text-zinc-300" : "text-gray-600"}`}>
                   <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailDirector")}:</span>{" "}
                   {directorPeople.map((person, index) => (
                     <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
