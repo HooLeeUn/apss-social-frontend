@@ -1,4 +1,5 @@
 import { API_BASE_URL, ApiError, apiFetch } from "./api";
+import { MoviePersonCredit, normalizePersonCredit } from "./people";
 
 export interface MovieTopUser {
   id: number | null;
@@ -23,6 +24,8 @@ export interface Movie {
   genres: string[];
   director: string | null;
   castMembers: string[];
+  directors: MoviePersonCredit[];
+  cast: MoviePersonCredit[];
   posterUrl: string | null;
   image?: string | null;
   synopsis?: string | null;
@@ -346,8 +349,17 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
   const tmdbUrl = pickFirstNonEmptyString(raw.tmdb_url, nestedMovie?.tmdb_url, raw.tmdbUrl, nestedMovie?.tmdbUrl);
   const tmdbWatchUrl = pickFirstNonEmptyString(raw.tmdb_watch_url, nestedMovie?.tmdb_watch_url, raw.tmdbWatchUrl, nestedMovie?.tmdbWatchUrl);
   const link = pickFirstNonEmptyString(raw.link, nestedMovie?.link);
+  const rawDirectorValue = pickFirst(raw.director, nestedMovie?.director, raw.director_name, nestedMovie?.director_name);
+  const rawCastValue = pickFirst(raw.cast_members, nestedMovie?.cast_members, raw.cast, nestedMovie?.cast);
   const director = pickFirstNonEmptyString(raw.director, nestedMovie?.director, raw.director_name, nestedMovie?.director_name);
-  const castMembers = toStringList(pickFirst(raw.cast_members, nestedMovie?.cast_members, raw.cast, nestedMovie?.cast));
+  const castMembers = toStringList(rawCastValue);
+  const directors = [rawDirectorValue]
+    .flatMap((value) => (Array.isArray(value) ? value : [value]))
+    .map(normalizePersonCredit)
+    .filter((credit): credit is MoviePersonCredit => Boolean(credit));
+  const cast = (Array.isArray(rawCastValue) ? rawCastValue : castMembers)
+    .map(normalizePersonCredit)
+    .filter((credit): credit is MoviePersonCredit => Boolean(credit));
   const synopsis = pickFirstNonEmptyString(
     raw.synopsis_en,
     nestedMovie?.synopsis_en,
@@ -398,6 +410,8 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     genres,
     director,
     castMembers,
+    directors,
+    cast,
     posterUrl:
       resolveBackendAssetUrl(
         pickFirst(

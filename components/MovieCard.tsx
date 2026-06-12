@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
+import type { Locale } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
+import { translateKnownForDepartment } from "../lib/personDepartments";
+import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
@@ -21,13 +24,13 @@ interface TooltipPosition {
   transform: string;
 }
 
-function getTooltipPosition(target: HTMLElement): TooltipPosition {
+function getTooltipPosition(target: HTMLElement, placement: "auto" | "top" = "auto"): TooltipPosition {
   const rect = target.getBoundingClientRect();
   const centeredLeft = rect.left + rect.width / 2;
   const minLeft = TOOLTIP_VIEWPORT_PADDING_PX + TOOLTIP_MAX_WIDTH_PX / 2;
   const maxLeft = window.innerWidth - TOOLTIP_VIEWPORT_PADDING_PX - TOOLTIP_MAX_WIDTH_PX / 2;
   const left = Math.min(Math.max(centeredLeft, minLeft), Math.max(minLeft, maxLeft));
-  const shouldShowBelow = rect.top < 96;
+  const shouldShowBelow = placement === "auto" && rect.top < 96;
 
   return {
     left,
@@ -40,7 +43,7 @@ function QNextTooltip({ text, position }: { text: string; position: TooltipPosit
   return createPortal(
     <div
       role="tooltip"
-      className="pointer-events-none fixed z-[9999] whitespace-pre-line rounded-lg border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-center text-[11px] font-medium leading-snug text-zinc-100 shadow-[0_14px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/40 backdrop-blur-sm"
+      className="pointer-events-none fixed z-[10100] whitespace-pre-line rounded-lg border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-center text-[11px] font-medium leading-snug text-zinc-100 shadow-[0_14px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/40 backdrop-blur-sm"
       style={{
         left: position.left,
         top: position.top,
@@ -54,13 +57,13 @@ function QNextTooltip({ text, position }: { text: string; position: TooltipPosit
   );
 }
 
-function TooltipTarget({ text, children }: { text: string; children: ReactNode }) {
+function TooltipTarget({ text, children, placement = "auto" }: { text: string; children: ReactNode; placement?: "auto" | "top" }) {
   const targetRef = useRef<HTMLSpanElement | null>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
 
   const showTooltip = () => {
     if (!targetRef.current) return;
-    setPosition(getTooltipPosition(targetRef.current));
+    setPosition(getTooltipPosition(targetRef.current, placement));
   };
 
   const hideTooltip = () => setPosition(null);
@@ -77,6 +80,422 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
       {children}
       {position ? <QNextTooltip text={text} position={position} /> : null}
     </span>
+  );
+}
+
+
+const PERSON_CARD_OFFSET_PX = 12;
+const PERSON_CARD_WIDTH_PX = 320;
+const PERSON_HOVER_DELAY_MS = 500;
+const PERSON_POPOVER_HIDE_EVENT = "qnext-hide-person-popovers";
+const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
+
+type PersonDetailCacheEntry = { loading: boolean; detail: PersonDetail | null; error: boolean };
+type PersonDetailCache = Record<string, PersonDetailCacheEntry>;
+
+const personDetailMemoryCache: PersonDetailCache = {};
+const personDetailRequests = new Map<string, Promise<PersonDetail | null>>();
+const personDetailSubscribers = new Set<() => void>();
+
+function notifyPersonDetailSubscribers() {
+  personDetailSubscribers.forEach((subscriber) => subscriber());
+}
+
+function ensurePersonDetailCached(person: MoviePersonCredit) {
+  const cacheKey = getPersonCacheKey(person);
+  if (personDetailMemoryCache[cacheKey]?.detail || personDetailMemoryCache[cacheKey]?.error || personDetailMemoryCache[cacheKey]?.loading) return;
+
+  personDetailMemoryCache[cacheKey] = { loading: true, detail: null, error: false };
+  notifyPersonDetailSubscribers();
+
+  const request = personDetailRequests.get(cacheKey) ?? fetchPersonDetail(person);
+  personDetailRequests.set(cacheKey, request);
+  request
+    .then((detail) => {
+      personDetailMemoryCache[cacheKey] = { loading: false, detail, error: false };
+    })
+    .catch((error) => {
+      console.warn("No se pudo cargar la ficha de persona.", error);
+      personDetailMemoryCache[cacheKey] = { loading: false, detail: null, error: true };
+    })
+    .finally(() => {
+      if (personDetailRequests.get(cacheKey) === request) personDetailRequests.delete(cacheKey);
+      notifyPersonDetailSubscribers();
+    });
+}
+
+function getPersonCacheKey(person: MoviePersonCredit): string {
+  const tmdbPersonId = person.tmdbPersonId ?? person.id;
+  return tmdbPersonId !== null && tmdbPersonId !== undefined ? `tmdb:${tmdbPersonId}` : `name:${person.name.toLowerCase()}`;
+}
+
+function getFloatingPosition(target: HTMLElement, width: number): TooltipPosition {
+  const rect = target.getBoundingClientRect();
+  const centeredLeft = rect.left + rect.width / 2;
+  const minLeft = TOOLTIP_VIEWPORT_PADDING_PX + width / 2;
+  const maxLeft = window.innerWidth - TOOLTIP_VIEWPORT_PADDING_PX - width / 2;
+  const left = Math.min(Math.max(centeredLeft, minLeft), Math.max(minLeft, maxLeft));
+  const estimatedHeight = 250;
+  const shouldShowBelow = rect.top < estimatedHeight + TOOLTIP_VIEWPORT_PADDING_PX;
+
+  return {
+    left,
+    top: shouldShowBelow ? rect.bottom + PERSON_CARD_OFFSET_PX : Math.max(TOOLTIP_VIEWPORT_PADDING_PX, rect.top - PERSON_CARD_OFFSET_PX - estimatedHeight),
+    transform: "translateX(-50%)",
+  };
+}
+
+function PersonAvatar({ detail, person }: { detail: PersonDetail | null; person: MoviePersonCredit }) {
+  const imageUrl = detail?.profileUrl ?? person.profileUrl ?? null;
+  const displayName = detail?.name ?? person.name;
+
+  return (
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-zinc-900 text-xl font-bold text-[#86ADE0] shadow-inner">
+      {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageUrl} alt={displayName} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+      ) : (
+        displayName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part.charAt(0).toUpperCase())
+          .join("") || "—"
+      )}
+    </div>
+  );
+}
+
+function PersonInfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div className="grid grid-cols-[6.7rem_minmax(0,1fr)] gap-2 text-[11px] leading-snug">
+      <span className="text-zinc-500">{label}</span>
+      <span className="min-w-0 text-zinc-200">{value}</span>
+    </div>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <svg viewBox="0 0 320 512" aria-hidden="true" className="h-[17px] w-[17px]" fill="currentColor">
+      <path d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06H297V6.26S260.43 0 225.36 0C152.14 0 104.17 44.38 104.17 124.72v70.62H22.89V288h81.28v224h100.28V288z" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[16px] w-[16px]" fill="currentColor">
+      <path d="M18.9 2h3.68l-8.04 9.19L24 22h-7.41l-5.8-7.59L4.15 22H.47l8.6-9.83L0 2h7.59l5.24 6.93L18.9 2Zm-1.29 18.1h2.04L6.48 3.8H4.29L17.61 20.1Z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+type PersonSocialNetwork = "facebook" | "x" | "instagram";
+
+const PERSON_SOCIAL_ICONS: Record<PersonSocialNetwork, ReactNode> = {
+  facebook: <FacebookIcon />,
+  x: <XIcon />,
+  instagram: <InstagramIcon />,
+};
+
+function PersonSocialLink({ href, label, network }: { href: string | null | undefined; label: string; network: PersonSocialNetwork }) {
+  if (!href) return null;
+
+  return (
+    <TooltipTarget text={label} placement="top">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={label}
+        className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+      >
+        {PERSON_SOCIAL_ICONS[network]}
+      </a>
+    </TooltipTarget>
+  );
+}
+
+function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter, onMouseLeave }: { person: MoviePersonCredit; cacheEntry: PersonDetailCacheEntry | undefined; position: TooltipPosition; locale: Locale; onMouseEnter: () => void; onMouseLeave: () => void }) {
+  const isEnglish = locale === "en";
+  const detail = cacheEntry?.detail ?? null;
+  const hasSocials = Boolean(detail?.facebookUrl || detail?.xUrl || detail?.instagramUrl);
+  const knownFor = translateKnownForDepartment(detail?.knownFor, locale);
+
+  return createPortal(
+    <div
+      role="tooltip"
+      className="fixed z-[10050] w-[min(320px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-3 text-left text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.6)] ring-1 ring-black/50 backdrop-blur-md"
+      style={{ left: position.left, top: position.top, transform: position.transform }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="flex gap-3">
+        <PersonAvatar detail={detail} person={person} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-zinc-50">{detail?.name ?? person.name}</p>
+          {cacheEntry?.loading ? <p className="mt-1 text-[11px] text-zinc-500">{isEnglish ? "Loading details…" : "Cargando ficha…"}</p> : null}
+          {cacheEntry?.error ? <p className="mt-1 text-[11px] text-zinc-500">{isEnglish ? "Information not available" : "Información no disponible"}</p> : null}
+          {hasSocials ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <PersonSocialLink href={detail?.facebookUrl} label="Facebook" network="facebook" />
+              <PersonSocialLink href={detail?.xUrl} label="X" network="x" />
+              <PersonSocialLink href={detail?.instagramUrl} label="Instagram" network="instagram" />
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
+        <PersonInfoRow label={isEnglish ? "Known For" : "Conocido(a) por"} value={knownFor} />
+        <PersonInfoRow label={isEnglish ? "Gender" : "Género"} value={detail?.gender} />
+        <PersonInfoRow label={isEnglish ? "Birthday" : "Nacimiento"} value={detail?.birthday} />
+        <PersonInfoRow label={isEnglish ? "Day of Death" : "Fallecimiento"} value={detail?.deathday} />
+        <PersonInfoRow label={isEnglish ? "Place of Birth" : "Lugar de nacimiento"} value={detail?.placeOfBirth} />
+        {!cacheEntry?.loading && !cacheEntry?.error && !knownFor && !detail?.gender && !detail?.birthday && !detail?.deathday && !detail?.placeOfBirth ? (
+          <p className="text-[11px] text-zinc-500">—</p>
+        ) : null}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function PersonName({ person, cache, onEnsureDetail, className = "" }: { person: MoviePersonCredit; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; className?: string }) {
+  const { locale } = useI18n();
+  const targetRef = useRef<HTMLSpanElement | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
+  const [position, setPosition] = useState<TooltipPosition | null>(null);
+  const positionRef = useRef<TooltipPosition | null>(null);
+  const isPointerOverNameRef = useRef(false);
+  const isPointerOverCardRef = useRef(false);
+  const cacheKey = getPersonCacheKey(person);
+
+  const clearHoverTimer = useCallback(() => {
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
+
+  const cancelHide = useCallback(() => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  const updatePosition = useCallback((nextPosition: TooltipPosition | null) => {
+    positionRef.current = nextPosition;
+    setPosition(nextPosition);
+  }, []);
+
+  const hideCard = useCallback(() => {
+    clearHoverTimer();
+    cancelHide();
+    isPointerOverNameRef.current = false;
+    isPointerOverCardRef.current = false;
+    updatePosition(null);
+  }, [cancelHide, clearHoverTimer, updatePosition]);
+
+  useEffect(() => {
+    const handleHideAll = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail?.cacheKey === cacheKey) return;
+      hideCard();
+    };
+    window.addEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
+    return () => {
+      window.removeEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
+      clearHoverTimer();
+      cancelHide();
+    };
+  }, [cacheKey, cancelHide, clearHoverTimer, hideCard]);
+
+  const scheduleShow = () => {
+    isPointerOverNameRef.current = true;
+    clearHoverTimer();
+    cancelHide();
+    if (positionRef.current) return;
+
+    hoverTimerRef.current = window.setTimeout(() => {
+      if (!targetRef.current || !isPointerOverNameRef.current) return;
+      const initialPosition = getFloatingPosition(targetRef.current, PERSON_CARD_WIDTH_PX);
+      window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
+      isPointerOverNameRef.current = true;
+      onEnsureDetail(person);
+      updatePosition(initialPosition);
+    }, PERSON_HOVER_DELAY_MS);
+  };
+
+  const scheduleHide = () => {
+    isPointerOverNameRef.current = false;
+    clearHoverTimer();
+    cancelHide();
+    hideTimerRef.current = window.setTimeout(() => {
+      if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
+    }, 140);
+  };
+
+  const handleCardMouseEnter = () => {
+    isPointerOverCardRef.current = true;
+    cancelHide();
+  };
+
+  const handleCardMouseLeave = () => {
+    isPointerOverCardRef.current = false;
+    if (!isPointerOverNameRef.current) {
+      hideTimerRef.current = window.setTimeout(() => {
+        if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
+      }, 120);
+    }
+  };
+
+  return (
+    <span ref={targetRef} className={`inline-flex min-w-0 ${className}`} onMouseEnter={scheduleShow} onMouseLeave={scheduleHide} onFocus={scheduleShow} onBlur={scheduleHide} tabIndex={0}>
+      <span className="cursor-default truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
+      {position ? <PersonFloatingCard person={person} cacheEntry={cache[cacheKey]} position={position} locale={locale} onMouseEnter={handleCardMouseEnter} onMouseLeave={handleCardMouseLeave} /> : null}
+    </span>
+  );
+}
+
+function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; onMouseEnter: () => void; onMouseLeave: () => void }) {
+  return createPortal(
+    <div
+      role="tooltip"
+      className="fixed z-[10040] w-[min(310px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-2.5 text-sm text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.58)] ring-1 ring-black/50 backdrop-blur-md"
+      style={{ left: position.left, top: position.top, transform: position.transform }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto pr-1">
+        {people.map((person, index) => (
+          <div key={`${getPersonCacheKey(person)}-${index}`} className="rounded-lg px-2 py-1.5 transition hover:bg-white/10">
+            <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} className="max-w-full" />
+          </div>
+        ))}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: string; people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; isFeed: boolean }) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(Math.min(people.length, 12));
+  const [overflowPosition, setOverflowPosition] = useState<TooltipPosition | null>(null);
+
+  useEffect(() => () => {
+    if (hideTimerRef.current !== null) window.clearTimeout(hideTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const updateVisibleCount = () => {
+      if (!rowRef.current || !measureRef.current) return;
+      const availableWidth = rowRef.current.getBoundingClientRect().width;
+      const items = Array.from(measureRef.current.querySelectorAll<HTMLElement>("[data-cast-measure]"));
+      const more = measureRef.current.querySelector<HTMLElement>("[data-cast-more-measure]");
+      if (!items.length || !more) return;
+      const labelWidth = measureRef.current.querySelector<HTMLElement>("[data-cast-label-measure]")?.getBoundingClientRect().width ?? 0;
+      const moreWidth = more.getBoundingClientRect().width;
+      const maxWidthAcrossRows = availableWidth * 4;
+      let used = labelWidth;
+      let count = 0;
+      for (const item of items) {
+        const width = item.getBoundingClientRect().width;
+        const needsMore = count < people.length - 1;
+        if (used + width + (needsMore ? moreWidth : 0) <= maxWidthAcrossRows) {
+          used += width;
+          count += 1;
+        } else {
+          break;
+        }
+      }
+      setVisibleCount(Math.max(1, Math.min(count, people.length)));
+    };
+
+    updateVisibleCount();
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateVisibleCount) : null;
+    if (rowRef.current && resizeObserver) resizeObserver.observe(rowRef.current);
+    window.addEventListener("resize", updateVisibleCount);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateVisibleCount);
+    };
+  }, [label, people]);
+
+  const visiblePeople = people.slice(0, visibleCount);
+  const hiddenPeople = people.slice(visibleCount);
+  const hasOverflow = hiddenPeople.length > 0;
+
+  const cancelHide = () => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+  const showOverflow = () => {
+    cancelHide();
+    if (!moreRef.current) return;
+    setOverflowPosition(getFloatingPosition(moreRef.current, CAST_OVERFLOW_POPOVER_WIDTH_PX));
+  };
+  const scheduleHide = () => {
+    cancelHide();
+    hideTimerRef.current = window.setTimeout(() => setOverflowPosition(null), 120);
+  };
+
+  return (
+    <div ref={rowRef} className={`relative max-h-[4.95rem] min-w-0 overflow-hidden text-sm leading-[1.18] ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+      <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{label}:</span>{" "}
+      {visiblePeople.map((person, index) => (
+        <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
+          {index > 0 ? <span className="mx-1.5 text-zinc-600">·</span> : null}
+          <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} />
+        </span>
+      ))}
+      {hasOverflow ? (
+        <>
+          <span className="mx-1.5 text-zinc-600">·</span>
+          <button
+            ref={moreRef}
+            type="button"
+            className="inline-flex rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0 text-xs font-bold leading-[1.18] text-blue-100 shadow-sm transition hover:border-[#86ADE0]/55 hover:bg-[#86ADE0]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/60"
+            onMouseEnter={showOverflow}
+            onMouseLeave={scheduleHide}
+            onFocus={showOverflow}
+            onBlur={scheduleHide}
+          >
+            +{hiddenPeople.length}
+          </button>
+          {overflowPosition ? (
+            <CastOverflowPopover people={hiddenPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
+          ) : null}
+        </>
+      ) : null}
+      <div ref={measureRef} className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap text-sm leading-[1.18] opacity-0" aria-hidden="true">
+        <span data-cast-label-measure className="font-semibold">{label}: </span>
+        {people.map((person, index) => (
+          <span key={`${person.name}-${index}`} data-cast-measure>
+            {index > 0 ? " · " : ""}{person.name}
+          </span>
+        ))}
+        <span data-cast-more-measure> · +99</span>
+      </div>
+    </div>
   );
 }
 
@@ -99,6 +518,8 @@ interface MovieCardProps {
   extendedMetadataMiddleSlot?: ReactNode;
   ratingsActionsTmdbSlot?: ReactNode;
   separateRatingsActionsCard?: boolean;
+  creditsLoading?: boolean;
+  preloadPersonDetails?: boolean;
 }
 
 function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
@@ -159,6 +580,8 @@ function MovieCard({
   extendedMetadataMiddleSlot,
   ratingsActionsTmdbSlot,
   separateRatingsActionsCard = false,
+  creditsLoading = false,
+  preloadPersonDetails = false,
 }: MovieCardProps) {
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
@@ -171,9 +594,16 @@ function MovieCard({
   const resolvedTitles = resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.displayTitle || movie.title);
   const displayTitle = resolvedTitles.primary;
   const displaySecondaryTitle = resolvedTitles.secondary ?? movie.displaySecondaryTitle ?? null;
-  const hasDirector = Boolean(movie.director?.trim());
-  const castPreview = movie.castMembers.slice(0, 4);
-  const hasCast = castPreview.length > 0;
+  const directorPeople = useMemo<MoviePersonCredit[]>(() => {
+    if (movie.directors.length) return movie.directors;
+    return movie.director?.trim() ? [{ id: null, name: movie.director.trim() }] : [];
+  }, [movie.director, movie.directors]);
+  const castPeople = useMemo<MoviePersonCredit[]>(() => {
+    if (movie.cast.length) return movie.cast;
+    return movie.castMembers.map((name) => ({ id: null, name })).filter((person) => person.name.trim());
+  }, [movie.cast, movie.castMembers]);
+  const hasDirector = directorPeople.length > 0;
+  const hasCast = castPeople.length > 0;
   const canNavigateToDetail = linkToDetail;
   const titleLinkClassName = `inline-block max-w-full truncate transition-colors duration-150 ${
     isFeed ? "cursor-pointer hover:text-blue-100 focus-visible:text-blue-100" : "cursor-pointer hover:text-sky-700 focus-visible:text-sky-700"
@@ -184,10 +614,29 @@ function MovieCard({
   const [localIsInMyList, setLocalIsInMyList] = useState<boolean | null>(null);
   const [localIsInMyRecommendations, setLocalIsInMyRecommendations] = useState<boolean | null>(null);
   const [posterFailedSrc, setPosterFailedSrc] = useState<string | null>(null);
+  const [personDetailCache, setPersonDetailCache] = useState<PersonDetailCache>({ ...personDetailMemoryCache });
   const isInMyList = localIsInMyList ?? Boolean(isInMyListOverride ?? movie.isInMyList);
   const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
   const posterSrc = movie.image || movie.posterUrl;
   const hasPosterError = Boolean(posterSrc && posterFailedSrc === posterSrc);
+
+  useEffect(() => {
+    const syncCache = () => setPersonDetailCache({ ...personDetailMemoryCache });
+    personDetailSubscribers.add(syncCache);
+    return () => {
+      personDetailSubscribers.delete(syncCache);
+    };
+  }, []);
+
+  const ensurePersonDetail = useCallback((person: MoviePersonCredit) => {
+    ensurePersonDetailCached(person);
+  }, []);
+
+  useEffect(() => {
+    if (!preloadPersonDetails) return;
+    const peopleToPreload = [...directorPeople, ...castPeople.slice(0, 8)];
+    peopleToPreload.forEach(ensurePersonDetail);
+  }, [castPeople, directorPeople, ensurePersonDetail, preloadPersonDetails]);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
@@ -472,17 +921,25 @@ function MovieCard({
           {showExtendedMetadata && extendedMetadataMiddleSlot ? (
             <div className="relative z-30 min-w-0 overflow-visible md:pt-0.5">{extendedMetadataMiddleSlot}</div>
           ) : null}
-          {showExtendedMetadata && (hasDirector || hasCast) ? (
-            <div className="space-y-1.5 md:pt-0.5">
+          {showExtendedMetadata && (hasDirector || hasCast || creditsLoading) ? (
+            <div className="min-w-0 space-y-1 overflow-visible md:pt-0">
               {hasDirector ? (
-                <p className={`text-sm leading-snug ${isFeed ? "text-zinc-300" : "text-gray-600"}`}>
-                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailDirector")}:</span> {movie.director}
+                <p className={`min-w-0 overflow-visible whitespace-nowrap text-sm leading-[1.18] ${isFeed ? "text-zinc-300" : "text-gray-600"}`}>
+                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailDirector")}:</span>{" "}
+                  {directorPeople.map((person, index) => (
+                    <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
+                      {index > 0 ? <span className="mx-1.5 text-zinc-600">·</span> : null}
+                      <PersonName person={person} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} />
+                    </span>
+                  ))}
                 </p>
               ) : null}
-              {hasCast ? (
-                <p className={`line-clamp-2 text-sm leading-snug ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
-                  <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{t("movieDetailCast")}:</span> {castPreview.join(" · ")}
-                </p>
+              {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
+              {creditsLoading && !hasCast && !hasDirector ? (
+                <div className="space-y-2" aria-label={locale === "en" ? "Loading cast" : "Cargando reparto"}>
+                  <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
+                  <div className="h-3 w-44 animate-pulse rounded-full bg-white/10" />
+                </div>
               ) : null}
             </div>
           ) : null}
