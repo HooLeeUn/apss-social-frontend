@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FocusEvent, MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
+import type { Locale } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
+import { translateKnownForDepartment } from "../lib/personDepartments";
 import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
@@ -22,13 +24,13 @@ interface TooltipPosition {
   transform: string;
 }
 
-function getTooltipPosition(target: HTMLElement): TooltipPosition {
+function getTooltipPosition(target: HTMLElement, placement: "auto" | "top" = "auto"): TooltipPosition {
   const rect = target.getBoundingClientRect();
   const centeredLeft = rect.left + rect.width / 2;
   const minLeft = TOOLTIP_VIEWPORT_PADDING_PX + TOOLTIP_MAX_WIDTH_PX / 2;
   const maxLeft = window.innerWidth - TOOLTIP_VIEWPORT_PADDING_PX - TOOLTIP_MAX_WIDTH_PX / 2;
   const left = Math.min(Math.max(centeredLeft, minLeft), Math.max(minLeft, maxLeft));
-  const shouldShowBelow = rect.top < 96;
+  const shouldShowBelow = placement === "auto" && rect.top < 96;
 
   return {
     left,
@@ -41,7 +43,7 @@ function QNextTooltip({ text, position }: { text: string; position: TooltipPosit
   return createPortal(
     <div
       role="tooltip"
-      className="pointer-events-none fixed z-[9999] whitespace-pre-line rounded-lg border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-center text-[11px] font-medium leading-snug text-zinc-100 shadow-[0_14px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/40 backdrop-blur-sm"
+      className="pointer-events-none fixed z-[10100] whitespace-pre-line rounded-lg border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-center text-[11px] font-medium leading-snug text-zinc-100 shadow-[0_14px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/40 backdrop-blur-sm"
       style={{
         left: position.left,
         top: position.top,
@@ -55,13 +57,13 @@ function QNextTooltip({ text, position }: { text: string; position: TooltipPosit
   );
 }
 
-function TooltipTarget({ text, children }: { text: string; children: ReactNode }) {
+function TooltipTarget({ text, children, placement = "auto" }: { text: string; children: ReactNode; placement?: "auto" | "top" }) {
   const targetRef = useRef<HTMLSpanElement | null>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
 
   const showTooltip = () => {
     if (!targetRef.current) return;
-    setPosition(getTooltipPosition(targetRef.current));
+    setPosition(getTooltipPosition(targetRef.current, placement));
   };
 
   const hideTooltip = () => setPosition(null);
@@ -99,6 +101,29 @@ function notifyPersonDetailSubscribers() {
   personDetailSubscribers.forEach((subscriber) => subscriber());
 }
 
+function ensurePersonDetailCached(person: MoviePersonCredit) {
+  const cacheKey = getPersonCacheKey(person);
+  if (personDetailMemoryCache[cacheKey]?.detail || personDetailMemoryCache[cacheKey]?.error || personDetailMemoryCache[cacheKey]?.loading) return;
+
+  personDetailMemoryCache[cacheKey] = { loading: true, detail: null, error: false };
+  notifyPersonDetailSubscribers();
+
+  const request = personDetailRequests.get(cacheKey) ?? fetchPersonDetail(person);
+  personDetailRequests.set(cacheKey, request);
+  request
+    .then((detail) => {
+      personDetailMemoryCache[cacheKey] = { loading: false, detail, error: false };
+    })
+    .catch((error) => {
+      console.warn("No se pudo cargar la ficha de persona.", error);
+      personDetailMemoryCache[cacheKey] = { loading: false, detail: null, error: true };
+    })
+    .finally(() => {
+      if (personDetailRequests.get(cacheKey) === request) personDetailRequests.delete(cacheKey);
+      notifyPersonDetailSubscribers();
+    });
+}
+
 function getPersonCacheKey(person: MoviePersonCredit): string {
   const tmdbPersonId = person.tmdbPersonId ?? person.id;
   return tmdbPersonId !== null && tmdbPersonId !== undefined ? `tmdb:${tmdbPersonId}` : `name:${person.name.toLowerCase()}`;
@@ -115,21 +140,8 @@ function getFloatingPosition(target: HTMLElement, width: number): TooltipPositio
 
   return {
     left,
-    top: shouldShowBelow ? rect.bottom + PERSON_CARD_OFFSET_PX : rect.top - PERSON_CARD_OFFSET_PX,
-    transform: shouldShowBelow ? "translate(-50%, 0)" : "translate(-50%, -100%)",
-  };
-}
-
-function getCursorFloatingPosition(event: Pick<MouseEvent, "clientX" | "clientY">, width: number): TooltipPosition {
-  const left = Math.min(Math.max(event.clientX + PERSON_CARD_OFFSET_PX, TOOLTIP_VIEWPORT_PADDING_PX), window.innerWidth - width - TOOLTIP_VIEWPORT_PADDING_PX);
-  const estimatedHeight = 270;
-  const belowTop = event.clientY + PERSON_CARD_OFFSET_PX;
-  const shouldShowAbove = belowTop + estimatedHeight > window.innerHeight - TOOLTIP_VIEWPORT_PADDING_PX;
-
-  return {
-    left,
-    top: shouldShowAbove ? Math.max(TOOLTIP_VIEWPORT_PADDING_PX, event.clientY - PERSON_CARD_OFFSET_PX) : belowTop,
-    transform: shouldShowAbove ? "translate(0, -100%)" : "translate(0, 0)",
+    top: shouldShowBelow ? rect.bottom + PERSON_CARD_OFFSET_PX : Math.max(TOOLTIP_VIEWPORT_PADDING_PX, rect.top - PERSON_CARD_OFFSET_PX - estimatedHeight),
+    transform: "translateX(-50%)",
   };
 }
 
@@ -164,24 +176,63 @@ function PersonInfoRow({ label, value }: { label: string; value: string | null |
   );
 }
 
-function PersonSocialLink({ href, label }: { href: string | null | undefined; label: string }) {
-  if (!href) return null;
+function FacebookIcon() {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100 transition hover:border-[#86ADE0]/60 hover:bg-[#86ADE0]/20"
-    >
-      {label}
-    </a>
+    <svg viewBox="0 0 320 512" aria-hidden="true" className="h-[17px] w-[17px]" fill="currentColor">
+      <path d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06H297V6.26S260.43 0 225.36 0C152.14 0 104.17 44.38 104.17 124.72v70.62H22.89V288h81.28v224h100.28V288z" />
+    </svg>
   );
 }
 
-function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter, onMouseLeave }: { person: MoviePersonCredit; cacheEntry: PersonDetailCacheEntry | undefined; position: TooltipPosition; locale: string; onMouseEnter: () => void; onMouseLeave: () => void }) {
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[16px] w-[16px]" fill="currentColor">
+      <path d="M18.9 2h3.68l-8.04 9.19L24 22h-7.41l-5.8-7.59L4.15 22H.47l8.6-9.83L0 2h7.59l5.24 6.93L18.9 2Zm-1.29 18.1h2.04L6.48 3.8H4.29L17.61 20.1Z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+type PersonSocialNetwork = "facebook" | "x" | "instagram";
+
+const PERSON_SOCIAL_ICONS: Record<PersonSocialNetwork, ReactNode> = {
+  facebook: <FacebookIcon />,
+  x: <XIcon />,
+  instagram: <InstagramIcon />,
+};
+
+function PersonSocialLink({ href, label, network }: { href: string | null | undefined; label: string; network: PersonSocialNetwork }) {
+  if (!href) return null;
+
+  return (
+    <TooltipTarget text={label} placement="top">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={label}
+        className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+      >
+        {PERSON_SOCIAL_ICONS[network]}
+      </a>
+    </TooltipTarget>
+  );
+}
+
+function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter, onMouseLeave }: { person: MoviePersonCredit; cacheEntry: PersonDetailCacheEntry | undefined; position: TooltipPosition; locale: Locale; onMouseEnter: () => void; onMouseLeave: () => void }) {
   const isEnglish = locale === "en";
   const detail = cacheEntry?.detail ?? null;
   const hasSocials = Boolean(detail?.facebookUrl || detail?.xUrl || detail?.instagramUrl);
+  const knownFor = translateKnownForDepartment(detail?.knownFor, locale);
 
   return createPortal(
     <div
@@ -199,20 +250,20 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
           {cacheEntry?.error ? <p className="mt-1 text-[11px] text-zinc-500">{isEnglish ? "Information not available" : "Información no disponible"}</p> : null}
           {hasSocials ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <PersonSocialLink href={detail?.facebookUrl} label="Facebook" />
-              <PersonSocialLink href={detail?.xUrl} label="X" />
-              <PersonSocialLink href={detail?.instagramUrl} label="Instagram" />
+              <PersonSocialLink href={detail?.facebookUrl} label="Facebook" network="facebook" />
+              <PersonSocialLink href={detail?.xUrl} label="X" network="x" />
+              <PersonSocialLink href={detail?.instagramUrl} label="Instagram" network="instagram" />
             </div>
           ) : null}
         </div>
       </div>
       <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
-        <PersonInfoRow label={isEnglish ? "Known For" : "Conocido(a) por"} value={detail?.knownFor} />
+        <PersonInfoRow label={isEnglish ? "Known For" : "Conocido(a) por"} value={knownFor} />
         <PersonInfoRow label={isEnglish ? "Gender" : "Género"} value={detail?.gender} />
         <PersonInfoRow label={isEnglish ? "Birthday" : "Nacimiento"} value={detail?.birthday} />
         <PersonInfoRow label={isEnglish ? "Day of Death" : "Fallecimiento"} value={detail?.deathday} />
         <PersonInfoRow label={isEnglish ? "Place of Birth" : "Lugar de nacimiento"} value={detail?.placeOfBirth} />
-        {!cacheEntry?.loading && !cacheEntry?.error && !detail?.knownFor && !detail?.gender && !detail?.birthday && !detail?.deathday && !detail?.placeOfBirth ? (
+        {!cacheEntry?.loading && !cacheEntry?.error && !knownFor && !detail?.gender && !detail?.birthday && !detail?.deathday && !detail?.placeOfBirth ? (
           <p className="text-[11px] text-zinc-500">—</p>
         ) : null}
       </div>
@@ -227,6 +278,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   const hoverTimerRef = useRef<number | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
+  const positionRef = useRef<TooltipPosition | null>(null);
   const isPointerOverNameRef = useRef(false);
   const isPointerOverCardRef = useRef(false);
   const cacheKey = getPersonCacheKey(person);
@@ -245,35 +297,45 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     }
   }, []);
 
+  const updatePosition = useCallback((nextPosition: TooltipPosition | null) => {
+    positionRef.current = nextPosition;
+    setPosition(nextPosition);
+  }, []);
+
   const hideCard = useCallback(() => {
     clearHoverTimer();
     cancelHide();
     isPointerOverNameRef.current = false;
     isPointerOverCardRef.current = false;
-    setPosition(null);
-  }, [cancelHide, clearHoverTimer]);
+    updatePosition(null);
+  }, [cancelHide, clearHoverTimer, updatePosition]);
 
   useEffect(() => {
-    const handleHideAll = () => hideCard();
+    const handleHideAll = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail?.cacheKey === cacheKey) return;
+      hideCard();
+    };
     window.addEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
     return () => {
       window.removeEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
       clearHoverTimer();
       cancelHide();
     };
-  }, [cancelHide, clearHoverTimer, hideCard]);
+  }, [cacheKey, cancelHide, clearHoverTimer, hideCard]);
 
-  const scheduleShow = (event: MouseEvent<HTMLSpanElement> | FocusEvent<HTMLSpanElement>) => {
+  const scheduleShow = () => {
     isPointerOverNameRef.current = true;
     clearHoverTimer();
     cancelHide();
-    const clientX = "clientX" in event ? event.clientX : targetRef.current?.getBoundingClientRect().left ?? 0;
-    const clientY = "clientY" in event ? event.clientY : targetRef.current?.getBoundingClientRect().bottom ?? 0;
-    const initialPosition = getCursorFloatingPosition({ clientX, clientY }, PERSON_CARD_WIDTH_PX);
+    if (positionRef.current) return;
+
     hoverTimerRef.current = window.setTimeout(() => {
-      window.dispatchEvent(new Event(PERSON_POPOVER_HIDE_EVENT));
+      if (!targetRef.current || !isPointerOverNameRef.current) return;
+      const initialPosition = getFloatingPosition(targetRef.current, PERSON_CARD_WIDTH_PX);
+      window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
+      isPointerOverNameRef.current = true;
       onEnsureDetail(person);
-      setPosition(initialPosition);
+      updatePosition(initialPosition);
     }, PERSON_HOVER_DELAY_MS);
   };
 
@@ -282,7 +344,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     clearHoverTimer();
     cancelHide();
     hideTimerRef.current = window.setTimeout(() => {
-      if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) setPosition(null);
+      if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
     }, 140);
   };
 
@@ -295,7 +357,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     isPointerOverCardRef.current = false;
     if (!isPointerOverNameRef.current) {
       hideTimerRef.current = window.setTimeout(() => {
-        if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) setPosition(null);
+        if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
       }, 120);
     }
   };
@@ -457,6 +519,7 @@ interface MovieCardProps {
   ratingsActionsTmdbSlot?: ReactNode;
   separateRatingsActionsCard?: boolean;
   creditsLoading?: boolean;
+  preloadPersonDetails?: boolean;
 }
 
 function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
@@ -518,6 +581,7 @@ function MovieCard({
   ratingsActionsTmdbSlot,
   separateRatingsActionsCard = false,
   creditsLoading = false,
+  preloadPersonDetails = false,
 }: MovieCardProps) {
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
@@ -565,26 +629,14 @@ function MovieCard({
   }, []);
 
   const ensurePersonDetail = useCallback((person: MoviePersonCredit) => {
-    const cacheKey = getPersonCacheKey(person);
-    if (personDetailMemoryCache[cacheKey]) return;
-
-    personDetailMemoryCache[cacheKey] = { loading: true, detail: null, error: false };
-    notifyPersonDetailSubscribers();
-    const request = personDetailRequests.get(cacheKey) ?? fetchPersonDetail(person);
-    personDetailRequests.set(cacheKey, request);
-    request
-      .then((detail) => {
-        personDetailMemoryCache[cacheKey] = { loading: false, detail, error: false };
-      })
-      .catch((error) => {
-        console.warn("No se pudo cargar la ficha de persona.", error);
-        personDetailMemoryCache[cacheKey] = { loading: false, detail: null, error: true };
-      })
-      .finally(() => {
-        personDetailRequests.delete(cacheKey);
-        notifyPersonDetailSubscribers();
-      });
+    ensurePersonDetailCached(person);
   }, []);
+
+  useEffect(() => {
+    if (!preloadPersonDetails) return;
+    const peopleToPreload = [...directorPeople, ...castPeople.slice(0, 8)];
+    peopleToPreload.forEach(ensurePersonDetail);
+  }, [castPeople, directorPeople, ensurePersonDetail, preloadPersonDetails]);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
