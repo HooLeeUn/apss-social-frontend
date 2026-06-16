@@ -495,6 +495,10 @@ export default function ProfileFeedPage() {
                 genderIdentityVisible={profileUser?.genderIdentityVisible}
                 userLabel={t("profileFeedUser").toLocaleUpperCase(locale)}
                 formatAge={(value) => interpolate(t("profileFeedAge"), { age: value })}
+                followersCount={profileUser?.followersCount}
+                formatFollowers={(count) =>
+                  count === 1 ? t("profileFeedFollowedByOne") : interpolate(t("profileFeedFollowedByMany"), { count })
+                }
                 appBranding={branding}
                 logoSlot="profile_feed_logo_url"
               />

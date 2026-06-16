@@ -17,6 +17,8 @@ interface ProfileIdentityCardProps {
   autoHeight?: boolean;
   userLabel?: string;
   formatAge?: (age: number) => string;
+  followersCount?: number | null;
+  formatFollowers?: (count: number) => string;
 }
 
 function formatGender(gender: string): string {
@@ -49,12 +51,16 @@ export default function ProfileIdentityCard({
   autoHeight = false,
   userLabel = "usuario",
   formatAge = (value) => `${value} Años`,
+  followersCount = null,
+  formatFollowers = (count) => `Lo siguen ${count} usuarios`,
 }: ProfileIdentityCardProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);
   const canShowAge = ageVisible !== false && typeof age === "number" && Number.isFinite(age);
   const initials = (username || "U").slice(0, 2).toUpperCase();
-  const hasVisiblePersonalData = canShowGender || canShowAge;
+  const canShowFollowers = typeof followersCount === "number" && Number.isFinite(followersCount);
+  const followersCopy = canShowFollowers ? formatFollowers(followersCount) : null;
+  const hasVisiblePersonalData = canShowGender || canShowAge || canShowFollowers;
   const shouldRenderPersonalData = autoHeight ? hasVisiblePersonalData : true;
   const cardHeightClass = autoHeight ? "h-fit min-h-0 self-start" : "min-h-[220px]";
   const personalDataSpacingClass = autoHeight ? "mt-0" : "mt-auto";
@@ -118,6 +124,17 @@ export default function ProfileIdentityCard({
               {formatAge(age)}
             </span>
           ) : null}
+          {canShowFollowers && !canShowAge ? (
+            <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
+              {followersCopy}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {canShowFollowers && canShowAge ? (
+        <div className="absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300">
+          {followersCopy}
         </div>
       ) : null}
     </div>

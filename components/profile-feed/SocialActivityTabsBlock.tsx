@@ -190,10 +190,8 @@ export default function SocialActivityTabsBlock() {
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
   const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
     { value: "following", label: t("profileFeedFollowing"), emptyCopy: t("profileFeedNoItems") },
-    { value: "friends", label: t("profileFeedFriends"), emptyCopy: t("profileFeedNoItems") },
   ];
   const followingActivity = useInfiniteSocialActivity("following");
-  const friendsActivity = useInfiniteSocialActivity("friends");
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
   const isRecommendationsActive = activeTab === "recommendations";
 
@@ -405,11 +403,6 @@ export default function SocialActivityTabsBlock() {
     () => getVisibleItemsForTab("following", followingActivity.items),
     [followingActivity.items, getVisibleItemsForTab],
   );
-  const friendsVisibleItems = useMemo(
-    () => getVisibleItemsForTab("friends", friendsActivity.items),
-    [friendsActivity.items, getVisibleItemsForTab],
-  );
-
   const handleRecommendationsTabClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     setActiveTab("recommendations");
@@ -435,18 +428,12 @@ export default function SocialActivityTabsBlock() {
       visibleItems: followingVisibleItems,
       activity: followingActivity,
     },
-    {
-      tab: "friends" as const,
-      meta: tabs[1],
-      visibleItems: friendsVisibleItems,
-      activity: friendsActivity,
-    },
   ];
 
   return (
     <section className="ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 [overflow-anchor:none]">
       <header className="sticky top-4 z-30 bg-black/75 px-4 py-3 backdrop-blur-md" style={activityTabsLayoutStyle}>
-        <div className="grid grid-cols-[max-content_var(--activity-slot-width)_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
+        <div className="grid grid-cols-[max-content_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
           <button
             type="button"
             onMouseDown={preventPointerFocus}
@@ -456,23 +443,14 @@ export default function SocialActivityTabsBlock() {
             <span>{t("profileFeedRecommendations")}</span>
           </button>
 
-          <div className="relative col-start-2 col-span-2 h-10 w-[calc(var(--activity-slot-width)+var(--activity-tab-gap)+var(--activity-slot-width))] overflow-visible">
+          <div className="relative col-start-2 h-10 w-[var(--activity-slot-width)] overflow-visible">
             {tabs.map((tab) => {
               const isActive = tab.value === activeTab;
-              const positionClass = tab.value === "following" ? "left-0" : "left-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]";
-              const translateClass =
-                tab.value === "following"
-                  ? activityTab === "friends"
-                    ? "translate-x-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]"
-                    : "translate-x-0"
-                  : activityTab === "friends"
-                    ? "-translate-x-[calc(var(--activity-slot-width)+var(--activity-tab-gap))]"
-                    : "translate-x-0";
 
               return (
                 <div
                   key={tab.value}
-                  className={`absolute top-0 w-[var(--activity-slot-width)] transition duration-300 ease-out will-change-transform ${positionClass} ${translateClass}`}
+                  className="absolute left-0 top-0 w-[var(--activity-slot-width)] transition duration-300 ease-out will-change-transform"
                 >
                   <button
                     type="button"
