@@ -318,6 +318,10 @@ export default function UserProfileFeedPage() {
                 autoHeight
                 userLabel={t("visitedProfileUser")}
                 formatAge={(age) => interpolate(t("visitedProfileAge"), { age })}
+                followersCount={profileUser?.followersCount}
+                formatFollowers={(count) =>
+                  count === 1 ? t("profileFeedFollowedByOne") : interpolate(t("profileFeedFollowedByMany"), { count })
+                }
               />
             </div>
 
