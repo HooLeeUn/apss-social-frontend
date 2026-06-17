@@ -1,6 +1,20 @@
 import { clearToken, getToken } from "./auth";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const DEFAULT_API_PROTOCOL = "http:";
+const DEFAULT_API_PORT = "8000";
+
+function resolveDefaultApiBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return "http://localhost:8000/api";
+  }
+
+  const { hostname, protocol } = window.location;
+  const apiProtocol = protocol === "https:" ? protocol : DEFAULT_API_PROTOCOL;
+
+  return `${apiProtocol}//${hostname}:${DEFAULT_API_PORT}/api`;
+}
+
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || resolveDefaultApiBaseUrl();
 
 export class ApiError extends Error {
   status: number;
