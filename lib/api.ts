@@ -14,7 +14,38 @@ function resolveDefaultApiBaseUrl(): string {
   return `${apiProtocol}//${hostname}:${DEFAULT_API_PORT}/api`;
 }
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || resolveDefaultApiBaseUrl();
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+function resolveConfiguredApiBaseUrl(): string {
+  const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  if (!configuredApiUrl || typeof window === "undefined") {
+    return configuredApiUrl || resolveDefaultApiBaseUrl();
+  }
+
+  const frontendHostname = window.location.hostname;
+
+  if (isLocalHostname(frontendHostname)) {
+    return configuredApiUrl;
+  }
+
+  try {
+    const configuredUrl = new URL(configuredApiUrl);
+
+    if (isLocalHostname(configuredUrl.hostname)) {
+      configuredUrl.hostname = frontendHostname;
+      return configuredUrl.toString().replace(/\/$/, "");
+    }
+  } catch {
+    return configuredApiUrl;
+  }
+
+  return configuredApiUrl;
+}
+
+export const API_BASE_URL = resolveConfiguredApiBaseUrl();
 
 export class ApiError extends Error {
   status: number;
