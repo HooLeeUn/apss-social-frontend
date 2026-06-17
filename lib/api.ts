@@ -1,6 +1,51 @@
 import { clearToken, getToken } from "./auth";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const DEFAULT_API_PROTOCOL = "http:";
+const DEFAULT_API_PORT = "8000";
+
+function resolveDefaultApiBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return "http://localhost:8000/api";
+  }
+
+  const { hostname, protocol } = window.location;
+  const apiProtocol = protocol === "https:" ? protocol : DEFAULT_API_PROTOCOL;
+
+  return `${apiProtocol}//${hostname}:${DEFAULT_API_PORT}/api`;
+}
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+function resolveConfiguredApiBaseUrl(): string {
+  const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  if (!configuredApiUrl || typeof window === "undefined") {
+    return configuredApiUrl || resolveDefaultApiBaseUrl();
+  }
+
+  const frontendHostname = window.location.hostname;
+
+  if (isLocalHostname(frontendHostname)) {
+    return configuredApiUrl;
+  }
+
+  try {
+    const configuredUrl = new URL(configuredApiUrl);
+
+    if (isLocalHostname(configuredUrl.hostname)) {
+      configuredUrl.hostname = frontendHostname;
+      return configuredUrl.toString().replace(/\/$/, "");
+    }
+  } catch {
+    return configuredApiUrl;
+  }
+
+  return configuredApiUrl;
+}
+
+export const API_BASE_URL = resolveConfiguredApiBaseUrl();
 
 export class ApiError extends Error {
   status: number;
