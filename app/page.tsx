@@ -64,8 +64,9 @@ function LoginPageContent() {
       footerLinkText="Regístrate"
       footerHref="/signup"
       brandingSlot="login_logo_url"
+      fitMobileViewport
     >
-      <div className="space-y-5">
+      <div className="space-y-4 sm:space-y-5">
         {verificationMessage ? (
           <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${verificationMessageClassName}`}>
             {verificationMessage}
