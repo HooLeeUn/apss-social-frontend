@@ -743,15 +743,24 @@ export default function FeedPage() {
             <div className="relative z-30 flex min-w-0 flex-1 items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
               <AppLogo
                 branding={branding}
+                slot="default_logo_url"
+                alt="QNext"
+                className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:hidden"
+                textClassName="bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent lg:hidden"
+                eager
+                fallbackText="QNext"
+              />
+              <AppLogo
+                branding={branding}
                 slot="feed_logo_url"
                 alt="QNext"
-                className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:h-24 lg:max-w-[260px] lg:translate-y-1"
-                textClassName="bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent lg:text-xs"
+                className="hidden h-24 w-auto max-w-[260px] translate-y-1 object-contain object-left lg:block"
+                textClassName="hidden bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text font-bold uppercase tracking-[0.18em] text-transparent lg:block lg:text-xs"
                 eager
                 fallbackText="QNext"
               />
             </div>
-            <div className="feed-mobile-only relative z-50 flex shrink-0 justify-center lg:hidden [&>div]:w-11">
+            <div className="feed-mobile-only relative z-50 flex shrink-0 justify-center lg:hidden [&>div]:w-14">
               <DirectorBoardMenu
                 locale={locale}
                 mobileIconOnly

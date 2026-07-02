@@ -15,6 +15,7 @@ export interface AppBranding {
 }
 
 export type BrandingLogoSlot =
+  | "default_logo_url"
   | "login_logo_url"
   | "signup_logo_url"
   | "feed_logo_url"

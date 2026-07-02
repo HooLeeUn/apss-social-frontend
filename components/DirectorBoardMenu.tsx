@@ -33,7 +33,7 @@ function DirectorBoardToggle({ isOpen, onClick, mobileIconOnly = false }: Direct
       }`}
     >
       <span
-        className={`mx-auto block ${mobileIconOnly ? "h-3.5 w-8 lg:h-4 lg:w-[calc(100%-12px)]" : "h-4 w-[calc(100%-12px)]"} origin-[10%_15%] rounded-xl border border-white/20 bg-[repeating-linear-gradient(135deg,rgba(24,24,27,0.95)_0px,rgba(24,24,27,0.95)_14px,rgba(212,212,216,0.9)_14px,rgba(212,212,216,0.9)_22px)] shadow-[0_8px_16px_rgba(0,0,0,0.35)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`mx-auto block ${mobileIconOnly ? "h-3.5 w-10 lg:h-4 lg:w-[calc(100%-12px)]" : "h-4 w-[calc(100%-12px)]"} origin-[10%_15%] rounded-xl border border-white/20 bg-[repeating-linear-gradient(135deg,rgba(24,24,27,0.95)_0px,rgba(24,24,27,0.95)_14px,rgba(212,212,216,0.9)_14px,rgba(212,212,216,0.9)_22px)] shadow-[0_8px_16px_rgba(0,0,0,0.35)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           isOpen ? "-rotate-[10deg] -translate-y-[1px] translate-x-[2px]" : "rotate-0 translate-y-0 translate-x-0"
         }`}
       />
@@ -64,7 +64,9 @@ export default function DirectorBoardMenu({
 
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
-      if (!target || menuRef.current?.contains(target)) return;
+      if (!target) return;
+      if (menuRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-director-board-menu-root]")) return;
       onClose();
     };
 
@@ -106,7 +108,7 @@ export default function DirectorBoardMenu({
   };
 
   return (
-    <div ref={menuRef} className={`relative ${mobileIconOnly ? "w-11 lg:w-[198px]" : "w-[198px]"}`}>
+    <div ref={menuRef} data-director-board-menu-root className={`relative ${mobileIconOnly ? "w-14 lg:w-[198px]" : "w-[198px]"}`}>
       <DirectorBoardToggle isOpen={isOpen} onClick={onToggle} mobileIconOnly={mobileIconOnly} />
 
       <div
