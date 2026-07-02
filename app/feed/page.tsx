@@ -695,19 +695,20 @@ export default function FeedPage() {
   return (
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
-        <div className="sticky top-0 z-40 -mx-2 space-y-5 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 md:px-0 relative">
-          <div className="absolute left-0 top-2 z-30 hidden h-20 w-[280px] items-start justify-center overflow-visible bg-transparent pl-6 sm:flex md:pl-8">
-            <AppLogo
-              branding={branding}
-              slot="feed_logo_url"
-              alt="Branding del feed"
-              className="block h-16 w-auto max-w-[260px] translate-y-1 object-contain object-left sm:h-20 md:h-24"
-              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
-            />
-          </div>
-          <div className="pointer-events-none absolute right-0 top-5 z-50 pr-1 md:right-4 md:top-6">
-            <div className="pointer-events-auto relative flex w-[198px] flex-col items-center">
-              <div className="flex items-center gap-2">
+        <div className="sticky top-0 z-40 -mx-2 space-y-4 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
+          <div className="flex items-center justify-between gap-3 lg:block">
+            <div className="relative z-30 flex min-w-0 flex-1 items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
+              <AppLogo
+                branding={branding}
+                slot="feed_logo_url"
+                alt="Branding del feed"
+                className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:h-24 lg:max-w-[260px] lg:translate-y-1"
+                textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+              />
+            </div>
+            <div className="pointer-events-auto relative z-50 shrink-0 pr-0 lg:pointer-events-none lg:absolute lg:right-4 lg:top-6 lg:pr-1">
+              <div className="pointer-events-auto relative flex w-auto flex-col items-end lg:w-[198px] lg:items-center">
+                <div className="flex items-center gap-2">
                 <button
                   type="button"
                   aria-label="Ver notificaciones"
@@ -783,28 +784,31 @@ export default function FeedPage() {
                   error={streamingCountryError}
                 />
               </div>
-              <div className="mt-3">
-                <DirectorBoardMenu
-                  locale={locale}
-                  isOpen={isDirectorBoardOpen}
-                  onToggle={handleDirectorBoardToggle}
-                  onClose={handleDirectorBoardClose}
-                  onCloseSession={handleLogout}
-                  onPersonalDataClick={() => router.push("/settings/personal-data")}
-                  onPrivacySecurityClick={() => router.push("/privacy-security")}
-                  onPoliciesClick={() => router.push("/policies")}
-                />
-              </div>
             </div>
           </div>
+          </div>
 
-          <SearchBar
-            locale={locale}
-            className="mx-auto w-full max-w-2xl rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5"
-            inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
-            showSearchIcon
-            inlineAutocomplete
-          />
+          <div className="flex items-center justify-between gap-3 lg:block">
+            <SearchBar
+              locale={locale}
+              className="mx-0 w-[52%] min-w-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5 sm:w-[58%] lg:mx-auto lg:w-full lg:max-w-2xl"
+              inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
+              showSearchIcon
+              inlineAutocomplete
+            />
+            <div className="relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] lg:absolute lg:right-4 lg:top-[5.75rem] lg:[&>div]:w-[198px]">
+              <DirectorBoardMenu
+                locale={locale}
+                isOpen={isDirectorBoardOpen}
+                onToggle={handleDirectorBoardToggle}
+                onClose={handleDirectorBoardClose}
+                onCloseSession={handleLogout}
+                onPersonalDataClick={() => router.push("/settings/personal-data")}
+                onPrivacySecurityClick={() => router.push("/privacy-security")}
+                onPoliciesClick={() => router.push("/policies")}
+              />
+            </div>
+          </div>
 
           <GenreChips
             locale={locale}
@@ -813,8 +817,8 @@ export default function FeedPage() {
             onToggleGenre={toggleGenreSelection}
             onClearSelection={() => setSelectedGenres([])}
             showAllChip={selectedGenres.length > 0}
-            className="justify-center"
-            chipsContainerClassName="w-auto flex-initial justify-center overflow-visible"
+            className="w-full justify-start overflow-hidden lg:justify-center"
+            chipsContainerClassName="w-full flex-none justify-start overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:w-auto lg:flex-initial lg:justify-center lg:overflow-visible"
             chipClassName="border-2"
             selectedChipClassName="border-blue-300/90 bg-gradient-to-b from-blue-300/25 to-blue-600/40 text-blue-50 shadow-[0_4px_14px_rgba(56,189,248,0.35)]"
             unselectedChipClassName="border-white/70 bg-zinc-900 text-zinc-200 hover:border-white"
