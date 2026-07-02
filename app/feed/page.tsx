@@ -158,6 +158,7 @@ export default function FeedPage() {
   const excludedRatedIdsRef = useRef<Set<string>>(new Set());
   const notificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileNavRef = useRef<HTMLElement | null>(null);
   const isRefreshingNotificationsRef = useRef(false);
 
   useEffect(() => {
@@ -466,7 +467,14 @@ export default function FeedPage() {
   );
 
   const handleDirectorBoardToggle = useCallback(() => {
-    setIsDirectorBoardOpen((current) => !current);
+    setIsDirectorBoardOpen((current) => {
+      const nextState = !current;
+      if (nextState) {
+        setIsMobileSearchOpen(false);
+        setIsNotificationPanelOpen(false);
+      }
+      return nextState;
+    });
   }, []);
 
   const handleDirectorBoardClose = useCallback(() => {
@@ -483,11 +491,24 @@ export default function FeedPage() {
     setIsNotificationPanelOpen((current) => {
       const nextState = !current;
       if (nextState) {
+        setIsMobileSearchOpen(false);
+        setIsDirectorBoardOpen(false);
         void refreshNotifications();
       }
       return nextState;
     });
   }, [refreshNotifications]);
+
+  const handleMobileSearchToggle = useCallback(() => {
+    setIsMobileSearchOpen((current) => {
+      const nextState = !current;
+      if (nextState) {
+        setIsNotificationPanelOpen(false);
+        setIsDirectorBoardOpen(false);
+      }
+      return nextState;
+    });
+  }, []);
 
   const handleStreamingCountryChange = useCallback(
     async (nextCountry: StreamingCountry) => {
@@ -662,9 +683,9 @@ export default function FeedPage() {
 
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (!mobileSearchContainerRef.current) return;
-      if (event.target instanceof Node && !mobileSearchContainerRef.current.contains(event.target)) {
-        setIsMobileSearchOpen(false);
-      }
+      if (!(event.target instanceof Node)) return;
+      if (mobileSearchContainerRef.current.contains(event.target) || mobileNavRef.current?.contains(event.target)) return;
+      setIsMobileSearchOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -678,16 +699,18 @@ export default function FeedPage() {
   useEffect(() => {
     if (!isNotificationPanelOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (!notificationContainerRef.current) return;
-      if (event.target instanceof Node && !notificationContainerRef.current.contains(event.target)) {
-        setIsNotificationPanelOpen(false);
-      }
+      if (!(event.target instanceof Node)) return;
+      if (notificationContainerRef.current.contains(event.target) || mobileNavRef.current?.contains(event.target)) return;
+      setIsNotificationPanelOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
     };
   }, [isNotificationPanelOpen]);
 
@@ -723,7 +746,9 @@ export default function FeedPage() {
                 slot="feed_logo_url"
                 alt="QNext"
                 className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:h-24 lg:max-w-[260px] lg:translate-y-1"
-                textClassName="text-lg font-semibold uppercase tracking-[0.2em] text-zinc-200 lg:text-xs"
+                textClassName="bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent lg:text-xs"
+                eager
+                fallbackText="QNext"
               />
             </div>
             <div className="feed-mobile-only relative z-50 flex shrink-0 justify-center lg:hidden [&>div]:w-11">
@@ -930,15 +955,16 @@ export default function FeedPage() {
             inputClassName="rounded-full border-2 border-white/50 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
             showSearchIcon
             inlineAutocomplete
+            autocompletePlacement="above"
           />
         </div>
       ) : null}
 
-      <nav className="feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:hidden" aria-label="Acciones principales del feed">
+      <nav ref={mobileNavRef} className="feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:hidden" aria-label="Acciones principales del feed">
         <button
           type="button"
           aria-label="Buscar películas"
-          onClick={() => setIsMobileSearchOpen((current) => !current)}
+          onClick={handleMobileSearchToggle}
           className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-100 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-6 w-6">

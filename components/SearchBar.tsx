@@ -30,6 +30,7 @@ interface SearchBarProps {
   buttonClassName?: string;
   showSearchIcon?: boolean;
   inlineAutocomplete?: boolean;
+  autocompletePlacement?: "above" | "below";
   locale?: "es" | "en";
 }
 
@@ -102,6 +103,7 @@ export default function SearchBar({
   buttonClassName,
   showSearchIcon = false,
   inlineAutocomplete = false,
+  autocompletePlacement = "below",
   locale = "es",
 }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery);
@@ -290,6 +292,14 @@ export default function SearchBar({
   }, [router]);
 
   const rootClassName = inlineAutocomplete ? `relative ${className ?? "w-full"}`.trim() : "relative w-full";
+  const autocompletePanelClassName =
+    autocompletePlacement === "above"
+      ? "absolute bottom-full left-0 right-0 z-[80] mb-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur"
+      : "absolute left-0 right-0 top-full z-40 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur";
+  const autocompleteListClassName =
+    autocompletePlacement === "above"
+      ? "search-dropdown-scrollbar max-h-[min(56vh,420px)] overflow-y-auto overscroll-contain py-1"
+      : "search-dropdown-scrollbar max-h-[336px] overflow-y-auto overscroll-contain py-1";
   const formClassName = inlineAutocomplete ? "flex w-full" : `flex w-full gap-2 ${className ?? ""}`.trim();
   const shouldShowAutocompleteResults = inlineAutocomplete && isOpen && (results.length > 0 || shouldRunAutocomplete(trimmedQuery));
 
@@ -333,8 +343,8 @@ export default function SearchBar({
       </form>
 
       {shouldShowAutocompleteResults ? (
-        <div className="absolute left-0 right-0 top-full z-40 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 shadow-2xl shadow-black/60 backdrop-blur">
-          <div className="search-dropdown-scrollbar max-h-[336px] overflow-y-auto overscroll-contain py-1" onScroll={handleResultsScroll}>
+        <div className={autocompletePanelClassName}>
+          <div className={autocompleteListClassName} onScroll={handleResultsScroll}>
             {results.map((movie) => (
               <AutocompleteMovieRow key={movie.id} movie={movie} onSelect={handleMovieClick} locale={locale} />
             ))}
