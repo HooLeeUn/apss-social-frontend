@@ -11,6 +11,7 @@ interface StreamingCountrySelectorProps {
   className?: string;
   buttonId?: string;
   compact?: boolean;
+  iconOnly?: boolean;
 }
 
 export default function StreamingCountrySelector({
@@ -21,6 +22,7 @@ export default function StreamingCountrySelector({
   className = "",
   buttonId = "streaming-country-button",
   compact = false,
+  iconOnly = false,
 }: StreamingCountrySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -58,7 +60,7 @@ export default function StreamingCountrySelector({
   );
 
   return (
-    <div ref={containerRef} className={`relative flex max-w-[88px] flex-col items-start gap-1 ${className}`}>
+    <div ref={containerRef} className={`relative flex ${iconOnly ? "max-w-[44px]" : "max-w-[88px]"} flex-col items-start gap-1 ${className}`}>
       <label htmlFor={buttonId} className="sr-only">
         País de streaming
       </label>
@@ -71,16 +73,16 @@ export default function StreamingCountrySelector({
           return !current;
         })}
         title={selectedOption.name}
-        className={`${compact ? "h-8 rounded-lg" : "h-9 rounded-xl"} flex w-full items-center justify-between gap-1 border border-white/20 bg-zinc-900/95 px-2 py-1 text-xs font-semibold text-zinc-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition hover:border-white/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300/35 disabled:cursor-not-allowed disabled:opacity-70`}
+        className={`${compact ? "h-8 rounded-lg" : "h-9 rounded-xl"} flex w-full items-center justify-between gap-1 ${iconOnly ? "border-0 px-1.5 shadow-none" : "border border-white/20 px-2 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"} bg-zinc-900/95 py-1 text-xs font-semibold text-zinc-100 transition hover:border-white/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300/35 disabled:cursor-not-allowed disabled:opacity-70`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
         <span className="flex items-center gap-1.5" title={selectedOption.name}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={selectedOption.flagSrc} alt="" aria-hidden="true" className="h-3.5 w-5 rounded-[2px] object-cover" />
-          <span>{selectedOption.value}</span>
+          {!iconOnly ? <span>{selectedOption.value}</span> : null}
         </span>
-        <span className="text-[10px] text-zinc-400">▾</span>
+        {!iconOnly ? <span className="text-[10px] text-zinc-400">▾</span> : null}
       </button>
       {isOpen ? (
         <div className="absolute right-0 top-10 z-40 w-64 overflow-hidden rounded-xl border border-white/20 bg-zinc-900/98 p-1 shadow-[0_14px_26px_rgba(0,0,0,0.5)]">
