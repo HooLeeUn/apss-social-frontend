@@ -235,3 +235,17 @@ textarea,
 .synopsis-popover-scrollbar::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #666666 0%, #4a4a4a 100%);
 }
+
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  .feed-desktop-only {
+    display: none !important;
+  }
+
+  .feed-mobile-only {
+    display: flex !important;
+  }
+
+  .feed-mobile-search-modal {
+    display: block !important;
+  }
+}
