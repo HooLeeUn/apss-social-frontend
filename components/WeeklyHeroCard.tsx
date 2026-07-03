@@ -83,7 +83,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   return (
     <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
-        <div className="mx-auto w-full max-w-[268px] px-4 pt-3 sm:max-w-[288px]">
+        <div className="mx-auto w-full max-w-[212px] px-4 pt-3 sm:max-w-[288px] lg:max-w-[288px]">
           <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900">
             {posterSrc && !hasPosterError ? (
               detailHref ? (
@@ -182,8 +182,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col border-t border-white/10 bg-zinc-950/80 p-3.5 text-zinc-100">
-          <h3 className="line-clamp-2 text-xl font-semibold leading-tight text-zinc-50">
+        <div className="flex flex-1 flex-col border-t border-white/10 bg-zinc-950/80 p-3 text-zinc-100 lg:p-3.5">
+          <h3 className="line-clamp-2 text-lg font-semibold leading-tight text-zinc-50 lg:text-xl">
             {detailHref ? (
               <Link
                 href={detailHref}
@@ -212,7 +212,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             </p>
           ) : null}
 
-          <p className="mt-2 text-sm text-zinc-400">
+          <p className="mt-1.5 text-xs text-zinc-400 lg:mt-2 lg:text-sm">
             <span>{genre}</span>
             <span className="mx-2 text-zinc-600">•</span>
             <span>{type}</span>
@@ -220,19 +220,19 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
           </p>
 
-          <div className="mt-auto grid grid-cols-1 gap-2 pt-3 text-sm sm:grid-cols-3 sm:gap-3">
-            <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
+          <div className="mt-auto grid grid-cols-3 gap-1.5 pt-2 text-xs lg:gap-3 lg:pt-3 lg:text-sm">
+            <div className="rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">General</p>
-              <p className="text-base font-semibold text-zinc-100">⭐ {formatAverageRating(movie?.displayRating)}</p>
+              <p className="whitespace-nowrap text-sm font-semibold text-zinc-100 lg:text-base">⭐ {formatAverageRating(movie?.displayRating)}</p>
             </div>
-            <div className="rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2">
+            <div className="rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("following")}</p>
-              <p className="text-base font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating)}</p>
+              <p className="whitespace-nowrap text-sm font-semibold text-zinc-100 lg:text-base">👥 {formatFollowingRating(movie?.followingAvgRating)}</p>
               {formatFollowingRatingsCount(movie?.followingRatingsCount) ? (
                 <p className="text-[10px] text-zinc-500">{formatFollowingRatingsCount(movie?.followingRatingsCount)}</p>
               ) : null}
             </div>
-            <div className="rounded-lg border border-blue-400/60 bg-blue-950/35 px-3 py-2 shadow-[0_4px_12px_rgba(59,130,246,0.22)] transition-all duration-150 hover:-translate-y-px hover:border-blue-300/80 hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
+            <div className="rounded-lg border border-transparent bg-blue-950/25 px-1.5 py-1.5 transition-all duration-150 hover:-translate-y-px lg:border-blue-400/60 lg:bg-blue-950/35 lg:px-3 lg:py-2 lg:shadow-[0_4px_12px_rgba(59,130,246,0.22)] lg:hover:border-blue-300/80 lg:hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
                 {movie && onRated ? (
@@ -242,7 +242,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     onRated={(score, payload) => onRated(movie.id, score, payload)}
                     nullLabel="—"
                     ariaLabel="Mi calificación"
-                    className="w-full [&_button]:w-full [&_button]:justify-between [&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/50 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
+                    className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/25 [&_button]:px-1 [&_button]:text-xs [&_button]:text-blue-100 lg:[&_button]:justify-between lg:[&_button]:border-blue-400/65 lg:[&_button]:bg-blue-950/45 lg:[&_button]:text-sm lg:[&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] lg:[&_button:hover]:border-blue-300/90 lg:[&_button:hover]:bg-blue-900/50 lg:[&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
                   />
                 ) : (
                   <p className="text-base font-semibold text-blue-100">🙋 {formatMyRating(movie?.myRating)}</p>

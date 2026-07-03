@@ -86,8 +86,8 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const tagIconClassName = `interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
-    <article className="relative h-full pl-4">
-      <div className="interaction-icons absolute left-10 top-[59%] z-10">
+    <article className="relative h-full pl-3 lg:pl-4">
+      <div className="interaction-icons absolute left-9 bottom-4 z-20 lg:z-10 lg:left-10 lg:bottom-auto lg:top-[59%]">
         <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
           <img src="/icons/tag.png" alt="" className={tagIconClassName} />
         </button>
@@ -136,7 +136,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
         </div>
       )}
 
-      <div className="absolute right-[calc(34%+0.35rem)] top-[calc(59%+19px)] z-10 -translate-y-1/2">
+      <div className="absolute right-[calc(32%+0.45rem)] bottom-4 z-20 lg:z-10 lg:right-[calc(34%+0.35rem)] lg:bottom-auto lg:top-[calc(59%+19px)] lg:-translate-y-1/2">
         <CommentDetailButton title={title} synopsisEs={movie?.synopsis_es} synopsis={movie?.synopsis} className="h-[30px] w-[30px]" />
       </div>
 
@@ -188,12 +188,12 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
               </div>
 
               <div className="pt-2">
-                <div className="grid grid-cols-3 gap-1 text-[9px] text-zinc-200">
-                  <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-white/10 bg-zinc-950/80 px-1 py-1 text-center">
+                <div className="grid grid-cols-3 gap-1.5 text-[9px] text-zinc-200 lg:gap-1">
+                  <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-zinc-950/60 px-1.5 py-1 text-center lg:border-white/10 lg:bg-zinc-950/80 lg:px-1">
                     <span className="text-[10px] font-semibold text-zinc-100">⭐ {formatAverageRating(movie?.displayRating)}</span>
                   </span>
                   <span
-                    className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-white/10 bg-zinc-950/80 px-1 py-1 text-center"
+                    className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-zinc-950/60 px-1.5 py-1 text-center lg:border-white/10 lg:bg-zinc-950/80 lg:px-1"
                     title={followingRatingsTitle}
                   >
                     <span className="truncate text-[10px] font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating)}</span>
@@ -205,10 +205,10 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                       onRated={(score, payload) => onRated(movie.id, score, payload)}
                       nullLabel="—"
                       ariaLabel="Mi calificación"
-                      className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:px-1 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-100 [&_button]:shadow-[0_3px_10px_rgba(59,130,246,0.24)] [&_button:hover]:-translate-y-px [&_button:hover]:border-blue-300/90 [&_button:hover]:shadow-[0_7px_15px_rgba(59,130,246,0.3)]"
+                      className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/35 [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-100 lg:[&_button]:border-blue-400/65 lg:[&_button]:bg-blue-950/45 lg:[&_button]:px-1 lg:[&_button]:shadow-[0_3px_10px_rgba(59,130,246,0.24)] lg:[&_button:hover]:-translate-y-px lg:[&_button:hover]:border-blue-300/90 lg:[&_button:hover]:shadow-[0_7px_15px_rgba(59,130,246,0.3)]"
                     />
                   ) : (
-                    <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-blue-400/65 bg-blue-950/45 px-1 py-1 text-center shadow-[0_3px_10px_rgba(59,130,246,0.24)] transition-all duration-150 hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_7px_15px_rgba(59,130,246,0.3)]">
+                    <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-blue-950/35 px-1.5 py-1 text-center transition-all duration-150 hover:-translate-y-px lg:border-blue-400/65 lg:bg-blue-950/45 lg:px-1 lg:shadow-[0_3px_10px_rgba(59,130,246,0.24)] lg:hover:border-blue-300/90 lg:hover:shadow-[0_7px_15px_rgba(59,130,246,0.3)]">
                       <span className="text-[10px] font-semibold text-blue-100">🙋 {formatMyRating(movie?.myRating)}</span>
                     </span>
                   )}
@@ -217,7 +217,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             </div>
           </div>
 
-          <div className="w-[34%] min-w-[72px] max-w-[92px] border-l border-white/10 bg-zinc-950">
+          <div className="w-[32%] min-w-[82px] max-w-[110px] border-l border-white/10 bg-zinc-950 lg:w-[34%] lg:min-w-[72px] lg:max-w-[92px]">
             <div className="h-full w-full">
               {posterSrc && !hasPosterError ? (
                 detailHref ? (
