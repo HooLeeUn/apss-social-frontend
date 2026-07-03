@@ -24,6 +24,7 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
+import { normalizeBackendMediaUrl } from "../../lib/branding";
 import { type Country, countryToLocale, getStoredCountry, localeEventName, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
 import {
   addMovieToMyList,
@@ -60,23 +61,7 @@ function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
 const MAX_SELECTED_GENRES = 3;
 
 function resolveBackendMediaUrl(mediaUrl: string | null | undefined): string | null {
-  const trimmedMediaUrl = mediaUrl?.trim();
-  if (!trimmedMediaUrl) return null;
-
-  try {
-    return new URL(trimmedMediaUrl).toString();
-  } catch {
-    // Relative media paths must be resolved against the backend origin, not the frontend host.
-  }
-
-  const normalizedApiBaseUrl = API_BASE_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
-  const normalizedMediaPath = trimmedMediaUrl.startsWith("/") ? trimmedMediaUrl : `/${trimmedMediaUrl}`;
-
-  try {
-    return new URL(normalizedMediaPath, `${normalizedApiBaseUrl}/`).toString();
-  } catch {
-    return null;
-  }
+  return normalizeBackendMediaUrl(mediaUrl);
 }
 
 const MOBILE_DEFAULT_LOGO_FIELDS = [
@@ -817,8 +802,8 @@ export default function FeedPage() {
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
-          <div className="flex items-center justify-between gap-3 lg:block">
-            <div className="relative z-30 flex min-w-0 flex-1 items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
+          <div className="flex items-center gap-3 lg:block">
+            <div className="relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
               <MobileFeedDefaultLogo branding={branding} />
               <AppLogo
                 branding={branding}
@@ -830,7 +815,7 @@ export default function FeedPage() {
                 fallbackText="QNext"
               />
             </div>
-            <div className="feed-mobile-only relative z-50 flex shrink-0 justify-center lg:hidden [&>div]:w-14">
+            <div className="feed-mobile-only relative z-50 flex flex-1 justify-center lg:hidden [&>div]:w-[4.25rem]">
               <DirectorBoardMenu
                 locale={locale}
                 mobileIconOnly
@@ -843,7 +828,7 @@ export default function FeedPage() {
                 onPoliciesClick={() => router.push("/policies")}
               />
             </div>
-            <div className="feed-mobile-only relative z-50 flex flex-1 justify-end lg:hidden">
+            <div className="feed-mobile-only relative z-50 flex flex-none justify-end lg:hidden">
               <StreamingCountrySelector
                 country={streamingCountry}
                 onCountryChange={handleStreamingCountryChange}
