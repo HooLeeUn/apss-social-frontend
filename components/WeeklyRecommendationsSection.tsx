@@ -51,10 +51,10 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
       <h2 className="text-center text-2xl font-semibold text-zinc-100">{t("weeklyRecs")}</h2>
 
       <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
-        <div className="min-h-[36rem] w-[min(84vw,22rem)] flex-none snap-center">
+        <div className="min-h-[34.5rem] w-[min(84vw,22rem)] flex-none snap-center">
           {renderHeroCard(heroMovies[0], 0)}
         </div>
-        <div className="min-h-[36rem] w-[min(84vw,22rem)] flex-none snap-center">
+        <div className="min-h-[34.5rem] w-[min(84vw,22rem)] flex-none snap-center">
           {renderHeroCard(heroMovies[1], 1)}
         </div>
         {[0, 3].map((startIndex) => (

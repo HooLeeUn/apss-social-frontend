@@ -83,8 +83,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   return (
     <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
-        <div className="mx-auto w-full max-w-[212px] px-4 pt-3 sm:max-w-[288px] lg:max-w-[288px]">
-          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900">
+        <div className="mx-auto w-full max-w-[270px] px-4 pt-3 sm:max-w-[270px] lg:max-w-[288px]">
+          <div className="relative h-[318px] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900 lg:aspect-[2/3] lg:h-auto">
             {posterSrc && !hasPosterError ? (
               detailHref ? (
                 <Link href={detailHref} aria-label={`Ver detalle de ${title}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
@@ -125,8 +125,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </div>
 
           <div className="py-2">
-            <div className="relative flex items-start justify-between gap-4">
-              <div className="flex min-w-0 flex-col items-start gap-1">
+            <div className="relative grid grid-cols-4 items-center gap-2 lg:flex lg:items-start lg:justify-between lg:gap-4">
+              <div className="flex min-w-0 flex-col items-center gap-1 justify-self-start lg:items-start">
                 {topUserHref ? (
                   <Link
                     href={topUserHref}
@@ -171,13 +171,13 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 )}
                 <span className="sr-only">{topUsername}</span>
               </div>
-              <div className="interaction-icons absolute right-12 top-0.5 z-10">
+              <div className="interaction-icons col-span-2 z-10 flex justify-around justify-self-stretch lg:absolute lg:right-12 lg:top-0.5">
                 <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                   <img src="/icons/tag.png" alt="" className={tagIconClassName} />
                 </button>
                 <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button>
               </div>
-              <CommentDetailButton title={title} synopsisEs={movie?.synopsis_es} synopsis={movie?.synopsis} className="h-9 w-9 shrink-0" />
+              <CommentDetailButton title={title} synopsisEs={movie?.synopsis_es} synopsis={movie?.synopsis} className="h-9 w-9 shrink-0 justify-self-end" />
             </div>
           </div>
         </div>
@@ -220,7 +220,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
           </p>
 
-          <div className="mt-auto grid grid-cols-3 gap-1.5 pt-2 text-xs lg:gap-3 lg:pt-3 lg:text-sm">
+          <div className="mt-2 grid grid-cols-3 gap-1.5 pt-1 text-xs lg:mt-auto lg:gap-3 lg:pt-3 lg:text-sm">
             <div className="rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">General</p>
               <p className="whitespace-nowrap text-sm font-semibold text-zinc-100 lg:text-base">⭐ {formatAverageRating(movie?.displayRating)}</p>
