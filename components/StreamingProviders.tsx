@@ -523,14 +523,53 @@ function AvailabilityCountryWarning({ country, locale }: { country: Country; loc
 }
 
 function ProviderRow({ providers, label, locale }: { providers: StreamingProvider[]; label: string; locale: Locale }) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(MAX_INLINE_PROVIDERS);
+
+  useEffect(() => {
+    const updateVisibleCount = () => {
+      const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
+      if (!isMobileViewport || !rowRef.current) {
+        setMobileVisibleCount(MAX_INLINE_PROVIDERS);
+        return;
+      }
+
+      const availableWidth = rowRef.current.getBoundingClientRect().width;
+      const providerWidth = 36;
+      const gapWidth = 8;
+      const moreWidth = providers.length > 1 ? 38 : 0;
+      let count = 0;
+
+      for (let index = 0; index < providers.length; index += 1) {
+        const widthWithGaps = (count + 1) * providerWidth + count * gapWidth;
+        const needsMore = index < providers.length - 1;
+        const reservedMoreWidth = needsMore ? gapWidth + moreWidth : 0;
+        if (widthWithGaps + reservedMoreWidth <= availableWidth) count += 1;
+        else break;
+      }
+
+      setMobileVisibleCount(Math.max(1, Math.min(count, providers.length)));
+    };
+
+    updateVisibleCount();
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateVisibleCount) : null;
+    if (rowRef.current && resizeObserver) resizeObserver.observe(rowRef.current);
+    window.addEventListener("resize", updateVisibleCount);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateVisibleCount);
+    };
+  }, [providers.length]);
+
   if (providers.length === 0) return null;
 
-  const visibleProviders = providers.slice(0, MAX_INLINE_PROVIDERS);
-  const hiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
+  const visibleLimit = mobileVisibleCount;
+  const visibleProviders = providers.slice(0, visibleLimit);
+  const hiddenProviders = providers.slice(visibleLimit);
 
   return (
     <div className="space-y-1.5 overflow-visible">
-      <div className="flex flex-wrap items-center justify-center gap-2 overflow-visible">
+      <div ref={rowRef} className="flex flex-nowrap items-center justify-center gap-2 overflow-visible md:flex-wrap">
         {visibleProviders.map((provider) => (
           <ProviderLogo key={provider.id} provider={provider} locale={locale} />
         ))}
