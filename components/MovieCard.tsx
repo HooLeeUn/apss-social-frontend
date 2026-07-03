@@ -520,6 +520,7 @@ interface MovieCardProps {
   separateRatingsActionsCard?: boolean;
   creditsLoading?: boolean;
   preloadPersonDetails?: boolean;
+  enableMobileDetailCarousel?: boolean;
 }
 
 function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
@@ -582,6 +583,7 @@ function MovieCard({
   separateRatingsActionsCard = false,
   creditsLoading = false,
   preloadPersonDetails = false,
+  enableMobileDetailCarousel = false,
 }: MovieCardProps) {
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
@@ -619,6 +621,15 @@ function MovieCard({
   const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
   const posterSrc = movie.image || movie.posterUrl;
   const hasPosterError = Boolean(posterSrc && posterFailedSrc === posterSrc);
+  const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
+  const [mobileCarouselIndex, setMobileCarouselIndex] = useState(0);
+
+  const updateMobileCarouselIndex = useCallback(() => {
+    const node = mobileCarouselRef.current;
+    if (!node) return;
+    const columnWidth = node.clientWidth || 1;
+    setMobileCarouselIndex(Math.max(0, Math.min(2, Math.round(node.scrollLeft / columnWidth))));
+  }, []);
 
   useEffect(() => {
     const syncCache = () => setPersonDetailCache({ ...personDetailMemoryCache });
@@ -819,7 +830,7 @@ function MovieCard({
     </div>
   );
 
-  const cardContent = (
+  const desktopCardContent = (
     <article
       className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
@@ -961,22 +972,88 @@ function MovieCard({
     </article>
   );
 
+  const mobileDetailCardContent = enableMobileDetailCarousel && isFeed && showExtendedMetadata ? (
+    <>
+      <article className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors md:hidden">
+        <div className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]">
+          {posterSrc && !hasPosterError ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={posterSrc}
+              alt={`Poster de ${displayTitle}`}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              onError={() => setPosterFailedSrc(posterSrc)}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center px-3 text-center text-sm text-zinc-400">{t("noPoster")}</div>
+          )}
+        </div>
+        <div className="relative min-w-0 flex-1 overflow-hidden">
+          {mobileCarouselIndex > 0 ? <span aria-hidden="true" className="pointer-events-none absolute left-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">‹</span> : null}
+          {mobileCarouselIndex < 2 ? <span aria-hidden="true" className="pointer-events-none absolute right-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">›</span> : null}
+          <div
+            ref={mobileCarouselRef}
+            className="flex h-[164px] snap-x snap-mandatory overflow-x-auto scroll-smooth overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[172px]"
+            onScroll={updateMobileCarouselIndex}
+          >
+            <section className="flex h-full min-w-full snap-start flex-col justify-start px-3 py-3 pr-6 sm:px-3.5" aria-label="Metadata">
+              <div className="min-w-0 space-y-1.5">
+                <h3 className={`line-clamp-2 break-words font-semibold leading-tight ${isLarge ? "text-lg" : "text-base"}`}>{displayTitle}</h3>
+                {displaySecondaryTitle ? <p className="truncate text-xs leading-tight text-blue-200/80">{displaySecondaryTitle}</p> : null}
+                <p className="truncate text-sm text-zinc-300">{typeYearLine || t("movieDetailUnknown")}</p>
+                <p className="truncate text-sm text-zinc-400">{genresLine}</p>
+              </div>
+            </section>
+            <section className="h-full min-w-full snap-start overflow-hidden px-3 py-3 pr-6 sm:px-3.5" aria-label={locale === "en" ? "Available on" : "Disponible en"}>
+              <div className="max-h-full overflow-hidden">{extendedMetadataMiddleSlot}</div>
+            </section>
+            <section className="h-full min-w-full snap-start overflow-hidden px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
+              <div className="min-w-0 space-y-1 overflow-hidden">
+                {hasDirector ? (
+                  <p className="line-clamp-2 min-w-0 text-sm leading-[1.18] text-zinc-300">
+                    <span className="font-semibold text-zinc-100">{t("movieDetailDirector")}:</span>{" "}
+                    {directorPeople.map((person, index) => (
+                      <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
+                        {index > 0 ? <span className="mx-1.5 text-zinc-600">·</span> : null}
+                        <PersonName person={person} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} />
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
+                {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
+                {creditsLoading && !hasCast && !hasDirector ? (
+                  <div className="space-y-2" aria-label={locale === "en" ? "Loading cast" : "Cargando reparto"}>
+                    <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
+                    <div className="h-3 w-44 animate-pulse rounded-full bg-white/10" />
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </div>
+        </div>
+      </article>
+      <div className="hidden md:block">{desktopCardContent}</div>
+    </>
+  ) : desktopCardContent;
+
   if (splitFeedActions) {
     return (
       <div className="space-y-2">
-        {cardContent}
+        {mobileDetailCardContent}
         {ratingsActionsRow}
       </div>
     );
   }
 
   if (!linkToDetail || isFeed) {
-    return cardContent;
+    return mobileDetailCardContent;
   }
 
   return (
     <Link href={detailHref} className="block">
-      {cardContent}
+      {mobileDetailCardContent}
     </Link>
   );
 }

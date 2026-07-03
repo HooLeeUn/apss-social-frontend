@@ -1665,6 +1665,7 @@ export default function MovieDetailPage() {
             onRated={handleMovieRated}
             creditsLoading={creditsLoading}
             preloadPersonDetails
+            enableMobileDetailCarousel
           />
         ) : null}
 
