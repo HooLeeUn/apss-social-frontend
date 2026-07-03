@@ -24,6 +24,7 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
+import { normalizeBackendMediaUrl } from "../../lib/branding";
 import { type Country, countryToLocale, getStoredCountry, localeEventName, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
 import {
   addMovieToMyList,
@@ -58,6 +59,68 @@ function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
 }
 
 const MAX_SELECTED_GENRES = 3;
+
+function resolveBackendMediaUrl(mediaUrl: string | null | undefined): string | null {
+  return normalizeBackendMediaUrl(mediaUrl);
+}
+
+const MOBILE_DEFAULT_LOGO_FIELDS = [
+  "default_logo",
+  "default_logo_url",
+  "logo",
+  "logo_url",
+  "defaultLogo",
+  "defaultLogoUrl",
+] as const;
+
+type MobileLogoBranding = (NonNullable<ReturnType<typeof useAppBranding>> & Partial<Record<(typeof MOBILE_DEFAULT_LOGO_FIELDS)[number], string | null>>) | null;
+
+function getMobileDefaultLogoUrl(branding: MobileLogoBranding): string | null {
+  if (!branding) return null;
+
+  for (const field of MOBILE_DEFAULT_LOGO_FIELDS) {
+    const resolvedLogoUrl = resolveBackendMediaUrl(branding[field]);
+    if (resolvedLogoUrl) return resolvedLogoUrl;
+  }
+
+  return null;
+}
+
+function MobileFeedDefaultLogo({ branding }: { branding: MobileLogoBranding }) {
+  const defaultLogoUrl = getMobileDefaultLogoUrl(branding);
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
+    console.log("[Feed mobile logo branding]", {
+      default_logo: branding?.default_logo,
+      default_logo_url: branding?.default_logo_url,
+      logo: branding?.logo,
+      logo_url: branding?.logo_url,
+      defaultLogo: branding?.defaultLogo,
+      defaultLogoUrl: branding?.defaultLogoUrl,
+      resolvedUrl: defaultLogoUrl,
+    });
+  }, [branding, defaultLogoUrl]);
+
+  if (defaultLogoUrl && failedLogoUrl !== defaultLogoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={defaultLogoUrl}
+        alt="QNext"
+        className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:hidden"
+        loading="eager"
+        decoding="sync"
+        fetchPriority="high"
+        onError={() => setFailedLogoUrl(defaultLogoUrl)}
+      />
+    );
+  }
+
+  return <span className="bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent lg:hidden">QNext</span>;
+}
 
 function translateNotificationText(locale: ReturnType<typeof countryToLocale>, text: string): string {
   if (locale !== "en") return text;
@@ -158,6 +221,7 @@ export default function FeedPage() {
   const excludedRatedIdsRef = useRef<Set<string>>(new Set());
   const notificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileNavRef = useRef<HTMLElement | null>(null);
   const isRefreshingNotificationsRef = useRef(false);
 
   useEffect(() => {
@@ -466,7 +530,14 @@ export default function FeedPage() {
   );
 
   const handleDirectorBoardToggle = useCallback(() => {
-    setIsDirectorBoardOpen((current) => !current);
+    setIsDirectorBoardOpen((current) => {
+      const nextState = !current;
+      if (nextState) {
+        setIsMobileSearchOpen(false);
+        setIsNotificationPanelOpen(false);
+      }
+      return nextState;
+    });
   }, []);
 
   const handleDirectorBoardClose = useCallback(() => {
@@ -483,11 +554,24 @@ export default function FeedPage() {
     setIsNotificationPanelOpen((current) => {
       const nextState = !current;
       if (nextState) {
+        setIsMobileSearchOpen(false);
+        setIsDirectorBoardOpen(false);
         void refreshNotifications();
       }
       return nextState;
     });
   }, [refreshNotifications]);
+
+  const handleMobileSearchToggle = useCallback(() => {
+    setIsMobileSearchOpen((current) => {
+      const nextState = !current;
+      if (nextState) {
+        setIsNotificationPanelOpen(false);
+        setIsDirectorBoardOpen(false);
+      }
+      return nextState;
+    });
+  }, []);
 
   const handleStreamingCountryChange = useCallback(
     async (nextCountry: StreamingCountry) => {
@@ -662,9 +746,9 @@ export default function FeedPage() {
 
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (!mobileSearchContainerRef.current) return;
-      if (event.target instanceof Node && !mobileSearchContainerRef.current.contains(event.target)) {
-        setIsMobileSearchOpen(false);
-      }
+      if (!(event.target instanceof Node)) return;
+      if (mobileSearchContainerRef.current.contains(event.target) || mobileNavRef.current?.contains(event.target)) return;
+      setIsMobileSearchOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -678,16 +762,18 @@ export default function FeedPage() {
   useEffect(() => {
     if (!isNotificationPanelOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (!notificationContainerRef.current) return;
-      if (event.target instanceof Node && !notificationContainerRef.current.contains(event.target)) {
-        setIsNotificationPanelOpen(false);
-      }
+      if (!(event.target instanceof Node)) return;
+      if (notificationContainerRef.current.contains(event.target) || mobileNavRef.current?.contains(event.target)) return;
+      setIsNotificationPanelOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
     };
   }, [isNotificationPanelOpen]);
 
@@ -716,17 +802,20 @@ export default function FeedPage() {
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
-          <div className="flex items-center justify-between gap-3 lg:block">
-            <div className="relative z-30 flex min-w-0 flex-1 items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
+          <div className="flex items-center gap-3 lg:block">
+            <div className="relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
+              <MobileFeedDefaultLogo branding={branding} />
               <AppLogo
                 branding={branding}
                 slot="feed_logo_url"
                 alt="QNext"
-                className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:h-24 lg:max-w-[260px] lg:translate-y-1"
-                textClassName="text-lg font-semibold uppercase tracking-[0.2em] text-zinc-200 lg:text-xs"
+                className="hidden h-24 w-auto max-w-[260px] translate-y-1 object-contain object-left lg:block"
+                textClassName="hidden bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text font-bold uppercase tracking-[0.18em] text-transparent lg:block lg:text-xs"
+                eager
+                fallbackText="QNext"
               />
             </div>
-            <div className="feed-mobile-only relative z-50 flex shrink-0 justify-center lg:hidden [&>div]:w-11">
+            <div className="feed-mobile-only relative z-50 flex flex-1 justify-center lg:hidden [&>div]:w-[4.25rem]">
               <DirectorBoardMenu
                 locale={locale}
                 mobileIconOnly
@@ -739,7 +828,7 @@ export default function FeedPage() {
                 onPoliciesClick={() => router.push("/policies")}
               />
             </div>
-            <div className="feed-mobile-only relative z-50 flex flex-1 justify-end lg:hidden">
+            <div className="feed-mobile-only relative z-50 flex flex-none justify-end lg:hidden">
               <StreamingCountrySelector
                 country={streamingCountry}
                 onCountryChange={handleStreamingCountryChange}
@@ -930,15 +1019,16 @@ export default function FeedPage() {
             inputClassName="rounded-full border-2 border-white/50 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
             showSearchIcon
             inlineAutocomplete
+            autocompletePlacement="above"
           />
         </div>
       ) : null}
 
-      <nav className="feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:hidden" aria-label="Acciones principales del feed">
+      <nav ref={mobileNavRef} className="feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:hidden" aria-label="Acciones principales del feed">
         <button
           type="button"
           aria-label="Buscar películas"
-          onClick={() => setIsMobileSearchOpen((current) => !current)}
+          onClick={handleMobileSearchToggle}
           className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-100 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-6 w-6">

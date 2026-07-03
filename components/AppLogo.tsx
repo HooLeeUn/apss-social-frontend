@@ -10,11 +10,13 @@ interface AppLogoProps {
   className?: string;
   imageClassName?: string;
   textClassName?: string;
+  eager?: boolean;
+  fallbackText?: string;
 }
 
-export default function AppLogo({ branding, slot, alt, className, imageClassName, textClassName }: AppLogoProps) {
+export default function AppLogo({ branding, slot, alt, className, imageClassName, textClassName, eager = false, fallbackText }: AppLogoProps) {
   const logoUrl = resolveBrandingLogoUrl(branding, slot);
-  const appName = branding?.app_name || "QNext";
+  const appName = fallbackText || branding?.app_name || "QNext";
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
 
 
@@ -25,8 +27,9 @@ export default function AppLogo({ branding, slot, alt, className, imageClassName
         src={logoUrl}
         alt={alt}
         className={imageClassName || className}
-        loading="lazy"
-        decoding="async"
+        loading={eager ? "eager" : "lazy"}
+        decoding={eager ? "sync" : "async"}
+        fetchPriority={eager ? "high" : undefined}
         onError={() => setFailedLogoUrl(logoUrl)}
       />
     );
