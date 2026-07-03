@@ -687,15 +687,53 @@ function MovieCard({
     compactRatingsRow ? "gap-3 sm:gap-4" : "gap-2"
   }`;
 
+  const splitFeedRatingClassName = splitFeedActions ? "hidden md:flex" : "";
+  const splitFeedTmdbClassName = splitFeedActions
+    ? "mx-auto flex w-auto min-w-0 shrink-0 items-center justify-center gap-2 md:grid md:w-[290px] md:min-w-fit md:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] md:gap-0"
+    : "mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] md:w-[290px]";
+  const splitFeedTmdbSlotClassName = splitFeedActions ? "relative z-30 shrink-0 md:justify-self-start md:pl-10" : "relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10";
+  const mobileDetailRatingsRow = splitFeedActions ? (
+    <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-black/35 px-2.5 py-1.5 text-zinc-200">
+      <div className="flex items-center gap-1 text-sm font-semibold">
+        <span aria-hidden="true">⭐</span>
+        <span aria-label="Calificación general">{formatAverageRating(movie.displayRating)}</span>
+      </div>
+      <div className="flex items-center gap-1 text-sm font-semibold" title={formatFollowingRatingsCount(movie.followingRatingsCount) || undefined}>
+        <span aria-label="Calificación de seguidos">👥 {formatFollowingRating(movie.followingAvgRating)}</span>
+      </div>
+      <div className="flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-semibold">
+        {onRated ? (
+          <RatingPopover
+            movieId={movie.id}
+            currentRating={movie.myRating}
+            onRated={(score, payload) => onRated(movie.id, score, payload)}
+            nullLabel="—"
+            ariaLabel="Mi calificación"
+            className={
+              highlightMyRatingSlot
+                ? "[&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
+                : ""
+            }
+          />
+        ) : (
+          <>
+            <span aria-hidden="true" className={highlightMyRatingSlot ? "text-blue-100" : ""}>🙋</span>
+            <span aria-label="Mi calificación" className={highlightMyRatingSlot ? "text-blue-100" : ""}>{formatMyRating(movie.myRating)}</span>
+          </>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   const ratingsActionsRow = (
     <div
       className={`${splitFeedActions ? "" : "mt-2"} ${
         isFeed
-          ? `${splitFeedActions ? "flex flex-wrap items-center" : "flex items-center"} ${feedRatingsCardClassName}`
+          ? `${splitFeedActions ? "flex flex-nowrap items-center justify-center gap-2 md:flex-wrap md:justify-start md:gap-2" : "flex items-center"} ${feedRatingsCardClassName}`
           : "grid grid-cols-3 gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-center text-gray-700"
       }`}
     >
-      <div className={isFeed ? `flex items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
+      <div className={isFeed ? `${splitFeedRatingClassName} items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
         {isFeed ? (
           <>
             <span aria-hidden="true">⭐</span>
@@ -708,7 +746,7 @@ function MovieCard({
           </>
         )}
       </div>
-      <div className={isFeed ? `flex items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
+      <div className={isFeed ? `${splitFeedRatingClassName} items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
         {isFeed ? (
           <div className="flex leading-tight" title={formatFollowingRatingsCount(movie.followingRatingsCount) || undefined}>
             <span className="font-semibold" aria-label="Calificación de seguidos">
@@ -731,7 +769,7 @@ function MovieCard({
       <div
         className={
           isFeed
-            ? `flex items-center ${compactRatingsRow ? "gap-1.5" : "gap-1"} rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
+            ? `${splitFeedRatingClassName} items-center ${compactRatingsRow ? "gap-1.5" : "gap-1"} rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
                 highlightMyRatingSlot && !onRated
                   ? "border-blue-400/65 bg-blue-950/40 shadow-[0_4px_12px_rgba(59,130,246,0.24)] hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_8px_16px_rgba(59,130,246,0.3)]"
                   : ""
@@ -771,7 +809,7 @@ function MovieCard({
       {isFeed ? (
         <>
           {tmdbUrl || ratingsActionsTmdbSlot ? (
-            <div className="mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] md:w-[290px]">
+            <div className={splitFeedTmdbClassName}>
               <div aria-hidden="true" />
               {tmdbUrl ? (
                 <TooltipTarget text={tmdbTooltip}>
@@ -787,10 +825,10 @@ function MovieCard({
                   </a>
                 </TooltipTarget>
               ) : null}
-              {ratingsActionsTmdbSlot ? <div className="relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10">{ratingsActionsTmdbSlot}</div> : null}
+              {ratingsActionsTmdbSlot ? <div className={splitFeedTmdbSlotClassName}>{ratingsActionsTmdbSlot}</div> : null}
             </div>
           ) : null}
-          <div className={`relative ml-auto ${splitFeedActions ? "flex min-w-fit items-center gap-2" : highlightMyRatingSlot ? "min-w-[9rem]" : ""}`}>
+          <div className={`relative ${splitFeedActions ? "ml-0 flex min-w-fit items-center gap-2 md:ml-auto" : highlightMyRatingSlot ? "ml-auto min-w-[9rem]" : "ml-auto"}`}>
             {splitFeedActions ? (
               <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
             ) : null}
@@ -1004,6 +1042,7 @@ function MovieCard({
                 {displaySecondaryTitle ? <p className="truncate text-xs leading-tight text-blue-200/80">{displaySecondaryTitle}</p> : null}
                 <p className="truncate text-sm text-zinc-300">{typeYearLine || t("movieDetailUnknown")}</p>
                 <p className="truncate text-sm text-zinc-400">{genresLine}</p>
+                {mobileDetailRatingsRow}
               </div>
             </section>
             <section className="h-full min-w-full snap-start overflow-hidden px-3 py-3 pr-6 sm:px-3.5" aria-label={locale === "en" ? "Available on" : "Disponible en"}>
