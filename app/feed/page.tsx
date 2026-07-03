@@ -59,6 +59,48 @@ function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
 
 const MAX_SELECTED_GENRES = 3;
 
+function resolveBackendMediaUrl(mediaUrl: string | null | undefined): string | null {
+  const trimmedMediaUrl = mediaUrl?.trim();
+  if (!trimmedMediaUrl) return null;
+
+  try {
+    return new URL(trimmedMediaUrl).toString();
+  } catch {
+    // Relative media paths must be resolved against the backend origin, not the frontend host.
+  }
+
+  const normalizedApiBaseUrl = API_BASE_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  const normalizedMediaPath = trimmedMediaUrl.startsWith("/") ? trimmedMediaUrl : `/${trimmedMediaUrl}`;
+
+  try {
+    return new URL(normalizedMediaPath, `${normalizedApiBaseUrl}/`).toString();
+  } catch {
+    return null;
+  }
+}
+
+function MobileFeedDefaultLogo({ branding }: { branding: ReturnType<typeof useAppBranding> }) {
+  const defaultLogoUrl = resolveBackendMediaUrl(branding?.default_logo_url);
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+
+  if (defaultLogoUrl && failedLogoUrl !== defaultLogoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={defaultLogoUrl}
+        alt="QNext"
+        className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:hidden"
+        loading="eager"
+        decoding="sync"
+        fetchPriority="high"
+        onError={() => setFailedLogoUrl(defaultLogoUrl)}
+      />
+    );
+  }
+
+  return <span className="bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent lg:hidden">QNext</span>;
+}
+
 function translateNotificationText(locale: ReturnType<typeof countryToLocale>, text: string): string {
   if (locale !== "en") return text;
 
@@ -741,15 +783,7 @@ export default function FeedPage() {
         <div className="sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
           <div className="flex items-center justify-between gap-3 lg:block">
             <div className="relative z-30 flex min-w-0 flex-1 items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
-              <AppLogo
-                branding={branding}
-                slot="default_logo_url"
-                alt="QNext"
-                className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:hidden"
-                textClassName="bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent lg:hidden"
-                eager
-                fallbackText="QNext"
-              />
+              <MobileFeedDefaultLogo branding={branding} />
               <AppLogo
                 branding={branding}
                 slot="feed_logo_url"
