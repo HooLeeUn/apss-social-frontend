@@ -24,6 +24,7 @@ import {
 } from "../../lib/profile-feed/adapters";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
+import { normalizeBackendMediaUrl } from "../../lib/branding";
 import { type Country, countryToLocale, getStoredCountry, localeEventName, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
 import {
   addMovieToMyList,
@@ -60,23 +61,7 @@ function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
 const MAX_SELECTED_GENRES = 3;
 
 function resolveBackendMediaUrl(mediaUrl: string | null | undefined): string | null {
-  const trimmedMediaUrl = mediaUrl?.trim();
-  if (!trimmedMediaUrl) return null;
-
-  try {
-    return new URL(trimmedMediaUrl).toString();
-  } catch {
-    // Relative media paths must be resolved against the backend origin, not the frontend host.
-  }
-
-  const normalizedApiBaseUrl = API_BASE_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
-  const normalizedMediaPath = trimmedMediaUrl.startsWith("/") ? trimmedMediaUrl : `/${trimmedMediaUrl}`;
-
-  try {
-    return new URL(normalizedMediaPath, `${normalizedApiBaseUrl}/`).toString();
-  } catch {
-    return null;
-  }
+  return normalizeBackendMediaUrl(mediaUrl);
 }
 
 const MOBILE_DEFAULT_LOGO_FIELDS = [
