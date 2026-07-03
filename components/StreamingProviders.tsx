@@ -114,6 +114,7 @@ function QNextTooltip({ text, position }: { text: string; position: TooltipPosit
 
 function TooltipTarget({ text, children }: { text: string; children: ReactNode }) {
   const targetRef = useRef<HTMLSpanElement | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
 
   const showTooltip = () => {
@@ -123,6 +124,27 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
 
   const hideTooltip = () => setPosition(null);
 
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLSpanElement>) => {
+    if (event.pointerType === "mouse") return;
+    clearLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(showTooltip, 420);
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent<HTMLSpanElement>) => {
+    if (event.pointerType === "mouse") return;
+    clearLongPressTimer();
+    hideTooltip();
+  };
+
+  useEffect(() => () => clearLongPressTimer(), []);
+
   return (
     <span
       ref={targetRef}
@@ -131,6 +153,13 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
       onMouseLeave={hideTooltip}
       onFocus={showTooltip}
       onBlur={hideTooltip}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onPointerLeave={handlePointerEnd}
+      onContextMenu={(event) => {
+        if (window.matchMedia("(hover: none), (pointer: coarse)").matches) event.preventDefault();
+      }}
     >
       {children}
       {position ? <QNextTooltip text={text} position={position} /> : null}
@@ -284,6 +313,8 @@ function ProviderLogoMark({ provider, sizeClassName = "h-9 w-9" }: { provider: S
 }
 
 function ProviderLogo({ provider, locale }: { provider: StreamingProvider; locale: Locale }) {
+  const longPressTriggeredRef = useRef(false);
+  const longPressTimerRef = useRef<number | null>(null);
   const tooltip = getAvailabilityTooltip(provider, locale);
   const providerClassName = `flex flex-shrink-0 items-center justify-center transition ${
     provider.isClickable
@@ -292,10 +323,23 @@ function ProviderLogo({ provider, locale }: { provider: StreamingProvider; local
   }`;
   const content = <ProviderLogoMark provider={provider} />;
 
+  const handlePointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse") return;
+    longPressTriggeredRef.current = false;
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+    }, 420);
+  };
+  const handlePointerEnd = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse") return;
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+  };
+
   return (
     <TooltipTarget text={tooltip}>
       {provider.isClickable && provider.monetizedUrl ? (
-        <a href={provider.monetizedUrl} target="_blank" rel="noopener noreferrer" aria-label={tooltip} className={providerClassName}>
+        <a href={provider.monetizedUrl} target="_blank" rel="noopener noreferrer" aria-label={tooltip} className={providerClassName} onPointerDown={handlePointerDown} onPointerUp={handlePointerEnd} onPointerCancel={handlePointerEnd} onPointerLeave={handlePointerEnd} onClick={(event) => { if (longPressTriggeredRef.current) { event.preventDefault(); longPressTriggeredRef.current = false; } }}>
           {content}
         </a>
       ) : (
@@ -307,7 +351,71 @@ function ProviderLogo({ provider, locale }: { provider: StreamingProvider; local
   );
 }
 
+function ProviderOverflowLogo({ provider, locale }: { provider: StreamingProvider; locale: Locale }) {
+  const longPressTriggeredRef = useRef(false);
+  const longPressTimerRef = useRef<number | null>(null);
+  const tooltip = getAvailabilityTooltip(provider, locale);
+  const itemClassName = "flex w-9 flex-shrink-0 items-center justify-center rounded-lg p-1 transition";
+  const content = <ProviderLogoMark provider={provider} sizeClassName="h-7 w-7" />;
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse") return;
+    longPressTriggeredRef.current = false;
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+    }, 420);
+  };
+  const handlePointerEnd = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse") return;
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+  };
+
+  return (
+    <TooltipTarget text={tooltip}>
+      {provider.isClickable && provider.monetizedUrl ? (
+        <a
+          href={provider.monetizedUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={tooltip}
+          className={`${itemClassName} hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80`}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          onPointerLeave={handlePointerEnd}
+          onClick={(event) => {
+            if (longPressTriggeredRef.current) {
+              event.preventDefault();
+              longPressTriggeredRef.current = false;
+            }
+          }}
+        >
+          {content}
+        </a>
+      ) : (
+        <div className={`${itemClassName} cursor-default opacity-80`} aria-label={tooltip}>
+          {content}
+        </div>
+      )}
+    </TooltipTarget>
+  );
+}
+
 function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvider[]; locale: Locale }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
+      setIsOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [isOpen]);
+
   if (providers.length === 0) return null;
 
   const labels = getStreamingLabels(locale);
@@ -317,44 +425,23 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
   } satisfies CSSProperties;
 
   return (
-    <div className="group relative z-50 inline-flex overflow-visible">
+    <div ref={menuRef} className="group relative z-50 inline-flex overflow-visible">
       <button
         type="button"
         aria-label={labels.moreAria(providers.length)}
         className="rounded-full px-1 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+        onClick={() => setIsOpen((current) => !current)}
       >
         +{providers.length}
       </button>
-      <div className="pointer-events-none absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 opacity-0 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+      <div className={`absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
         <div
           className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1"
           style={overflowListStyle}
         >
-          {providers.map((provider) => {
-            const tooltip = getAvailabilityTooltip(provider, locale);
-            const itemClassName = "flex w-9 flex-shrink-0 items-center justify-center rounded-lg p-1 transition";
-            const content = <ProviderLogoMark provider={provider} sizeClassName="h-7 w-7" />;
-
-            return (
-              <TooltipTarget key={provider.id} text={tooltip}>
-                {provider.isClickable && provider.monetizedUrl ? (
-                  <a
-                    href={provider.monetizedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={tooltip}
-                    className={`${itemClassName} hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80`}
-                  >
-                    {content}
-                  </a>
-                ) : (
-                  <div className={`${itemClassName} cursor-default opacity-80`} aria-label={tooltip}>
-                    {content}
-                  </div>
-                )}
-              </TooltipTarget>
-            );
-          })}
+          {providers.map((provider) => (
+            <ProviderOverflowLogo key={provider.id} provider={provider} locale={locale} />
+          ))}
         </div>
       </div>
     </div>

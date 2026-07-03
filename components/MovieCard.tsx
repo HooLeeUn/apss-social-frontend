@@ -391,6 +391,57 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseE
   );
 }
 
+function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; label: string }) {
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const [overflowPosition, setOverflowPosition] = useState<TooltipPosition | null>(null);
+
+  useEffect(() => {
+    if (!overflowPosition) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && moreRef.current?.contains(event.target)) return;
+      setOverflowPosition(null);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [overflowPosition]);
+
+  if (people.length === 0) return null;
+
+  const showOverflow = () => {
+    if (!moreRef.current) return;
+    setOverflowPosition(getFloatingPosition(moreRef.current, CAST_OVERFLOW_POPOVER_WIDTH_PX));
+  };
+
+  return (
+    <>
+      <button
+        ref={moreRef}
+        type="button"
+        aria-label={label}
+        className="ml-1 inline-flex rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0 text-xs font-bold leading-[1.18] text-blue-100 shadow-sm transition hover:border-[#86ADE0]/55 hover:bg-[#86ADE0]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/60"
+        onClick={() => {
+          if (overflowPosition) setOverflowPosition(null);
+          else showOverflow();
+        }}
+        onMouseEnter={showOverflow}
+        onFocus={showOverflow}
+      >
+        +{people.length}
+      </button>
+      {overflowPosition ? (
+        <CastOverflowPopover
+          people={people}
+          cache={cache}
+          onEnsureDetail={onEnsureDetail}
+          position={overflowPosition}
+          onMouseEnter={() => undefined}
+          onMouseLeave={() => undefined}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: string; people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; isFeed: boolean }) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const measureRef = useRef<HTMLDivElement | null>(null);
@@ -402,6 +453,16 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
   useEffect(() => () => {
     if (hideTimerRef.current !== null) window.clearTimeout(hideTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!overflowPosition) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && rowRef.current?.contains(event.target)) return;
+      setOverflowPosition(null);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [overflowPosition]);
 
   useEffect(() => {
     const updateVisibleCount = () => {
@@ -478,6 +539,10 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
             onMouseLeave={scheduleHide}
             onFocus={showOverflow}
             onBlur={scheduleHide}
+            onClick={() => {
+              if (overflowPosition) setOverflowPosition(null);
+              else showOverflow();
+            }}
           >
             +{hiddenPeople.length}
           </button>
@@ -689,9 +754,9 @@ function MovieCard({
 
   const splitFeedRatingClassName = splitFeedActions ? "hidden md:flex" : "";
   const splitFeedTmdbClassName = splitFeedActions
-    ? "mr-auto flex w-auto min-w-0 shrink-0 items-center justify-start gap-2 md:mx-auto md:grid md:w-[290px] md:min-w-fit md:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] md:gap-0"
+    ? "mx-auto grid w-[180px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center md:w-[290px] md:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)]"
     : "mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] md:w-[290px]";
-  const splitFeedTmdbSlotClassName = splitFeedActions ? "relative z-30 shrink-0 md:justify-self-start md:pl-10" : "relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10";
+  const splitFeedTmdbSlotClassName = splitFeedActions ? "relative z-30 shrink-0 justify-self-center md:justify-self-start md:pl-10" : "relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10";
   const mobileDetailRatingsRow = splitFeedActions ? (
     <div className="mt-0.5 flex flex-nowrap items-center gap-1.5 text-zinc-200">
       <div className="flex items-center gap-1 text-sm font-semibold">
@@ -867,6 +932,11 @@ function MovieCard({
       )}
     </div>
   );
+
+  const mobileVisibleDirectors = directorPeople.slice(0, 1);
+  const mobileHiddenDirectors = directorPeople.slice(1);
+  const mobileDirectorOverflowLabel =
+    locale === "en" ? `View ${mobileHiddenDirectors.length} more directors` : `Ver ${mobileHiddenDirectors.length} directores más`;
 
   const desktopCardContent = (
     <article
@@ -1053,12 +1123,18 @@ function MovieCard({
                 {hasDirector ? (
                   <p className="line-clamp-2 min-w-0 text-sm leading-[1.18] text-zinc-300">
                     <span className="font-semibold text-zinc-100">{t("movieDetailDirector")}:</span>{" "}
-                    {directorPeople.map((person, index) => (
+                    {mobileVisibleDirectors.map((person, index) => (
                       <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
                         {index > 0 ? <span className="mx-1.5 text-zinc-600">·</span> : null}
                         <PersonName person={person} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} />
                       </span>
                     ))}
+                    <PersonOverflowButton
+                      people={mobileHiddenDirectors}
+                      cache={personDetailCache}
+                      onEnsureDetail={ensurePersonDetail}
+                      label={mobileDirectorOverflowLabel}
+                    />
                   </p>
                 ) : null}
                 {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
