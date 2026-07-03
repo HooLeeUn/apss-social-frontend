@@ -815,7 +815,7 @@ export default function FeedPage() {
                 fallbackText="QNext"
               />
             </div>
-            <div className="feed-mobile-only relative z-50 flex shrink-0 justify-center lg:hidden [&>div]:w-14">
+            <div className="feed-mobile-only relative z-50 flex shrink-0 translate-x-1 justify-center lg:hidden [&>div]:w-[4.25rem]">
               <DirectorBoardMenu
                 locale={locale}
                 mobileIconOnly
