@@ -87,7 +87,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
 
   return (
     <article className="relative h-full pl-3 lg:pl-4">
-      <div className="interaction-icons absolute left-9 bottom-[4.25rem] z-20 lg:z-10 lg:left-10 lg:bottom-auto lg:top-[59%]">
+      <div className="interaction-icons absolute left-9 bottom-[2.85rem] z-20 lg:z-10 lg:left-10 lg:bottom-auto lg:top-[59%]">
         <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
           <img src="/icons/tag.png" alt="" className={tagIconClassName} />
         </button>

@@ -86,7 +86,7 @@ function getMobileDefaultLogoUrl(branding: MobileLogoBranding): string | null {
   return null;
 }
 
-function MobileFeedDefaultLogo({ branding }: { branding: MobileLogoBranding }) {
+function MobileFeedDefaultLogo({ branding, onClick }: { branding: MobileLogoBranding; onClick?: () => void }) {
   const defaultLogoUrl = getMobileDefaultLogoUrl(branding);
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
 
@@ -106,20 +106,36 @@ function MobileFeedDefaultLogo({ branding }: { branding: MobileLogoBranding }) {
 
   if (defaultLogoUrl && failedLogoUrl !== defaultLogoUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={defaultLogoUrl}
-        alt="QNext"
-        className="block h-14 w-auto max-w-[150px] object-contain object-left sm:h-16 lg:hidden"
-        loading="eager"
-        decoding="sync"
-        fetchPriority="high"
-        onError={() => setFailedLogoUrl(defaultLogoUrl)}
-      />
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Ir al inicio del feed"
+        className="block cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 lg:hidden"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={defaultLogoUrl}
+          alt="QNext"
+          className="h-14 w-auto max-w-[150px] object-contain object-left sm:h-16"
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
+          onError={() => setFailedLogoUrl(defaultLogoUrl)}
+        />
+      </button>
     );
   }
 
-  return <span className="bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent lg:hidden">QNext</span>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Ir al inicio del feed"
+      className="cursor-pointer rounded-md bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 lg:hidden"
+    >
+      QNext
+    </button>
+  );
 }
 
 function translateNotificationText(locale: ReturnType<typeof countryToLocale>, text: string): string {
@@ -206,6 +222,7 @@ export default function FeedPage() {
   const [recommendedMovieIds, setRecommendedMovieIds] = useState<Set<string>>(new Set());
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isMobileBottomNavVisible, setIsMobileBottomNavVisible] = useState(true);
   const [streamingCountry, setStreamingCountry] = useState<StreamingCountry>("CO");
   const [isSavingStreamingCountry, setIsSavingStreamingCountry] = useState(false);
   const [streamingCountryError, setStreamingCountryError] = useState("");
@@ -223,6 +240,48 @@ export default function FeedPage() {
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileNavRef = useRef<HTMLElement | null>(null);
   const isRefreshingNotificationsRef = useRef(false);
+  const lastMobileScrollYRef = useRef(0);
+
+
+  const handleMobileLogoClick = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    setIsMobileBottomNavVisible(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    lastMobileScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (!mediaQuery.matches) return;
+      if (isMobileSearchOpen || isNotificationPanelOpen) {
+        setIsMobileBottomNavVisible(true);
+        lastMobileScrollYRef.current = window.scrollY;
+        return;
+      }
+
+      const currentScrollY = Math.max(window.scrollY, 0);
+      const scrollDelta = currentScrollY - lastMobileScrollYRef.current;
+
+      if (currentScrollY < 24) {
+        setIsMobileBottomNavVisible(true);
+      } else if (scrollDelta > 8) {
+        setIsMobileBottomNavVisible(false);
+      } else if (scrollDelta < -8) {
+        setIsMobileBottomNavVisible(true);
+      }
+
+      lastMobileScrollYRef.current = currentScrollY;
+    };
+
+    setIsMobileBottomNavVisible(true);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isMobileSearchOpen, isNotificationPanelOpen]);
 
   useEffect(() => {
     const syncCountry = () => setStreamingCountry(getStoredCountry(null));
@@ -804,7 +863,7 @@ export default function FeedPage() {
         <div className="sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
           <div className="flex items-center gap-3 lg:block">
             <div className="relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
-              <MobileFeedDefaultLogo branding={branding} />
+              <MobileFeedDefaultLogo branding={branding} onClick={handleMobileLogoClick} />
               <AppLogo
                 branding={branding}
                 slot="feed_logo_url"
@@ -1024,7 +1083,7 @@ export default function FeedPage() {
         </div>
       ) : null}
 
-      <nav ref={mobileNavRef} className="feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:hidden" aria-label="Acciones principales del feed">
+      <nav ref={mobileNavRef} className={`feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-all duration-300 ease-out lg:hidden ${isMobileBottomNavVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[calc(100%+1.5rem)] opacity-0"}`} aria-label="Acciones principales del feed">
         <button
           type="button"
           aria-label="Buscar películas"
