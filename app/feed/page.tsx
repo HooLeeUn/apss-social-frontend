@@ -79,9 +79,45 @@ function resolveBackendMediaUrl(mediaUrl: string | null | undefined): string | n
   }
 }
 
-function MobileFeedDefaultLogo({ branding }: { branding: ReturnType<typeof useAppBranding> }) {
-  const defaultLogoUrl = resolveBackendMediaUrl(branding?.default_logo_url);
+const MOBILE_DEFAULT_LOGO_FIELDS = [
+  "default_logo",
+  "default_logo_url",
+  "logo",
+  "logo_url",
+  "defaultLogo",
+  "defaultLogoUrl",
+] as const;
+
+type MobileLogoBranding = (NonNullable<ReturnType<typeof useAppBranding>> & Partial<Record<(typeof MOBILE_DEFAULT_LOGO_FIELDS)[number], string | null>>) | null;
+
+function getMobileDefaultLogoUrl(branding: MobileLogoBranding): string | null {
+  if (!branding) return null;
+
+  for (const field of MOBILE_DEFAULT_LOGO_FIELDS) {
+    const resolvedLogoUrl = resolveBackendMediaUrl(branding[field]);
+    if (resolvedLogoUrl) return resolvedLogoUrl;
+  }
+
+  return null;
+}
+
+function MobileFeedDefaultLogo({ branding }: { branding: MobileLogoBranding }) {
+  const defaultLogoUrl = getMobileDefaultLogoUrl(branding);
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
+    console.log("[Feed mobile logo branding]", {
+      default_logo: branding?.default_logo,
+      default_logo_url: branding?.default_logo_url,
+      logo: branding?.logo,
+      logo_url: branding?.logo_url,
+      defaultLogo: branding?.defaultLogo,
+      defaultLogoUrl: branding?.defaultLogoUrl,
+      resolvedUrl: defaultLogoUrl,
+    });
+  }, [branding, defaultLogoUrl]);
 
   if (defaultLogoUrl && failedLogoUrl !== defaultLogoUrl) {
     return (
