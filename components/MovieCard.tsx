@@ -689,11 +689,11 @@ function MovieCard({
 
   const splitFeedRatingClassName = splitFeedActions ? "hidden md:flex" : "";
   const splitFeedTmdbClassName = splitFeedActions
-    ? "mx-auto flex w-auto min-w-0 shrink-0 items-center justify-center gap-2 md:grid md:w-[290px] md:min-w-fit md:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] md:gap-0"
+    ? "mr-auto flex w-auto min-w-0 shrink-0 items-center justify-start gap-2 md:mx-auto md:grid md:w-[290px] md:min-w-fit md:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] md:gap-0"
     : "mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] md:w-[290px]";
   const splitFeedTmdbSlotClassName = splitFeedActions ? "relative z-30 shrink-0 md:justify-self-start md:pl-10" : "relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10";
   const mobileDetailRatingsRow = splitFeedActions ? (
-    <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-black/35 px-2.5 py-1.5 text-zinc-200">
+    <div className="mt-0.5 flex flex-nowrap items-center gap-1.5 text-zinc-200">
       <div className="flex items-center gap-1 text-sm font-semibold">
         <span aria-hidden="true">⭐</span>
         <span aria-label="Calificación general">{formatAverageRating(movie.displayRating)}</span>
@@ -701,7 +701,7 @@ function MovieCard({
       <div className="flex items-center gap-1 text-sm font-semibold" title={formatFollowingRatingsCount(movie.followingRatingsCount) || undefined}>
         <span aria-label="Calificación de seguidos">👥 {formatFollowingRating(movie.followingAvgRating)}</span>
       </div>
-      <div className="flex items-center gap-1 rounded-md px-1.5 py-1 text-sm font-semibold">
+      <div className="flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold sm:text-sm">
         {onRated ? (
           <RatingPopover
             movieId={movie.id}
@@ -709,11 +709,11 @@ function MovieCard({
             onRated={(score, payload) => onRated(movie.id, score, payload)}
             nullLabel="—"
             ariaLabel="Mi calificación"
-            className={
+            className={`[&_button]:px-1.5 [&_button]:py-0.5 [&_button]:text-xs sm:[&_button]:px-2 sm:[&_button]:py-1 sm:[&_button]:text-sm ${
               highlightMyRatingSlot
                 ? "[&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
                 : ""
-            }
+            }`}
           />
         ) : (
           <>
