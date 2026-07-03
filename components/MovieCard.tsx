@@ -442,7 +442,7 @@ function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people
   );
 }
 
-function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: string; people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; isFeed: boolean }) {
+function CastLine({ label, people, cache, onEnsureDetail, isFeed, mobileVisibleLimit }: { label: string; people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; isFeed: boolean; mobileVisibleLimit?: number }) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const measureRef = useRef<HTMLDivElement | null>(null);
   const moreRef = useRef<HTMLButtonElement | null>(null);
@@ -499,8 +499,9 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
     };
   }, [label, people]);
 
-  const visiblePeople = people.slice(0, visibleCount);
-  const hiddenPeople = people.slice(visibleCount);
+  const effectiveVisibleCount = mobileVisibleLimit ? Math.min(mobileVisibleLimit, people.length) : visibleCount;
+  const visiblePeople = people.slice(0, effectiveVisibleCount);
+  const hiddenPeople = people.slice(effectiveVisibleCount);
   const hasOverflow = hiddenPeople.length > 0;
 
   const cancelHide = () => {
@@ -754,9 +755,12 @@ function MovieCard({
 
   const splitFeedRatingClassName = splitFeedActions ? "hidden md:flex" : "";
   const splitFeedTmdbClassName = splitFeedActions
-    ? "mx-auto grid w-[180px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center md:w-[290px] md:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)]"
+    ? "relative mx-auto flex h-8 w-[180px] min-w-fit shrink-0 items-center md:grid md:w-[290px] md:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)]"
     : "mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] md:w-[290px]";
-  const splitFeedTmdbSlotClassName = splitFeedActions ? "relative z-30 shrink-0 justify-self-center md:justify-self-start md:pl-10" : "relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10";
+  const splitFeedTmdbLogoClassName = splitFeedActions
+    ? "absolute left-0 inline-flex h-8 w-[82px] shrink-0 items-center justify-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black md:static md:justify-self-center"
+    : "inline-flex h-8 w-[82px] shrink-0 items-center justify-center justify-self-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  const splitFeedTmdbSlotClassName = splitFeedActions ? "absolute left-1/2 z-30 shrink-0 -translate-x-1/2 md:static md:translate-x-0 md:justify-self-start md:pl-10" : "relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10";
   const mobileDetailRatingsRow = splitFeedActions ? (
     <div className="mt-0.5 flex flex-nowrap items-center gap-1.5 text-zinc-200">
       <div className="flex items-center gap-1 text-sm font-semibold">
@@ -883,7 +887,7 @@ function MovieCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={tmdbTooltip}
-                    className="inline-flex h-8 w-[82px] shrink-0 items-center justify-center justify-self-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                    className={splitFeedTmdbLogoClassName}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
@@ -1137,7 +1141,7 @@ function MovieCard({
                     />
                   </p>
                 ) : null}
-                {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
+                {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} mobileVisibleLimit={3} /> : null}
                 {creditsLoading && !hasCast && !hasDirector ? (
                   <div className="space-y-2" aria-label={locale === "en" ? "Loading cast" : "Cargando reparto"}>
                     <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />

@@ -404,13 +404,25 @@ function ProviderOverflowLogo({ provider, locale }: { provider: StreamingProvide
 
 function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvider[]; locale: Locale }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState<TooltipPosition | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+    return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
+      if (event.target instanceof Node && (menuRef.current?.contains(event.target) || buttonRef.current?.contains(event.target))) return;
       setIsOpen(false);
+      setPosition(null);
     };
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
@@ -424,26 +436,72 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
     width: `calc(${visibleColumns} * 2.25rem + ${Math.max(visibleColumns - 1, 0)} * 0.375rem)`,
   } satisfies CSSProperties;
 
+  if (!isMobileViewport) {
+    return (
+      <div ref={menuRef} className="group relative z-50 inline-flex overflow-visible">
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={labels.moreAria(providers.length)}
+          className="rounded-full px-1 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          onClick={() => setIsOpen((current) => !current)}
+        >
+          +{providers.length}
+        </button>
+        <div className={`absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
+          <div
+            className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1"
+            style={overflowListStyle}
+          >
+            {providers.map((provider) => (
+              <ProviderOverflowLogo key={provider.id} provider={provider} locale={locale} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const toggleMenu = () => {
+    if (isOpen) {
+      setIsOpen(false);
+      setPosition(null);
+      return;
+    }
+    if (buttonRef.current) setPosition(getTooltipPosition(buttonRef.current));
+    setIsOpen(true);
+  };
+
+  const menu = isOpen && position ? createPortal(
+    <div
+      ref={menuRef}
+      className="fixed z-[10020] w-max max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur"
+      style={{ left: position.left, top: position.top, transform: position.transform }}
+    >
+      <div
+        className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1"
+        style={overflowListStyle}
+      >
+        {providers.map((provider) => (
+          <ProviderOverflowLogo key={provider.id} provider={provider} locale={locale} />
+        ))}
+      </div>
+    </div>,
+    document.body,
+  ) : null;
+
   return (
-    <div ref={menuRef} className="group relative z-50 inline-flex overflow-visible">
+    <div className="relative z-50 inline-flex overflow-visible">
       <button
+        ref={buttonRef}
         type="button"
         aria-label={labels.moreAria(providers.length)}
-        className="rounded-full px-1 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-        onClick={() => setIsOpen((current) => !current)}
+        className="rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0 text-xs font-bold leading-[1.18] text-blue-100 shadow-sm transition hover:border-[#86ADE0]/55 hover:bg-[#86ADE0]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+        onClick={toggleMenu}
       >
         +{providers.length}
       </button>
-      <div className={`absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
-        <div
-          className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1"
-          style={overflowListStyle}
-        >
-          {providers.map((provider) => (
-            <ProviderOverflowLogo key={provider.id} provider={provider} locale={locale} />
-          ))}
-        </div>
-      </div>
+      {menu}
     </div>
   );
 }
