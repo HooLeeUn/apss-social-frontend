@@ -522,11 +522,22 @@ function AvailabilityCountryWarning({ country, locale }: { country: Country; loc
   );
 }
 
-function ProviderRow({ providers, label, locale }: { providers: StreamingProvider[]; label: string; locale: Locale }) {
+function ProviderRow({
+  providers,
+  label,
+  locale,
+  mobileMaxVisibleProviders = MAX_INLINE_PROVIDERS,
+}: {
+  providers: StreamingProvider[];
+  label: string;
+  locale: Locale;
+  mobileMaxVisibleProviders?: number;
+}) {
   if (providers.length === 0) return null;
 
-  const mobileVisibleProviders = providers.slice(0, MAX_INLINE_PROVIDERS);
-  const mobileHiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
+  const normalizedMobileMaxVisibleProviders = Math.max(1, mobileMaxVisibleProviders);
+  const mobileVisibleProviders = providers.slice(0, normalizedMobileMaxVisibleProviders);
+  const mobileHiddenProviders = providers.slice(normalizedMobileMaxVisibleProviders);
   const desktopVisibleProviders = providers.slice(0, MAX_INLINE_PROVIDERS);
   const desktopHiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
 
@@ -628,9 +639,9 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
       {!loading && !error && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
 
       {!loading && !error && hasProviders ? (
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           <ProviderRow providers={subscriptionProviders} label={labels.subscription} locale={locale} />
-          <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} />
+          <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} mobileMaxVisibleProviders={3} />
         </div>
       ) : null}
     </aside>

@@ -561,7 +561,7 @@ function CastLine({
   };
 
   return (
-    <div ref={rowRef} className={`relative min-w-0 overflow-hidden text-sm leading-[1.18] ${maxRows > 4 ? "max-h-[5.9rem]" : "max-h-[4.95rem]"} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+    <div ref={rowRef} className={`relative min-w-0 overflow-hidden text-sm leading-[1.18] ${maxRows > 4 ? "max-h-[6.25rem]" : "max-h-[4.95rem]"} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
       <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{label}:</span>{" "}
       {visiblePeople.map((person, index) => (
         <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
@@ -1199,8 +1199,8 @@ function MovieCard({
                 {mobileDetailRatingsRow}
               </div>
             </section>
-            <section className="h-full min-w-full snap-start overflow-hidden px-3 py-3 pr-6 sm:px-3.5" aria-label={locale === "en" ? "Available on" : "Disponible en"}>
-              <div className="max-h-full overflow-hidden">{extendedMetadataMiddleSlot}</div>
+            <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={locale === "en" ? "Available on" : "Disponible en"}>
+              <div className="max-h-full min-w-0 overflow-visible">{extendedMetadataMiddleSlot}</div>
             </section>
             <section className="h-full min-w-full snap-start overflow-hidden px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
               <div className="min-w-0 space-y-1 overflow-hidden">
