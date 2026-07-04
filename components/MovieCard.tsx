@@ -456,7 +456,23 @@ function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people
   );
 }
 
-function CastLine({ label, people, cache, onEnsureDetail, isFeed, maxRows = 4 }: { label: string; people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; isFeed: boolean; maxRows?: number }) {
+function CastLine({
+  label,
+  people,
+  cache,
+  onEnsureDetail,
+  isFeed,
+  maxRows = 4,
+  fixedVisibleCount,
+}: {
+  label: string;
+  people: MoviePersonCredit[];
+  cache: PersonDetailCache;
+  onEnsureDetail: (person: MoviePersonCredit) => void;
+  isFeed: boolean;
+  maxRows?: number;
+  fixedVisibleCount?: number;
+}) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const measureRef = useRef<HTMLDivElement | null>(null);
   const moreRef = useRef<HTMLButtonElement | null>(null);
@@ -487,6 +503,8 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed, maxRows = 4 }:
   }, [overflowPosition]);
 
   useEffect(() => {
+    if (fixedVisibleCount !== undefined) return;
+
     const updateVisibleCount = () => {
       if (!rowRef.current || !measureRef.current) return;
       const availableWidth = rowRef.current.getBoundingClientRect().width;
@@ -519,10 +537,11 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed, maxRows = 4 }:
       resizeObserver?.disconnect();
       window.removeEventListener("resize", updateVisibleCount);
     };
-  }, [label, maxRows, people]);
+  }, [fixedVisibleCount, label, maxRows, people]);
 
-  const visiblePeople = people.slice(0, visibleCount);
-  const hiddenPeople = people.slice(visibleCount);
+  const effectiveVisibleCount = fixedVisibleCount !== undefined ? Math.max(1, Math.min(fixedVisibleCount, people.length)) : visibleCount;
+  const visiblePeople = people.slice(0, effectiveVisibleCount);
+  const hiddenPeople = people.slice(effectiveVisibleCount);
   const hasOverflow = hiddenPeople.length > 0;
 
   const cancelHide = () => {
@@ -1202,7 +1221,17 @@ function MovieCard({
                     />
                   </p>
                 ) : null}
-                {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={5} /> : null}
+                {hasCast ? (
+                  <CastLine
+                    label={t("movieDetailCast")}
+                    people={castPeople}
+                    cache={personDetailCache}
+                    onEnsureDetail={ensurePersonDetail}
+                    isFeed={isFeed}
+                    maxRows={5}
+                    fixedVisibleCount={11}
+                  />
+                ) : null}
                 {creditsLoading && !hasCast && !hasDirector ? (
                   <div className="space-y-2" aria-label={locale === "en" ? "Loading cast" : "Cargando reparto"}>
                     <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
