@@ -231,12 +231,14 @@ function PersonSocialLink({ href, label, network }: { href: string | null | unde
         target="_blank"
         rel="noopener noreferrer"
         aria-label={label}
-        className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
         onPointerDown={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
         onTouchStart={(event) => event.stopPropagation()}
+        onTouchEnd={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
-          window.setTimeout(closeActivePopoversBeforeExternalNavigation, 0);
+          closeActivePopoversBeforeExternalNavigation();
         }}
       >
         {PERSON_SOCIAL_ICONS[network]}
@@ -427,7 +429,14 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   );
 }
 
-function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; onMouseEnter: () => void; onMouseLeave: () => void }) {
+function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; locale: Locale; onMouseEnter: () => void; onMouseLeave: () => void }) {
+  const [selectedPerson, setSelectedPerson] = useState<{ person: MoviePersonCredit; position: TooltipPosition } | null>(null);
+
+  if (selectedPerson) {
+    const cacheKey = getPersonCacheKey(selectedPerson.person);
+    return <PersonFloatingCard person={selectedPerson.person} cacheEntry={cache[cacheKey]} position={selectedPerson.position} locale={locale} onMouseEnter={() => undefined} onMouseLeave={() => undefined} />;
+  }
+
   return createPortal(
     <div
       role="tooltip"
@@ -444,9 +453,22 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseE
     >
       <div className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto overscroll-contain pr-1 [touch-action:pan-y]">
         {people.map((person, index) => (
-          <div key={`${getPersonCacheKey(person)}-${index}`} className="rounded-lg px-2 py-1.5 transition hover:bg-white/10">
-            <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} className="max-w-full" />
-          </div>
+          <button
+            key={`${getPersonCacheKey(person)}-${index}`}
+            type="button"
+            className="block w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+            onPointerDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              const target = event.currentTarget;
+              window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey: getPersonCacheKey(person) } }));
+              onEnsureDetail(person);
+              setSelectedPerson({ person, position: getFloatingPosition(target, PERSON_CARD_WIDTH_PX) });
+            }}
+          >
+            <span className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
+          </button>
         ))}
       </div>
     </div>,
@@ -455,6 +477,7 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseE
 }
 
 function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; label: string }) {
+  const { locale } = useI18n();
   const moreRef = useRef<HTMLButtonElement | null>(null);
   const [overflowPosition, setOverflowPosition] = useState<TooltipPosition | null>(null);
 
@@ -508,6 +531,7 @@ function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people
           cache={cache}
           onEnsureDetail={onEnsureDetail}
           position={overflowPosition}
+          locale={locale}
           onMouseEnter={() => undefined}
           onMouseLeave={() => undefined}
         />
@@ -533,6 +557,7 @@ function CastLine({
   maxRows?: number;
   fixedVisibleCount?: number;
 }) {
+  const { locale } = useI18n();
   const rowRef = useRef<HTMLDivElement | null>(null);
   const measureRef = useRef<HTMLDivElement | null>(null);
   const moreRef = useRef<HTMLButtonElement | null>(null);
@@ -651,7 +676,7 @@ function CastLine({
             +{hiddenPeople.length}
           </button>
           {overflowPosition ? (
-            <CastOverflowPopover people={hiddenPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
+            <CastOverflowPopover people={hiddenPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} locale={locale} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
           ) : null}
         </>
       ) : null}
@@ -1294,7 +1319,6 @@ function MovieCard({
                     onEnsureDetail={ensurePersonDetail}
                     isFeed={isFeed}
                     maxRows={5}
-                    fixedVisibleCount={11}
                   />
                 ) : null}
                 {creditsLoading && !hasCast && !hasDirector ? (
