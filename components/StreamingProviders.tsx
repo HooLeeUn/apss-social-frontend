@@ -9,6 +9,18 @@ import type { Country, Locale } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
 import { STREAMING_COUNTRY_OPTIONS } from "../lib/streaming-countries";
 
+const PERSON_POPOVER_HIDE_EVENT = "qnext-hide-person-popovers";
+const GLOBAL_POPOVERS_HIDE_EVENT = "qnext-hide-active-popovers";
+
+function closeActivePopoversBeforeExternalNavigation() {
+  window.dispatchEvent(new Event(PERSON_POPOVER_HIDE_EVENT));
+  window.dispatchEvent(new Event(GLOBAL_POPOVERS_HIDE_EVENT));
+}
+
+function isInsideQNextPopover(event: Event): boolean {
+  return event.target instanceof Element && Boolean(event.target.closest("[data-qnext-popover='true']"));
+}
+
 const MAX_INLINE_PROVIDERS = 4;
 const TMDB_LOGO_BASE_URL = "https://image.tmdb.org/t/p/w92";
 const TOOLTIP_OFFSET_PX = 10;
@@ -124,6 +136,8 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
 
   const hideTooltip = () => setPosition(null);
 
+  const isCoarsePointer = () => window.matchMedia("(hover: none), (pointer: coarse)").matches;
+
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current !== null) {
       window.clearTimeout(longPressTimerRef.current);
@@ -143,6 +157,16 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
     hideTooltip();
   };
 
+  const handleFocus = () => {
+    if (isCoarsePointer()) return;
+    showTooltip();
+  };
+
+  const handleClick = () => {
+    clearLongPressTimer();
+    hideTooltip();
+  };
+
   useEffect(() => () => clearLongPressTimer(), []);
 
   return (
@@ -151,12 +175,14 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
       className="inline-flex"
       onMouseEnter={showTooltip}
       onMouseLeave={hideTooltip}
-      onFocus={showTooltip}
+      onFocus={handleFocus}
       onBlur={hideTooltip}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       onPointerLeave={handlePointerEnd}
+      onTouchEnd={handleClick}
+      onClick={handleClick}
       onContextMenu={(event) => {
         if (window.matchMedia("(hover: none), (pointer: coarse)").matches) event.preventDefault();
       }}
@@ -333,13 +359,16 @@ function ProviderLogo({ provider, locale }: { provider: StreamingProvider; local
   };
   const handlePointerEnd = (event: React.PointerEvent<HTMLElement>) => {
     if (event.pointerType === "mouse") return;
-    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   return (
     <TooltipTarget text={tooltip}>
       {provider.isClickable && provider.monetizedUrl ? (
-        <a href={provider.monetizedUrl} target="_blank" rel="noopener noreferrer" aria-label={tooltip} className={providerClassName} onPointerDown={handlePointerDown} onPointerUp={handlePointerEnd} onPointerCancel={handlePointerEnd} onPointerLeave={handlePointerEnd} onClick={(event) => { if (longPressTriggeredRef.current) { event.preventDefault(); longPressTriggeredRef.current = false; } }}>
+        <a href={provider.monetizedUrl} target="_blank" rel="noopener noreferrer" aria-label={tooltip} className={providerClassName} onPointerDown={handlePointerDown} onPointerUp={handlePointerEnd} onPointerCancel={handlePointerEnd} onPointerLeave={handlePointerEnd} onClick={(event) => { if (longPressTriggeredRef.current) { event.preventDefault(); longPressTriggeredRef.current = false; return; } closeActivePopoversBeforeExternalNavigation(); }}>
           {content}
         </a>
       ) : (
@@ -368,7 +397,10 @@ function ProviderOverflowLogo({ provider, locale }: { provider: StreamingProvide
   };
   const handlePointerEnd = (event: React.PointerEvent<HTMLElement>) => {
     if (event.pointerType === "mouse") return;
-    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   return (
@@ -388,7 +420,9 @@ function ProviderOverflowLogo({ provider, locale }: { provider: StreamingProvide
             if (longPressTriggeredRef.current) {
               event.preventDefault();
               longPressTriggeredRef.current = false;
+              return;
             }
+            closeActivePopoversBeforeExternalNavigation();
           }}
         >
           {content}
@@ -419,13 +453,24 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
 
   useEffect(() => {
     if (!isOpen) return;
-    const handlePointerDown = (event: PointerEvent) => {
+    const closeIfOutside = (event: Event) => {
       if (event.target instanceof Node && (menuRef.current?.contains(event.target) || buttonRef.current?.contains(event.target))) return;
+      if (isInsideQNextPopover(event)) return;
       setIsOpen(false);
       setPosition(null);
     };
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("pointerdown", closeIfOutside);
+    document.addEventListener("pointermove", closeIfOutside, { passive: true });
+    document.addEventListener("touchmove", closeIfOutside, { passive: true });
+    document.addEventListener("qnext-mobile-metadata-drag", closeIfOutside);
+    window.addEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
+    return () => {
+      document.removeEventListener("pointerdown", closeIfOutside);
+      document.removeEventListener("pointermove", closeIfOutside);
+      document.removeEventListener("touchmove", closeIfOutside);
+      document.removeEventListener("qnext-mobile-metadata-drag", closeIfOutside);
+      window.removeEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
+    };
   }, [isOpen]);
 
   if (providers.length === 0) return null;
@@ -448,7 +493,8 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
         >
           +{providers.length}
         </button>
-        <div className={`absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
+        <div data-qnext-popover="true"
+          className={`absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
           <div
             className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1"
             style={overflowListStyle}
@@ -475,6 +521,7 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
   const menu = isOpen && position ? createPortal(
     <div
       ref={menuRef}
+      data-qnext-popover="true"
       className="fixed z-[10020] w-max max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur"
       style={{ left: position.left, top: position.top, transform: position.transform }}
     >
@@ -522,11 +569,22 @@ function AvailabilityCountryWarning({ country, locale }: { country: Country; loc
   );
 }
 
-function ProviderRow({ providers, label, locale }: { providers: StreamingProvider[]; label: string; locale: Locale }) {
+function ProviderRow({
+  providers,
+  label,
+  locale,
+  mobileMaxVisibleProviders = MAX_INLINE_PROVIDERS,
+}: {
+  providers: StreamingProvider[];
+  label: string;
+  locale: Locale;
+  mobileMaxVisibleProviders?: number;
+}) {
   if (providers.length === 0) return null;
 
-  const mobileVisibleProviders = providers.slice(0, MAX_INLINE_PROVIDERS);
-  const mobileHiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
+  const normalizedMobileMaxVisibleProviders = Math.max(1, mobileMaxVisibleProviders);
+  const mobileVisibleProviders = providers.slice(0, normalizedMobileMaxVisibleProviders);
+  const mobileHiddenProviders = providers.slice(normalizedMobileMaxVisibleProviders);
   const desktopVisibleProviders = providers.slice(0, MAX_INLINE_PROVIDERS);
   const desktopHiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
 
@@ -628,9 +686,9 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
       {!loading && !error && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
 
       {!loading && !error && hasProviders ? (
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           <ProviderRow providers={subscriptionProviders} label={labels.subscription} locale={locale} />
-          <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} />
+          <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} mobileMaxVisibleProviders={3} />
         </div>
       ) : null}
     </aside>
