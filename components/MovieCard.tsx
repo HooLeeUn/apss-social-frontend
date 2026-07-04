@@ -232,7 +232,12 @@ function PersonSocialLink({ href, label, network }: { href: string | null | unde
         rel="noopener noreferrer"
         aria-label={label}
         className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-        onClick={closeActivePopoversBeforeExternalNavigation}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          window.setTimeout(closeActivePopoversBeforeExternalNavigation, 0);
+        }}
       >
         {PERSON_SOCIAL_ICONS[network]}
       </a>
@@ -401,7 +406,21 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   };
 
   return (
-    <span ref={targetRef} className={`inline-flex min-w-0 ${className}`} onMouseEnter={scheduleShow} onMouseLeave={scheduleHide} onFocus={scheduleShow} onBlur={scheduleHide} onClick={(event) => { event.stopPropagation(); showCardNow(); }} tabIndex={0}>
+    <span
+      ref={targetRef}
+      className={`inline-flex min-w-0 ${className}`}
+      onMouseEnter={scheduleShow}
+      onMouseLeave={scheduleHide}
+      onFocus={scheduleShow}
+      onBlur={scheduleHide}
+      onPointerDown={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        showCardNow();
+      }}
+      tabIndex={0}
+    >
       <span className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
       {position ? <PersonFloatingCard person={person} cacheEntry={cache[cacheKey]} position={position} locale={locale} onMouseEnter={handleCardMouseEnter} onMouseLeave={handleCardMouseLeave} /> : null}
     </span>

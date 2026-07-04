@@ -136,6 +136,8 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
 
   const hideTooltip = () => setPosition(null);
 
+  const isCoarsePointer = () => window.matchMedia("(hover: none), (pointer: coarse)").matches;
+
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current !== null) {
       window.clearTimeout(longPressTimerRef.current);
@@ -155,6 +157,16 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
     hideTooltip();
   };
 
+  const handleFocus = () => {
+    if (isCoarsePointer()) return;
+    showTooltip();
+  };
+
+  const handleClick = () => {
+    clearLongPressTimer();
+    hideTooltip();
+  };
+
   useEffect(() => () => clearLongPressTimer(), []);
 
   return (
@@ -163,12 +175,14 @@ function TooltipTarget({ text, children }: { text: string; children: ReactNode }
       className="inline-flex"
       onMouseEnter={showTooltip}
       onMouseLeave={hideTooltip}
-      onFocus={showTooltip}
+      onFocus={handleFocus}
       onBlur={hideTooltip}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       onPointerLeave={handlePointerEnd}
+      onTouchEnd={handleClick}
+      onClick={handleClick}
       onContextMenu={(event) => {
         if (window.matchMedia("(hover: none), (pointer: coarse)").matches) event.preventDefault();
       }}
@@ -345,7 +359,10 @@ function ProviderLogo({ provider, locale }: { provider: StreamingProvider; local
   };
   const handlePointerEnd = (event: React.PointerEvent<HTMLElement>) => {
     if (event.pointerType === "mouse") return;
-    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   return (
@@ -380,7 +397,10 @@ function ProviderOverflowLogo({ provider, locale }: { provider: StreamingProvide
   };
   const handlePointerEnd = (event: React.PointerEvent<HTMLElement>) => {
     if (event.pointerType === "mouse") return;
-    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   return (
