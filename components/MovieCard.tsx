@@ -231,8 +231,15 @@ function PersonSocialLink({ href, label, network }: { href: string | null | unde
         target="_blank"
         rel="noopener noreferrer"
         aria-label={label}
-        className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-        onClick={closeActivePopoversBeforeExternalNavigation}
+        className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+        onTouchEnd={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          closeActivePopoversBeforeExternalNavigation();
+        }}
       >
         {PERSON_SOCIAL_ICONS[network]}
       </a>
@@ -292,6 +299,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   const hideTimerRef = useRef<number | null>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
   const positionRef = useRef<TooltipPosition | null>(null);
+  const isPinnedOpenRef = useRef(false);
   const isPointerOverNameRef = useRef(false);
   const isPointerOverCardRef = useRef(false);
   const cacheKey = getPersonCacheKey(person);
@@ -318,6 +326,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   const hideCard = useCallback(() => {
     clearHoverTimer();
     cancelHide();
+    isPinnedOpenRef.current = false;
     isPointerOverNameRef.current = false;
     isPointerOverCardRef.current = false;
     updatePosition(null);
@@ -334,16 +343,22 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
       if (isInsideQNextPopover(event)) return;
       hideCard();
     };
+    const closeOnOutsideDrag = (event: Event) => {
+      if (event instanceof PointerEvent && event.buttons === 0) return;
+      closeIfOutside(event);
+    };
     window.addEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
     window.addEventListener(GLOBAL_POPOVERS_HIDE_EVENT, handleHideAll);
-    document.addEventListener("pointermove", closeIfOutside, { passive: true });
-    document.addEventListener("touchmove", closeIfOutside, { passive: true });
+    document.addEventListener("pointerdown", closeIfOutside);
+    document.addEventListener("pointermove", closeOnOutsideDrag, { passive: true });
+    document.addEventListener("touchmove", closeOnOutsideDrag, { passive: true });
     document.addEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
     return () => {
       window.removeEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
       window.removeEventListener(GLOBAL_POPOVERS_HIDE_EVENT, handleHideAll);
-      document.removeEventListener("pointermove", closeIfOutside);
-      document.removeEventListener("touchmove", closeIfOutside);
+      document.removeEventListener("pointerdown", closeIfOutside);
+      document.removeEventListener("pointermove", closeOnOutsideDrag);
+      document.removeEventListener("touchmove", closeOnOutsideDrag);
       document.removeEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
       clearHoverTimer();
       cancelHide();
@@ -360,6 +375,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
       if (!targetRef.current || !isPointerOverNameRef.current) return;
       const initialPosition = getFloatingPosition(targetRef.current, PERSON_CARD_WIDTH_PX);
       window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
+      isPinnedOpenRef.current = false;
       isPointerOverNameRef.current = true;
       onEnsureDetail(person);
       updatePosition(initialPosition);
@@ -371,7 +387,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     clearHoverTimer();
     cancelHide();
     hideTimerRef.current = window.setTimeout(() => {
-      if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
+      if (!isPinnedOpenRef.current && !isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
     }, 140);
   };
 
@@ -381,6 +397,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     cancelHide();
     const initialPosition = getFloatingPosition(targetRef.current, PERSON_CARD_WIDTH_PX);
     window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
+    isPinnedOpenRef.current = true;
     isPointerOverNameRef.current = true;
     onEnsureDetail(person);
     updatePosition(initialPosition);
@@ -395,20 +412,41 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     isPointerOverCardRef.current = false;
     if (!isPointerOverNameRef.current) {
       hideTimerRef.current = window.setTimeout(() => {
-        if (!isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
+        if (!isPinnedOpenRef.current && !isPointerOverNameRef.current && !isPointerOverCardRef.current) updatePosition(null);
       }, 120);
     }
   };
 
   return (
-    <span ref={targetRef} className={`inline-flex min-w-0 ${className}`} onMouseEnter={scheduleShow} onMouseLeave={scheduleHide} onFocus={scheduleShow} onBlur={scheduleHide} onClick={(event) => { event.stopPropagation(); showCardNow(); }} tabIndex={0}>
+    <span
+      ref={targetRef}
+      className={`inline-flex min-w-0 ${className}`}
+      onMouseEnter={scheduleShow}
+      onMouseLeave={scheduleHide}
+      onFocus={scheduleShow}
+      onBlur={scheduleHide}
+      onPointerDown={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        showCardNow();
+      }}
+      tabIndex={0}
+    >
       <span className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
       {position ? <PersonFloatingCard person={person} cacheEntry={cache[cacheKey]} position={position} locale={locale} onMouseEnter={handleCardMouseEnter} onMouseLeave={handleCardMouseLeave} /> : null}
     </span>
   );
 }
 
-function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; onMouseEnter: () => void; onMouseLeave: () => void }) {
+function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; locale: Locale; onMouseEnter: () => void; onMouseLeave: () => void }) {
+  const [selectedPerson, setSelectedPerson] = useState<{ person: MoviePersonCredit; position: TooltipPosition } | null>(null);
+
+  if (selectedPerson) {
+    const cacheKey = getPersonCacheKey(selectedPerson.person);
+    return <PersonFloatingCard person={selectedPerson.person} cacheEntry={cache[cacheKey]} position={selectedPerson.position} locale={locale} onMouseEnter={() => undefined} onMouseLeave={() => undefined} />;
+  }
+
   return createPortal(
     <div
       role="tooltip"
@@ -425,9 +463,22 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseE
     >
       <div className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto overscroll-contain pr-1 [touch-action:pan-y]">
         {people.map((person, index) => (
-          <div key={`${getPersonCacheKey(person)}-${index}`} className="rounded-lg px-2 py-1.5 transition hover:bg-white/10">
-            <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} className="max-w-full" />
-          </div>
+          <button
+            key={`${getPersonCacheKey(person)}-${index}`}
+            type="button"
+            className="block w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+            onPointerDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              const target = event.currentTarget;
+              window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey: getPersonCacheKey(person) } }));
+              onEnsureDetail(person);
+              setSelectedPerson({ person, position: getFloatingPosition(target, PERSON_CARD_WIDTH_PX) });
+            }}
+          >
+            <span className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
+          </button>
         ))}
       </div>
     </div>,
@@ -436,6 +487,7 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseE
 }
 
 function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; label: string }) {
+  const { locale } = useI18n();
   const moreRef = useRef<HTMLButtonElement | null>(null);
   const [overflowPosition, setOverflowPosition] = useState<TooltipPosition | null>(null);
 
@@ -446,15 +498,19 @@ function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people
       if (isInsideQNextPopover(event)) return;
       setOverflowPosition(null);
     };
+    const closeOnOutsideDrag = (event: Event) => {
+      if (event instanceof PointerEvent && event.buttons === 0) return;
+      closeIfOutside(event);
+    };
     document.addEventListener("pointerdown", closeIfOutside);
-    document.addEventListener("pointermove", closeIfOutside, { passive: true });
-    document.addEventListener("touchmove", closeIfOutside, { passive: true });
+    document.addEventListener("pointermove", closeOnOutsideDrag, { passive: true });
+    document.addEventListener("touchmove", closeOnOutsideDrag, { passive: true });
     document.addEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
     window.addEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     return () => {
       document.removeEventListener("pointerdown", closeIfOutside);
-      document.removeEventListener("pointermove", closeIfOutside);
-      document.removeEventListener("touchmove", closeIfOutside);
+      document.removeEventListener("pointermove", closeOnOutsideDrag);
+      document.removeEventListener("touchmove", closeOnOutsideDrag);
       document.removeEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
       window.removeEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     };
@@ -489,6 +545,7 @@ function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people
           cache={cache}
           onEnsureDetail={onEnsureDetail}
           position={overflowPosition}
+          locale={locale}
           onMouseEnter={() => undefined}
           onMouseLeave={() => undefined}
         />
@@ -514,6 +571,7 @@ function CastLine({
   maxRows?: number;
   fixedVisibleCount?: number;
 }) {
+  const { locale } = useI18n();
   const rowRef = useRef<HTMLDivElement | null>(null);
   const measureRef = useRef<HTMLDivElement | null>(null);
   const moreRef = useRef<HTMLButtonElement | null>(null);
@@ -532,15 +590,19 @@ function CastLine({
       if (isInsideQNextPopover(event)) return;
       setOverflowPosition(null);
     };
+    const closeOnOutsideDrag = (event: Event) => {
+      if (event instanceof PointerEvent && event.buttons === 0) return;
+      closeIfOutside(event);
+    };
     document.addEventListener("pointerdown", closeIfOutside);
-    document.addEventListener("pointermove", closeIfOutside, { passive: true });
-    document.addEventListener("touchmove", closeIfOutside, { passive: true });
+    document.addEventListener("pointermove", closeOnOutsideDrag, { passive: true });
+    document.addEventListener("touchmove", closeOnOutsideDrag, { passive: true });
     document.addEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
     window.addEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     return () => {
       document.removeEventListener("pointerdown", closeIfOutside);
-      document.removeEventListener("pointermove", closeIfOutside);
-      document.removeEventListener("touchmove", closeIfOutside);
+      document.removeEventListener("pointermove", closeOnOutsideDrag);
+      document.removeEventListener("touchmove", closeOnOutsideDrag);
       document.removeEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
       window.removeEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     };
@@ -632,7 +694,7 @@ function CastLine({
             +{hiddenPeople.length}
           </button>
           {overflowPosition ? (
-            <CastOverflowPopover people={hiddenPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
+            <CastOverflowPopover people={hiddenPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} locale={locale} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
           ) : null}
         </>
       ) : null}
@@ -1275,7 +1337,6 @@ function MovieCard({
                     onEnsureDetail={ensurePersonDetail}
                     isFeed={isFeed}
                     maxRows={5}
-                    fixedVisibleCount={11}
                   />
                 ) : null}
                 {creditsLoading && !hasCast && !hasDirector ? (
