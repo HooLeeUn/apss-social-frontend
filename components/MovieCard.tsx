@@ -92,7 +92,7 @@ const MOBILE_METADATA_DRAG_EVENT = "qnext-mobile-metadata-drag";
 const GLOBAL_POPOVERS_HIDE_EVENT = "qnext-hide-active-popovers";
 const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
 const DESKTOP_CAST_MAX_ROWS = 4;
-const MOBILE_CAST_VISIBLE_LIMIT = 3;
+const MOBILE_CAST_VISIBLE_LIMIT = 7;
 
 function isInsideQNextPopover(event: Event): boolean {
   return event.target instanceof Element && Boolean(event.target.closest("[data-qnext-popover='true']"));
@@ -476,9 +476,11 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, 
             onClick={(event) => {
               event.stopPropagation();
               const target = event.currentTarget;
-              window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey: getPersonCacheKey(person) } }));
+              const cacheKey = getPersonCacheKey(person);
+              onMouseEnter();
               onEnsureDetail(person);
               setSelectedPerson({ person, position: getFloatingPosition(target, PERSON_CARD_WIDTH_PX) });
+              window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
             }}
           >
             <span className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
@@ -661,8 +663,9 @@ function CastLine({
 
   const effectiveVisibleCount = fixedVisibleCount !== undefined ? Math.max(1, Math.min(fixedVisibleCount, people.length)) : visibleCount;
   const visiblePeople = people.slice(0, effectiveVisibleCount);
-  const hiddenPeople = people.slice(effectiveVisibleCount);
-  const hasOverflow = hiddenPeople.length > 0;
+  const overflowPeople = people.slice(effectiveVisibleCount);
+  const remainingCount = overflowPeople.length;
+  const hasOverflow = remainingCount > 0;
 
   const cancelHide = () => {
     if (hideTimerRef.current !== null) {
@@ -708,10 +711,10 @@ function CastLine({
               else showOverflow();
             }}
           >
-            +{hiddenPeople.length}
+            +{remainingCount}
           </button>
           {overflowPosition ? (
-            <CastOverflowPopover people={hiddenPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} locale={locale} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
+            <CastOverflowPopover people={overflowPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} locale={locale} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
           ) : null}
         </>
       ) : null}
@@ -1327,8 +1330,8 @@ function MovieCard({
             <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={locale === "en" ? "Available on" : "Disponible en"}>
               <div className="max-h-full min-w-0 overflow-visible">{extendedMetadataMiddleSlot}</div>
             </section>
-            <section className="h-full min-w-full snap-start overflow-hidden px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
-              <div className="min-w-0 space-y-1 overflow-hidden">
+            <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
+              <div className="min-w-0 space-y-1 overflow-visible">
                 {hasDirector ? (
                   <p className="line-clamp-2 min-w-0 text-sm leading-[1.18] text-zinc-300">
                     <span className="font-semibold text-zinc-100">{t("movieDetailDirector")}:</span>{" "}
