@@ -479,15 +479,19 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
       setIsOpen(false);
       setPosition(null);
     };
+    const closeOnOutsideDrag = (event: Event) => {
+      if (event instanceof PointerEvent && event.buttons === 0) return;
+      closeIfOutside(event);
+    };
     document.addEventListener("pointerdown", closeIfOutside);
-    document.addEventListener("pointermove", closeIfOutside, { passive: true });
-    document.addEventListener("touchmove", closeIfOutside, { passive: true });
+    document.addEventListener("pointermove", closeOnOutsideDrag, { passive: true });
+    document.addEventListener("touchmove", closeOnOutsideDrag, { passive: true });
     document.addEventListener("qnext-mobile-metadata-drag", closeIfOutside);
     window.addEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     return () => {
       document.removeEventListener("pointerdown", closeIfOutside);
-      document.removeEventListener("pointermove", closeIfOutside);
-      document.removeEventListener("touchmove", closeIfOutside);
+      document.removeEventListener("pointermove", closeOnOutsideDrag);
+      document.removeEventListener("touchmove", closeOnOutsideDrag);
       document.removeEventListener("qnext-mobile-metadata-drag", closeIfOutside);
       window.removeEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     };
@@ -509,15 +513,26 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
           type="button"
           aria-label={labels.moreAria(providers.length)}
           className="rounded-full px-1 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-          onClick={() => setIsOpen((current) => !current)}
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsOpen((current) => {
+              if (!current) window.dispatchEvent(new Event(GLOBAL_POPOVERS_HIDE_EVENT));
+              return !current;
+            });
+          }}
         >
           +{providers.length}
         </button>
         <div data-qnext-popover="true"
           className={`absolute left-1/2 top-full z-[60] mt-1 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
           <div
-            className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1"
+            className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1 [touch-action:pan-x]"
             style={overflowListStyle}
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerMove={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onTouchMove={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             {providers.map((provider) => (
               <ProviderOverflowLogo key={provider.id} provider={provider} locale={locale} />
@@ -534,6 +549,7 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
       setPosition(null);
       return;
     }
+    window.dispatchEvent(new Event(GLOBAL_POPOVERS_HIDE_EVENT));
     if (buttonRef.current) setPosition(getTooltipPosition(buttonRef.current));
     setIsOpen(true);
   };
@@ -542,12 +558,22 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
     <div
       ref={menuRef}
       data-qnext-popover="true"
-      className="fixed z-[10020] w-max max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur"
+      className="fixed z-[10020] w-max max-w-[calc(100vw-2rem)] rounded-xl bg-zinc-950/95 p-2 shadow-2xl ring-1 ring-white/10 backdrop-blur [touch-action:pan-x]"
       style={{ left: position.left, top: position.top, transform: position.transform }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onPointerMove={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onTouchMove={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
     >
       <div
-        className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1"
+        className="scrollbar-metallic-blue flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden overscroll-contain pb-1 [touch-action:pan-x]"
         style={overflowListStyle}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+        onTouchMove={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         {providers.map((provider) => (
           <ProviderOverflowLogo key={provider.id} provider={provider} locale={locale} />
@@ -564,7 +590,12 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
         type="button"
         aria-label={labels.moreAria(providers.length)}
         className="rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0 text-xs font-bold leading-[1.18] text-blue-100 shadow-sm transition hover:border-[#86ADE0]/55 hover:bg-[#86ADE0]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-        onClick={toggleMenu}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          toggleMenu();
+        }}
       >
         +{providers.length}
       </button>
