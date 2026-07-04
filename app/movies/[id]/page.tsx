@@ -851,6 +851,7 @@ export default function MovieDetailPage() {
   const [selectedDirectedFilterUser, setSelectedDirectedFilterUser] = useState<CommentFilterUser | null>(null);
   const [isPublicSearchOpen, setIsPublicSearchOpen] = useState(false);
   const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
+  const [activeCommentsTab, setActiveCommentsTab] = useState<"public" | "directed">("public");
 
   const canShowDirectedComments = friendRequestsRestricted === false;
   const shouldRenderDirectedComments = friendRequestsRestricted !== true;
@@ -1675,9 +1676,35 @@ export default function MovieDetailPage() {
 
         <div className={`relative grid grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
           {shouldRenderDirectedComments ? (
-            <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
+            <>
+              <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
+              <div className="flex rounded-xl border border-white/10 bg-zinc-950/60 p-1 lg:hidden" role="tablist" aria-label="Comments sections">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCommentsTab === "public"}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    activeCommentsTab === "public" ? "bg-[#86ADE0] text-black" : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                  }`}
+                  onClick={() => setActiveCommentsTab("public")}
+                >
+                  {t("movieDetailPublicComments")}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCommentsTab === "directed"}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    activeCommentsTab === "directed" ? "bg-[#86ADE0] text-black" : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                  }`}
+                  onClick={() => setActiveCommentsTab("directed")}
+                >
+                  {t("movieDetailDirectedComments")}
+                </button>
+              </div>
+            </>
           ) : null}
-          <section className="space-y-3">
+          <section className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2>
               <CommentUserSearch
@@ -1722,7 +1749,7 @@ export default function MovieDetailPage() {
           </section>
 
           {shouldRenderDirectedComments ? (
-            <section className="space-y-3">
+            <section className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2>
                 <CommentUserSearch
