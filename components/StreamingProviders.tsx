@@ -249,8 +249,15 @@ function normalizeProvider(rawProvider: unknown, bucket: ProviderBucket): Stream
   const name = pickString(provider.provider_name, provider.providerName, provider.name, provider.title);
   if (!name) return null;
 
-  const monetizedUrl = pickString(provider.monetized_url, provider.monetizedUrl);
-  const isClickable = provider.is_clickable === true || provider.isClickable === true;
+  const monetizedUrl = pickString(
+    provider.monetized_url,
+    provider.monetizedUrl,
+    provider.provider_url,
+    provider.providerUrl,
+    provider.url,
+    provider.link,
+  );
+  const isClickable = Boolean(monetizedUrl);
   const id = pickProviderId(provider.provider_id, provider.providerId, provider.id) ?? `name:${name.toLowerCase()}`;
 
   return {
@@ -258,7 +265,7 @@ function normalizeProvider(rawProvider: unknown, bucket: ProviderBucket): Stream
     name,
     logoUrl: resolveLogoUrl(provider),
     monetizedUrl,
-    isClickable: isClickable && Boolean(monetizedUrl),
+    isClickable,
     availability: [bucket],
   };
 }
@@ -412,11 +419,24 @@ function ProviderOverflowLogo({ provider, locale }: { provider: StreamingProvide
           rel="noopener noreferrer"
           aria-label={tooltip}
           className={`${itemClassName} hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/80`}
-          onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
-          onPointerLeave={handlePointerEnd}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            handlePointerDown(event);
+          }}
+          onPointerUp={(event) => {
+            event.stopPropagation();
+            handlePointerEnd(event);
+          }}
+          onPointerCancel={(event) => {
+            event.stopPropagation();
+            handlePointerEnd(event);
+          }}
+          onPointerLeave={(event) => {
+            event.stopPropagation();
+            handlePointerEnd(event);
+          }}
           onClick={(event) => {
+            event.stopPropagation();
             if (longPressTriggeredRef.current) {
               event.preventDefault();
               longPressTriggeredRef.current = false;

@@ -158,6 +158,26 @@ function getFloatingPosition(target: HTMLElement, width: number): TooltipPositio
   };
 }
 
+function getCastOverflowPersonPosition(listbox: HTMLElement, target: HTMLElement): TooltipPosition {
+  if (window.matchMedia("(min-width: 768px)").matches) return getFloatingPosition(target, PERSON_CARD_WIDTH_PX);
+
+  const rect = listbox.getBoundingClientRect();
+  const estimatedHeight = 250;
+  const gap = PERSON_CARD_OFFSET_PX;
+  const spaceBelow = window.innerHeight - rect.bottom - TOOLTIP_VIEWPORT_PADDING_PX;
+  const spaceAbove = rect.top - TOOLTIP_VIEWPORT_PADDING_PX;
+  const showBelow = spaceBelow >= Math.min(estimatedHeight, spaceAbove);
+  const top = showBelow
+    ? Math.min(rect.bottom + gap, window.innerHeight - TOOLTIP_VIEWPORT_PADDING_PX - estimatedHeight)
+    : Math.max(TOOLTIP_VIEWPORT_PADDING_PX, rect.top - gap - estimatedHeight);
+
+  return {
+    left: window.innerWidth / 2,
+    top: Math.max(TOOLTIP_VIEWPORT_PADDING_PX, top),
+    transform: "translateX(-50%)",
+  };
+}
+
 function PersonAvatar({ detail, person }: { detail: PersonDetail | null; person: MoviePersonCredit }) {
   const imageUrl = detail?.profileUrl ?? person.profileUrl ?? null;
   const displayName = detail?.name ?? person.name;
@@ -447,6 +467,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
 }
 
 function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; locale: Locale; onMouseEnter: () => void; onMouseLeave: () => void }) {
+  const listboxRef = useRef<HTMLDivElement | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<{ person: MoviePersonCredit; position: TooltipPosition } | null>(null);
   const selectedCacheKey = selectedPerson ? getPersonCacheKey(selectedPerson.person) : null;
 
@@ -464,7 +485,11 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, 
       onTouchMove={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
-      <div className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto overscroll-contain pr-1 [touch-action:pan-y]">
+      <div
+        ref={listboxRef}
+        className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto overscroll-contain pr-1 [touch-action:pan-y]"
+        onScroll={() => setSelectedPerson(null)}
+      >
         {people.map((person, index) => (
           <button
             key={`${getPersonCacheKey(person)}-${index}`}
@@ -484,7 +509,7 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, 
               const cacheKey = getPersonCacheKey(person);
               onMouseEnter();
               onEnsureDetail(person);
-              setSelectedPerson({ person, position: getFloatingPosition(target, PERSON_CARD_WIDTH_PX) });
+              setSelectedPerson({ person, position: getCastOverflowPersonPosition(listboxRef.current ?? target, target) });
               window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
             }}
           >
