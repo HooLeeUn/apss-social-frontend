@@ -897,7 +897,7 @@ export default function FeedPage() {
                 iconOnly
               />
             </div>
-            <div className="feed-desktop-only pointer-events-auto relative z-50 hidden shrink-0 pr-0 lg:pointer-events-none lg:absolute lg:right-4 lg:top-6 lg:block lg:pr-1">
+            <div className="feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 lg:pointer-events-none lg:absolute lg:right-4 lg:top-6 lg:block lg:pr-1">
               <div className="pointer-events-auto relative flex w-auto flex-col items-end lg:w-[198px] lg:items-center">
                 <div className="flex items-center gap-2">
                 <button
