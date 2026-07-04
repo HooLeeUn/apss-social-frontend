@@ -92,7 +92,7 @@ const MOBILE_METADATA_DRAG_EVENT = "qnext-mobile-metadata-drag";
 const GLOBAL_POPOVERS_HIDE_EVENT = "qnext-hide-active-popovers";
 const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
 const DESKTOP_CAST_MAX_ROWS = 4;
-const MOBILE_CAST_VISIBLE_LIMIT = 3;
+const MOBILE_CAST_VISIBLE_LIMIT = 7;
 
 function isInsideQNextPopover(event: Event): boolean {
   return event.target instanceof Element && Boolean(event.target.closest("[data-qnext-popover='true']"));
@@ -154,6 +154,26 @@ function getFloatingPosition(target: HTMLElement, width: number): TooltipPositio
   return {
     left,
     top: shouldShowBelow ? rect.bottom + PERSON_CARD_OFFSET_PX : Math.max(TOOLTIP_VIEWPORT_PADDING_PX, rect.top - PERSON_CARD_OFFSET_PX - estimatedHeight),
+    transform: "translateX(-50%)",
+  };
+}
+
+function getCastOverflowPersonPosition(listbox: HTMLElement, target: HTMLElement): TooltipPosition {
+  if (window.matchMedia("(min-width: 768px)").matches) return getFloatingPosition(target, PERSON_CARD_WIDTH_PX);
+
+  const rect = listbox.getBoundingClientRect();
+  const estimatedHeight = 250;
+  const gap = PERSON_CARD_OFFSET_PX;
+  const spaceBelow = window.innerHeight - rect.bottom - TOOLTIP_VIEWPORT_PADDING_PX;
+  const spaceAbove = rect.top - TOOLTIP_VIEWPORT_PADDING_PX;
+  const showBelow = spaceBelow >= Math.min(estimatedHeight, spaceAbove);
+  const top = showBelow
+    ? Math.min(rect.bottom + gap, window.innerHeight - TOOLTIP_VIEWPORT_PADDING_PX - estimatedHeight)
+    : Math.max(TOOLTIP_VIEWPORT_PADDING_PX, rect.top - gap - estimatedHeight);
+
+  return {
+    left: window.innerWidth / 2,
+    top: Math.max(TOOLTIP_VIEWPORT_PADDING_PX, top),
     transform: "translateX(-50%)",
   };
 }
@@ -263,6 +283,11 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
       style={{ left: position.left, top: position.top, transform: position.transform }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onPointerDown={(event) => event.stopPropagation()}
+      onPointerMove={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onTouchMove={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
     >
       <div className="flex gap-3">
         <PersonAvatar detail={detail} person={person} />
@@ -442,6 +467,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
 }
 
 function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; locale: Locale; onMouseEnter: () => void; onMouseLeave: () => void }) {
+  const listboxRef = useRef<HTMLDivElement | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<{ person: MoviePersonCredit; position: TooltipPosition } | null>(null);
   const selectedCacheKey = selectedPerson ? getPersonCacheKey(selectedPerson.person) : null;
 
@@ -459,7 +485,11 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, 
       onTouchMove={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
-      <div className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto overscroll-contain pr-1 [touch-action:pan-y]">
+      <div
+        ref={listboxRef}
+        className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto overscroll-contain pr-1 [touch-action:pan-y]"
+        onScroll={() => setSelectedPerson(null)}
+      >
         {people.map((person, index) => (
           <button
             key={`${getPersonCacheKey(person)}-${index}`}
@@ -476,9 +506,11 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, 
             onClick={(event) => {
               event.stopPropagation();
               const target = event.currentTarget;
-              window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey: getPersonCacheKey(person) } }));
+              const cacheKey = getPersonCacheKey(person);
+              onMouseEnter();
               onEnsureDetail(person);
-              setSelectedPerson({ person, position: getFloatingPosition(target, PERSON_CARD_WIDTH_PX) });
+              setSelectedPerson({ person, position: getCastOverflowPersonPosition(listboxRef.current ?? target, target) });
+              window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
             }}
           >
             <span className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
@@ -661,8 +693,9 @@ function CastLine({
 
   const effectiveVisibleCount = fixedVisibleCount !== undefined ? Math.max(1, Math.min(fixedVisibleCount, people.length)) : visibleCount;
   const visiblePeople = people.slice(0, effectiveVisibleCount);
-  const hiddenPeople = people.slice(effectiveVisibleCount);
-  const hasOverflow = hiddenPeople.length > 0;
+  const overflowPeople = people.slice(effectiveVisibleCount);
+  const remainingCount = overflowPeople.length;
+  const hasOverflow = remainingCount > 0;
 
   const cancelHide = () => {
     if (hideTimerRef.current !== null) {
@@ -708,10 +741,10 @@ function CastLine({
               else showOverflow();
             }}
           >
-            +{hiddenPeople.length}
+            +{remainingCount}
           </button>
           {overflowPosition ? (
-            <CastOverflowPopover people={hiddenPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} locale={locale} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
+            <CastOverflowPopover people={overflowPeople} cache={cache} onEnsureDetail={onEnsureDetail} position={overflowPosition} locale={locale} onMouseEnter={cancelHide} onMouseLeave={scheduleHide} />
           ) : null}
         </>
       ) : null}
@@ -1327,8 +1360,8 @@ function MovieCard({
             <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={locale === "en" ? "Available on" : "Disponible en"}>
               <div className="max-h-full min-w-0 overflow-visible">{extendedMetadataMiddleSlot}</div>
             </section>
-            <section className="h-full min-w-full snap-start overflow-hidden px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
-              <div className="min-w-0 space-y-1 overflow-hidden">
+            <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
+              <div className="min-w-0 space-y-1 overflow-visible">
                 {hasDirector ? (
                   <p className="line-clamp-2 min-w-0 text-sm leading-[1.18] text-zinc-300">
                     <span className="font-semibold text-zinc-100">{t("movieDetailDirector")}:</span>{" "}
