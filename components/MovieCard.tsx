@@ -91,6 +91,8 @@ const PERSON_POPOVER_HIDE_EVENT = "qnext-hide-person-popovers";
 const MOBILE_METADATA_DRAG_EVENT = "qnext-mobile-metadata-drag";
 const GLOBAL_POPOVERS_HIDE_EVENT = "qnext-hide-active-popovers";
 const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
+const DESKTOP_CAST_MAX_ROWS = 4;
+const MOBILE_CAST_VISIBLE_LIMIT = 3;
 
 function isInsideQNextPopover(event: Event): boolean {
   return event.target instanceof Element && Boolean(event.target.closest("[data-qnext-popover='true']"));
@@ -257,7 +259,7 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
     <div
       role="tooltip"
       data-qnext-popover="true"
-      className="fixed z-[10050] w-[min(320px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-3 text-left text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.6)] ring-1 ring-black/50 backdrop-blur-md"
+      className="fixed z-[10060] w-[min(320px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-3 text-left text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.6)] ring-1 ring-black/50 backdrop-blur-md"
       style={{ left: position.left, top: position.top, transform: position.transform }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -441,11 +443,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
 
 function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, onMouseEnter, onMouseLeave }: { people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; position: TooltipPosition; locale: Locale; onMouseEnter: () => void; onMouseLeave: () => void }) {
   const [selectedPerson, setSelectedPerson] = useState<{ person: MoviePersonCredit; position: TooltipPosition } | null>(null);
-
-  if (selectedPerson) {
-    const cacheKey = getPersonCacheKey(selectedPerson.person);
-    return <PersonFloatingCard person={selectedPerson.person} cacheEntry={cache[cacheKey]} position={selectedPerson.position} locale={locale} onMouseEnter={() => undefined} onMouseLeave={() => undefined} />;
-  }
+  const selectedCacheKey = selectedPerson ? getPersonCacheKey(selectedPerson.person) : null;
 
   return createPortal(
     <div
@@ -467,8 +465,14 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, 
             key={`${getPersonCacheKey(person)}-${index}`}
             type="button"
             className="block w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-            onPointerDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onMouseEnter();
+            }}
+            onTouchStart={(event) => {
+              event.stopPropagation();
+              onMouseEnter();
+            }}
             onClick={(event) => {
               event.stopPropagation();
               const target = event.currentTarget;
@@ -481,6 +485,16 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, locale, 
           </button>
         ))}
       </div>
+      {selectedPerson && selectedCacheKey ? (
+        <PersonFloatingCard
+          person={selectedPerson.person}
+          cacheEntry={cache[selectedCacheKey]}
+          position={selectedPerson.position}
+          locale={locale}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+        />
+      ) : null}
     </div>,
     document.body,
   );
@@ -560,7 +574,7 @@ function CastLine({
   cache,
   onEnsureDetail,
   isFeed,
-  maxRows = 4,
+  maxRows = DESKTOP_CAST_MAX_ROWS,
   fixedVisibleCount,
 }: {
   label: string;
@@ -667,7 +681,7 @@ function CastLine({
   };
 
   return (
-    <div ref={rowRef} className={`relative min-w-0 overflow-hidden text-sm leading-[1.18] ${maxRows > 4 ? "max-h-[6.25rem]" : "max-h-[4.95rem]"} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+    <div ref={rowRef} className={`relative min-w-0 overflow-hidden text-sm leading-[1.18] ${fixedVisibleCount !== undefined ? "max-h-none" : maxRows > DESKTOP_CAST_MAX_ROWS ? "max-h-[6.25rem]" : "max-h-[4.95rem]"} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
       <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{label}:</span>{" "}
       {visiblePeople.map((person, index) => (
         <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
@@ -682,11 +696,14 @@ function CastLine({
             ref={moreRef}
             type="button"
             className="inline-flex rounded-full border border-[#86ADE0]/25 bg-[#86ADE0]/10 px-2 py-0 text-xs font-bold leading-[1.18] text-blue-100 shadow-sm transition hover:border-[#86ADE0]/55 hover:bg-[#86ADE0]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/60"
+            onPointerDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
             onMouseEnter={showOverflow}
             onMouseLeave={scheduleHide}
             onFocus={showOverflow}
             onBlur={scheduleHide}
-            onClick={() => {
+            onClick={(event) => {
+              event.stopPropagation();
               if (overflowPosition) setOverflowPosition(null);
               else showOverflow();
             }}
@@ -1336,7 +1353,7 @@ function MovieCard({
                     cache={personDetailCache}
                     onEnsureDetail={ensurePersonDetail}
                     isFeed={isFeed}
-                    maxRows={5}
+                    fixedVisibleCount={MOBILE_CAST_VISIBLE_LIMIT}
                   />
                 ) : null}
                 {creditsLoading && !hasCast && !hasDirector ? (
