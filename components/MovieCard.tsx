@@ -263,6 +263,11 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
       style={{ left: position.left, top: position.top, transform: position.transform }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onPointerDown={(event) => event.stopPropagation()}
+      onPointerMove={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onTouchMove={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
     >
       <div className="flex gap-3">
         <PersonAvatar detail={detail} person={person} />
