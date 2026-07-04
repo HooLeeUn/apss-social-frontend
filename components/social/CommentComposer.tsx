@@ -185,11 +185,11 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-zinc-400">
-          {hasValidSelectedMention && selectedMention
-            ? `${t("movieDetailValidMention")}: @${selectedMention.username}`
-            : t("movieDetailMentionHelp")}
-        </p>
+        <div className="min-w-0 flex-1">
+          {hasValidSelectedMention && selectedMention ? (
+            <p className="text-xs text-zinc-400">{`${t("movieDetailValidMention")}: @${selectedMention.username}`}</p>
+          ) : null}
+        </div>
         <button
           type="button"
           disabled={loading || text.trim().length === 0}
