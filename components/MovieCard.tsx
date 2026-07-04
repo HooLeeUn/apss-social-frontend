@@ -374,12 +374,17 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseE
   return createPortal(
     <div
       role="tooltip"
-      className="fixed z-[10040] w-[min(310px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-2.5 text-sm text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.58)] ring-1 ring-black/50 backdrop-blur-md"
+      className="fixed z-[10040] w-[min(310px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-2.5 text-sm text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.58)] ring-1 ring-black/50 backdrop-blur-md [touch-action:pan-y]"
       style={{ left: position.left, top: position.top, transform: position.transform }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onPointerDown={(event) => event.stopPropagation()}
+      onPointerMove={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onTouchMove={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
     >
-      <div className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto pr-1">
+      <div className="scrollbar-dark max-h-56 space-y-1 overflow-y-auto overscroll-contain pr-1 [touch-action:pan-y]">
         {people.map((person, index) => (
           <div key={`${getPersonCacheKey(person)}-${index}`} className="rounded-lg px-2 py-1.5 transition hover:bg-white/10">
             <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} className="max-w-full" />
@@ -793,11 +798,46 @@ function MovieCard({
     </div>
   ) : null;
 
+  const mobileSplitFeedActionsRow = splitFeedActions ? (
+    <div className={`${feedRatingsCardClassName} grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:hidden`}>
+      <div className="min-w-0 justify-self-start">
+        {tmdbUrl ? (
+          <TooltipTarget text={tmdbTooltip}>
+            <a
+              href={tmdbUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={tmdbTooltip}
+              className="inline-flex h-8 w-[82px] shrink-0 items-center justify-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
+            </a>
+          </TooltipTarget>
+        ) : null}
+      </div>
+      <div className="relative z-30 shrink-0 justify-self-center">{ratingsActionsTmdbSlot}</div>
+      <div className="flex min-w-0 flex-nowrap items-center justify-self-end gap-2">
+        <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
+        {showBottomInteractionIcons ? (
+          <div className="interaction-icons static z-10 flex flex-nowrap items-center gap-1">
+            <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+              <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+            </button>
+            <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+              <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
+
   const ratingsActionsRow = (
     <div
-      className={`${splitFeedActions ? "" : "mt-2"} ${
+      className={`${splitFeedActions ? "hidden md:flex" : "mt-2"} ${
         isFeed
-          ? `${splitFeedActions ? "grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:flex md:flex-wrap md:justify-start md:gap-2" : "flex items-center"} ${feedRatingsCardClassName}`
+          ? `${splitFeedActions ? "flex-wrap items-center justify-start gap-2" : "flex items-center"} ${feedRatingsCardClassName}`
           : "grid grid-cols-3 gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-center text-gray-700"
       }`}
     >
@@ -1160,6 +1200,7 @@ function MovieCard({
     return (
       <div className="space-y-2">
         {mobileDetailCardContent}
+        {mobileSplitFeedActionsRow}
         {ratingsActionsRow}
       </div>
     );
