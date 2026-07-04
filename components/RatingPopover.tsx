@@ -83,19 +83,35 @@ export default function RatingPopover({
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (containerRef.current?.contains(target)) return;
-      if (popoverRef.current?.contains(target)) return;
-
+    const closePopover = () => {
       setIsOpen(false);
       setHoveredScore(null);
       setError("");
     };
 
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+
+      closePopover();
+    };
+
+    const handleScrollOrDrag = (event: Event) => {
+      const target = event.target as Node | null;
+      if (target && (containerRef.current?.contains(target) || popoverRef.current?.contains(target))) return;
+      closePopover();
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScrollOrDrag, { capture: true, passive: true });
+    document.addEventListener("touchmove", handleScrollOrDrag, { passive: true });
+    document.addEventListener("pointermove", handleScrollOrDrag, { passive: true });
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScrollOrDrag, { capture: true });
+      document.removeEventListener("touchmove", handleScrollOrDrag);
+      document.removeEventListener("pointermove", handleScrollOrDrag);
     };
   }, [isOpen]);
 

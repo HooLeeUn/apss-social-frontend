@@ -767,7 +767,7 @@ function CommentUserSearch({
 
       {shouldShowDropdown ? (
         <div
-          className="scrollbar-dark absolute right-0 z-40 mt-2 max-h-64 w-full min-w-[15rem] overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur"
+          className="scrollbar-dark mt-2 mb-3 max-h-64 w-full min-w-[15rem] overflow-y-auto rounded-xl border border-[#86ADE0]/20 bg-[#0b1f3a]/35 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28),0_0_18px_rgba(134,173,224,0.08)] backdrop-blur lg:absolute lg:right-0 lg:z-40 lg:mb-0 lg:border-white/10 lg:bg-zinc-950/95 lg:shadow-2xl lg:shadow-black/50"
           onMouseDown={(event) => event.preventDefault()}
         >
           {visibleUsers.map((user) => {
@@ -776,7 +776,7 @@ function CommentUserSearch({
               <button
                 type="button"
                 key={getCommentFilterUserKey(user)}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white/10"
+                className="flex w-full items-center gap-2 rounded-lg border border-white/5 bg-white/[0.03] px-2 py-2 text-left transition hover:border-[#86ADE0]/25 hover:bg-[#86ADE0]/10"
                 onClick={() => {
                   onSelect(user);
                   onQueryChange("");
@@ -851,6 +851,7 @@ export default function MovieDetailPage() {
   const [selectedDirectedFilterUser, setSelectedDirectedFilterUser] = useState<CommentFilterUser | null>(null);
   const [isPublicSearchOpen, setIsPublicSearchOpen] = useState(false);
   const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
+  const [activeCommentsTab, setActiveCommentsTab] = useState<"public" | "directed">("public");
 
   const canShowDirectedComments = friendRequestsRestricted === false;
   const shouldRenderDirectedComments = friendRequestsRestricted !== true;
@@ -1675,11 +1676,37 @@ export default function MovieDetailPage() {
 
         <div className={`relative grid grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
           {shouldRenderDirectedComments ? (
-            <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
+            <>
+              <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
+              <div className="flex rounded-xl border border-white/10 bg-zinc-950/60 p-1 lg:hidden" role="tablist" aria-label="Comments sections">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCommentsTab === "public"}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    activeCommentsTab === "public" ? "border border-[#86ADE0]/45 bg-zinc-950/50 text-[#c7dcf6] shadow-[0_0_16px_rgba(134,173,224,0.16)]" : "border border-transparent text-zinc-300 hover:bg-white/10 hover:text-white"
+                  }`}
+                  onClick={() => setActiveCommentsTab("public")}
+                >
+                  {t("movieDetailPublicComments")}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCommentsTab === "directed"}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    activeCommentsTab === "directed" ? "border border-[#86ADE0]/45 bg-zinc-950/50 text-[#c7dcf6] shadow-[0_0_16px_rgba(134,173,224,0.16)]" : "border border-transparent text-zinc-300 hover:bg-white/10 hover:text-white"
+                  }`}
+                  onClick={() => setActiveCommentsTab("directed")}
+                >
+                  {t("movieDetailDirectedComments")}
+                </button>
+              </div>
+            </>
           ) : null}
-          <section className="space-y-3">
+          <section className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2>
+              <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden lg:block" : ""}`}>{t("movieDetailPublicComments")}</h2>
               <CommentUserSearch
                 users={publicFilterUsers}
                 query={publicSearchQuery}
@@ -1722,9 +1749,9 @@ export default function MovieDetailPage() {
           </section>
 
           {shouldRenderDirectedComments ? (
-            <section className="space-y-3">
+            <section className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2>
+                <h2 className="hidden text-xl font-bold text-[#86ADE0] lg:block">{t("movieDetailDirectedComments")}</h2>
                 <CommentUserSearch
                   users={friendFilterUsers}
                   query={directedSearchQuery}

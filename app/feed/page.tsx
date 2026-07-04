@@ -897,7 +897,7 @@ export default function FeedPage() {
                 iconOnly
               />
             </div>
-            <div className="feed-desktop-only pointer-events-auto relative z-50 hidden shrink-0 pr-0 lg:pointer-events-none lg:absolute lg:right-4 lg:top-6 lg:block lg:pr-1">
+            <div className="feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 lg:pointer-events-none lg:absolute lg:right-4 lg:top-6 lg:block lg:pr-1">
               <div className="pointer-events-auto relative flex w-auto flex-col items-end lg:w-[198px] lg:items-center">
                 <div className="flex items-center gap-2">
                 <button
@@ -920,7 +920,7 @@ export default function FeedPage() {
                 {isNotificationPanelOpen ? (
                   <div
                     ref={notificationContainerRef}
-                    className="absolute right-14 top-0 z-[70] w-[310px] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md md:right-16"
+                    className="absolute right-14 top-0 z-[95] w-[310px] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md md:right-16"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">{translate(locale, "notificationsTitle")}</p>
