@@ -567,18 +567,16 @@ function ProviderRow({ providers, label, locale }: { providers: StreamingProvide
   const visibleProviders = providers.slice(0, visibleLimit);
   const hiddenProviders = providers.slice(visibleLimit);
 
-  const mobileVisibleProviders = providers.slice(0, MAX_INLINE_PROVIDERS);
-  const mobileHiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
 
   return (
     <div className="space-y-1.5 overflow-visible">
-      <div className="flex flex-nowrap items-center justify-center gap-2 overflow-visible md:hidden">
-        {mobileVisibleProviders.map((provider) => (
+      <div ref={rowRef} className="flex flex-nowrap items-center justify-center gap-2 overflow-visible md:hidden">
+        {visibleProviders.map((provider) => (
           <ProviderLogo key={provider.id} provider={provider} locale={locale} />
         ))}
-        <ProviderOverflowMenu providers={mobileHiddenProviders} locale={locale} />
+        <ProviderOverflowMenu providers={hiddenProviders} locale={locale} />
       </div>
-      <div ref={rowRef} className="hidden flex-nowrap items-center justify-center gap-2 overflow-visible md:flex md:flex-wrap">
+      <div className="hidden flex-nowrap items-center justify-center gap-2 overflow-visible md:flex md:flex-wrap">
         {visibleProviders.map((provider) => (
           <ProviderLogo key={provider.id} provider={provider} locale={locale} />
         ))}

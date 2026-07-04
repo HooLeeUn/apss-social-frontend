@@ -88,6 +88,7 @@ const PERSON_CARD_OFFSET_PX = 12;
 const PERSON_CARD_WIDTH_PX = 320;
 const PERSON_HOVER_DELAY_MS = 500;
 const PERSON_POPOVER_HIDE_EVENT = "qnext-hide-person-popovers";
+const MOBILE_METADATA_DRAG_EVENT = "qnext-mobile-metadata-drag";
 const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
 
 type PersonDetailCacheEntry = { loading: boolean; detail: PersonDetail | null; error: boolean };
@@ -402,12 +403,20 @@ function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people
 
   useEffect(() => {
     if (!overflowPosition) return;
-    const handlePointerDown = (event: PointerEvent) => {
+    const closeIfOutside = (event: Event) => {
       if (event.target instanceof Node && moreRef.current?.contains(event.target)) return;
       setOverflowPosition(null);
     };
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("pointerdown", closeIfOutside);
+    document.addEventListener("pointermove", closeIfOutside, { passive: true });
+    document.addEventListener("touchmove", closeIfOutside, { passive: true });
+    document.addEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
+    return () => {
+      document.removeEventListener("pointerdown", closeIfOutside);
+      document.removeEventListener("pointermove", closeIfOutside);
+      document.removeEventListener("touchmove", closeIfOutside);
+      document.removeEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
+    };
   }, [overflowPosition]);
 
   if (people.length === 0) return null;
@@ -447,7 +456,7 @@ function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people
   );
 }
 
-function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: string; people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; isFeed: boolean }) {
+function CastLine({ label, people, cache, onEnsureDetail, isFeed, maxRows = 4 }: { label: string; people: MoviePersonCredit[]; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; isFeed: boolean; maxRows?: number }) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const measureRef = useRef<HTMLDivElement | null>(null);
   const moreRef = useRef<HTMLButtonElement | null>(null);
@@ -461,12 +470,20 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
 
   useEffect(() => {
     if (!overflowPosition) return;
-    const handlePointerDown = (event: PointerEvent) => {
+    const closeIfOutside = (event: Event) => {
       if (event.target instanceof Node && rowRef.current?.contains(event.target)) return;
       setOverflowPosition(null);
     };
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("pointerdown", closeIfOutside);
+    document.addEventListener("pointermove", closeIfOutside, { passive: true });
+    document.addEventListener("touchmove", closeIfOutside, { passive: true });
+    document.addEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
+    return () => {
+      document.removeEventListener("pointerdown", closeIfOutside);
+      document.removeEventListener("pointermove", closeIfOutside);
+      document.removeEventListener("touchmove", closeIfOutside);
+      document.removeEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
+    };
   }, [overflowPosition]);
 
   useEffect(() => {
@@ -478,7 +495,7 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
       if (!items.length || !more) return;
       const labelWidth = measureRef.current.querySelector<HTMLElement>("[data-cast-label-measure]")?.getBoundingClientRect().width ?? 0;
       const moreWidth = more.getBoundingClientRect().width;
-      const maxWidthAcrossRows = availableWidth * 4;
+      const maxWidthAcrossRows = availableWidth * maxRows;
       let used = labelWidth;
       let count = 0;
       for (const item of items) {
@@ -502,7 +519,7 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
       resizeObserver?.disconnect();
       window.removeEventListener("resize", updateVisibleCount);
     };
-  }, [label, people]);
+  }, [label, maxRows, people]);
 
   const visiblePeople = people.slice(0, visibleCount);
   const hiddenPeople = people.slice(visibleCount);
@@ -525,7 +542,7 @@ function CastLine({ label, people, cache, onEnsureDetail, isFeed }: { label: str
   };
 
   return (
-    <div ref={rowRef} className={`relative max-h-[4.95rem] min-w-0 overflow-hidden text-sm leading-[1.18] ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+    <div ref={rowRef} className={`relative min-w-0 overflow-hidden text-sm leading-[1.18] ${maxRows > 4 ? "max-h-[5.9rem]" : "max-h-[4.95rem]"} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
       <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{label}:</span>{" "}
       {visiblePeople.map((person, index) => (
         <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
@@ -1147,7 +1164,12 @@ function MovieCard({
           <div
             ref={mobileCarouselRef}
             className="flex h-[164px] snap-x snap-mandatory overflow-x-auto scroll-smooth overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[172px]"
-            onScroll={updateMobileCarouselIndex}
+            onScroll={(event) => {
+              updateMobileCarouselIndex();
+              document.dispatchEvent(new CustomEvent(MOBILE_METADATA_DRAG_EVENT, { detail: { target: event.target } }));
+            }}
+            onPointerMove={(event) => document.dispatchEvent(new CustomEvent(MOBILE_METADATA_DRAG_EVENT, { detail: { target: event.target } }))}
+            onTouchMove={(event) => document.dispatchEvent(new CustomEvent(MOBILE_METADATA_DRAG_EVENT, { detail: { target: event.target } }))}
           >
             <section className="flex h-full min-w-full snap-start flex-col justify-start px-3 py-3 pr-6 sm:px-3.5" aria-label="Metadata">
               <div className="min-w-0 space-y-1.5">
@@ -1180,7 +1202,7 @@ function MovieCard({
                     />
                   </p>
                 ) : null}
-                {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
+                {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={5} /> : null}
                 {creditsLoading && !hasCast && !hasDirector ? (
                   <div className="space-y-2" aria-label={locale === "en" ? "Loading cast" : "Cargando reparto"}>
                     <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
