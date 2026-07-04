@@ -89,7 +89,17 @@ const PERSON_CARD_WIDTH_PX = 320;
 const PERSON_HOVER_DELAY_MS = 500;
 const PERSON_POPOVER_HIDE_EVENT = "qnext-hide-person-popovers";
 const MOBILE_METADATA_DRAG_EVENT = "qnext-mobile-metadata-drag";
+const GLOBAL_POPOVERS_HIDE_EVENT = "qnext-hide-active-popovers";
 const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
+
+function isInsideQNextPopover(event: Event): boolean {
+  return event.target instanceof Element && Boolean(event.target.closest("[data-qnext-popover='true']"));
+}
+
+function closeActivePopoversBeforeExternalNavigation() {
+  window.dispatchEvent(new Event(PERSON_POPOVER_HIDE_EVENT));
+  window.dispatchEvent(new Event(GLOBAL_POPOVERS_HIDE_EVENT));
+}
 
 type PersonDetailCacheEntry = { loading: boolean; detail: PersonDetail | null; error: boolean };
 type PersonDetailCache = Record<string, PersonDetailCacheEntry>;
@@ -222,6 +232,7 @@ function PersonSocialLink({ href, label, network }: { href: string | null | unde
         rel="noopener noreferrer"
         aria-label={label}
         className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.28)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#86ADE0]/70 hover:bg-[#86ADE0]/20 hover:text-[#DCEAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        onClick={closeActivePopoversBeforeExternalNavigation}
       >
         {PERSON_SOCIAL_ICONS[network]}
       </a>
@@ -238,6 +249,7 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
   return createPortal(
     <div
       role="tooltip"
+      data-qnext-popover="true"
       className="fixed z-[10050] w-[min(320px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-3 text-left text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.6)] ring-1 ring-black/50 backdrop-blur-md"
       style={{ left: position.left, top: position.top, transform: position.transform }}
       onMouseEnter={onMouseEnter}
@@ -316,9 +328,23 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
       if (event instanceof CustomEvent && event.detail?.cacheKey === cacheKey) return;
       hideCard();
     };
+    const closeIfOutside = (event: Event) => {
+      if (!positionRef.current) return;
+      if (event.target instanceof Node && targetRef.current?.contains(event.target)) return;
+      if (isInsideQNextPopover(event)) return;
+      hideCard();
+    };
     window.addEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
+    window.addEventListener(GLOBAL_POPOVERS_HIDE_EVENT, handleHideAll);
+    document.addEventListener("pointermove", closeIfOutside, { passive: true });
+    document.addEventListener("touchmove", closeIfOutside, { passive: true });
+    document.addEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
     return () => {
       window.removeEventListener(PERSON_POPOVER_HIDE_EVENT, handleHideAll);
+      window.removeEventListener(GLOBAL_POPOVERS_HIDE_EVENT, handleHideAll);
+      document.removeEventListener("pointermove", closeIfOutside);
+      document.removeEventListener("touchmove", closeIfOutside);
+      document.removeEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
       clearHoverTimer();
       cancelHide();
     };
@@ -349,6 +375,17 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     }, 140);
   };
 
+  const showCardNow = () => {
+    if (!targetRef.current) return;
+    clearHoverTimer();
+    cancelHide();
+    const initialPosition = getFloatingPosition(targetRef.current, PERSON_CARD_WIDTH_PX);
+    window.dispatchEvent(new CustomEvent(PERSON_POPOVER_HIDE_EVENT, { detail: { cacheKey } }));
+    isPointerOverNameRef.current = true;
+    onEnsureDetail(person);
+    updatePosition(initialPosition);
+  };
+
   const handleCardMouseEnter = () => {
     isPointerOverCardRef.current = true;
     cancelHide();
@@ -364,8 +401,8 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
   };
 
   return (
-    <span ref={targetRef} className={`inline-flex min-w-0 ${className}`} onMouseEnter={scheduleShow} onMouseLeave={scheduleHide} onFocus={scheduleShow} onBlur={scheduleHide} tabIndex={0}>
-      <span className="cursor-default truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
+    <span ref={targetRef} className={`inline-flex min-w-0 ${className}`} onMouseEnter={scheduleShow} onMouseLeave={scheduleHide} onFocus={scheduleShow} onBlur={scheduleHide} onClick={(event) => { event.stopPropagation(); showCardNow(); }} tabIndex={0}>
+      <span className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
       {position ? <PersonFloatingCard person={person} cacheEntry={cache[cacheKey]} position={position} locale={locale} onMouseEnter={handleCardMouseEnter} onMouseLeave={handleCardMouseLeave} /> : null}
     </span>
   );
@@ -375,6 +412,7 @@ function CastOverflowPopover({ people, cache, onEnsureDetail, position, onMouseE
   return createPortal(
     <div
       role="tooltip"
+      data-qnext-popover="true"
       className="fixed z-[10040] w-[min(310px,calc(100vw-32px))] rounded-2xl border border-[#86ADE0]/30 bg-zinc-950/98 p-2.5 text-sm text-zinc-100 shadow-[0_22px_48px_rgba(0,0,0,0.58)] ring-1 ring-black/50 backdrop-blur-md [touch-action:pan-y]"
       style={{ left: position.left, top: position.top, transform: position.transform }}
       onMouseEnter={onMouseEnter}
@@ -405,17 +443,20 @@ function PersonOverflowButton({ people, cache, onEnsureDetail, label }: { people
     if (!overflowPosition) return;
     const closeIfOutside = (event: Event) => {
       if (event.target instanceof Node && moreRef.current?.contains(event.target)) return;
+      if (isInsideQNextPopover(event)) return;
       setOverflowPosition(null);
     };
     document.addEventListener("pointerdown", closeIfOutside);
     document.addEventListener("pointermove", closeIfOutside, { passive: true });
     document.addEventListener("touchmove", closeIfOutside, { passive: true });
     document.addEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
+    window.addEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     return () => {
       document.removeEventListener("pointerdown", closeIfOutside);
       document.removeEventListener("pointermove", closeIfOutside);
       document.removeEventListener("touchmove", closeIfOutside);
       document.removeEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
+      window.removeEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     };
   }, [overflowPosition]);
 
@@ -488,17 +529,20 @@ function CastLine({
     if (!overflowPosition) return;
     const closeIfOutside = (event: Event) => {
       if (event.target instanceof Node && rowRef.current?.contains(event.target)) return;
+      if (isInsideQNextPopover(event)) return;
       setOverflowPosition(null);
     };
     document.addEventListener("pointerdown", closeIfOutside);
     document.addEventListener("pointermove", closeIfOutside, { passive: true });
     document.addEventListener("touchmove", closeIfOutside, { passive: true });
     document.addEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
+    window.addEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     return () => {
       document.removeEventListener("pointerdown", closeIfOutside);
       document.removeEventListener("pointermove", closeIfOutside);
       document.removeEventListener("touchmove", closeIfOutside);
       document.removeEventListener(MOBILE_METADATA_DRAG_EVENT, closeIfOutside);
+      window.removeEventListener(GLOBAL_POPOVERS_HIDE_EVENT, closeIfOutside);
     };
   }, [overflowPosition]);
 
@@ -845,6 +889,7 @@ function MovieCard({
               rel="noopener noreferrer"
               aria-label={tmdbTooltip}
               className="inline-flex h-8 w-[82px] shrink-0 items-center justify-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              onClick={closeActivePopoversBeforeExternalNavigation}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
@@ -963,6 +1008,7 @@ function MovieCard({
                     rel="noopener noreferrer"
                     aria-label={tmdbTooltip}
                     className={splitFeedTmdbLogoClassName}
+                    onClick={closeActivePopoversBeforeExternalNavigation}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
