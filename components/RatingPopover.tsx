@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, apiFetch } from "../lib/api";
 import { formatMyRating } from "../lib/rating-format";
@@ -43,6 +43,7 @@ export default function RatingPopover({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const closeTimeoutRef = useRef<number | null>(null);
 
   const previewScore = hoveredScore ?? currentRating;
 
@@ -54,6 +55,32 @@ export default function RatingPopover({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const clearScheduledClose = useCallback(() => {
+    if (closeTimeoutRef.current === null) return;
+    window.clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = null;
+  }, []);
+
+  const closePopover = useCallback(() => {
+    clearScheduledClose();
+    setIsOpen(false);
+    setHoveredScore(null);
+    setError("");
+  }, [clearScheduledClose]);
+
+  const scheduleDesktopClose = useCallback(() => {
+    clearScheduledClose();
+    closeTimeoutRef.current = window.setTimeout(() => {
+      closePopover();
+    }, 200);
+  }, [clearScheduledClose, closePopover]);
+
+  useEffect(() => {
+    return () => {
+      clearScheduledClose();
+    };
+  }, [clearScheduledClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,12 +110,6 @@ export default function RatingPopover({
   useEffect(() => {
     if (!isOpen) return;
 
-    const closePopover = () => {
-      setIsOpen(false);
-      setHoveredScore(null);
-      setError("");
-    };
-
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (containerRef.current?.contains(target)) return;
@@ -98,6 +119,8 @@ export default function RatingPopover({
     };
 
     const handleScrollOrDrag = (event: Event) => {
+      if (event instanceof PointerEvent && event.pointerType === "mouse") return;
+
       const target = event.target as Node | null;
       if (target && (containerRef.current?.contains(target) || popoverRef.current?.contains(target))) return;
       closePopover();
@@ -113,10 +136,11 @@ export default function RatingPopover({
       document.removeEventListener("touchmove", handleScrollOrDrag);
       document.removeEventListener("pointermove", handleScrollOrDrag);
     };
-  }, [isOpen]);
+  }, [closePopover, isOpen]);
 
   const submitRating = async (score: number) => {
     if (isSaving) return;
+    clearScheduledClose();
     onOptimisticRate?.(score);
 
     try {
@@ -130,8 +154,7 @@ export default function RatingPopover({
           });
       await onRated(score, response);
       setSelectedFlash(score);
-      setIsOpen(false);
-      setHoveredScore(null);
+      closePopover();
       window.setTimeout(() => setSelectedFlash(null), 220);
     } catch (submitError) {
       onRateError?.();
@@ -147,7 +170,7 @@ export default function RatingPopover({
   };
 
   return (
-    <div ref={containerRef} className={`relative inline-flex ${className}`}>
+    <div ref={containerRef} className={`relative inline-flex ${className}`} onMouseEnter={clearScheduledClose} onMouseLeave={scheduleDesktopClose}>
       <button
         ref={triggerRef}
         type="button"
@@ -155,6 +178,7 @@ export default function RatingPopover({
           event.stopPropagation();
           event.preventDefault();
           if (isSaving) return;
+          clearScheduledClose();
           setIsOpen((value) => !value);
           setError("");
         }}
@@ -176,9 +200,10 @@ export default function RatingPopover({
               ref={popoverRef}
               className="fixed z-[120] w-[260px] rounded-xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_18px_30px_rgba(0,0,0,0.55)] backdrop-blur"
               style={{ top: popoverPosition.top, left: popoverPosition.left }}
+              onMouseEnter={clearScheduledClose}
+              onMouseLeave={scheduleDesktopClose}
               onClick={(event) => {
                 event.stopPropagation();
-                event.preventDefault();
               }}
             >
               <p className="mb-2 text-xs uppercase tracking-[0.12em] text-zinc-400">Calificar película</p>
