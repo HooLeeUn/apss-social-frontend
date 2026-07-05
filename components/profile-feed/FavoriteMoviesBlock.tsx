@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, apiFetch } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
 import {
@@ -565,6 +565,11 @@ export default function FavoriteMoviesBlock({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
+  const [activeFavoriteIndex, setActiveFavoriteIndex] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const swipeStartRef = useRef<{ x: number; y: number; lockedAxis: "horizontal" | "vertical" | null } | null>(null);
+  const dragOffsetRef = useRef(0);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
 
   const loadFavorites = useCallback(async () => {
@@ -598,6 +603,63 @@ export default function FavoriteMoviesBlock({
   }, [loadFavorites]);
 
   const slots = [1, 2, 3].map((slot) => favorites.find((movie) => movie.slot === slot));
+  const mobileSlots = readOnly ? slots.filter((movie): movie is FavoriteMovie => Boolean(movie)) : slots;
+  const maxMobileIndex = Math.max(0, mobileSlots.length - 1);
+
+  useEffect(() => {
+    setActiveFavoriteIndex((currentIndex) => Math.min(currentIndex, maxMobileIndex));
+  }, [maxMobileIndex]);
+
+  const finishMobileSwipe = useCallback((offset: number) => {
+    const swipeThreshold = 48;
+
+    setActiveFavoriteIndex((currentIndex) => {
+      if (offset <= -swipeThreshold) return Math.min(currentIndex + 1, maxMobileIndex);
+      if (offset >= swipeThreshold) return Math.max(currentIndex - 1, 0);
+      return currentIndex;
+    });
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+    setIsDragging(false);
+    swipeStartRef.current = null;
+  }, [maxMobileIndex]);
+
+  const handleMobileTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch || mobileSlots.length <= 1) return;
+
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY, lockedAxis: null };
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+    setIsDragging(true);
+  };
+
+  const handleMobileTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch || mobileSlots.length <= 1) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+
+    if (!start.lockedAxis && Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8) {
+      start.lockedAxis = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
+    }
+
+    if (start.lockedAxis !== "horizontal") return;
+
+    event.preventDefault();
+    const isAtFirstDraggingRight = activeFavoriteIndex === 0 && deltaX > 0;
+    const isAtLastDraggingLeft = activeFavoriteIndex === maxMobileIndex && deltaX < 0;
+    const nextDragOffset = isAtFirstDraggingRight || isAtLastDraggingLeft ? deltaX * 0.25 : deltaX;
+    dragOffsetRef.current = nextDragOffset;
+    setDragOffset(nextDragOffset);
+  };
+
+  const handleMobileTouchEnd = () => {
+    if (!swipeStartRef.current) return;
+    finishMobileSwipe(dragOffsetRef.current);
+  };
 
   const handleUpdateMovieRating = (movieId: string, score: number | null) => {
     setFavorites((current) =>
@@ -611,7 +673,48 @@ export default function FavoriteMoviesBlock({
       {loading ? <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p> : null}
       {!loading && error ? <p className="mb-3 text-xs text-zinc-400">{error}</p> : null}
 
-      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3 xl:gap-2.5">
+      <div
+        className="favorite-movies-mobile-cube md:hidden"
+        onTouchStart={handleMobileTouchStart}
+        onTouchMove={handleMobileTouchMove}
+        onTouchEnd={handleMobileTouchEnd}
+        onTouchCancel={handleMobileTouchEnd}
+      >
+        <div className="favorite-movies-mobile-cube__stage">
+          {mobileSlots.map((movie, index) => {
+            const dragProgress = dragOffset / 280;
+            const relativePosition = index - activeFavoriteIndex + dragProgress;
+            const translateX = relativePosition * 100;
+            const rotateY = relativePosition * -82;
+            const opacity = Math.abs(relativePosition) > 1.25 ? 0 : 1;
+
+            return (
+              <div
+                key={movie?.id ?? `mobile-placeholder-${index}`}
+                className="favorite-movies-mobile-cube__slide"
+                style={{
+                  opacity,
+                  transform: `translate3d(${translateX}%, 0, ${-Math.abs(relativePosition) * 48}px) rotateY(${rotateY}deg)`,
+                  transitionDuration: isDragging ? "0ms" : undefined,
+                  zIndex: 10 - Math.round(Math.abs(relativePosition) * 10),
+                }}
+                aria-hidden={index !== activeFavoriteIndex}
+              >
+                <FavoriteMovieItem
+                  slot={index + 1}
+                  movie={movie}
+                  readOnly={readOnly}
+                  viewedUsername={viewedUsername}
+                  onOpenSearch={setActiveSlot}
+                  onUpdateMovieRating={handleUpdateMovieRating}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="hidden gap-3 md:grid lg:grid-cols-2 xl:grid-cols-3 xl:gap-2.5">
         {slots.map((movie, index) => (
           <FavoriteMovieItem
             key={movie?.id ?? `placeholder-${index}`}
