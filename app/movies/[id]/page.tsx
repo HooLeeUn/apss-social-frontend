@@ -1636,6 +1636,7 @@ export default function MovieDetailPage() {
   const isSeriesDetail = isSeriesContentType(movie?.contentType);
   const detailTitle = isSeriesDetail ? t("movieDetailSeriesTitle") : t("movieDetailTitle");
   const composerPlaceholder = isSeriesDetail ? t("movieDetailSeriesCommentPlaceholder") : t("movieDetailCommentPlaceholder");
+  const composerTitle = isSeriesDetail ? t("movieDetailSeriesCommentTitle") : t("movieDetailCommentTitle");
 
   return (
     <main className="min-h-screen bg-black">
@@ -1679,7 +1680,7 @@ export default function MovieDetailPage() {
           />
         ) : null}
 
-        <CommentComposer friends={composerFriends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} />
+        <CommentComposer friends={composerFriends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
