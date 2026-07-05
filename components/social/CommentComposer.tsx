@@ -20,6 +20,7 @@ interface CommentComposerProps {
   onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<void>;
   loading?: boolean;
   error?: string;
+  placeholder?: string;
 }
 
 function getMentionToken(value: string, caretIndex: number): { start: number; query: string } | null {
@@ -34,7 +35,7 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
   };
 }
 
-export default function CommentComposer({ friends, onSubmit, loading = false, error }: CommentComposerProps) {
+export default function CommentComposer({ friends, onSubmit, loading = false, error, placeholder }: CommentComposerProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
@@ -175,7 +176,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
             updateMentionState(nextText, event.target.selectionStart ?? nextText.length);
           }}
           onKeyDown={handleKeyDown}
-          placeholder={t("movieDetailCommentPlaceholder")}
+          placeholder={placeholder ?? t("movieDetailCommentPlaceholder")}
           className="w-full rounded-xl border border-white/30 bg-black/30 p-3 text-sm text-zinc-100 outline-none transition focus:border-white/45"
         />
 

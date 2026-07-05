@@ -51,6 +51,7 @@ const translations = {
     notificationsGoToPending: "Ir a Pendientes",
 
     movieDetailTitle: "Detalle de película",
+    movieDetailSeriesTitle: "Detalle de la serie",
     movieDetailDirector: "Director",
     movieDetailCast: "Casting",
     movieDetailMovie: "Película",
@@ -58,7 +59,8 @@ const translations = {
     movieDetailUnknown: "Desconocido",
     movieDetailNoGenre: "Sin género",
     movieDetailCommentTitle: "Comentar película",
-    movieDetailCommentPlaceholder: "Comparte tu recomendación... Usa @ para mencionar a un amigo",
+    movieDetailCommentPlaceholder: "Comparte tu publicación sobre esta película... Usa @ para mencionar a un amigo",
+    movieDetailSeriesCommentPlaceholder: "Comparte tu publicación sobre esta serie... Usa @ para mencionar a un amigo",
     movieDetailMentionHelp: "Si eliges una mención del listado, se enviará como recomendación privada.",
     movieDetailValidMention: "Mención válida seleccionada",
     movieDetailNoFriendMatches: "No hay coincidencias de amigos.",
@@ -278,6 +280,7 @@ const translations = {
     notificationsGoToPending: "Go to Pending",
 
     movieDetailTitle: "Movie Details",
+    movieDetailSeriesTitle: "Series Details",
     movieDetailDirector: "Director",
     movieDetailCast: "Cast",
     movieDetailMovie: "Movie",
@@ -285,7 +288,8 @@ const translations = {
     movieDetailUnknown: "Unknown",
     movieDetailNoGenre: "No genre",
     movieDetailCommentTitle: "Comment on Movie",
-    movieDetailCommentPlaceholder: "Share your recommendation... Use @ to mention a friend",
+    movieDetailCommentPlaceholder: "Share your post about this movie... Use @ to mention a friend",
+    movieDetailSeriesCommentPlaceholder: "Share your post about this series... Use @ to mention a friend",
     movieDetailMentionHelp: "If you select a mention from the list, it will be sent as a private recommendation.",
     movieDetailValidMention: "Valid mention selected",
     movieDetailNoFriendMatches: "No friend matches.",
@@ -526,11 +530,11 @@ export interface LocaleSelection {
   language: Locale;
 }
 
-function isSupportedCountry(value: unknown): value is Country {
+export function isSupportedCountry(value: unknown): value is Country {
   return typeof value === "string" && SUPPORTED_COUNTRIES.has(value.toUpperCase() as Country);
 }
 
-function normalizeCountry(value: unknown): Country {
+export function normalizeCountry(value: unknown): Country {
   return isSupportedCountry(value) ? (value.toUpperCase() as Country) : "CO";
 }
 

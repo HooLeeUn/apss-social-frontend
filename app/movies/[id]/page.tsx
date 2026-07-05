@@ -82,6 +82,12 @@ interface DirectedConversation {
   lastMessageAt: string | null;
 }
 
+
+function isSeriesContentType(contentType: string | null | undefined): boolean {
+  const normalized = (contentType ?? "").trim().toLowerCase();
+  return normalized === "series" || normalized === "tv series" || normalized === "tvseries";
+}
+
 function getCurrentUsernameFromPayload(payload: unknown): string | null {
   const root = toRecord(payload);
   const user = toRecord(root?.user);
@@ -1627,12 +1633,15 @@ export default function MovieDetailPage() {
 
 
   const composerFriends = canShowDirectedComments ? friends : [];
+  const isSeriesDetail = isSeriesContentType(movie?.contentType);
+  const detailTitle = isSeriesDetail ? t("movieDetailSeriesTitle") : t("movieDetailTitle");
+  const composerPlaceholder = isSeriesDetail ? t("movieDetailSeriesCommentPlaceholder") : t("movieDetailCommentPlaceholder");
 
   return (
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-8 md:px-8">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-zinc-100">{t("movieDetailTitle")}</h1>
+          <h1 className="text-2xl font-semibold text-zinc-100">{detailTitle}</h1>
           <Link
             href="/feed"
             className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
@@ -1670,7 +1679,7 @@ export default function MovieDetailPage() {
           />
         ) : null}
 
-        <CommentComposer friends={composerFriends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} />
+        <CommentComposer friends={composerFriends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} />
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
