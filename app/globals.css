@@ -249,3 +249,27 @@ textarea,
     display: block !important;
   }
 }
+
+@media (max-width: 767px) {
+  .favorite-movies-mobile-cube {
+    overflow: hidden;
+    perspective: 950px;
+    touch-action: pan-y;
+  }
+
+  .favorite-movies-mobile-cube__stage {
+    position: relative;
+    height: 180px;
+    transform-style: preserve-3d;
+  }
+
+  .favorite-movies-mobile-cube__slide {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    transform-origin: center center -90px;
+    transform-style: preserve-3d;
+    transition: transform 420ms cubic-bezier(0.22, 0.72, 0.18, 1), opacity 260ms ease;
+    will-change: transform, opacity;
+  }
+}
