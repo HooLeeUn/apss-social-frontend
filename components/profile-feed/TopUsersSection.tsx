@@ -1,7 +1,7 @@
 import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ReactNode, useMemo, useState } from "react";
+import { PointerEvent, ReactNode, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { interpolate } from "../../lib/i18n";
 
@@ -285,6 +285,9 @@ export default function TopUsersSection({
   const router = useRouter();
   const { locale, t } = useI18n();
   const [activeConnectionView, setActiveConnectionView] = useState<"friends" | "pending">(initialConnectionView);
+  const [activeMobileBlock, setActiveMobileBlock] = useState<0 | 1>(0);
+  const [mobileSwipeDirection, setMobileSwipeDirection] = useState<"next" | "previous">("next");
+  const mobileSwipeStartRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const receivedPendingRequestsCount = useMemo(
     () => pendingRequests.filter((request) => request.direction === "received").length,
     [pendingRequests],
@@ -305,6 +308,34 @@ export default function TopUsersSection({
     }
 
     router.push(`/users/${encodeURIComponent(clickedUser.username)}`);
+  };
+
+
+  const rotateMobileBlock = (direction: "next" | "previous") => {
+    setMobileSwipeDirection(direction);
+    setActiveMobileBlock((current) => ((current + (direction === "next" ? 1 : -1) + 2) % 2) as 0 | 1);
+  };
+
+  const handleMobilePointerDown = (event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse") return;
+    mobileSwipeStartRef.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+  };
+
+  const handleMobilePointerUp = (event: PointerEvent<HTMLElement>) => {
+    const start = mobileSwipeStartRef.current;
+    mobileSwipeStartRef.current = null;
+    if (!start || start.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    const isHorizontalSwipe = Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+    if (!isHorizontalSwipe) return;
+
+    rotateMobileBlock(deltaX < 0 ? "next" : "previous");
+  };
+
+  const handleMobilePointerCancel = () => {
+    mobileSwipeStartRef.current = null;
   };
 
   const activeConnectionTabClass = "bg-zinc-100 text-zinc-950 shadow-[0_10px_20px_rgba(0,0,0,0.35)]";
@@ -347,42 +378,68 @@ export default function TopUsersSection({
     </div>
   );
 
-  return (
-    <section className="grid w-full max-w-[640px] gap-3 sm:grid-cols-2 lg:max-w-[680px]">
+  const followingBlock = (
+    <Block
+      title={t("profileFeedFollowing")}
+      users={following}
+      loading={loadingFollowing}
+      emptyCopy={locale === "en" ? "You are not following anyone yet" : "Aún no sigues a ningún usuario"}
+      error={followingError}
+      onRetry={onRetryFollowing}
+      onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
+    />
+  );
+
+  const connectionsBlock =
+    effectiveConnectionView === "friends" ? (
       <Block
-        title={t("profileFeedFollowing")}
-        users={following}
-        loading={loadingFollowing}
-        emptyCopy={locale === "en" ? "You are not following anyone yet" : "Aún no sigues a ningún usuario"}
-        error={followingError}
-        onRetry={onRetryFollowing}
+        title={t("profileFeedFriends")}
+        headerSlot={connectionHeader}
+        users={friendRequestsRestricted ? [] : friends}
+        loading={friendRequestsRestricted ? false : loadingFriends}
+        emptyCopy={friendRequestsRestricted ? restrictedFriendRequestsCopy : locale === "en" ? "You have no friends added yet" : "Aún no tienes amigos agregados"}
+        centerEmpty={shouldShowRestrictedFriendsEmptyState}
+        error={friendsError}
+        onRetry={onRetryFriends}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
       />
-      {effectiveConnectionView === "friends" ? (
-        <Block
-          title={t("profileFeedFriends")}
-          headerSlot={connectionHeader}
-          users={friendRequestsRestricted ? [] : friends}
-          loading={friendRequestsRestricted ? false : loadingFriends}
-          emptyCopy={friendRequestsRestricted ? restrictedFriendRequestsCopy : locale === "en" ? "You have no friends added yet" : "Aún no tienes amigos agregados"}
-          centerEmpty={shouldShowRestrictedFriendsEmptyState}
-          error={friendsError}
-          onRetry={onRetryFriends}
-          onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
-        />
-      ) : (
-        <PendingRequestsBlock
-          headerSlot={connectionHeader}
-          requests={pendingRequests}
-          loading={loadingPendingRequests}
-          error={pendingRequestsError}
-          onRetry={onRetryPendingRequests}
-          onAccept={onAcceptFriendRequest}
-          onReject={onRejectFriendRequest}
-          onCancel={onCancelFriendRequest}
-          onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
-        />
-      )}
+    ) : (
+      <PendingRequestsBlock
+        headerSlot={connectionHeader}
+        requests={pendingRequests}
+        loading={loadingPendingRequests}
+        error={pendingRequestsError}
+        onRetry={onRetryPendingRequests}
+        onAccept={onAcceptFriendRequest}
+        onReject={onRejectFriendRequest}
+        onCancel={onCancelFriendRequest}
+        onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
+      />
+    );
+
+  return (
+    <section className="w-full max-w-[640px] lg:max-w-[680px]">
+      <div
+        className="profile-feed-mobile-cylinder md:hidden"
+        onPointerDown={handleMobilePointerDown}
+        onPointerUp={handleMobilePointerUp}
+        onPointerCancel={handleMobilePointerCancel}
+        onPointerLeave={handleMobilePointerCancel}
+      >
+        <div className="profile-feed-mobile-cylinder__stage">
+          <div className={`profile-feed-mobile-cylinder__slide ${activeMobileBlock === 0 ? "profile-feed-mobile-cylinder__slide--active" : `profile-feed-mobile-cylinder__slide--inactive-${mobileSwipeDirection}`}`}>
+            {followingBlock}
+          </div>
+          <div className={`profile-feed-mobile-cylinder__slide ${activeMobileBlock === 1 ? "profile-feed-mobile-cylinder__slide--active" : `profile-feed-mobile-cylinder__slide--inactive-${mobileSwipeDirection}`}`}>
+            {connectionsBlock}
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden gap-3 md:grid md:grid-cols-2">
+        {followingBlock}
+        {connectionsBlock}
+      </div>
     </section>
   );
 }
