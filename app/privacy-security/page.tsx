@@ -302,7 +302,7 @@ export default function PrivacySecurityPage() {
           </h1>
           <Link
             href="/feed"
-            className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
+            className="mr-2 inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition sm:mr-0"
             aria-label="Volver al feed"
           >
             <AppLogo
