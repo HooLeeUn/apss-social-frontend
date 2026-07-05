@@ -93,6 +93,26 @@ const GLOBAL_POPOVERS_HIDE_EVENT = "qnext-hide-active-popovers";
 const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
 const DESKTOP_CAST_MAX_ROWS = 4;
 const MOBILE_CAST_VISIBLE_LIMIT = 7;
+const UNAVAILABLE_PERSON_NAME_PATTERN = /^n\/?a$/i;
+
+function splitDirectorName(name: string): string[] {
+  return name
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part && !UNAVAILABLE_PERSON_NAME_PATTERN.test(part));
+}
+
+function normalizeDirectorPeople(directors: MoviePersonCredit[], director: string | null): MoviePersonCredit[] {
+  const sourcePeople = directors.length ? directors : director?.trim() ? [{ id: null, name: director.trim() }] : [];
+
+  return sourcePeople.flatMap((person) =>
+    splitDirectorName(person.name).map((name) => ({
+      ...person,
+      id: name === person.name.trim() ? person.id : null,
+      name,
+    })),
+  );
+}
 
 function isInsideQNextPopover(event: Event): boolean {
   return event.target instanceof Element && Boolean(event.target.closest("[data-qnext-popover='true']"));
@@ -540,6 +560,7 @@ function CastLine({
   isFeed,
   maxRows = DESKTOP_CAST_MAX_ROWS,
   fixedVisibleCount,
+  maxVisibleCount,
   singleLine = false,
 }: {
   label: string;
@@ -549,6 +570,7 @@ function CastLine({
   isFeed: boolean;
   maxRows?: number;
   fixedVisibleCount?: number;
+  maxVisibleCount?: number;
   singleLine?: boolean;
 }) {
   const { locale } = useI18n();
@@ -556,7 +578,8 @@ function CastLine({
   const measureRef = useRef<HTMLDivElement | null>(null);
   const moreRef = useRef<HTMLButtonElement | null>(null);
   const hideTimerRef = useRef<number | null>(null);
-  const [visibleCount, setVisibleCount] = useState(Math.min(people.length, singleLine ? 1 : 12));
+  const initialVisibleCount = maxVisibleCount !== undefined ? Math.min(people.length, maxVisibleCount) : Math.min(people.length, singleLine ? 1 : 12);
+  const [visibleCount, setVisibleCount] = useState(initialVisibleCount);
   const [overflowPosition, setOverflowPosition] = useState<TooltipPosition | null>(null);
 
   useEffect(() => () => {
@@ -599,10 +622,11 @@ function CastLine({
       if (!items.length || !more) return;
       const labelWidth = measureRef.current.querySelector<HTMLElement>("[data-cast-label-measure]")?.getBoundingClientRect().width ?? 0;
       const moreWidth = more.getBoundingClientRect().width;
-      const maxWidthAcrossRows = availableWidth * maxRows;
+      const maxWidthAcrossRows = availableWidth * (singleLine ? 1 : maxRows);
+      const candidateItems = maxVisibleCount !== undefined ? items.slice(0, maxVisibleCount) : items;
       let used = labelWidth;
       let count = 0;
-      for (const item of items) {
+      for (const item of candidateItems) {
         const width = item.getBoundingClientRect().width;
         const needsMore = count < people.length - 1;
         if (used + width + (needsMore ? moreWidth : 0) <= maxWidthAcrossRows) {
@@ -612,7 +636,9 @@ function CastLine({
           break;
         }
       }
-      setVisibleCount(Math.max(1, Math.min(count, people.length)));
+      const minimumVisibleCount = maxVisibleCount !== undefined ? Math.min(maxVisibleCount, people.length) : singleLine ? 0 : 1;
+      const cappedCount = maxVisibleCount !== undefined ? Math.min(count, maxVisibleCount) : count;
+      setVisibleCount(Math.max(minimumVisibleCount, Math.min(cappedCount, people.length)));
     };
 
     updateVisibleCount();
@@ -623,9 +649,9 @@ function CastLine({
       resizeObserver?.disconnect();
       window.removeEventListener("resize", updateVisibleCount);
     };
-  }, [fixedVisibleCount, label, maxRows, people]);
+  }, [fixedVisibleCount, label, maxRows, maxVisibleCount, people, singleLine]);
 
-  const effectiveVisibleCount = fixedVisibleCount !== undefined ? Math.max(1, Math.min(fixedVisibleCount, people.length)) : visibleCount;
+  const effectiveVisibleCount = fixedVisibleCount !== undefined ? Math.max(0, Math.min(fixedVisibleCount, people.length)) : Math.max(0, Math.min(visibleCount, people.length));
   const visiblePeople = people.slice(0, effectiveVisibleCount);
   const overflowPeople = people.slice(effectiveVisibleCount);
   const remainingCount = overflowPeople.length;
@@ -648,7 +674,7 @@ function CastLine({
   };
 
   return (
-    <div ref={rowRef} className={`relative min-w-0 overflow-hidden text-sm leading-[1.18] ${singleLine ? "max-h-[1.25rem] whitespace-nowrap" : fixedVisibleCount !== undefined ? "max-h-none" : maxRows > DESKTOP_CAST_MAX_ROWS ? "max-h-[6.25rem]" : "max-h-[4.95rem]"} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+    <div ref={rowRef} className={`relative min-w-0 text-sm leading-[1.18] ${singleLine ? "max-h-[1.25rem] whitespace-nowrap" : "overflow-hidden"} ${singleLine ? "" : fixedVisibleCount !== undefined ? "max-h-none" : maxRows > DESKTOP_CAST_MAX_ROWS ? "max-h-[6.25rem]" : "max-h-[4.95rem]"} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
       <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{label}:</span>{" "}
       {visiblePeople.map((person, index) => (
         <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
@@ -658,7 +684,7 @@ function CastLine({
       ))}
       {hasOverflow ? (
         <>
-          <span className="mx-1.5 text-zinc-600">·</span>
+          {visiblePeople.length > 0 ? <span className="mx-1.5 text-zinc-600">·</span> : null}
           <button
             ref={moreRef}
             type="button"
@@ -792,10 +818,7 @@ function MovieCard({
   const resolvedTitles = resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.displayTitle || movie.title);
   const displayTitle = resolvedTitles.primary;
   const displaySecondaryTitle = resolvedTitles.secondary ?? movie.displaySecondaryTitle ?? null;
-  const directorPeople = useMemo<MoviePersonCredit[]>(() => {
-    if (movie.directors.length) return movie.directors;
-    return movie.director?.trim() ? [{ id: null, name: movie.director.trim() }] : [];
-  }, [movie.director, movie.directors]);
+  const directorPeople = useMemo<MoviePersonCredit[]>(() => normalizeDirectorPeople(movie.directors, movie.director), [movie.director, movie.directors]);
   const castPeople = useMemo<MoviePersonCredit[]>(() => {
     if (movie.cast.length) return movie.cast;
     return movie.castMembers.map((name) => ({ id: null, name })).filter((person) => person.name.trim());
@@ -817,6 +840,7 @@ function MovieCard({
   const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
   const posterSrc = movie.image || movie.posterUrl;
   const hasPosterError = Boolean(posterSrc && posterFailedSrc === posterSrc);
+  const shouldRoundDesktopPosterLeft = isLarge || (isFeed && showExtendedMetadata);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const [mobileCarouselIndex, setMobileCarouselIndex] = useState(0);
 
@@ -1112,7 +1136,7 @@ function MovieCard({
       } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}
     >
       <div
-        className={`group relative flex-shrink-0 overflow-hidden ${isLarge ? "rounded-l-xl" : ""} ${
+        className={`group relative flex-shrink-0 overflow-hidden ${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} ${
           isFeed
             ? `${stretchPosterColumn ? "h-auto self-stretch" : "h-[164px] sm:h-[172px]"} w-[108px] bg-zinc-900 sm:w-[114px]`
             : "bg-gray-200"
@@ -1125,7 +1149,7 @@ function MovieCard({
               <img
                 src={posterSrc}
                 alt={`Poster de ${displayTitle}`}
-                className="h-full w-full object-cover transition-transform duration-200 hover:scale-[1.02]"
+                className={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full object-cover transition-transform duration-200 hover:scale-[1.02]`}
                 loading="lazy"
                 decoding="async"
                 onError={() => setPosterFailedSrc(posterSrc)}
@@ -1136,7 +1160,7 @@ function MovieCard({
             <img
               src={posterSrc}
               alt={`Poster de ${displayTitle}`}
-              className="h-full w-full object-cover"
+              className={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full object-cover`}
               loading={isFeed ? "lazy" : "eager"}
               decoding="async"
               onError={() => setPosterFailedSrc(posterSrc)}
@@ -1146,7 +1170,7 @@ function MovieCard({
           <Link
             href={detailHref}
             aria-label={`Ver detalle de ${displayTitle}`}
-            className={`flex h-full w-full cursor-pointer items-center justify-center px-3 text-center text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
+            className={`flex h-full w-full cursor-pointer items-center justify-center overflow-hidden ${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} px-3 text-center text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
               isFeed ? "text-zinc-400" : "text-gray-500"
             }`}
           >
@@ -1154,7 +1178,7 @@ function MovieCard({
           </Link>
         ) : (
           <div
-            className={`flex h-full w-full items-center justify-center px-3 text-center text-sm ${
+            className={`flex h-full w-full items-center justify-center overflow-hidden ${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} px-3 text-center text-sm ${
               isFeed ? "text-zinc-400" : "text-gray-500"
             }`}
           >
@@ -1210,7 +1234,7 @@ function MovieCard({
           {showExtendedMetadata && (hasDirector || hasCast || creditsLoading) ? (
             <div className="min-w-0 space-y-1 overflow-visible md:pt-0">
               {hasDirector ? (
-                <CastLine label={t("movieDetailDirector")} people={directorPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={1} singleLine />
+                <CastLine label={t("movieDetailDirector")} people={directorPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={1} maxVisibleCount={2} singleLine />
               ) : null}
               {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
               {creditsLoading && !hasCast && !hasDirector ? (
@@ -1285,7 +1309,7 @@ function MovieCard({
             <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
               <div className="min-w-0 space-y-1 overflow-visible">
                 {hasDirector ? (
-                  <CastLine label={t("movieDetailDirector")} people={directorPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} fixedVisibleCount={1} singleLine />
+                  <CastLine label={t("movieDetailDirector")} people={directorPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={1} maxVisibleCount={1} singleLine />
                 ) : null}
                 {hasCast ? (
                   <CastLine
