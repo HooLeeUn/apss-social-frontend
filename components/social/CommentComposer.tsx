@@ -20,6 +20,8 @@ interface CommentComposerProps {
   onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<void>;
   loading?: boolean;
   error?: string;
+  placeholder?: string;
+  title?: string;
 }
 
 function getMentionToken(value: string, caretIndex: number): { start: number; query: string } | null {
@@ -34,7 +36,7 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
   };
 }
 
-export default function CommentComposer({ friends, onSubmit, loading = false, error }: CommentComposerProps) {
+export default function CommentComposer({ friends, onSubmit, loading = false, error, placeholder, title }: CommentComposerProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
@@ -162,7 +164,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
 
   return (
     <section className="rounded-2xl bg-zinc-950/55 p-4">
-      <h3 className="mb-3 text-xl font-bold text-[#86ADE0]">{t("movieDetailCommentTitle")}</h3>
+      <h3 className="mb-3 text-xl font-bold text-[#86ADE0]">{title ?? t("movieDetailCommentTitle")}</h3>
 
       <div className="relative">
         <textarea
@@ -175,7 +177,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
             updateMentionState(nextText, event.target.selectionStart ?? nextText.length);
           }}
           onKeyDown={handleKeyDown}
-          placeholder={t("movieDetailCommentPlaceholder")}
+          placeholder={placeholder ?? t("movieDetailCommentPlaceholder")}
           className="w-full rounded-xl border border-white/30 bg-black/30 p-3 text-sm text-zinc-100 outline-none transition focus:border-white/45"
         />
 

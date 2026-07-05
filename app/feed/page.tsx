@@ -25,7 +25,7 @@ import {
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { normalizeBackendMediaUrl } from "../../lib/branding";
-import { type Country, countryToLocale, getStoredCountry, localeEventName, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
+import { type Country, countryToLocale, getStoredCountry, isSupportedCountry, localeEventName, normalizeCountry, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
 import {
   addMovieToMyList,
   addMovieToMyRecommendations,
@@ -425,8 +425,14 @@ export default function FeedPage() {
         const normalizedUserId = resolvedUserId !== null && resolvedUserId !== undefined ? String(resolvedUserId) : null;
         setCurrentUserId(normalizedUserId);
         setCurrentUsername(resolvedUsername);
-        const storedCountry = setActiveLocaleScope({ userId: normalizedUserId, username: resolvedUsername });
-        setStreamingCountry(storedCountry);
+        setActiveLocaleScope({ userId: normalizedUserId, username: resolvedUsername });
+        const backendCountry = isSupportedCountry(meRecord?.streaming_country)
+          ? normalizeCountry(meRecord?.streaming_country)
+          : isSupportedCountry(meRecord?.country)
+            ? normalizeCountry(meRecord?.country)
+            : getStoredCountry({ userId: normalizedUserId, username: resolvedUsername });
+        setStoredCountry(backendCountry, { userId: normalizedUserId, username: resolvedUsername });
+        setStreamingCountry(backendCountry);
         setStreamingCountryError("");
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
