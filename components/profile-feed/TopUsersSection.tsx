@@ -379,6 +379,7 @@ export default function TopUsersSection({
     setMobileDragDirection(deltaX < 0 ? "next" : "previous");
     setMobileDragOffset(deltaX);
     event.preventDefault();
+    event.stopPropagation();
   };
 
   const handleMobilePointerUp = (event: PointerEvent<HTMLElement>) => {
@@ -403,6 +404,7 @@ export default function TopUsersSection({
     }
 
     event.preventDefault();
+    event.stopPropagation();
     setIsMobileSlideAnimating(true);
 
     if (!shouldAdvance) {
@@ -545,10 +547,10 @@ export default function TopUsersSection({
       <div
         ref={mobileCarouselRef}
         className="profile-feed-mobile-slider md:hidden"
-        onPointerDown={handleMobilePointerDown}
-        onPointerMove={handleMobilePointerMove}
-        onPointerUp={handleMobilePointerUp}
-        onPointerCancel={handleMobilePointerCancel}
+        onPointerDownCapture={handleMobilePointerDown}
+        onPointerMoveCapture={handleMobilePointerMove}
+        onPointerUpCapture={handleMobilePointerUp}
+        onPointerCancelCapture={handleMobilePointerCancel}
         onClickCapture={handleMobileClickCapture}
       >
         <div className="profile-feed-mobile-slider__stage">
