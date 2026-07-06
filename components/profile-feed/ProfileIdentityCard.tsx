@@ -52,7 +52,7 @@ export default function ProfileIdentityCard({
   userLabel = "usuario",
   formatAge = (value) => `${value} Años`,
   followersCount = null,
-  formatFollowers = (count) => `Lo siguen ${count} usuarios`,
+  formatFollowers = (count) => count === 1 ? "Tiene 1 seguidor" : `Tiene ${count} seguidores`,
 }: ProfileIdentityCardProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);

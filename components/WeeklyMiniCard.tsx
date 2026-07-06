@@ -205,10 +205,10 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                       onRated={(score, payload) => onRated(movie.id, score, payload)}
                       nullLabel="—"
                       ariaLabel="Mi calificación"
-                      className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/35 [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-100 lg:[&_button]:border-blue-400/65 lg:[&_button]:bg-blue-950/45 lg:[&_button]:px-1 lg:[&_button]:shadow-[0_3px_10px_rgba(59,130,246,0.24)] lg:[&_button:hover]:-translate-y-px lg:[&_button:hover]:border-blue-300/90 lg:[&_button:hover]:shadow-[0_7px_15px_rgba(59,130,246,0.3)]"
+                      className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/35 [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-100 lg:[&_button]:bg-blue-950/45 lg:[&_button]:px-1 lg:[&_button]:shadow-[0_3px_10px_rgba(59,130,246,0.24)] lg:[&_button:hover]:-translate-y-px lg:[&_button:hover]:shadow-[0_7px_15px_rgba(59,130,246,0.3)]"
                     />
                   ) : (
-                    <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-blue-950/35 px-1.5 py-1 text-center transition-all duration-150 hover:-translate-y-px lg:border-blue-400/65 lg:bg-blue-950/45 lg:px-1 lg:shadow-[0_3px_10px_rgba(59,130,246,0.24)] lg:hover:border-blue-300/90 lg:hover:shadow-[0_7px_15px_rgba(59,130,246,0.3)]">
+                    <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-blue-950/35 px-1.5 py-1 text-center transition-all duration-150 hover:-translate-y-px lg:bg-blue-950/45 lg:px-1 lg:shadow-[0_3px_10px_rgba(59,130,246,0.24)] lg:hover:shadow-[0_7px_15px_rgba(59,130,246,0.3)]">
                       <span className="text-[10px] font-semibold text-blue-100">🙋 {formatMyRating(movie?.myRating)}</span>
                     </span>
                   )}
