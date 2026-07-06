@@ -683,13 +683,13 @@ export default function ProfileFeedPage() {
               friendRequestsRestricted={shouldShowRestrictedFriendsEmptyState}
               initialConnectionView={initialConnectionView}
             />
-            <div className="md:hidden">
+            <div className="w-full max-w-full overflow-hidden md:hidden">
               <div
                 ref={mobileProfileFeedCarouselRef}
-                className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 onScroll={handleMobileProfileFeedCarouselScroll}
               >
-                <div className="w-full shrink-0 snap-start pr-2">
+                <div className="w-full min-w-full shrink-0 snap-start">
                   <MyActivityColumn
                     key={`my-activity-mobile-${initialActivityTab}`}
                     isOwnProfile
@@ -697,11 +697,11 @@ export default function ProfileFeedPage() {
                     hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
                   />
                 </div>
-                <div className="w-full shrink-0 snap-start pl-2">
+                <div className="w-full min-w-full shrink-0 snap-start">
                   {renderMovieListPanel("flex h-[30rem] min-w-0 flex-col rounded-none bg-zinc-950/55 p-4")}
                 </div>
               </div>
-              <div className="profile-feed-mobile-carousel-dots mb-8 mt-3" aria-hidden="true">
+              <div className="profile-feed-mobile-carousel-dots mb-8 mt-3 py-1" aria-hidden="true">
                 {[0, 1].map((slideIndex) => (
                   <span
                     key={slideIndex}
