@@ -154,6 +154,8 @@ export default function ProfileFeedPage() {
   const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
   const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
+  const [activeMobileProfileFeedSlide, setActiveMobileProfileFeedSlide] = useState(0);
+  const mobileProfileFeedCarouselRef = useRef<HTMLDivElement | null>(null);
   const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
   const initialConnectionView = requestedFriendsTab === "pending" ? "pending" : "friends";
   const canRenderPrivateInbox = profileUser?.friendRequestsRestricted === false;
@@ -478,6 +480,83 @@ export default function ProfileFeedPage() {
 
   const shouldShowUserSearchPanel = isUserSearchPanelOpen && userSearchQuery.trim().length > 0;
 
+  const handleMobileProfileFeedCarouselScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    if (target.clientWidth <= 0) return;
+    const nextSlide = Math.round(target.scrollLeft / target.clientWidth);
+    setActiveMobileProfileFeedSlide(Math.max(0, Math.min(1, nextSlide)));
+  }, []);
+
+  const renderMovieListPanel = (className: string) => (
+    <section className={className}>
+      <div className="relative mx-auto w-fit">
+        <select
+          aria-label={t("profileFeedMyList")}
+          value={activeListView}
+          onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
+          className="appearance-none overflow-hidden rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
+        >
+          <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyList")}</option>
+          <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyRecommendations")}</option>
+        </select>
+        <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
+      </div>
+      <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
+        {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
+        {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">{t("profileFeedNoMovies")}</p> : null}
+        {activeListView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
+        {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">{t("profileFeedNoMovies")}</p> : null}
+        {activeListView === "my-list" && myListMovies.map((movie) => {
+          const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
+          const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
+          return (
+            <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
+              <div className="relative flex justify-center">
+                <Link href={detailHref} aria-label={`${locale === "en" ? "View details for" : "Ver detalle de"} ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
+                  {movie.image || movie.posterUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={movie.image || movie.posterUrl || ""} alt={`${locale === "en" ? "Poster for" : "Poster de"} ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
+                  ) : (
+                    <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">{t("profileFeedNoPoster")}</div>
+                  )}
+                </Link>
+                <button type="button" onClick={() => void handleRemoveFromMyList(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={interpolate(t("profileFeedMyListRemoveAria"), { title: displayTitle })}>✕</button>
+              </div>
+              <div className="mt-1.5 text-center">
+                <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
+                {englishTitle ? <p className="truncate text-xs text-zinc-400"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{englishTitle}</Link></p> : null}
+              </div>
+            </article>
+          );
+        })}
+
+        {activeListView === "recommended" && recommendedMovies.map((movie) => {
+          const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
+          const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
+          return (
+            <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
+              <div className="relative flex justify-center">
+                <Link href={detailHref} aria-label={`${locale === "en" ? "View details for" : "Ver detalle de"} ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
+                  {movie.image || movie.posterUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={movie.image || movie.posterUrl || ""} alt={`${locale === "en" ? "Poster for" : "Poster de"} ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
+                  ) : (
+                    <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">{t("profileFeedNoPoster")}</div>
+                  )}
+                </Link>
+                <button type="button" onClick={() => void handleRemoveFromRecommended(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={interpolate(t("profileFeedMyRecommendationsRemoveAria"), { title: displayTitle })}>✕</button>
+              </div>
+              <div className="mt-1.5 text-center">
+                <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
+                {englishTitle ? <p className="truncate text-xs text-zinc-400"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{englishTitle}</Link></p> : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+
   return (
     <main className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col px-4 py-8 md:px-8">
@@ -604,79 +683,42 @@ export default function ProfileFeedPage() {
               friendRequestsRestricted={shouldShowRestrictedFriendsEmptyState}
               initialConnectionView={initialConnectionView}
             />
-            <MyActivityColumn
-              key={`my-activity-${initialActivityTab}`}
-              isOwnProfile
-              initialActiveTab={initialActivityTab}
-              hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
-            />
-            <section className="hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4">
-              <div className="relative mx-auto w-fit">
-                <select
-                  aria-label={t("profileFeedMyList")}
-                  value={activeListView}
-                  onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
-                  className="appearance-none overflow-hidden rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
-                >
-                  <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyList")}</option>
-                  <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyRecommendations")}</option>
-                </select>
-                <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
+            <div className="md:hidden">
+              <div
+                ref={mobileProfileFeedCarouselRef}
+                className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                onScroll={handleMobileProfileFeedCarouselScroll}
+              >
+                <div className="w-full shrink-0 snap-start pr-2">
+                  <MyActivityColumn
+                    key={`my-activity-mobile-${initialActivityTab}`}
+                    isOwnProfile
+                    initialActiveTab={initialActivityTab}
+                    hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
+                  />
+                </div>
+                <div className="w-full shrink-0 snap-start pl-2">
+                  {renderMovieListPanel("flex h-[30rem] min-w-0 flex-col rounded-none border-2 border-white/15 bg-zinc-950/55 p-4")}
+                </div>
               </div>
-              <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
-                {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
-                {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">{t("profileFeedNoMovies")}</p> : null}
-                {activeListView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
-                {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">{t("profileFeedNoMovies")}</p> : null}
-                {activeListView === "my-list" && myListMovies.map((movie) => {
-                  const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
-                  const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
-                  return (
-                    <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
-                      <div className="relative flex justify-center">
-                        <Link href={detailHref} aria-label={`${locale === "en" ? "View details for" : "Ver detalle de"} ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
-                          {movie.image || movie.posterUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={movie.image || movie.posterUrl || ""} alt={`${locale === "en" ? "Poster for" : "Poster de"} ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
-                          ) : (
-                            <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">{t("profileFeedNoPoster")}</div>
-                          )}
-                        </Link>
-                        <button type="button" onClick={() => void handleRemoveFromMyList(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={interpolate(t("profileFeedMyListRemoveAria"), { title: displayTitle })}>✕</button>
-                      </div>
-                      <div className="mt-1.5 text-center">
-                        <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
-                        {englishTitle ? <p className="truncate text-xs text-zinc-400"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{englishTitle}</Link></p> : null}
-                      </div>
-                    </article>
-                  );
-                })}
-
-                {activeListView === "recommended" && recommendedMovies.map((movie) => {
-                  const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
-                  const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
-                  return (
-                    <article key={String(movie.id)} className="mr-1 rounded-xl border border-white/10 bg-zinc-900/35 px-2 py-2">
-                      <div className="relative flex justify-center">
-                        <Link href={detailHref} aria-label={`${locale === "en" ? "View details for" : "Ver detalle de"} ${displayTitle}`} className="mx-auto w-[96px] shrink-0 cursor-pointer">
-                          {movie.image || movie.posterUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={movie.image || movie.posterUrl || ""} alt={`${locale === "en" ? "Poster for" : "Poster de"} ${displayTitle}`} className="mx-auto h-[138px] w-[96px] rounded-md object-cover" loading="lazy" decoding="async" />
-                          ) : (
-                            <div className="mx-auto flex h-[138px] w-[96px] items-center justify-center rounded-md bg-zinc-800 text-xs text-zinc-400">{t("profileFeedNoPoster")}</div>
-                          )}
-                        </Link>
-                        <button type="button" onClick={() => void handleRemoveFromRecommended(movie.id)} className="absolute right-0 top-0 text-[13px] leading-none text-zinc-400" aria-label={interpolate(t("profileFeedMyRecommendationsRemoveAria"), { title: displayTitle })}>✕</button>
-                      </div>
-                      <div className="mt-1.5 text-center">
-                        <p className="truncate text-sm font-semibold text-zinc-100"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{displayTitle}</Link></p>
-                        {englishTitle ? <p className="truncate text-xs text-zinc-400"><Link href={detailHref} className="cursor-pointer hover:text-blue-100">{englishTitle}</Link></p> : null}
-                      </div>
-                    </article>
-                  );
-                })}
+              <div className="profile-feed-mobile-carousel-dots mb-8 mt-3" aria-hidden="true">
+                {[0, 1].map((slideIndex) => (
+                  <span
+                    key={slideIndex}
+                    className={`profile-feed-mobile-carousel-dot${slideIndex === activeMobileProfileFeedSlide ? " profile-feed-mobile-carousel-dot--active" : ""}`}
+                  />
+                ))}
               </div>
-            </section>
+            </div>
+            <div className="hidden md:block">
+              <MyActivityColumn
+                key={`my-activity-${initialActivityTab}`}
+                isOwnProfile
+                initialActiveTab={initialActivityTab}
+                hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
+              />
+            </div>
+            {renderMovieListPanel("hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4")}
           </div>
         </section>
 
