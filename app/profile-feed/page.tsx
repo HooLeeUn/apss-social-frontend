@@ -576,7 +576,7 @@ export default function ProfileFeedPage() {
                 formatAge={(value) => interpolate(t("profileFeedAge"), { age: value })}
                 followersCount={profileUser?.followersCount}
                 formatFollowers={(count) =>
-                  count === 1 ? t("profileFeedFollowedByOne") : interpolate(t("profileFeedFollowedByMany"), { count })
+                  count === 1 ? t("profileFeedFollowedByYouOne") : interpolate(t("profileFeedFollowedByYouMany"), { count })
                 }
                 appBranding={branding}
                 logoSlot="profile_feed_logo_url"
