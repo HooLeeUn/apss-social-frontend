@@ -641,6 +641,14 @@ export default function TopUsersSection({
             {connectionsBlock}
           </div>
         </div>
+        <div className="profile-feed-mobile-carousel-dots profile-feed-mobile-slider__dots md:hidden" aria-hidden="true">
+          {[0, 1].map((blockIndex) => (
+            <span
+              key={blockIndex}
+              className={`profile-feed-mobile-carousel-dot${blockIndex === activeMobileBlock ? " profile-feed-mobile-carousel-dot--active" : ""}`}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="hidden gap-3 md:grid md:grid-cols-2">

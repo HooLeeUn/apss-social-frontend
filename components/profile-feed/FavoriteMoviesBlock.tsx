@@ -712,6 +712,16 @@ export default function FavoriteMoviesBlock({
             );
           })}
         </div>
+        {mobileSlots.length > 1 ? (
+          <div className="profile-feed-mobile-carousel-dots favorite-movies-mobile-cube__dots md:hidden" aria-hidden="true">
+            {mobileSlots.map((movie, index) => (
+              <span
+                key={movie?.id ?? `mobile-dot-${index}`}
+                className={`profile-feed-mobile-carousel-dot${index === activeFavoriteIndex ? " profile-feed-mobile-carousel-dot--active" : ""}`}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="hidden gap-3 md:grid lg:grid-cols-2 xl:grid-cols-3 xl:gap-2.5">
