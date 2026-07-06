@@ -1,7 +1,7 @@
 import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MouseEvent, PointerEvent, ReactNode, useMemo, useRef, useState } from "react";
+import { CSSProperties, MouseEvent, PointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { interpolate } from "../../lib/i18n";
 
@@ -286,7 +286,13 @@ export default function TopUsersSection({
   const { locale, t } = useI18n();
   const [activeConnectionView, setActiveConnectionView] = useState<"friends" | "pending">(initialConnectionView);
   const [activeMobileBlock, setActiveMobileBlock] = useState<0 | 1>(0);
-  const mobileSwipeStartRef = useRef<{ x: number; y: number; pointerId: number; intent: "horizontal" | "vertical" | null } | null>(null);
+  const [mobileDragOffset, setMobileDragOffset] = useState(0);
+  const [mobileDragDirection, setMobileDragDirection] = useState<"next" | "previous">("next");
+  const [mobileCarouselWidth, setMobileCarouselWidth] = useState(1);
+  const [isMobileSlideAnimating, setIsMobileSlideAnimating] = useState(false);
+  const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
+  const mobileSlideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobileSwipeStartRef = useRef<{ x: number; y: number; time: number; pointerId: number; intent: "horizontal" | "vertical" | null } | null>(null);
   const mobileSwipeMovedRef = useRef(false);
   const receivedPendingRequestsCount = useMemo(
     () => pendingRequests.filter((request) => request.direction === "received").length,
@@ -296,6 +302,22 @@ export default function TopUsersSection({
   const effectiveConnectionView = friendRequestsRestricted ? "friends" : activeConnectionView;
   const restrictedFriendRequestsCopy = t("profileFeedRequestRejected");
   const shouldShowRestrictedFriendsEmptyState = effectiveConnectionView === "friends" && friendRequestsRestricted;
+
+  useEffect(() => {
+    const updateMobileCarouselWidth = () => {
+      setMobileCarouselWidth(mobileCarouselRef.current?.clientWidth || 1);
+    };
+
+    updateMobileCarouselWidth();
+    window.addEventListener("resize", updateMobileCarouselWidth);
+
+    return () => {
+      window.removeEventListener("resize", updateMobileCarouselWidth);
+      if (mobileSlideTimeoutRef.current) {
+        clearTimeout(mobileSlideTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleNavigateUser = (clickedUser: SocialUser) => {
     if (
@@ -311,15 +333,27 @@ export default function TopUsersSection({
   };
 
 
-  const rotateMobileBlock = (direction: "next" | "previous") => {
+  const resetMobileSlideTimeout = () => {
+    if (!mobileSlideTimeoutRef.current) return;
+    clearTimeout(mobileSlideTimeoutRef.current);
+    mobileSlideTimeoutRef.current = null;
+  };
+
+  const completeMobileSlide = (direction: "next" | "previous") => {
+    resetMobileSlideTimeout();
     setActiveMobileBlock((current) => ((current + (direction === "next" ? 1 : -1) + 2) % 2) as 0 | 1);
+    setIsMobileSlideAnimating(false);
+    setMobileDragOffset(0);
   };
 
   const handleMobilePointerDown = (event: PointerEvent<HTMLElement>) => {
     if (event.pointerType === "mouse") return;
+    resetMobileSlideTimeout();
     mobileSwipeMovedRef.current = false;
-    mobileSwipeStartRef.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, intent: null };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsMobileSlideAnimating(false);
+    setMobileDragOffset(0);
+    setMobileCarouselWidth(event.currentTarget.clientWidth || 1);
+    mobileSwipeStartRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp, pointerId: event.pointerId, intent: null };
   };
 
   const handleMobilePointerMove = (event: PointerEvent<HTMLElement>) => {
@@ -330,15 +364,21 @@ export default function TopUsersSection({
     const deltaY = event.clientY - start.y;
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
+    const intentThreshold = 10;
 
-    if (!start.intent && Math.max(absX, absY) >= 10) {
+    if (!start.intent && Math.max(absX, absY) >= intentThreshold) {
       start.intent = absX > absY ? "horizontal" : "vertical";
+      if (start.intent === "horizontal" && event.currentTarget instanceof HTMLElement) {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
     }
 
-    if (start.intent === "horizontal") {
-      mobileSwipeMovedRef.current = true;
-      event.preventDefault();
-    }
+    if (start.intent !== "horizontal") return;
+
+    mobileSwipeMovedRef.current = true;
+    setMobileDragDirection(deltaX < 0 ? "next" : "previous");
+    setMobileDragOffset(deltaX);
+    event.preventDefault();
   };
 
   const handleMobilePointerUp = (event: PointerEvent<HTMLElement>) => {
@@ -352,11 +392,35 @@ export default function TopUsersSection({
 
     const deltaX = event.clientX - start.x;
     const deltaY = event.clientY - start.y;
-    const isHorizontalSwipe = start.intent === "horizontal" && Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY);
-    if (!isHorizontalSwipe) return;
+    const elapsed = Math.max(event.timeStamp - start.time, 1);
+    const velocityX = deltaX / elapsed;
+    const isHorizontalIntent = start.intent === "horizontal" && Math.abs(deltaX) > Math.abs(deltaY);
+    const shouldAdvance = isHorizontalIntent && (Math.abs(deltaX) >= Math.min(mobileCarouselWidth * 0.22, 96) || Math.abs(velocityX) >= 0.45);
+
+    if (!isHorizontalIntent) {
+      setMobileDragOffset(0);
+      return;
+    }
 
     event.preventDefault();
-    rotateMobileBlock(deltaX < 0 ? "next" : "previous");
+    setIsMobileSlideAnimating(true);
+
+    if (!shouldAdvance) {
+      setMobileDragOffset(0);
+      mobileSlideTimeoutRef.current = setTimeout(() => {
+        setIsMobileSlideAnimating(false);
+        mobileSlideTimeoutRef.current = null;
+      }, 300);
+      return;
+    }
+
+    const direction = deltaX < 0 ? "next" : "previous";
+    setMobileDragDirection(direction);
+    setMobileDragOffset(direction === "next" ? -mobileCarouselWidth : mobileCarouselWidth);
+    mobileSlideTimeoutRef.current = setTimeout(() => {
+      completeMobileSlide(direction);
+      mobileSlideTimeoutRef.current = null;
+    }, 300);
   };
 
   const handleMobilePointerCancel = (event: PointerEvent<HTMLElement>) => {
@@ -364,6 +428,13 @@ export default function TopUsersSection({
       event.currentTarget.releasePointerCapture(mobileSwipeStartRef.current.pointerId);
     }
     mobileSwipeStartRef.current = null;
+    setIsMobileSlideAnimating(true);
+    setMobileDragOffset(0);
+    resetMobileSlideTimeout();
+    mobileSlideTimeoutRef.current = setTimeout(() => {
+      setIsMobileSlideAnimating(false);
+      mobileSlideTimeoutRef.current = null;
+    }, 300);
   };
 
   const handleMobileClickCapture = (event: MouseEvent<HTMLElement>) => {
@@ -373,9 +444,21 @@ export default function TopUsersSection({
     event.stopPropagation();
   };
 
-  const getMobileSlideClass = (slideIndex: 0 | 1) => {
-    if (activeMobileBlock === slideIndex) return "profile-feed-mobile-cylinder__slide--active";
-    return slideIndex < activeMobileBlock ? "profile-feed-mobile-cylinder__slide--inactive-left" : "profile-feed-mobile-cylinder__slide--inactive-right";
+  const getMobileSlideStyle = (slideIndex: 0 | 1): CSSProperties => {
+    const width = mobileCarouselWidth;
+    const inactiveOffset = mobileDragDirection === "next" ? width : -width;
+    const activeOffset = mobileDragOffset;
+    const incomingOffset = inactiveOffset + mobileDragOffset;
+    const isActive = activeMobileBlock === slideIndex;
+    const isIncoming = slideIndex !== activeMobileBlock;
+
+    return {
+      transform: `translate3d(${isActive ? activeOffset : incomingOffset}px, 0, 0)`,
+      transition: isMobileSlideAnimating ? "transform 300ms cubic-bezier(0.22, 0.72, 0.2, 1)" : "none",
+      opacity: isActive || isIncoming ? 1 : 0,
+      pointerEvents: isActive ? "auto" : "none",
+      zIndex: isActive ? 2 : 1,
+    };
   };
 
   const activeConnectionTabClass = "bg-zinc-100 text-zinc-950 shadow-[0_10px_20px_rgba(0,0,0,0.35)]";
@@ -460,19 +543,19 @@ export default function TopUsersSection({
   return (
     <section className="w-full max-w-[640px] lg:max-w-[680px]">
       <div
-        className="profile-feed-mobile-cylinder md:hidden"
+        ref={mobileCarouselRef}
+        className="profile-feed-mobile-slider md:hidden"
         onPointerDown={handleMobilePointerDown}
         onPointerMove={handleMobilePointerMove}
         onPointerUp={handleMobilePointerUp}
         onPointerCancel={handleMobilePointerCancel}
-        onPointerLeave={handleMobilePointerCancel}
         onClickCapture={handleMobileClickCapture}
       >
-        <div className="profile-feed-mobile-cylinder__stage">
-          <div className={`profile-feed-mobile-cylinder__slide ${getMobileSlideClass(0)}`}>
+        <div className="profile-feed-mobile-slider__stage">
+          <div className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(0)}>
             {followingBlock}
           </div>
-          <div className={`profile-feed-mobile-cylinder__slide ${getMobileSlideClass(1)}`}>
+          <div className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(1)}>
             {connectionsBlock}
           </div>
         </div>
