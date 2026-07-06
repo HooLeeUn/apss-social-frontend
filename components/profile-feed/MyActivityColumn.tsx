@@ -162,6 +162,58 @@ function getVisitedActionMessage(item: SocialActivityItem, locale: Locale): stri
   return null;
 }
 
+function getExpandableTextKey(item: SocialActivityItem, text: string, type: string): string {
+  const movieId = item.movieId !== undefined && item.movieId !== null ? String(item.movieId) : "movie";
+  const timestamp = item.activityAt ?? item.updatedAt ?? item.createdAt;
+  return `${movieId}-${type}-${timestamp}-${text.slice(0, 24)}`;
+}
+
+function ExpandableMobileText({
+  text,
+  item,
+  type,
+  className = "",
+}: {
+  text: string;
+  item: SocialActivityItem;
+  type: string;
+  className?: string;
+}) {
+  const { locale } = useI18n();
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
+  const textKey = getExpandableTextKey(item, text, type);
+  const isExpanded = expandedKeys.has(textKey);
+  const canToggle = text.trim().length > 90;
+
+  const toggleExpanded = () => {
+    setExpandedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(textKey)) {
+        next.delete(textKey);
+      } else {
+        next.add(textKey);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div className="min-w-0 flex-1">
+      <p className={`${isExpanded ? "" : "line-clamp-2 md:line-clamp-none"} ${className}`}>{text}</p>
+      {canToggle ? (
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          className="mt-0.5 text-xs font-medium text-blue-200 transition hover:text-blue-100 md:hidden"
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? (locale === "en" ? "less" : "menos") : (locale === "en" ? "more" : "más")}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function CommentBubbleIcon({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="1.9">
@@ -405,53 +457,65 @@ function ActivityRow({
       </div>
 
       {isVisitedProfile ? (
-        <div className="min-w-0 md:pt-1">
+        <div className="col-span-2 min-w-0 md:col-span-1 md:pt-1">
           {visitedActivityTab === "public_comments" && activityDetail ? (
-            <div className="flex items-start gap-2.5">
+            <div className="flex w-full items-start gap-2.5">
               <CommentBubbleIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-100/90" />
-              <p className="text-sm leading-relaxed text-zinc-200 md:text-base">{activityDetail}</p>
+              <ExpandableMobileText
+                text={activityDetail}
+                item={item}
+                type="public-comment"
+                className="text-sm leading-relaxed text-zinc-200 md:text-base"
+              />
             </div>
           ) : null}
 
           {visitedActivityTab === "ratings" && visitedActionMessage ? (
-            <div className="flex items-start gap-2.5">
+            <div className="flex w-full items-start gap-2.5">
               <StarIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
-              <p className="text-sm leading-relaxed text-blue-100 md:text-base">{visitedActionMessage}</p>
+              <p className="min-w-0 flex-1 text-sm leading-relaxed text-blue-100 md:text-base">{visitedActionMessage}</p>
             </div>
           ) : null}
 
           {visitedActivityTab === "reactions" && visitedActionMessage && item.interactionType !== "rating" && item.interactionType !== "comment" ? (
             <div className="space-y-1">
-              <div className="flex items-start gap-2.5">
+              <div className="flex w-full items-start gap-2.5">
                 {reactionValue === "dislike" ? (
                   <ThumbsDownIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-200" />
                 ) : (
                   <ThumbsUpIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
                 )}
-                <p className="text-sm leading-relaxed text-blue-100 md:text-base">
-                  {reactionMessage}
-                  {!authorIsCurrentUser && item.likedCommentAuthorUsername ? (
-                    <>
-                      {" "}
-                      {shouldRenderAuthorLink ? (
-                        <Link
-                          href={`/users/${encodeURIComponent(item.likedCommentAuthorUsername)}`}
-                          className="font-semibold text-blue-200 transition hover:text-blue-100"
-                        >
-                          @{item.likedCommentAuthorUsername}
-                        </Link>
-                      ) : (
-                        <span className="font-semibold text-blue-200">@{item.likedCommentAuthorUsername}</span>
-                      )}
-                    </>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm leading-relaxed text-blue-100 md:text-base">
+                    {reactionMessage}
+                    {!authorIsCurrentUser && item.likedCommentAuthorUsername ? (
+                      <>
+                        {" "}
+                        {shouldRenderAuthorLink ? (
+                          <Link
+                            href={`/users/${encodeURIComponent(item.likedCommentAuthorUsername)}`}
+                            className="font-semibold text-blue-200 transition hover:text-blue-100"
+                          >
+                            @{item.likedCommentAuthorUsername}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold text-blue-200">@{item.likedCommentAuthorUsername}</span>
+                        )}
+                      </>
+                    ) : null}
+                    {!authorIsCurrentUser && !item.likedCommentAuthorUsername ? (locale === "en" ? " another user" : " otro usuario") : null}
+                  </p>
+                  {item.likedCommentSnippet ? (
+                    <ExpandableMobileText
+                      text={item.likedCommentSnippet}
+                      item={item}
+                      type="reaction-comment"
+                      className="text-sm leading-relaxed text-zinc-200 md:text-base"
+                    />
                   ) : null}
-                  {!authorIsCurrentUser && !item.likedCommentAuthorUsername ? (locale === "en" ? " another user" : " otro usuario") : null}
-                </p>
+                  <p className="text-xs text-zinc-500 md:text-sm">{formatProfileFeedRelativeDate(locale, getActivityRelativeDate(item))}</p>
+                </div>
               </div>
-              {item.likedCommentSnippet ? (
-                <p className="pl-7 text-sm leading-relaxed text-zinc-200 md:text-base">{item.likedCommentSnippet}</p>
-              ) : null}
-              <p className="pl-7 text-xs text-zinc-500 md:text-sm">{formatProfileFeedRelativeDate(locale, getActivityRelativeDate(item))}</p>
             </div>
           ) : null}
         </div>
