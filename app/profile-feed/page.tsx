@@ -77,7 +77,9 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
     typeof user.followersCount === "number"
       ? user.followersCount === 0
         ? t("profileFeedNoFollowers")
-        : interpolate(t("profileFeedFollowedByMany"), { count: user.followersCount })
+        : user.followersCount === 1
+          ? t("profileFeedFollowedByOne")
+          : interpolate(t("profileFeedFollowedByMany"), { count: user.followersCount })
       : t("profileFeedNoFollowers");
   const initials = user.username.slice(0, 2).toUpperCase();
 
