@@ -698,7 +698,7 @@ export default function ProfileFeedPage() {
                   />
                 </div>
                 <div className="w-full shrink-0 snap-start pl-2">
-                  {renderMovieListPanel("flex h-[30rem] min-w-0 flex-col rounded-none border-2 border-white/15 bg-zinc-950/55 p-4")}
+                  {renderMovieListPanel("flex h-[30rem] min-w-0 flex-col rounded-none bg-zinc-950/55 p-4")}
                 </div>
               </div>
               <div className="profile-feed-mobile-carousel-dots mb-8 mt-3" aria-hidden="true">
@@ -718,7 +718,7 @@ export default function ProfileFeedPage() {
                 hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
               />
             </div>
-            {renderMovieListPanel("hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:border-2 xl:border-white/15 xl:bg-zinc-950/55 xl:p-4")}
+            {renderMovieListPanel("hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:bg-zinc-950/55 xl:p-4")}
           </div>
         </section>
 
