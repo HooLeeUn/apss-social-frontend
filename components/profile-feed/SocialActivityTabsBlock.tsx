@@ -8,7 +8,7 @@ import { getMovieDetailById } from "../../lib/movies";
 import { SocialActivityItem, SocialTab, SocialUser, UserMovieRecommendation } from "../../lib/profile-feed/types";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
 import { useI18n } from "../../hooks/useI18n";
-import { translateProfileFeedMovieType } from "../../lib/i18n";
+import { resolveMovieTitles, translateProfileFeedMovieType } from "../../lib/i18n";
 import SocialActivityCard from "./SocialActivityCard";
 
 type InteractionsTab = SocialTab | "recommendations";
@@ -84,6 +84,71 @@ function FollowedRecommendationsSkeleton() {
 function FollowedRecommendationCard({ recommendation }: { recommendation: FollowedRecommendation }) {
   const { locale, t } = useI18n();
   const movieHref = `/movies/${encodeURIComponent(recommendation.id)}`;
+  const titles = resolveMovieTitles(locale, recommendation.titleSpanish, recommendation.titleEnglish);
+
+  const poster = (
+    <Link href={movieHref} className="block h-24 w-16 overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80 transition hover:border-blue-300/60 sm:h-[108px] sm:w-[72px]">
+      {recommendation.image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={recommendation.image} alt={`Poster de ${titles.primary}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">{t("profileFeedNoPoster")}</span>
+      )}
+    </Link>
+  );
+
+  const metadataColumn = (
+    <div className="min-w-0 space-y-1">
+      <p className="text-sm font-semibold text-blue-200">@{recommendation.recommenderUsername}</p>
+      <Link href={movieHref} className="block truncate text-base font-semibold text-zinc-100 hover:text-blue-200">
+        {titles.primary}
+      </Link>
+      {titles.secondary ? (
+        <Link href={movieHref} className="block truncate text-sm text-zinc-400 hover:text-blue-200">
+          {titles.secondary}
+        </Link>
+      ) : null}
+      <p className="text-xs text-zinc-300">{translateProfileFeedMovieType(locale, recommendation.type)} · {recommendation.genre}</p>
+      <p className="text-xs text-zinc-400">{recommendation.releaseYear}</p>
+    </div>
+  );
+
+  const creditsColumn = (
+    <div className="min-w-0 space-y-1 text-xs">
+      <p className="break-words text-zinc-400">
+        <span className="font-semibold text-blue-200">{t("profileFeedDirector")}</span> {recommendation.director}
+      </p>
+      <p className="line-clamp-3 break-words text-zinc-400">
+        <span className="font-semibold text-blue-200">{t("profileFeedCast")}</span> {recommendation.castMembers}
+      </p>
+    </div>
+  );
+
+  const ratingsColumn = (
+    <dl className="min-w-[7rem] space-y-2 text-xs">
+      <div className="flex items-center justify-between gap-3">
+        <dt className="text-zinc-500">{t("profileFeedGeneral")}</dt>
+        <dd className="flex items-center gap-1 font-medium text-zinc-200">
+          <span aria-hidden="true">⭐</span>
+          <span>{formatAverageRating(recommendation.displayRating)}</span>
+        </dd>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <dt className="text-zinc-500">{t("profileFeedFollowing")}</dt>
+        <dd className="flex items-center gap-1 font-medium text-zinc-200">
+          <span aria-hidden="true">👥</span>
+          <span>{formatFollowingRating(recommendation.followingAvgRating)}</span>
+        </dd>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <dt className="whitespace-nowrap text-[11px] uppercase tracking-wide text-zinc-500">{t("profileFeedMyRatingUpper")}</dt>
+        <dd className="flex items-center gap-1 font-medium text-zinc-100">
+          <span aria-hidden="true">🙋</span>
+          <span>{formatMyRating(recommendation.myRating)}</span>
+        </dd>
+      </div>
+    </dl>
+  );
 
   return (
     <article
@@ -91,59 +156,27 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
       role="option"
       aria-selected="false"
     >
-      <Link href={movieHref} className="h-24 w-16 overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80 transition hover:border-blue-300/60 sm:h-[108px] sm:w-[72px]">
-        {recommendation.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={recommendation.image} alt={`Poster de ${recommendation.titleSpanish}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-zinc-500">{t("profileFeedNoPoster")}</span>
-        )}
-      </Link>
-
-      <div className="min-w-0 space-y-1">
-        <p className="text-sm font-semibold text-blue-200">@{recommendation.recommenderUsername}</p>
-        <Link href={movieHref} className="block truncate text-base font-semibold text-zinc-100 hover:text-blue-200">
-          {recommendation.titleSpanish}
-        </Link>
-        <Link href={movieHref} className="block truncate text-sm text-zinc-400 hover:text-blue-200">
-          {recommendation.titleEnglish}
-        </Link>
-        <p className="text-xs text-zinc-300">{translateProfileFeedMovieType(locale, recommendation.type)} · {recommendation.genre}</p>
-        <p className="text-xs text-zinc-400">{recommendation.releaseYear}</p>
+      <div className="col-span-full md:hidden">
+        <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 sm:grid-cols-[72px_minmax(0,1fr)]">
+          <div className="relative z-10">{poster}</div>
+          <div className="min-w-0 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [touch-action:pan-x_pan-y] [&::-webkit-scrollbar]:hidden">
+            <div className="flex">
+              {[metadataColumn, creditsColumn, ratingsColumn].map((column, index) => (
+                <div key={`followed-recommendation-slide-${index}`} className="w-full shrink-0 snap-start pr-1">
+                  {column}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="col-start-2 min-w-0 space-y-1 text-xs sm:col-start-2 lg:col-start-auto lg:-ml-4 lg:pr-4">
-        <p className="break-words text-zinc-400">
-          <span className="font-semibold text-blue-200">{t("profileFeedDirector")}</span> {recommendation.director}
-        </p>
-        <p className="line-clamp-3 break-words text-zinc-400">
-          <span className="font-semibold text-blue-200">{t("profileFeedCast")}</span> {recommendation.castMembers}
-        </p>
+      <div className="hidden md:contents">
+        {poster}
+        <div className="min-w-0">{metadataColumn}</div>
+        <div className="col-start-2 min-w-0 lg:col-start-auto lg:-ml-4 lg:pr-4">{creditsColumn}</div>
+        <div className="col-start-2 lg:col-start-auto lg:justify-self-end">{ratingsColumn}</div>
       </div>
-
-      <dl className="col-start-2 min-w-[7rem] space-y-2 text-xs sm:col-start-2 lg:col-start-auto lg:justify-self-end">
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-zinc-500">{t("profileFeedGeneral")}</dt>
-          <dd className="flex items-center gap-1 font-medium text-zinc-200">
-            <span aria-hidden="true">⭐</span>
-            <span>{formatAverageRating(recommendation.displayRating)}</span>
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-zinc-500">{t("profileFeedFollowing")}</dt>
-          <dd className="flex items-center gap-1 font-medium text-zinc-200">
-            <span aria-hidden="true">👥</span>
-            <span>{formatFollowingRating(recommendation.followingAvgRating)}</span>
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("profileFeedMyRatingUpper")}</dt>
-          <dd className="flex items-center gap-1 font-medium text-zinc-100">
-            <span aria-hidden="true">🙋</span>
-            <span>{formatMyRating(recommendation.myRating)}</span>
-          </dd>
-        </div>
-      </dl>
     </article>
   );
 }
@@ -189,7 +222,7 @@ export default function SocialActivityTabsBlock() {
   const movieRatingCacheRef = useRef<Map<string, Pick<UserMovieRecommendation, "displayRating" | "followingAvgRating" | "myRating">>>(new Map());
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
   const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
-    { value: "following", label: t("profileFeedFollowing"), emptyCopy: t("profileFeedNoItems") },
+    { value: "following", label: t("profileFeedActions"), emptyCopy: t("profileFeedNoItems") },
   ];
   const followingActivity = useInfiniteSocialActivity("following");
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
@@ -431,8 +464,9 @@ export default function SocialActivityTabsBlock() {
   ];
 
   return (
-    <section className="ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 [overflow-anchor:none]">
-      <header className="sticky top-4 z-30 bg-black/75 px-4 py-3 backdrop-blur-md" style={activityTabsLayoutStyle}>
+    <section className="ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 pt-4 [overflow-anchor:none] md:pt-6">
+      <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 md:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
+      <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md md:mt-4" style={activityTabsLayoutStyle}>
         <div className="grid grid-cols-[max-content_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
           <button
             type="button"
