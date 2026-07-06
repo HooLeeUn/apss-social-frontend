@@ -1,7 +1,7 @@
 import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CSSProperties, MouseEvent, PointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, MouseEvent, PointerEvent, ReactNode, TouchEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { interpolate } from "../../lib/i18n";
 
@@ -46,8 +46,8 @@ function UserRow({
 
   const href = `/users/${encodeURIComponent(user.username)}`;
 
-  return (
-    <article className="flex items-center gap-3 border-b border-white/5 py-2.5 last:border-b-0 last:pb-0 first:pt-0">
+  const rowContent = (
+    <>
       {user.avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={user.avatarUrl} alt={`Avatar de ${user.username}`} className="h-9 w-9 rounded-full border border-white/20 object-cover" />
@@ -56,22 +56,26 @@ function UserRow({
           {initials}
         </div>
       )}
-      <div className="min-w-0">
-        {onNavigateUser ? (
-          <button
-            type="button"
-            onClick={() => onNavigateUser(user)}
-            className="truncate text-left text-sm font-medium text-zinc-100 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
-          >
-            {title}
-          </button>
-        ) : (
-          <Link href={href} className="truncate text-sm font-medium text-zinc-100 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none">
-            {title}
-          </Link>
-        )}
+      <div className="min-w-0 text-left">
+        <span className="block truncate text-sm font-medium text-zinc-100 transition group-hover:text-blue-200 group-focus-visible:text-blue-200">
+          {title}
+        </span>
         {followersCopy ? <p className="text-xs text-zinc-400">{followersCopy}</p> : null}
       </div>
+    </>
+  );
+
+  return (
+    <article className="border-b border-white/5 py-2.5 last:border-b-0 last:pb-0 first:pt-0">
+      {onNavigateUser ? (
+        <button type="button" onClick={() => onNavigateUser(user)} className="group flex w-full items-center gap-3 focus-visible:outline-none">
+          {rowContent}
+        </button>
+      ) : (
+        <Link href={href} className="group flex items-center gap-3 focus-visible:outline-none">
+          {rowContent}
+        </Link>
+      )}
     </article>
   );
 }
@@ -293,6 +297,7 @@ export default function TopUsersSection({
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const mobileSlideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mobileSwipeStartRef = useRef<{ x: number; y: number; time: number; pointerId: number; intent: "horizontal" | "vertical" | null } | null>(null);
+  const mobileTouchStartRef = useRef<{ x: number; y: number; time: number; identifier: number; intent: "horizontal" | "vertical" | null } | null>(null);
   const mobileSwipeMovedRef = useRef(false);
   const receivedPendingRequestsCount = useMemo(
     () => pendingRequests.filter((request) => request.direction === "received").length,
@@ -346,38 +351,92 @@ export default function TopUsersSection({
     setMobileDragOffset(0);
   };
 
-  const handleMobilePointerDown = (event: PointerEvent<HTMLElement>) => {
-    if (event.pointerType === "mouse") return;
+  const beginMobileGesture = (x: number, y: number, time: number, identifier: number) => {
     resetMobileSlideTimeout();
     mobileSwipeMovedRef.current = false;
     setIsMobileSlideAnimating(false);
     setMobileDragOffset(0);
-    setMobileCarouselWidth(event.currentTarget.clientWidth || 1);
-    mobileSwipeStartRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp, pointerId: event.pointerId, intent: null };
+    setMobileCarouselWidth(mobileCarouselRef.current?.clientWidth || 1);
+    return { x, y, time, identifier, intent: null as "horizontal" | "vertical" | null };
+  };
+
+  const updateMobileGesture = (
+    start: { x: number; y: number; intent: "horizontal" | "vertical" | null },
+    x: number,
+    y: number,
+    captureHorizontal?: () => void,
+  ) => {
+    const deltaX = x - start.x;
+    const deltaY = y - start.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    const intentThreshold = 12;
+
+    if (!start.intent && Math.max(absX, absY) >= intentThreshold) {
+      start.intent = absX > absY ? "horizontal" : "vertical";
+      if (start.intent === "horizontal") captureHorizontal?.();
+    }
+
+    if (start.intent !== "horizontal") return false;
+
+    mobileSwipeMovedRef.current = true;
+    setMobileDragDirection(deltaX < 0 ? "next" : "previous");
+    setMobileDragOffset(deltaX);
+    return true;
+  };
+
+  const finishMobileGesture = (start: { x: number; y: number; time: number; intent: "horizontal" | "vertical" | null }, x: number, y: number, time: number) => {
+    const deltaX = x - start.x;
+    const deltaY = y - start.y;
+    const elapsed = Math.max(time - start.time, 1);
+    const velocityX = deltaX / elapsed;
+    const isHorizontalIntent = start.intent === "horizontal" && Math.abs(deltaX) > 12 && Math.abs(deltaX) > Math.abs(deltaY);
+    const shouldAdvance = isHorizontalIntent && (Math.abs(deltaX) >= Math.min(mobileCarouselWidth * 0.22, 96) || Math.abs(velocityX) >= 0.45);
+
+    if (!isHorizontalIntent) {
+      setMobileDragOffset(0);
+      return false;
+    }
+
+    setIsMobileSlideAnimating(true);
+
+    if (!shouldAdvance) {
+      setMobileDragOffset(0);
+      mobileSlideTimeoutRef.current = setTimeout(() => {
+        setIsMobileSlideAnimating(false);
+        mobileSlideTimeoutRef.current = null;
+      }, 300);
+      return true;
+    }
+
+    const direction = deltaX < 0 ? "next" : "previous";
+    setMobileDragDirection(direction);
+    setMobileDragOffset(direction === "next" ? -mobileCarouselWidth : mobileCarouselWidth);
+    mobileSlideTimeoutRef.current = setTimeout(() => {
+      completeMobileSlide(direction);
+      mobileSlideTimeoutRef.current = null;
+    }, 300);
+    return true;
+  };
+
+  const handleMobilePointerDown = (event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse") return;
+    const start = beginMobileGesture(event.clientX, event.clientY, event.timeStamp, event.pointerId);
+    mobileSwipeStartRef.current = { ...start, pointerId: event.pointerId };
   };
 
   const handleMobilePointerMove = (event: PointerEvent<HTMLElement>) => {
     const start = mobileSwipeStartRef.current;
     if (!start || start.pointerId !== event.pointerId) return;
 
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    const absX = Math.abs(deltaX);
-    const absY = Math.abs(deltaY);
-    const intentThreshold = 10;
-
-    if (!start.intent && Math.max(absX, absY) >= intentThreshold) {
-      start.intent = absX > absY ? "horizontal" : "vertical";
-      if (start.intent === "horizontal" && event.currentTarget instanceof HTMLElement) {
+    const isHorizontal = updateMobileGesture(start, event.clientX, event.clientY, () => {
+      if (event.currentTarget instanceof HTMLElement) {
         event.currentTarget.setPointerCapture(event.pointerId);
       }
-    }
+    });
 
-    if (start.intent !== "horizontal") return;
+    if (!isHorizontal) return;
 
-    mobileSwipeMovedRef.current = true;
-    setMobileDragDirection(deltaX < 0 ? "next" : "previous");
-    setMobileDragOffset(deltaX);
     event.preventDefault();
     event.stopPropagation();
   };
@@ -391,38 +450,12 @@ export default function TopUsersSection({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    const elapsed = Math.max(event.timeStamp - start.time, 1);
-    const velocityX = deltaX / elapsed;
-    const isHorizontalIntent = start.intent === "horizontal" && Math.abs(deltaX) > Math.abs(deltaY);
-    const shouldAdvance = isHorizontalIntent && (Math.abs(deltaX) >= Math.min(mobileCarouselWidth * 0.22, 96) || Math.abs(velocityX) >= 0.45);
+    const handled = finishMobileGesture(start, event.clientX, event.clientY, event.timeStamp);
 
-    if (!isHorizontalIntent) {
-      setMobileDragOffset(0);
-      return;
-    }
+    if (!handled) return;
 
     event.preventDefault();
     event.stopPropagation();
-    setIsMobileSlideAnimating(true);
-
-    if (!shouldAdvance) {
-      setMobileDragOffset(0);
-      mobileSlideTimeoutRef.current = setTimeout(() => {
-        setIsMobileSlideAnimating(false);
-        mobileSlideTimeoutRef.current = null;
-      }, 300);
-      return;
-    }
-
-    const direction = deltaX < 0 ? "next" : "previous";
-    setMobileDragDirection(direction);
-    setMobileDragOffset(direction === "next" ? -mobileCarouselWidth : mobileCarouselWidth);
-    mobileSlideTimeoutRef.current = setTimeout(() => {
-      completeMobileSlide(direction);
-      mobileSlideTimeoutRef.current = null;
-    }, 300);
   };
 
   const handleMobilePointerCancel = (event: PointerEvent<HTMLElement>) => {
@@ -437,6 +470,49 @@ export default function TopUsersSection({
       setIsMobileSlideAnimating(false);
       mobileSlideTimeoutRef.current = null;
     }, 300);
+  };
+
+
+  const findChangedTouch = (event: TouchEvent<HTMLElement>, identifier: number) => {
+    for (let index = 0; index < event.changedTouches.length; index += 1) {
+      const touch = event.changedTouches.item(index);
+      if (touch?.identifier === identifier) return touch;
+    }
+    return null;
+  };
+
+  const handleMobileTouchStart = (event: TouchEvent<HTMLElement>) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches.item(0);
+    if (!touch) return;
+    mobileTouchStartRef.current = beginMobileGesture(touch.clientX, touch.clientY, event.timeStamp, touch.identifier);
+  };
+
+  const handleMobileTouchMove = (event: TouchEvent<HTMLElement>) => {
+    const start = mobileTouchStartRef.current;
+    if (!start) return;
+    const touch = findChangedTouch(event, start.identifier);
+    if (!touch) return;
+    const isHorizontal = updateMobileGesture(start, touch.clientX, touch.clientY);
+    if (!isHorizontal) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleMobileTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const start = mobileTouchStartRef.current;
+    if (!start) return;
+    const touch = findChangedTouch(event, start.identifier);
+    if (!touch) return;
+    mobileTouchStartRef.current = null;
+    const handled = finishMobileGesture(start, touch.clientX, touch.clientY, event.timeStamp);
+    if (!handled) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleMobileTouchCancel = () => {
+    mobileTouchStartRef.current = null;
   };
 
   const handleMobileClickCapture = (event: MouseEvent<HTMLElement>) => {
@@ -552,6 +628,10 @@ export default function TopUsersSection({
         onPointerUpCapture={handleMobilePointerUp}
         onPointerCancelCapture={handleMobilePointerCancel}
         onClickCapture={handleMobileClickCapture}
+        onTouchStartCapture={handleMobileTouchStart}
+        onTouchMoveCapture={handleMobileTouchMove}
+        onTouchEndCapture={handleMobileTouchEnd}
+        onTouchCancelCapture={handleMobileTouchCancel}
       >
         <div className="profile-feed-mobile-slider__stage">
           <div className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(0)}>
