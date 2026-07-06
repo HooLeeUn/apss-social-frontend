@@ -152,10 +152,16 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
 
   return (
     <article
-      className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[72px_minmax(10rem,1fr)_minmax(12rem,1.15fr)_minmax(7rem,auto)] lg:items-start"
+      className="relative grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[72px_minmax(10rem,1fr)_minmax(12rem,1.15fr)_minmax(7rem,auto)] lg:items-start"
       role="option"
       aria-selected="false"
     >
+      <div
+        className="pointer-events-none absolute right-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-sky-200/35 bg-gradient-to-br from-sky-300/30 via-blue-500/25 to-zinc-700/30 text-[13px] text-sky-200 shadow-[0_0_14px_rgba(56,189,248,0.22)] md:hidden"
+        aria-hidden="true"
+      >
+        ←
+      </div>
       <div className="col-span-full md:hidden">
         <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 sm:grid-cols-[72px_minmax(0,1fr)]">
           <div className="relative z-10">{poster}</div>

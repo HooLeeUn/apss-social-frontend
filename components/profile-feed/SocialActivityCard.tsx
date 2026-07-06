@@ -49,141 +49,147 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const movieType = translateProfileFeedMovieType(locale, item.movieType);
   const movieGenre = item.movieGenre || "-";
 
-  return (
-    <article className="rounded-2xl border border-white/15 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.32)]">
-      <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1.2fr)_96px_minmax(260px,0.95fr)] lg:gap-6">
-        <div className="min-w-0">
-          <div className="flex items-start gap-3">
+  const userHeader = (
+    <div className="min-w-0">
+      <div className="flex items-start gap-3">
+        {profileHref ? (
+          <Link
+            href={profileHref}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Ver perfil de ${item.user.username}`}
+            className="shrink-0 cursor-pointer rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
+          >
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
+              {item.user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+              ) : (
+                getAvatarFallback(item.user.username)
+              )}
+            </div>
+          </Link>
+        ) : (
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
+            {item.user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+            ) : (
+              getAvatarFallback(item.user.username)
+            )}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             {profileHref ? (
               <Link
                 href={profileHref}
                 onClick={(event) => event.stopPropagation()}
-                aria-label={`Ver perfil de ${item.user.username}`}
-                className="shrink-0 cursor-pointer rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
+                className="cursor-pointer text-sm font-semibold text-blue-200 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
               >
-                <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
-                  {item.user.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-                  ) : (
-                    getAvatarFallback(item.user.username)
-                  )}
-                </div>
+                @{item.user.username}
               </Link>
             ) : (
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-900 text-xs font-semibold text-zinc-200">
-                {item.user.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.user.avatarUrl} alt={item.user.username} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-                ) : (
-                  getAvatarFallback(item.user.username)
-                )}
-              </div>
+              <p className="text-sm font-semibold text-blue-200">@{item.user.username}</p>
             )}
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {profileHref ? (
-                  <Link
-                    href={profileHref}
-                    onClick={(event) => event.stopPropagation()}
-                    className="cursor-pointer text-sm font-semibold text-blue-200 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
-                  >
-                    @{item.user.username}
-                  </Link>
-                ) : (
-                  <p className="text-sm font-semibold text-blue-200">@{item.user.username}</p>
-                )}
-                <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
-                  {formatProfileFeedRelativeDate(locale, item.createdAt)}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-zinc-300">
-                <span className="font-medium text-zinc-200">{activity.label}</span>{" "}
-                <Link
-                  href={movieHref}
-                  aria-label={`Ver detalle de ${item.movieTitle}`}
-                  className="cursor-pointer font-semibold text-blue-200 transition hover:text-blue-100"
-                >
-                  {item.movieTitle}
-                </Link>
-              </p>
-              {item.movieSecondaryTitle ? (
-                <p className="mt-1 truncate text-xs text-blue-200/75">
-                  <Link
-                    href={movieHref}
-                    aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`}
-                    className="inline-block max-w-full cursor-pointer truncate transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
-                  >
-                    {item.movieSecondaryTitle}
-                  </Link>
-                </p>
-              ) : null}
-              <p className="mt-1 line-clamp-3 text-sm text-zinc-400">{activity.detail}</p>
-              {activity.subDetail ? (
-                <p className={`mt-1 text-xs ${activity.tone === "dislike" ? "text-rose-300/80" : "text-zinc-500"}`}>{activity.subDetail}</p>
-              ) : null}
-            </div>
+            <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
+              {formatProfileFeedRelativeDate(locale, item.createdAt)}
+            </span>
           </div>
+          <p className="mt-1 text-sm text-zinc-300">
+            <span className="font-medium text-zinc-200">{activity.label}</span>{" "}
+            <Link href={movieHref} aria-label={`Ver detalle de ${item.movieTitle}`} className="cursor-pointer font-semibold text-blue-200 transition hover:text-blue-100">
+              {item.movieTitle}
+            </Link>
+          </p>
+          {item.movieSecondaryTitle ? (
+            <p className="mt-1 truncate text-xs text-blue-200/75">
+              <Link href={movieHref} aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`} className="inline-block max-w-full cursor-pointer truncate transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none">
+                {item.movieSecondaryTitle}
+              </Link>
+            </p>
+          ) : null}
+          <p className="mt-1 line-clamp-3 text-sm text-zinc-400">{activity.detail}</p>
+          {activity.subDetail ? <p className={`mt-1 text-xs ${activity.tone === "dislike" ? "text-rose-300/80" : "text-zinc-500"}`}>{activity.subDetail}</p> : null}
         </div>
+      </div>
+    </div>
+  );
 
-        <Link
-          href={movieHref}
-          className="mx-auto flex w-fit shrink-0 items-center justify-center self-center transition hover:opacity-90 lg:justify-self-center"
-          aria-label={`Ver ${item.movieTitle}`}
+  const poster = (
+    <Link href={movieHref} className="mx-auto flex w-fit shrink-0 items-center justify-center self-center transition hover:opacity-90 lg:justify-self-center" aria-label={`Ver ${item.movieTitle}`}>
+      <div className="flex h-28 w-[84px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-zinc-900/75 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+        {item.moviePosterUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.moviePosterUrl} alt={`Poster de ${item.movieTitle}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        ) : (
+          "Poster"
+        )}
+      </div>
+    </Link>
+  );
+
+  const renderMetadata = (isMobile = false) => (
+    <dl className="min-w-0 space-y-2 text-xs">
+      <div>
+        <dt className="inline text-zinc-500">{t("profileFeedType")}</dt>{" "}
+        <dd className="inline text-zinc-200">{movieType}</dd>
+      </div>
+      <div className="min-w-0">
+        <dt className="inline text-zinc-500">{t("profileFeedGenre")}</dt>{" "}
+        <dd
+          className={
+            isMobile
+              ? "inline-block max-w-full overflow-x-auto overscroll-x-contain whitespace-nowrap align-bottom text-zinc-200 [scrollbar-width:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden"
+              : "inline text-zinc-200"
+          }
         >
-          <div className="flex h-28 w-[84px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-zinc-900/75 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-            {item.moviePosterUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={item.moviePosterUrl}
-                alt={`Poster de ${item.movieTitle}`}
-                className="h-full w-full object-cover"
-                loading="lazy"
-                decoding="async"
-              />
-            ) : (
-              "Poster"
-            )}
-          </div>
-        </Link>
+          {movieGenre}
+        </dd>
+      </div>
+      {movieYear ? <div className="text-zinc-200">{movieYear}</div> : null}
+    </dl>
+  );
 
-        <div className="min-w-0 lg:w-full">
+  const compactRatings = (
+    <dl className="flex flex-col items-end justify-center gap-2 text-xs">
+      <div className="flex items-center gap-1 font-medium text-zinc-200"><dt className="sr-only">{t("profileFeedGeneral")}</dt><dd className="flex items-center gap-1"><span aria-hidden="true">⭐</span><span>{formatAverageRating(item.generalRating)}</span></dd></div>
+      <div className="flex items-center gap-1 font-medium text-zinc-200"><dt className="sr-only">{t("profileFeedFollowing")}</dt><dd className="flex items-center gap-1"><span aria-hidden="true">👥</span><span>{formatFollowingRating(item.followingRating)}</span></dd></div>
+      <div className="flex items-center gap-1 font-medium text-zinc-100"><dt className="sr-only">{t("profileFeedMyRatingUpper")}</dt><dd className="flex items-center gap-1"><span aria-hidden="true">🙋</span><span>{formatMyRating(item.myRating)}</span></dd></div>
+    </dl>
+  );
+
+  return (
+    <article className="rounded-2xl border border-white/15 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.32)]">
+      <div className="space-y-4 lg:hidden">
+        {userHeader}
+        <div className="grid grid-cols-[minmax(0,1fr)_84px_minmax(3.25rem,auto)] items-center gap-3">
+          <div className="min-w-0">{renderMetadata(true)}</div>
+          {poster}
+          {compactRatings}
+        </div>
+      </div>
+
+      <div className="hidden items-center gap-6 lg:grid lg:grid-cols-[minmax(0,1.2fr)_96px_minmax(260px,0.95fr)]">
+        {userHeader}
+        {poster}
+        <div className="min-w-0 w-full">
           <div className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2">
-            <dl className="space-y-2">
-              <div>
-                <dt className="inline text-zinc-500">{t("profileFeedType")}</dt>{" "}
-                <dd className="inline text-zinc-200">{movieType}</dd>
-              </div>
-              <div>
-                <dt className="inline text-zinc-500">{t("profileFeedGenre")}</dt>{" "}
-                <dd className="inline text-zinc-200">{movieGenre}</dd>
-              </div>
-              {movieYear ? <div className="text-zinc-200">{movieYear}</div> : null}
-            </dl>
-
+            {renderMetadata()}
             <dl className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-zinc-500">{t("profileFeedGeneral")}</dt>
-                <dd className="flex items-center gap-1 font-medium text-zinc-200">
-                  <span aria-hidden="true">⭐</span>
-                  <span>{formatAverageRating(item.generalRating)}</span>
-                </dd>
+                <dd className="flex items-center gap-1 font-medium text-zinc-200"><span aria-hidden="true">⭐</span><span>{formatAverageRating(item.generalRating)}</span></dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-zinc-500">{t("profileFeedFollowing")}</dt>
                 <dd className="flex flex-col items-end leading-tight font-medium text-zinc-200">
                   <span>👥 {formatFollowingRating(item.followingRating)}</span>
-                  {formatProfileFeedRatingsCount(locale, item.followingRatingsCount) ? (
-                    <span className="text-[10px] font-normal text-zinc-500">{formatProfileFeedRatingsCount(locale, item.followingRatingsCount)}</span>
-                  ) : null}
+                  {formatProfileFeedRatingsCount(locale, item.followingRatingsCount) ? <span className="text-[10px] font-normal text-zinc-500">{formatProfileFeedRatingsCount(locale, item.followingRatingsCount)}</span> : null}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("profileFeedMyRatingUpper")}</dt>
-                <dd className="flex items-center gap-1 font-medium text-zinc-100">
-                  <span aria-hidden="true">🙋</span>
-                  <span>{formatMyRating(item.myRating)}</span>
-                </dd>
+                <dd className="flex items-center gap-1 font-medium text-zinc-100"><span aria-hidden="true">🙋</span><span>{formatMyRating(item.myRating)}</span></dd>
               </div>
             </dl>
           </div>
