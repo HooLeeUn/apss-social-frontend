@@ -1,7 +1,7 @@
 import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PointerEvent, ReactNode, useMemo, useRef, useState } from "react";
+import { MouseEvent, PointerEvent, ReactNode, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { interpolate } from "../../lib/i18n";
 
@@ -286,8 +286,8 @@ export default function TopUsersSection({
   const { locale, t } = useI18n();
   const [activeConnectionView, setActiveConnectionView] = useState<"friends" | "pending">(initialConnectionView);
   const [activeMobileBlock, setActiveMobileBlock] = useState<0 | 1>(0);
-  const [mobileSwipeDirection, setMobileSwipeDirection] = useState<"next" | "previous">("next");
-  const mobileSwipeStartRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const mobileSwipeStartRef = useRef<{ x: number; y: number; pointerId: number; intent: "horizontal" | "vertical" | null } | null>(null);
+  const mobileSwipeMovedRef = useRef(false);
   const receivedPendingRequestsCount = useMemo(
     () => pendingRequests.filter((request) => request.direction === "received").length,
     [pendingRequests],
@@ -312,13 +312,33 @@ export default function TopUsersSection({
 
 
   const rotateMobileBlock = (direction: "next" | "previous") => {
-    setMobileSwipeDirection(direction);
     setActiveMobileBlock((current) => ((current + (direction === "next" ? 1 : -1) + 2) % 2) as 0 | 1);
   };
 
   const handleMobilePointerDown = (event: PointerEvent<HTMLElement>) => {
     if (event.pointerType === "mouse") return;
-    mobileSwipeStartRef.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+    mobileSwipeMovedRef.current = false;
+    mobileSwipeStartRef.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, intent: null };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleMobilePointerMove = (event: PointerEvent<HTMLElement>) => {
+    const start = mobileSwipeStartRef.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    if (!start.intent && Math.max(absX, absY) >= 10) {
+      start.intent = absX > absY ? "horizontal" : "vertical";
+    }
+
+    if (start.intent === "horizontal") {
+      mobileSwipeMovedRef.current = true;
+      event.preventDefault();
+    }
   };
 
   const handleMobilePointerUp = (event: PointerEvent<HTMLElement>) => {
@@ -326,16 +346,36 @@ export default function TopUsersSection({
     mobileSwipeStartRef.current = null;
     if (!start || start.pointerId !== event.pointerId) return;
 
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
     const deltaX = event.clientX - start.x;
     const deltaY = event.clientY - start.y;
-    const isHorizontalSwipe = Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+    const isHorizontalSwipe = start.intent === "horizontal" && Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY);
     if (!isHorizontalSwipe) return;
 
+    event.preventDefault();
     rotateMobileBlock(deltaX < 0 ? "next" : "previous");
   };
 
-  const handleMobilePointerCancel = () => {
+  const handleMobilePointerCancel = (event: PointerEvent<HTMLElement>) => {
+    if (mobileSwipeStartRef.current && event.currentTarget.hasPointerCapture(mobileSwipeStartRef.current.pointerId)) {
+      event.currentTarget.releasePointerCapture(mobileSwipeStartRef.current.pointerId);
+    }
     mobileSwipeStartRef.current = null;
+  };
+
+  const handleMobileClickCapture = (event: MouseEvent<HTMLElement>) => {
+    if (!mobileSwipeMovedRef.current) return;
+    mobileSwipeMovedRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const getMobileSlideClass = (slideIndex: 0 | 1) => {
+    if (activeMobileBlock === slideIndex) return "profile-feed-mobile-cylinder__slide--active";
+    return slideIndex < activeMobileBlock ? "profile-feed-mobile-cylinder__slide--inactive-left" : "profile-feed-mobile-cylinder__slide--inactive-right";
   };
 
   const activeConnectionTabClass = "bg-zinc-100 text-zinc-950 shadow-[0_10px_20px_rgba(0,0,0,0.35)]";
@@ -422,15 +462,17 @@ export default function TopUsersSection({
       <div
         className="profile-feed-mobile-cylinder md:hidden"
         onPointerDown={handleMobilePointerDown}
+        onPointerMove={handleMobilePointerMove}
         onPointerUp={handleMobilePointerUp}
         onPointerCancel={handleMobilePointerCancel}
         onPointerLeave={handleMobilePointerCancel}
+        onClickCapture={handleMobileClickCapture}
       >
         <div className="profile-feed-mobile-cylinder__stage">
-          <div className={`profile-feed-mobile-cylinder__slide ${activeMobileBlock === 0 ? "profile-feed-mobile-cylinder__slide--active" : `profile-feed-mobile-cylinder__slide--inactive-${mobileSwipeDirection}`}`}>
+          <div className={`profile-feed-mobile-cylinder__slide ${getMobileSlideClass(0)}`}>
             {followingBlock}
           </div>
-          <div className={`profile-feed-mobile-cylinder__slide ${activeMobileBlock === 1 ? "profile-feed-mobile-cylinder__slide--active" : `profile-feed-mobile-cylinder__slide--inactive-${mobileSwipeDirection}`}`}>
+          <div className={`profile-feed-mobile-cylinder__slide ${getMobileSlideClass(1)}`}>
             {connectionsBlock}
           </div>
         </div>
