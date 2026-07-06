@@ -252,6 +252,8 @@ textarea,
 
 @media (max-width: 767px) {
   .favorite-movies-mobile-cube {
+    width: 100%;
+    max-width: 100%;
     overflow: hidden;
     perspective: 950px;
     touch-action: pan-y;
@@ -259,6 +261,8 @@ textarea,
 
   .profile-feed-mobile-carousel-dots {
     display: flex;
+    overflow: visible;
+    padding-block: 0.25rem;
     align-items: center;
     justify-content: center;
     gap: 0.45rem;
@@ -281,16 +285,20 @@ textarea,
 
   .favorite-movies-mobile-cube__dots {
     margin-top: 0.85rem;
+    margin-bottom: 0.1rem;
   }
 
   .favorite-movies-mobile-cube__stage {
     position: relative;
+    width: 100%;
+    max-width: 100%;
     height: 180px;
     transform-style: preserve-3d;
   }
 
   .favorite-movies-mobile-cube__slide {
     position: absolute;
+    max-width: 100%;
     inset: 0;
     width: 100%;
     transform-origin: center center -90px;
@@ -302,6 +310,8 @@ textarea,
 
 @media (max-width: 767px) {
   .profile-feed-mobile-slider {
+    width: 100%;
+    max-width: 100%;
     overflow: hidden;
     touch-action: pan-y;
   }
@@ -313,12 +323,15 @@ textarea,
 
   .profile-feed-mobile-slider__stage {
     position: relative;
+    width: 100%;
+    max-width: 100%;
     height: 30rem;
     overflow: hidden;
   }
 
   .profile-feed-mobile-slider__slide {
     position: absolute;
+    max-width: 100%;
     inset: 0;
     width: 100%;
     will-change: transform;
