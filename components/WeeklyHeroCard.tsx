@@ -232,7 +232,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 <p className="text-[10px] text-zinc-500">{formatFollowingRatingsCount(movie?.followingRatingsCount)}</p>
               ) : null}
             </div>
-            <div className="rounded-lg border border-transparent bg-blue-950/25 px-1.5 py-1.5 transition-all duration-150 hover:-translate-y-px lg:border-blue-400/60 lg:bg-blue-950/35 lg:px-3 lg:py-2 lg:shadow-[0_4px_12px_rgba(59,130,246,0.22)] lg:hover:border-blue-300/80 lg:hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
+            <div className="rounded-lg border border-transparent bg-blue-950/25 px-1.5 py-1.5 transition-all duration-150 hover:-translate-y-px lg:bg-blue-950/35 lg:px-3 lg:py-2 lg:shadow-[0_4px_12px_rgba(59,130,246,0.22)] lg:hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
                 {movie && onRated ? (
@@ -242,7 +242,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     onRated={(score, payload) => onRated(movie.id, score, payload)}
                     nullLabel="—"
                     ariaLabel="Mi calificación"
-                    className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/25 [&_button]:px-1 [&_button]:text-xs [&_button]:text-blue-100 lg:[&_button]:justify-between lg:[&_button]:border-blue-400/65 lg:[&_button]:bg-blue-950/45 lg:[&_button]:text-sm lg:[&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] lg:[&_button:hover]:border-blue-300/90 lg:[&_button:hover]:bg-blue-900/50 lg:[&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
+                    className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/25 [&_button]:px-1 [&_button]:text-xs [&_button]:text-blue-100 lg:[&_button]:justify-between lg:[&_button]:bg-blue-950/45 lg:[&_button]:text-sm lg:[&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] lg:[&_button:hover]:bg-blue-900/50 lg:[&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
                   />
                 ) : (
                   <p className="text-base font-semibold text-blue-100">🙋 {formatMyRating(movie?.myRating)}</p>

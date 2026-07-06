@@ -934,7 +934,7 @@ function MovieCard({
             ariaLabel="Mi calificación"
             className={`[&_button]:px-1.5 [&_button]:py-0.5 [&_button]:text-xs sm:[&_button]:px-2 sm:[&_button]:py-1 sm:[&_button]:text-sm ${
               highlightMyRatingSlot
-                ? "[&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
+                ? "[&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
                 : ""
             }`}
           />
@@ -1030,7 +1030,7 @@ function MovieCard({
           isFeed
             ? `${splitFeedRatingClassName} items-center ${compactRatingsRow ? "gap-1.5" : "gap-1"} rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
                 highlightMyRatingSlot && !onRated
-                  ? "border-blue-400/65 bg-blue-950/40 shadow-[0_4px_12px_rgba(59,130,246,0.24)] hover:-translate-y-px hover:border-blue-300/90 hover:shadow-[0_8px_16px_rgba(59,130,246,0.3)]"
+                  ? "border-transparent bg-blue-950/40 shadow-[0_4px_12px_rgba(59,130,246,0.24)] hover:-translate-y-px hover:shadow-[0_8px_16px_rgba(59,130,246,0.3)]"
                   : ""
               }`
             : ""
@@ -1046,7 +1046,7 @@ function MovieCard({
               ariaLabel="Mi calificación"
               className={
                 highlightMyRatingSlot
-                  ? "[&_button]:cursor-pointer [&_button]:border-blue-400/65 [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:border-blue-300/90 [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
+                  ? "[&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
                   : ""
               }
             />
