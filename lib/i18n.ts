@@ -55,6 +55,7 @@ const translations = {
     trailerUnavailable: "Trailer no disponible",
     trailerError: "No se pudo cargar el trailer",
     trailerWatchOnYoutube: "Ver en YouTube",
+    trailerOpensOnYoutube: "Este trailer se abre en YouTube",
     trailerClose: "Cerrar",
 
     movieDetailTitle: "Detalle de película",
@@ -296,6 +297,7 @@ const translations = {
     trailerUnavailable: "Trailer unavailable",
     trailerError: "Could not load trailer",
     trailerWatchOnYoutube: "Watch on YouTube",
+    trailerOpensOnYoutube: "This trailer opens on YouTube",
     trailerClose: "Close",
 
     movieDetailTitle: "Movie Details",
