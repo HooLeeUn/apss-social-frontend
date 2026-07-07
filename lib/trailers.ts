@@ -9,6 +9,7 @@ export interface MovieTrailer {
   language: string | null;
   source: string | null;
   available: boolean;
+  externalOnly: boolean;
 }
 
 function readString(value: unknown): string | null {
@@ -60,5 +61,6 @@ export async function fetchMovieTrailer(movieId: Movie["id"], country: Country):
     language: readString(payload?.language),
     source: readString(payload?.source),
     available: payload?.available === true,
+    externalOnly: payload?.external_only === true,
   };
 }

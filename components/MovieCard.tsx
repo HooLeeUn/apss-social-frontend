@@ -854,6 +854,7 @@ function MovieCard({
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [trailerError, setTrailerError] = useState(false);
   const [trailerUnavailable, setTrailerUnavailable] = useState(false);
+  const [trailerExternalOnly, setTrailerExternalOnly] = useState(false);
   const [detailTrailerAvailable, setDetailTrailerAvailable] = useState(false);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -885,6 +886,7 @@ function MovieCard({
     setTrailerLoading(false);
     setTrailerError(false);
     setTrailerUnavailable(false);
+    setTrailerExternalOnly(false);
     setTrailerOpen(false);
     setTrailerUrl(null);
     setTrailerWatchUrl(null);
@@ -897,6 +899,7 @@ function MovieCard({
     setTrailerLoading(true);
     setTrailerError(false);
     setTrailerUnavailable(false);
+    setTrailerExternalOnly(false);
     setTrailerUrl(null);
     setTrailerWatchUrl(null);
     if (options?.openWhileLoading) setTrailerOpen(true);
@@ -908,11 +911,19 @@ function MovieCard({
         setTrailerWatchUrl(trailer.watchUrl);
         setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
         setTrailerUnavailable(false);
+        setTrailerExternalOnly(false);
+        setTrailerOpen(true);
+      } else if (!trailer.available && trailer.externalOnly && trailer.watchUrl) {
+        setTrailerWatchUrl(trailer.watchUrl);
+        setTrailerUrl(null);
+        setTrailerUnavailable(false);
+        setTrailerExternalOnly(true);
         setTrailerOpen(true);
       } else {
         setTrailerOpen(false);
         setTrailerWatchUrl(null);
         setTrailerUrl(null);
+        setTrailerExternalOnly(false);
         if (options?.showUnavailableToast) {
           setTrailerUnavailable(true);
           unavailableTimerRef.current = setTimeout(() => {
@@ -951,6 +962,7 @@ function MovieCard({
     setTrailerLoading(true);
     setTrailerError(false);
     setTrailerUnavailable(false);
+    setTrailerExternalOnly(false);
     setTrailerOpen(false);
     setTrailerUrl(null);
     setTrailerWatchUrl(null);
@@ -1470,6 +1482,7 @@ function MovieCard({
       loading={trailerLoading}
       error={trailerError}
       unavailable={trailerUnavailable}
+      externalOnly={trailerExternalOnly}
       onClose={closeTrailer}
       currentLanguage={locale}
     />

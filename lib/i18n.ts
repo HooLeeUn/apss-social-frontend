@@ -56,6 +56,7 @@ const translations = {
     trailerError: "No se pudo cargar el trailer",
     trailerWatchOnYoutube: "Ver en YouTube",
     trailerOpensOnYoutube: "Este trailer se abre en YouTube",
+    trailerExternalOnly: "Este trailer solo está disponible en YouTube",
     trailerClose: "Cerrar",
 
     movieDetailTitle: "Detalle de película",
@@ -298,6 +299,7 @@ const translations = {
     trailerError: "Could not load trailer",
     trailerWatchOnYoutube: "Watch on YouTube",
     trailerOpensOnYoutube: "This trailer opens on YouTube",
+    trailerExternalOnly: "This trailer is only available on YouTube",
     trailerClose: "Close",
 
     movieDetailTitle: "Movie Details",
