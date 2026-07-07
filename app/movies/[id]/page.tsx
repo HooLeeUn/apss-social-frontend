@@ -18,7 +18,7 @@ import {
   Movie,
   normalizeMovie,
 } from "../../../lib/movies";
-import { fetchMovieCredits } from "../../../lib/people";
+import { fetchMovieCredits, type MovieCredits } from "../../../lib/people";
 import {
   buildCommentDetailEndpoint,
   buildReactionEndpoint,
@@ -40,6 +40,59 @@ import { getProfilePrivacySettings } from "../../../lib/privacy";
 import { getTopFollowing } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { t as translate } from "../../../lib/i18n";
+
+const CREDITS_CACHE_STALE_MS = 10 * 60 * 1000;
+const CREDITS_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
+const movieCreditsCache = new Map<string, { credits: MovieCredits; fetchedAt: number }>();
+const movieCreditsInFlight = new Map<string, Promise<MovieCredits>>();
+
+function getMovieCreditsCacheKey(movieId: Movie["id"]): string {
+  return String(movieId);
+}
+
+function hasMovieCredits(movie: Movie): boolean {
+  return movie.cast.length > 0 || movie.directors.length > 0 || movie.castMembers.length > 0 || Boolean(movie.director?.trim());
+}
+
+function getCachedMovieCredits(movieId: Movie["id"]): MovieCredits | null {
+  const cached = movieCreditsCache.get(getMovieCreditsCacheKey(movieId));
+  if (!cached) return null;
+  if (Date.now() - cached.fetchedAt > CREDITS_CACHE_MAX_AGE_MS) {
+    movieCreditsCache.delete(getMovieCreditsCacheKey(movieId));
+    return null;
+  }
+  return cached.credits;
+}
+
+function setCachedMovieCredits(movieId: Movie["id"], credits: MovieCredits): void {
+  movieCreditsCache.set(getMovieCreditsCacheKey(movieId), { credits, fetchedAt: Date.now() });
+}
+
+function shouldRefreshMovieCredits(movieId: Movie["id"]): boolean {
+  const cached = movieCreditsCache.get(getMovieCreditsCacheKey(movieId));
+  return !cached || Date.now() - cached.fetchedAt > CREDITS_CACHE_STALE_MS;
+}
+
+async function fetchMovieCreditsCached(movieId: Movie["id"]): Promise<MovieCredits> {
+  const cacheKey = getMovieCreditsCacheKey(movieId);
+  const cached = getCachedMovieCredits(movieId);
+  if (cached && !shouldRefreshMovieCredits(movieId)) return cached;
+
+  const inFlight = movieCreditsInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const request = fetchMovieCredits(movieId)
+    .then((credits) => {
+      setCachedMovieCredits(movieId, credits);
+      return credits;
+    })
+    .finally(() => {
+      movieCreditsInFlight.delete(cacheKey);
+    });
+
+  movieCreditsInFlight.set(cacheKey, request);
+  return request;
+}
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -951,10 +1004,27 @@ export default function MovieDetailPage() {
           return;
         }
 
-        setMovie(normalizedMovie);
-        setCreditsLoading(true);
+        if (hasMovieCredits(normalizedMovie)) {
+          setCachedMovieCredits(normalizedMovie.id, { cast: normalizedMovie.cast, directors: normalizedMovie.directors });
+        }
 
-        void fetchMovieCredits(normalizedMovie.id)
+        const cachedCredits = getCachedMovieCredits(normalizedMovie.id);
+        const movieWithCachedCredits = cachedCredits
+          ? {
+              ...normalizedMovie,
+              cast: cachedCredits.cast.length ? cachedCredits.cast : normalizedMovie.cast,
+              castMembers: cachedCredits.cast.length ? cachedCredits.cast.map((credit) => credit.name) : normalizedMovie.castMembers,
+              directors: cachedCredits.directors.length ? cachedCredits.directors : normalizedMovie.directors,
+              director: cachedCredits.directors.length ? cachedCredits.directors.map((credit) => credit.name).join(" · ") : normalizedMovie.director,
+            }
+          : normalizedMovie;
+        setMovie(movieWithCachedCredits);
+
+        if (hasMovieCredits(movieWithCachedCredits) && !shouldRefreshMovieCredits(normalizedMovie.id)) return;
+
+        setCreditsLoading(!hasMovieCredits(movieWithCachedCredits));
+
+        void fetchMovieCreditsCached(normalizedMovie.id)
           .then((credits) => {
             if (cancelled) return;
             if (!credits.cast.length && !credits.directors.length) return;

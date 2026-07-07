@@ -658,6 +658,53 @@ function ProviderRow({
   );
 }
 
+const PROVIDERS_CACHE_STALE_MS = 10 * 60 * 1000;
+const PROVIDERS_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
+const streamingProvidersCache = new Map<string, { providers: StreamingProvider[]; fetchedAt: number }>();
+const streamingProvidersInFlight = new Map<string, Promise<StreamingProvider[]>>();
+
+function getProvidersCacheKey(movieId: Movie["id"], country: Country): string {
+  return `${String(movieId)}:${country}`;
+}
+
+function getCachedProviders(movieId: Movie["id"], country: Country): StreamingProvider[] | null {
+  const cacheKey = getProvidersCacheKey(movieId, country);
+  const cached = streamingProvidersCache.get(cacheKey);
+  if (!cached) return null;
+  if (Date.now() - cached.fetchedAt > PROVIDERS_CACHE_MAX_AGE_MS) {
+    streamingProvidersCache.delete(cacheKey);
+    return null;
+  }
+  return cached.providers;
+}
+
+function shouldRefreshProviders(movieId: Movie["id"], country: Country): boolean {
+  const cached = streamingProvidersCache.get(getProvidersCacheKey(movieId, country));
+  return !cached || Date.now() - cached.fetchedAt > PROVIDERS_CACHE_STALE_MS;
+}
+
+async function fetchStreamingProvidersCached(movieId: Movie["id"], country: Country): Promise<StreamingProvider[]> {
+  const cacheKey = getProvidersCacheKey(movieId, country);
+  const cached = getCachedProviders(movieId, country);
+  if (cached && !shouldRefreshProviders(movieId, country)) return cached;
+
+  const inFlight = streamingProvidersInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const request = apiFetch(buildWatchProvidersEndpoint(movieId, country))
+    .then((payload) => {
+      const parsedProviders = parseStreamingProviders(payload, country);
+      streamingProvidersCache.set(cacheKey, { providers: parsedProviders, fetchedAt: Date.now() });
+      return parsedProviders;
+    })
+    .finally(() => {
+      streamingProvidersInFlight.delete(cacheKey);
+    });
+
+  streamingProvidersInFlight.set(cacheKey, request);
+  return request;
+}
+
 function buildWatchProvidersEndpoint(movieId: Movie["id"], country: Country): string {
   return `/movies/${encodeURIComponent(String(movieId))}/watch-providers/?country=${encodeURIComponent(country)}`;
 }
@@ -684,17 +731,26 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
     let cancelled = false;
 
     async function loadProviders() {
-      setLoading(true);
-      setError("");
+      const cachedProviders = getCachedProviders(movieId, country);
+      if (cachedProviders) {
+        setProviders(cachedProviders);
+        setLoading(false);
+        setError("");
+        if (!shouldRefreshProviders(movieId, country)) return;
+      } else {
+        setLoading(true);
+        setError("");
+      }
 
       try {
-        const payload = await apiFetch(buildWatchProvidersEndpoint(movieId, country));
+        const parsedProviders = await fetchStreamingProvidersCached(movieId, country);
         if (cancelled) return;
-        setProviders(parseStreamingProviders(payload, country));
+        setProviders(parsedProviders);
+        setError("");
       } catch (loadError) {
         console.warn("No se pudieron cargar plataformas de streaming.", loadError);
         if (cancelled) return;
-        setProviders([]);
+        if (!cachedProviders) setProviders([]);
         setError(getStreamingLabels(locale).loadError);
       } finally {
         if (!cancelled) setLoading(false);
