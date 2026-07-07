@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Country } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
-import { fetchMovieTrailer, withTrailerAutoplayParams } from "../lib/trailers";
+import { fetchMovieTrailer, withYouTubeIframeApiParams } from "../lib/trailers";
 
 const LONG_PRESS_DELAY_MS = 600;
 const MOVE_THRESHOLD_X = 14;
@@ -17,6 +17,7 @@ export function useTrailerLongPress(movieId: Movie["id"] | null | undefined, cou
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [externalOnly, setExternalOnly] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unavailableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
@@ -44,6 +45,7 @@ export function useTrailerLongPress(movieId: Movie["id"] | null | undefined, cou
     setLoading(false);
     setError(false);
     setUnavailable(false);
+    setExternalOnly(false);
     setOpen(false);
     setTrailerUrl(null);
     setWatchUrl(null);
@@ -57,6 +59,7 @@ export function useTrailerLongPress(movieId: Movie["id"] | null | undefined, cou
     setLoading(true);
     setError(false);
     setUnavailable(false);
+    setExternalOnly(false);
     setTrailerUrl(null);
     setWatchUrl(null);
 
@@ -65,13 +68,21 @@ export function useTrailerLongPress(movieId: Movie["id"] | null | undefined, cou
       if (requestRef.current !== requestId) return;
       if (trailer.available && trailer.trailerUrl) {
         setWatchUrl(trailer.watchUrl);
-        setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
+        setTrailerUrl(withYouTubeIframeApiParams(trailer.trailerUrl));
         setUnavailable(false);
+        setExternalOnly(false);
+        setOpen(true);
+      } else if (!trailer.available && trailer.externalOnly && trailer.watchUrl) {
+        setWatchUrl(trailer.watchUrl);
+        setTrailerUrl(null);
+        setUnavailable(false);
+        setExternalOnly(true);
         setOpen(true);
       } else {
         setOpen(false);
         setWatchUrl(null);
         setTrailerUrl(null);
+        setExternalOnly(false);
         setUnavailable(true);
         unavailableTimerRef.current = setTimeout(() => {
           unavailableTimerRef.current = null;
@@ -97,6 +108,7 @@ export function useTrailerLongPress(movieId: Movie["id"] | null | undefined, cou
     setLoading(true);
     setError(false);
     setUnavailable(false);
+    setExternalOnly(false);
     setOpen(false);
     setTrailerUrl(null);
     setWatchUrl(null);
@@ -148,6 +160,7 @@ export function useTrailerLongPress(movieId: Movie["id"] | null | undefined, cou
     loading,
     error,
     unavailable,
+    externalOnly,
     close,
     posterProps: {
       onPointerDown: handlePointerDown,
