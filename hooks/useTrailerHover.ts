@@ -15,6 +15,7 @@ export function useTrailerHover(movieId: Movie["id"] | null | undefined, country
   const [unavailable, setUnavailable] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestRef = useRef(0);
+  const openRef = useRef(false);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -26,6 +27,7 @@ export function useTrailerHover(movieId: Movie["id"] | null | undefined, country
   const close = useCallback(() => {
     clearTimer();
     requestRef.current += 1;
+    openRef.current = false;
     setOpen(false);
     setTrailerUrl(null);
     setWatchUrl(null);
@@ -38,6 +40,7 @@ export function useTrailerHover(movieId: Movie["id"] | null | undefined, country
     clearTimer();
     const requestId = requestRef.current + 1;
     requestRef.current = requestId;
+    openRef.current = false;
     setOpen(false);
     setTrailerUrl(null);
     setWatchUrl(null);
@@ -53,6 +56,7 @@ export function useTrailerHover(movieId: Movie["id"] | null | undefined, country
           setWatchUrl(trailer.watchUrl);
           setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
           setUnavailable(false);
+          openRef.current = true;
           setOpen(true);
         } else {
           setWatchUrl(null);
@@ -68,6 +72,7 @@ export function useTrailerHover(movieId: Movie["id"] | null | undefined, country
   }, [clearTimer, country, delayMs, enabled, movieId]);
 
   const onMouseLeave = useCallback(() => {
+    if (openRef.current) return;
     close();
   }, [close]);
 
