@@ -1,9 +1,58 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Locale } from "../lib/i18n";
 import { t } from "../lib/i18n";
+
+type YouTubePlayerEvent = { data?: number; target?: YouTubePlayer };
+type YouTubePlayer = { destroy: () => void };
+type YouTubePlayerVars = Record<string, number | string>;
+type YouTubePlayerConstructor = new (element: HTMLElement, options: {
+  videoId: string;
+  playerVars?: YouTubePlayerVars;
+  events?: {
+    onError?: (event: YouTubePlayerEvent) => void;
+  };
+}) => YouTubePlayer;
+
+declare global {
+  interface Window {
+    YT?: { Player: YouTubePlayerConstructor };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+let youTubeApiPromise: Promise<void> | null = null;
+
+function loadYouTubeIframeApi(): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject(new Error("YouTube API is only available in the browser"));
+  if (window.YT?.Player) return Promise.resolve();
+  if (youTubeApiPromise) return youTubeApiPromise;
+
+  youTubeApiPromise = new Promise((resolve, reject) => {
+    const previousReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previousReady?.();
+      resolve();
+    };
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://www.youtube.com/iframe_api"]');
+    if (existingScript) {
+      existingScript.addEventListener("error", () => reject(new Error("Failed to load YouTube IFrame API")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://www.youtube.com/iframe_api";
+    script.async = true;
+    script.onerror = () => reject(new Error("Failed to load YouTube IFrame API"));
+    document.head.appendChild(script);
+  });
+
+  return youTubeApiPromise;
+}
+
 function useIsMobileTrailerModal(open: boolean) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -17,6 +66,66 @@ function useIsMobileTrailerModal(open: boolean) {
   }, [open]);
 
   return isMobile;
+}
+
+function readYouTubeVideoId(trailerUrl: string): string | null {
+  try {
+    const url = new URL(trailerUrl, "https://www.youtube.com");
+    const embedMatch = url.pathname.match(/\/embed\/([^/?#]+)/);
+    return embedMatch?.[1] ?? url.searchParams.get("v");
+  } catch {
+    return null;
+  }
+}
+
+function readPlayerVars(trailerUrl: string): YouTubePlayerVars {
+  const vars: YouTubePlayerVars = { autoplay: 1, mute: 1, playsinline: 1, rel: 0, modestbranding: 1 };
+  try {
+    const url = new URL(trailerUrl, "https://www.youtube.com");
+    url.searchParams.forEach((value, key) => {
+      if (key !== "enablejsapi" && key !== "origin") vars[key] = value;
+    });
+  } catch {
+    // Keep safe defaults if the backend returns an unexpected URL format.
+  }
+  return vars;
+}
+
+function YouTubeTrailerPlayer({ trailerUrl, iframeKey, onEmbedError }: { trailerUrl: string; iframeKey: string; onEmbedError: () => void }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const videoId = useMemo(() => readYouTubeVideoId(trailerUrl), [trailerUrl]);
+  const playerVars = useMemo(() => readPlayerVars(trailerUrl), [trailerUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let player: YouTubePlayer | null = null;
+
+    if (!videoId) {
+      onEmbedError();
+      return undefined;
+    }
+
+    loadYouTubeIframeApi()
+      .then(() => {
+        if (cancelled || !containerRef.current || !window.YT?.Player) return;
+        player = new window.YT.Player(containerRef.current, {
+          videoId,
+          playerVars,
+          events: { onError: () => onEmbedError() },
+        });
+      })
+      .catch(() => {
+        if (!cancelled) onEmbedError();
+      });
+
+    return () => {
+      cancelled = true;
+      player?.destroy();
+      player = null;
+    };
+  }, [iframeKey, onEmbedError, playerVars, videoId]);
+
+  return <div ref={containerRef} className="h-full w-full" />;
 }
 
 interface TrailerModalProps {
@@ -33,7 +142,12 @@ interface TrailerModalProps {
 
 export default function TrailerModal({ open, trailerUrl, watchUrl, loading, error = false, unavailable = false, externalOnly = false, onClose, currentLanguage }: TrailerModalProps) {
   const isMobile = useIsMobileTrailerModal(open);
-  const canRenderIframe = Boolean(open && trailerUrl && !loading && !error && !unavailable && !externalOnly);
+  const [embedErrorKey, setEmbedErrorKey] = useState<string | null>(null);
+  const iframeKey = useMemo(() => `${trailerUrl ?? "no-trailer"}-${isMobile ? "mobile" : "desktop"}`, [isMobile, trailerUrl]);
+  const handleEmbedError = useCallback(() => setEmbedErrorKey(iframeKey), [iframeKey]);
+  const embedError = embedErrorKey === iframeKey;
+  const canRenderIframe = Boolean(open && trailerUrl && !loading && !error && !unavailable && !externalOnly && !embedError);
+
   useEffect(() => {
     if (!open) return;
 
@@ -49,7 +163,7 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
 
   const statusText = loading
     ? t(currentLanguage, "trailerLoading")
-    : externalOnly
+    : externalOnly || embedError
       ? t(currentLanguage, "trailerExternalOnly")
       : error
         ? t(currentLanguage, "trailerError")
@@ -75,27 +189,9 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
           </button>
         </div>
         <div className="space-y-4 p-4 sm:p-5">
-          {canRenderIframe ? (
+          {canRenderIframe && trailerUrl ? (
             <div className="aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black">
-              {isMobile ? (
-                <iframe
-                  src={trailerUrl ?? undefined}
-                  title="Trailer"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="h-full w-full"
-                />
-              ) : (
-                <iframe
-                  src={trailerUrl ?? undefined}
-                  title="Trailer"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="h-full w-full"
-                />
-              )}
+              <YouTubeTrailerPlayer key={iframeKey} iframeKey={iframeKey} trailerUrl={trailerUrl} onEmbedError={handleEmbedError} />
             </div>
           ) : (
             <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-white/10 bg-zinc-950/80 px-4 text-center text-sm font-medium text-zinc-300 sm:text-base">

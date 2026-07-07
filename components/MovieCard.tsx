@@ -9,7 +9,7 @@ import { useTrailerHover } from "../hooks/useTrailerHover";
 import { resolveMovieTitles } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
-import { fetchMovieTrailer, withTrailerAutoplayParams } from "../lib/trailers";
+import { fetchMovieTrailer, withYouTubeIframeApiParams } from "../lib/trailers";
 import { translateKnownForDepartment } from "../lib/personDepartments";
 import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
@@ -909,7 +909,7 @@ function MovieCard({
       if (trailerRequestRef.current !== requestId) return;
       if (trailer.available && trailer.trailerUrl) {
         setTrailerWatchUrl(trailer.watchUrl);
-        setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
+        setTrailerUrl(withYouTubeIframeApiParams(trailer.trailerUrl));
         setTrailerUnavailable(false);
         setTrailerExternalOnly(false);
         setTrailerOpen(true);
