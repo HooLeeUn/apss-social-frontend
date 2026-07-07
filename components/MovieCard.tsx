@@ -9,7 +9,7 @@ import { useTrailerHover } from "../hooks/useTrailerHover";
 import { resolveMovieTitles } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
-import { fetchMovieTrailer, withTrailerAutoplayParams } from "../lib/trailers";
+import { fetchMovieTrailer, withYouTubeIframeApiParams } from "../lib/trailers";
 import { translateKnownForDepartment } from "../lib/personDepartments";
 import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
@@ -854,10 +854,14 @@ function MovieCard({
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [trailerError, setTrailerError] = useState(false);
   const [trailerUnavailable, setTrailerUnavailable] = useState(false);
+  const [trailerExternalOnly, setTrailerExternalOnly] = useState(false);
   const [detailTrailerAvailable, setDetailTrailerAvailable] = useState(false);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unavailableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const trailerRequestRef = useRef(0);
+  const suppressNextClickRef = useRef(false);
   const hoverTrailer = useTrailerHover(movie.id, country, isDesktopViewport && (isFeed || !linkToDetail), FEED_TRAILER_HOVER_DELAY_MS);
 
 
@@ -868,42 +872,84 @@ function MovieCard({
     }
   }, []);
 
-  const openTrailer = useCallback(async (options?: { silentUnavailable?: boolean }) => {
-    setTrailerLoading(true);
+  const clearUnavailableTimer = useCallback(() => {
+    if (unavailableTimerRef.current) {
+      clearTimeout(unavailableTimerRef.current);
+      unavailableTimerRef.current = null;
+    }
+  }, []);
+
+  const resetTrailerState = useCallback((invalidateRequest = true) => {
+    clearLongPressTimer();
+    clearUnavailableTimer();
+    if (invalidateRequest) trailerRequestRef.current += 1;
+    setTrailerLoading(false);
     setTrailerError(false);
     setTrailerUnavailable(false);
-    setTrailerUrl(null);
-    setTrailerWatchUrl(null);
-    if (!options?.silentUnavailable) setTrailerOpen(true);
-
-    try {
-      const trailer = await fetchMovieTrailer(movie.id, country);
-      if (trailer.available && trailer.trailerUrl) {
-        setTrailerWatchUrl(trailer.watchUrl);
-        setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
-        setTrailerUnavailable(false);
-        setTrailerOpen(true);
-      } else if (!options?.silentUnavailable) {
-        setTrailerWatchUrl(null);
-        setTrailerUnavailable(true);
-      }
-    } catch {
-      if (!options?.silentUnavailable) setTrailerError(true);
-    } finally {
-      setTrailerLoading(false);
-    }
-  }, [country, movie.id]);
-
-  const closeTrailer = useCallback(() => {
+    setTrailerExternalOnly(false);
     setTrailerOpen(false);
     setTrailerUrl(null);
     setTrailerWatchUrl(null);
-  }, []);
+  }, [clearLongPressTimer, clearUnavailableTimer]);
+
+  const openTrailer = useCallback(async (options?: { openWhileLoading?: boolean; showUnavailableToast?: boolean }) => {
+    clearUnavailableTimer();
+    const requestId = trailerRequestRef.current + 1;
+    trailerRequestRef.current = requestId;
+    setTrailerLoading(true);
+    setTrailerError(false);
+    setTrailerUnavailable(false);
+    setTrailerExternalOnly(false);
+    setTrailerUrl(null);
+    setTrailerWatchUrl(null);
+    if (options?.openWhileLoading) setTrailerOpen(true);
+
+    try {
+      const trailer = await fetchMovieTrailer(movie.id, country);
+      if (trailerRequestRef.current !== requestId) return;
+      if (trailer.available && trailer.trailerUrl) {
+        setTrailerWatchUrl(trailer.watchUrl);
+        setTrailerUrl(withYouTubeIframeApiParams(trailer.trailerUrl));
+        setTrailerUnavailable(false);
+        setTrailerExternalOnly(false);
+        setTrailerOpen(true);
+      } else if (!trailer.available && trailer.externalOnly && trailer.watchUrl) {
+        setTrailerWatchUrl(trailer.watchUrl);
+        setTrailerUrl(null);
+        setTrailerUnavailable(false);
+        setTrailerExternalOnly(true);
+        setTrailerOpen(true);
+      } else {
+        setTrailerOpen(false);
+        setTrailerWatchUrl(null);
+        setTrailerUrl(null);
+        setTrailerExternalOnly(false);
+        if (options?.showUnavailableToast) {
+          setTrailerUnavailable(true);
+          unavailableTimerRef.current = setTimeout(() => {
+            unavailableTimerRef.current = null;
+            setTrailerUnavailable(false);
+          }, 900);
+        }
+      }
+    } catch {
+      if (trailerRequestRef.current === requestId) {
+        setTrailerOpen(Boolean(options?.openWhileLoading));
+        setTrailerError(Boolean(options?.openWhileLoading));
+      }
+    } finally {
+      if (trailerRequestRef.current === requestId) setTrailerLoading(false);
+    }
+  }, [clearUnavailableTimer, country, movie.id]);
+
+  const closeTrailer = useCallback(() => {
+    resetTrailerState(true);
+  }, [resetTrailerState]);
 
   const handleTrailerClick = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    void openTrailer();
+    void openTrailer({ openWhileLoading: true });
   }, [openTrailer]);
 
   const handlePosterTouchStart = useCallback((event: React.TouchEvent) => {
@@ -911,11 +957,21 @@ function MovieCard({
     if (!touch) return;
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     clearLongPressTimer();
+    clearUnavailableTimer();
+    trailerRequestRef.current += 1;
+    setTrailerLoading(true);
+    setTrailerError(false);
+    setTrailerUnavailable(false);
+    setTrailerExternalOnly(false);
+    setTrailerOpen(false);
+    setTrailerUrl(null);
+    setTrailerWatchUrl(null);
     longPressTimerRef.current = setTimeout(() => {
       longPressTimerRef.current = null;
-      void openTrailer();
+      suppressNextClickRef.current = true;
+      void openTrailer({ showUnavailableToast: true });
     }, 600);
-  }, [clearLongPressTimer, openTrailer]);
+  }, [clearLongPressTimer, clearUnavailableTimer, openTrailer]);
 
   const handlePosterTouchMove = useCallback((event: React.TouchEvent) => {
     const start = touchStartRef.current;
@@ -923,34 +979,24 @@ function MovieCard({
     if (!start || !touch) return;
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
-    if (Math.abs(deltaY) > 12 || Math.abs(deltaX) > 14) clearLongPressTimer();
-  }, [clearLongPressTimer]);
+    if (Math.abs(deltaY) > 12 || Math.abs(deltaX) > 14) {
+      touchStartRef.current = null;
+      resetTrailerState(true);
+    }
+  }, [resetTrailerState]);
 
   const handlePosterTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) resetTrailerState(true);
     clearLongPressTimer();
     touchStartRef.current = null;
-  }, [clearLongPressTimer]);
+  }, [clearLongPressTimer, resetTrailerState]);
 
-  const handleDetailPosterTouchStart = useCallback((event: React.TouchEvent) => {
-    const touch = event.touches[0];
-    if (!touch) return;
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-    clearLongPressTimer();
-  }, [clearLongPressTimer]);
-
-  const handleDetailPosterTouchEnd = useCallback((event: React.TouchEvent) => {
-    const start = touchStartRef.current;
-    const touch = event.changedTouches[0];
-    clearLongPressTimer();
-    touchStartRef.current = null;
-    if (!start || !touch) return;
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    if (deltaX >= 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4) {
-      event.preventDefault();
-      void openTrailer();
-    }
-  }, [clearLongPressTimer, openTrailer]);
+  const handlePosterClickCapture = useCallback((event: React.MouseEvent) => {
+    if (!suppressNextClickRef.current) return;
+    suppressNextClickRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
 
   const updateMobileCarouselIndex = useCallback(() => {
     const node = mobileCarouselRef.current;
@@ -966,6 +1012,8 @@ function MovieCard({
     mediaQuery.addEventListener("change", syncDesktopViewport);
     return () => mediaQuery.removeEventListener("change", syncDesktopViewport);
   }, []);
+
+  useEffect(() => () => resetTrailerState(true), [resetTrailerState]);
 
   useEffect(() => {
     const syncCache = () => setPersonDetailCache({ ...personDetailMemoryCache });
@@ -1272,11 +1320,18 @@ function MovieCard({
     </button>
   ) : null;
 
-  const trailerTouchHandlers = isFeed
-    ? { onTouchStart: handlePosterTouchStart, onTouchMove: handlePosterTouchMove, onTouchEnd: handlePosterTouchEnd, onTouchCancel: handlePosterTouchEnd }
-    : !linkToDetail
-      ? { onTouchStart: handleDetailPosterTouchStart, onTouchEnd: handleDetailPosterTouchEnd, onTouchCancel: handlePosterTouchEnd }
-      : {};
+  const supportsMobileTrailerLongPress = isFeed || !linkToDetail;
+  const trailerTouchHandlers = supportsMobileTrailerLongPress
+    ? {
+        onTouchStart: handlePosterTouchStart,
+        onTouchMove: handlePosterTouchMove,
+        onTouchEnd: handlePosterTouchEnd,
+        onTouchCancel: handlePosterTouchEnd,
+        onContextMenu: (event: React.MouseEvent) => { if (!isDesktopViewport) event.preventDefault(); },
+        onClickCapture: handlePosterClickCapture,
+        style: { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties,
+      }
+    : {};
 
 
   const desktopCardContent = (
@@ -1339,7 +1394,7 @@ function MovieCard({
           </div>
         )}
         {trailerOverlay}
-        <TrailerHoverOverlay loading={hoverTrailer.loading} unavailable={hoverTrailer.unavailable} locale={locale} />
+        <TrailerHoverOverlay loading={hoverTrailer.loading || trailerLoading} unavailable={hoverTrailer.unavailable || trailerUnavailable} locale={locale} />
 
       </div>
 
@@ -1427,8 +1482,10 @@ function MovieCard({
       loading={trailerLoading}
       error={trailerError}
       unavailable={trailerUnavailable}
+      externalOnly={trailerExternalOnly}
       onClose={closeTrailer}
       currentLanguage={locale}
+      posterUrl={posterSrc}
     />
     <TrailerModal
       open={hoverTrailer.open}
@@ -1438,6 +1495,7 @@ function MovieCard({
       unavailable={hoverTrailer.unavailable}
       onClose={hoverTrailer.close}
       currentLanguage={locale}
+      posterUrl={posterSrc}
     />
     </>
   );
@@ -1447,19 +1505,23 @@ function MovieCard({
       <article className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors md:hidden">
         <div className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]" {...trailerTouchHandlers}>
           {posterSrc && !hasPosterError ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={posterSrc}
-              alt={`Poster de ${displayTitle}`}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-              onError={() => setPosterFailedSrc(posterSrc)}
-            />
+            <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={posterSrc}
+                alt={`Poster de ${displayTitle}`}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                onError={() => setPosterFailedSrc(posterSrc)}
+              />
+            </Link>
           ) : (
-            <div className="flex h-full w-full items-center justify-center px-3 text-center text-sm text-zinc-400">{t("noPoster")}</div>
+            <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="flex h-full w-full cursor-pointer items-center justify-center px-3 text-center text-sm text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+              {t("noPoster")}
+            </Link>
           )}
-          <span className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full border border-[#86ADE0]/35 bg-black/55 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-100 md:hidden">▶</span>
+          <TrailerHoverOverlay loading={trailerLoading} unavailable={trailerUnavailable} locale={locale} />
         </div>
         <div className="relative min-w-0 flex-1 overflow-hidden">
           {mobileCarouselIndex > 0 ? <span aria-hidden="true" className="pointer-events-none absolute left-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">‹</span> : null}

@@ -7,6 +7,7 @@ import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
 import { useTrailerHover } from "../hooks/useTrailerHover";
+import { useTrailerLongPress } from "../hooks/useTrailerLongPress";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
@@ -87,6 +88,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
     }
   };
   const trailerHover = useTrailerHover(movie?.id, country, Boolean(movie));
+  const trailerLongPress = useTrailerLongPress(movie?.id, country, Boolean(movie));
   const tagIconClassName = `interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
@@ -222,7 +224,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </div>
 
           <div className="w-[32%] min-w-[82px] max-w-[110px] border-l border-white/10 bg-zinc-950 lg:w-[34%] lg:min-w-[72px] lg:max-w-[92px]">
-            <div className="relative h-full w-full overflow-hidden" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave}>
+            <div className="relative h-full w-full overflow-hidden" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave} {...trailerLongPress.posterProps}>
               {posterSrc && !hasPosterError ? (
                 detailHref ? (
                   <Link href={detailHref} aria-label={`Ver detalle de ${title}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
@@ -260,12 +262,13 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                   Sin poster
                 </div>
               )}
-              <TrailerHoverOverlay loading={trailerHover.loading} unavailable={trailerHover.unavailable} locale={locale} />
+              <TrailerHoverOverlay loading={trailerHover.loading || trailerLongPress.loading} unavailable={trailerHover.unavailable || trailerLongPress.unavailable} locale={locale} />
             </div>
           </div>
         </div>
       </div>
-      <TrailerModal open={trailerHover.open} trailerUrl={trailerHover.trailerUrl} watchUrl={trailerHover.watchUrl} loading={trailerHover.loading} unavailable={trailerHover.unavailable} onClose={trailerHover.close} currentLanguage={locale} />
+      <TrailerModal open={trailerHover.open} trailerUrl={trailerHover.trailerUrl} watchUrl={trailerHover.watchUrl} loading={trailerHover.loading} unavailable={trailerHover.unavailable} onClose={trailerHover.close} currentLanguage={locale} posterUrl={posterSrc} />
+      <TrailerModal open={trailerLongPress.open} trailerUrl={trailerLongPress.trailerUrl} watchUrl={trailerLongPress.watchUrl} loading={trailerLongPress.loading} error={trailerLongPress.error} unavailable={trailerLongPress.unavailable} externalOnly={trailerLongPress.externalOnly} onClose={trailerLongPress.close} currentLanguage={locale} posterUrl={posterSrc} />
     </article>
   );
 }

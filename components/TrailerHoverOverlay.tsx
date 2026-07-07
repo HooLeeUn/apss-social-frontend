@@ -12,7 +12,7 @@ export default function TrailerHoverOverlay({ loading = false, unavailable = fal
   if (!loading && !unavailable) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 hidden items-center justify-center bg-black/38 px-2 text-center backdrop-blur-[1px] md:flex">
+    <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/38 px-2 text-center backdrop-blur-[1px]">
       {loading ? (
         <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#86ADE0]/40 bg-black/68 text-[#d7e8ff] shadow-[0_0_24px_rgba(47,155,255,0.32)] ring-1 ring-white/10">
           <span className="absolute inset-0 rounded-full border-2 border-[#86ADE0]/25 border-t-[#86ADE0] [animation:spin_500ms_linear_1]" aria-hidden="true" />
