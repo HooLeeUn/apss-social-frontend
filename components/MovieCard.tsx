@@ -8,7 +8,7 @@ import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
-import { fetchMovieTrailer } from "../lib/trailers";
+import { fetchMovieTrailer, withTrailerAutoplayParams } from "../lib/trailers";
 import { translateKnownForDepartment } from "../lib/personDepartments";
 import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
@@ -91,6 +91,7 @@ const PERSON_CARD_WIDTH_PX = 320;
 const PERSON_HOVER_DELAY_MS = 500;
 const PERSON_POPOVER_HIDE_EVENT = "qnext-hide-person-popovers";
 const MOBILE_METADATA_DRAG_EVENT = "qnext-mobile-metadata-drag";
+const FEED_TRAILER_HOVER_DELAY_MS = 500;
 const GLOBAL_POPOVERS_HIDE_EVENT = "qnext-hide-active-popovers";
 const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
 const DESKTOP_CAST_MAX_ROWS = 4;
@@ -851,6 +852,10 @@ function MovieCard({
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [trailerError, setTrailerError] = useState(false);
   const [trailerUnavailable, setTrailerUnavailable] = useState(false);
+  const [detailTrailerAvailable, setDetailTrailerAvailable] = useState(false);
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
+  const trailerHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trailerHoverRequestRef = useRef(0);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -862,33 +867,37 @@ function MovieCard({
     }
   }, []);
 
-  const openTrailer = useCallback(async () => {
-    setTrailerOpen(true);
+  const openTrailer = useCallback(async (options?: { silentUnavailable?: boolean }) => {
     setTrailerLoading(true);
     setTrailerError(false);
     setTrailerUnavailable(false);
     setTrailerUrl(null);
     setTrailerWatchUrl(null);
+    if (!options?.silentUnavailable) setTrailerOpen(true);
 
     try {
       const trailer = await fetchMovieTrailer(movie.id, country);
-      setTrailerWatchUrl(trailer.watchUrl);
       if (trailer.available && trailer.trailerUrl) {
-        setTrailerUrl(trailer.trailerUrl);
+        setTrailerWatchUrl(trailer.watchUrl);
+        setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
         setTrailerUnavailable(false);
-      } else {
+        setTrailerOpen(true);
+      } else if (!options?.silentUnavailable) {
+        setTrailerWatchUrl(null);
         setTrailerUnavailable(true);
       }
     } catch {
-      setTrailerError(true);
+      if (!options?.silentUnavailable) setTrailerError(true);
     } finally {
       setTrailerLoading(false);
     }
   }, [country, movie.id]);
 
   const closeTrailer = useCallback(() => {
+    trailerHoverRequestRef.current += 1;
     setTrailerOpen(false);
     setTrailerUrl(null);
+    setTrailerWatchUrl(null);
   }, []);
 
   const handleTrailerClick = useCallback((event: React.MouseEvent) => {
@@ -896,6 +905,47 @@ function MovieCard({
     event.stopPropagation();
     void openTrailer();
   }, [openTrailer]);
+
+  const clearTrailerHoverTimer = useCallback(() => {
+    if (trailerHoverTimerRef.current) {
+      clearTimeout(trailerHoverTimerRef.current);
+      trailerHoverTimerRef.current = null;
+    }
+  }, []);
+
+  const handleFeedPosterMouseEnter = useCallback(() => {
+    if (!isFeed || !isDesktopViewport) return;
+    clearTrailerHoverTimer();
+    const requestId = trailerHoverRequestRef.current + 1;
+    trailerHoverRequestRef.current = requestId;
+    trailerHoverTimerRef.current = setTimeout(async () => {
+      trailerHoverTimerRef.current = null;
+      setTrailerLoading(true);
+      setTrailerError(false);
+      setTrailerUnavailable(false);
+      setTrailerUrl(null);
+      setTrailerWatchUrl(null);
+      try {
+        const trailer = await fetchMovieTrailer(movie.id, country);
+        if (trailerHoverRequestRef.current !== requestId) return;
+        if (trailer.available && trailer.trailerUrl) {
+          setTrailerWatchUrl(trailer.watchUrl);
+          setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
+          setTrailerOpen(true);
+        }
+      } catch {
+        // Hover trailer lookup is intentionally silent in the feed.
+      } finally {
+        if (trailerHoverRequestRef.current === requestId) setTrailerLoading(false);
+      }
+    }, FEED_TRAILER_HOVER_DELAY_MS);
+  }, [clearTrailerHoverTimer, country, isDesktopViewport, isFeed, movie.id]);
+
+  const handleFeedPosterMouseLeave = useCallback(() => {
+    if (!isFeed || !isDesktopViewport) return;
+    clearTrailerHoverTimer();
+    trailerHoverRequestRef.current += 1;
+  }, [clearTrailerHoverTimer, isDesktopViewport, isFeed]);
 
   const handlePosterTouchStart = useCallback((event: React.TouchEvent) => {
     const touch = event.touches[0];
@@ -951,6 +1001,14 @@ function MovieCard({
   }, []);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const syncDesktopViewport = () => setIsDesktopViewport(mediaQuery.matches);
+    syncDesktopViewport();
+    mediaQuery.addEventListener("change", syncDesktopViewport);
+    return () => mediaQuery.removeEventListener("change", syncDesktopViewport);
+  }, []);
+
+  useEffect(() => {
     const syncCache = () => setPersonDetailCache({ ...personDetailMemoryCache });
     personDetailSubscribers.add(syncCache);
     return () => {
@@ -967,6 +1025,24 @@ function MovieCard({
     const peopleToPreload = [...directorPeople, ...castPeople.slice(0, 8)];
     peopleToPreload.forEach(ensurePersonDetail);
   }, [castPeople, directorPeople, ensurePersonDetail, preloadPersonDetails]);
+
+  useEffect(() => {
+    if (isFeed || linkToDetail || !isDesktopViewport) return;
+    let cancelled = false;
+    setDetailTrailerAvailable(false);
+    fetchMovieTrailer(movie.id, country)
+      .then((trailer) => {
+        if (!cancelled) setDetailTrailerAvailable(Boolean(trailer.available && trailer.trailerUrl));
+      })
+      .catch(() => {
+        if (!cancelled) setDetailTrailerAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [country, isDesktopViewport, isFeed, linkToDetail, movie.id]);
+
+  useEffect(() => () => clearTrailerHoverTimer(), [clearTrailerHoverTimer]);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
@@ -1228,16 +1304,7 @@ function MovieCard({
   );
 
 
-  const trailerOverlay = isFeed ? (
-    <button
-      type="button"
-      onClick={handleTrailerClick}
-      className="absolute inset-0 z-10 hidden items-center justify-center bg-black/55 text-center text-xs font-bold uppercase tracking-[0.12em] text-white opacity-0 backdrop-blur-[1px] transition-opacity duration-200 hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0] md:flex"
-      aria-label={`${t("trailerWatch")} ${displayTitle}`}
-    >
-      <span className="rounded-full border border-[#86ADE0]/50 bg-[#1f4f7a]/75 px-3 py-2 shadow-[0_0_18px_rgba(47,155,255,0.28)]">▶ {t("trailerWatch")}</span>
-    </button>
-  ) : !linkToDetail ? (
+  const trailerOverlay = isFeed ? null : !linkToDetail && isDesktopViewport && detailTrailerAvailable ? (
     <button
       type="button"
       onClick={handleTrailerClick}
@@ -1263,6 +1330,8 @@ function MovieCard({
     >
       <div
         {...trailerTouchHandlers}
+        onMouseEnter={handleFeedPosterMouseEnter}
+        onMouseLeave={handleFeedPosterMouseLeave}
         className={`group relative flex-shrink-0 overflow-hidden ${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} ${
           isFeed
             ? `${stretchPosterColumn ? "h-auto self-stretch" : "h-[164px] sm:h-[172px]"} w-[108px] bg-zinc-900 sm:w-[114px]`
