@@ -5,6 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
+import { useTrailerHover } from "../hooks/useTrailerHover";
 import { resolveMovieTitles } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
@@ -15,6 +16,7 @@ import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 import TrailerModal from "./TrailerModal";
+import TrailerHoverOverlay from "./TrailerHoverOverlay";
 
 const TOOLTIP_OFFSET_PX = 10;
 const TOOLTIP_VIEWPORT_PADDING_PX = 16;
@@ -854,10 +856,9 @@ function MovieCard({
   const [trailerUnavailable, setTrailerUnavailable] = useState(false);
   const [detailTrailerAvailable, setDetailTrailerAvailable] = useState(false);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
-  const trailerHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const trailerHoverRequestRef = useRef(0);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const hoverTrailer = useTrailerHover(movie.id, country, isDesktopViewport && (isFeed || !linkToDetail), FEED_TRAILER_HOVER_DELAY_MS);
 
 
   const clearLongPressTimer = useCallback(() => {
@@ -894,7 +895,6 @@ function MovieCard({
   }, [country, movie.id]);
 
   const closeTrailer = useCallback(() => {
-    trailerHoverRequestRef.current += 1;
     setTrailerOpen(false);
     setTrailerUrl(null);
     setTrailerWatchUrl(null);
@@ -905,47 +905,6 @@ function MovieCard({
     event.stopPropagation();
     void openTrailer();
   }, [openTrailer]);
-
-  const clearTrailerHoverTimer = useCallback(() => {
-    if (trailerHoverTimerRef.current) {
-      clearTimeout(trailerHoverTimerRef.current);
-      trailerHoverTimerRef.current = null;
-    }
-  }, []);
-
-  const handleFeedPosterMouseEnter = useCallback(() => {
-    if (!isFeed || !isDesktopViewport) return;
-    clearTrailerHoverTimer();
-    const requestId = trailerHoverRequestRef.current + 1;
-    trailerHoverRequestRef.current = requestId;
-    trailerHoverTimerRef.current = setTimeout(async () => {
-      trailerHoverTimerRef.current = null;
-      setTrailerLoading(true);
-      setTrailerError(false);
-      setTrailerUnavailable(false);
-      setTrailerUrl(null);
-      setTrailerWatchUrl(null);
-      try {
-        const trailer = await fetchMovieTrailer(movie.id, country);
-        if (trailerHoverRequestRef.current !== requestId) return;
-        if (trailer.available && trailer.trailerUrl) {
-          setTrailerWatchUrl(trailer.watchUrl);
-          setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
-          setTrailerOpen(true);
-        }
-      } catch {
-        // Hover trailer lookup is intentionally silent in the feed.
-      } finally {
-        if (trailerHoverRequestRef.current === requestId) setTrailerLoading(false);
-      }
-    }, FEED_TRAILER_HOVER_DELAY_MS);
-  }, [clearTrailerHoverTimer, country, isDesktopViewport, isFeed, movie.id]);
-
-  const handleFeedPosterMouseLeave = useCallback(() => {
-    if (!isFeed || !isDesktopViewport) return;
-    clearTrailerHoverTimer();
-    trailerHoverRequestRef.current += 1;
-  }, [clearTrailerHoverTimer, isDesktopViewport, isFeed]);
 
   const handlePosterTouchStart = useCallback((event: React.TouchEvent) => {
     const touch = event.touches[0];
@@ -1041,8 +1000,6 @@ function MovieCard({
       cancelled = true;
     };
   }, [country, isDesktopViewport, isFeed, linkToDetail, movie.id]);
-
-  useEffect(() => () => clearTrailerHoverTimer(), [clearTrailerHoverTimer]);
 
   const handleToggleMyList = async () => {
     const nextValue = !isInMyList;
@@ -1330,8 +1287,8 @@ function MovieCard({
     >
       <div
         {...trailerTouchHandlers}
-        onMouseEnter={handleFeedPosterMouseEnter}
-        onMouseLeave={handleFeedPosterMouseLeave}
+        onMouseEnter={hoverTrailer.onMouseEnter}
+        onMouseLeave={hoverTrailer.onMouseLeave}
         className={`group relative flex-shrink-0 overflow-hidden ${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} ${
           isFeed
             ? `${stretchPosterColumn ? "h-auto self-stretch" : "h-[164px] sm:h-[172px]"} w-[108px] bg-zinc-900 sm:w-[114px]`
@@ -1382,6 +1339,7 @@ function MovieCard({
           </div>
         )}
         {trailerOverlay}
+        <TrailerHoverOverlay loading={hoverTrailer.loading} unavailable={hoverTrailer.unavailable} locale={locale} />
 
       </div>
 
@@ -1461,6 +1419,7 @@ function MovieCard({
   );
 
   const trailerModal = (
+    <>
     <TrailerModal
       open={trailerOpen}
       trailerUrl={trailerUrl}
@@ -1471,6 +1430,16 @@ function MovieCard({
       onClose={closeTrailer}
       currentLanguage={locale}
     />
+    <TrailerModal
+      open={hoverTrailer.open}
+      trailerUrl={hoverTrailer.trailerUrl}
+      watchUrl={hoverTrailer.watchUrl}
+      loading={hoverTrailer.loading}
+      unavailable={hoverTrailer.unavailable}
+      onClose={hoverTrailer.close}
+      currentLanguage={locale}
+    />
+    </>
   );
 
   const mobileDetailCardContent = enableMobileDetailCarousel && isFeed && showExtendedMetadata ? (
