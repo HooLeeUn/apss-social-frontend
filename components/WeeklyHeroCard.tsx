@@ -259,8 +259,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </div>
         </div>
       </div>
-      <TrailerModal open={trailerHover.open} trailerUrl={trailerHover.trailerUrl} watchUrl={trailerHover.watchUrl} loading={trailerHover.loading} unavailable={trailerHover.unavailable} onClose={trailerHover.close} currentLanguage={locale} />
-      <TrailerModal open={trailerLongPress.open} trailerUrl={trailerLongPress.trailerUrl} watchUrl={trailerLongPress.watchUrl} loading={trailerLongPress.loading} error={trailerLongPress.error} unavailable={trailerLongPress.unavailable} externalOnly={trailerLongPress.externalOnly} onClose={trailerLongPress.close} currentLanguage={locale} />
+      <TrailerModal open={trailerHover.open} trailerUrl={trailerHover.trailerUrl} watchUrl={trailerHover.watchUrl} loading={trailerHover.loading} unavailable={trailerHover.unavailable} onClose={trailerHover.close} currentLanguage={locale} posterUrl={posterSrc} />
+      <TrailerModal open={trailerLongPress.open} trailerUrl={trailerLongPress.trailerUrl} watchUrl={trailerLongPress.watchUrl} loading={trailerLongPress.loading} error={trailerLongPress.error} unavailable={trailerLongPress.unavailable} externalOnly={trailerLongPress.externalOnly} onClose={trailerLongPress.close} currentLanguage={locale} posterUrl={posterSrc} />
     </article>
   );
 }

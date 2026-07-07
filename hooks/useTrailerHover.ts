@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Country } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
-import { fetchMovieTrailer, withTrailerAutoplayParams } from "../lib/trailers";
+import { fetchMovieTrailer, withYouTubeIframeApiParams } from "../lib/trailers";
 
 const TRAILER_HOVER_DELAY_MS = 500;
 
@@ -54,7 +54,7 @@ export function useTrailerHover(movieId: Movie["id"] | null | undefined, country
         if (requestRef.current !== requestId) return;
         if (trailer.available && trailer.trailerUrl) {
           setWatchUrl(trailer.watchUrl);
-          setTrailerUrl(withTrailerAutoplayParams(trailer.trailerUrl));
+          setTrailerUrl(withYouTubeIframeApiParams(trailer.trailerUrl));
           setUnavailable(false);
           openRef.current = true;
           setOpen(true);
