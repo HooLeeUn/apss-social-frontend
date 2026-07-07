@@ -8,11 +8,13 @@ import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
+import { fetchMovieTrailer } from "../lib/trailers";
 import { translateKnownForDepartment } from "../lib/personDepartments";
 import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
+import TrailerModal from "./TrailerModal";
 
 const TOOLTIP_OFFSET_PX = 10;
 const TOOLTIP_VIEWPORT_PADDING_PX = 16;
@@ -843,6 +845,103 @@ function MovieCard({
   const shouldRoundDesktopPosterLeft = isLarge || (isFeed && showExtendedMetadata);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const [mobileCarouselIndex, setMobileCarouselIndex] = useState(0);
+  const [trailerOpen, setTrailerOpen] = useState(false);
+  const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
+  const [trailerWatchUrl, setTrailerWatchUrl] = useState<string | null>(null);
+  const [trailerLoading, setTrailerLoading] = useState(false);
+  const [trailerError, setTrailerError] = useState(false);
+  const [trailerUnavailable, setTrailerUnavailable] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const openTrailer = useCallback(async () => {
+    setTrailerOpen(true);
+    setTrailerLoading(true);
+    setTrailerError(false);
+    setTrailerUnavailable(false);
+    setTrailerUrl(null);
+    setTrailerWatchUrl(null);
+
+    try {
+      const trailer = await fetchMovieTrailer(movie.id, country);
+      setTrailerWatchUrl(trailer.watchUrl);
+      if (trailer.available && trailer.trailerUrl) {
+        setTrailerUrl(trailer.trailerUrl);
+        setTrailerUnavailable(false);
+      } else {
+        setTrailerUnavailable(true);
+      }
+    } catch {
+      setTrailerError(true);
+    } finally {
+      setTrailerLoading(false);
+    }
+  }, [country, movie.id]);
+
+  const closeTrailer = useCallback(() => {
+    setTrailerOpen(false);
+    setTrailerUrl(null);
+  }, []);
+
+  const handleTrailerClick = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void openTrailer();
+  }, [openTrailer]);
+
+  const handlePosterTouchStart = useCallback((event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    clearLongPressTimer();
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTimerRef.current = null;
+      void openTrailer();
+    }, 600);
+  }, [clearLongPressTimer, openTrailer]);
+
+  const handlePosterTouchMove = useCallback((event: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaY) > 12 || Math.abs(deltaX) > 14) clearLongPressTimer();
+  }, [clearLongPressTimer]);
+
+  const handlePosterTouchEnd = useCallback(() => {
+    clearLongPressTimer();
+    touchStartRef.current = null;
+  }, [clearLongPressTimer]);
+
+  const handleDetailPosterTouchStart = useCallback((event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    clearLongPressTimer();
+  }, [clearLongPressTimer]);
+
+  const handleDetailPosterTouchEnd = useCallback((event: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches[0];
+    clearLongPressTimer();
+    touchStartRef.current = null;
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (deltaX >= 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4) {
+      event.preventDefault();
+      void openTrailer();
+    }
+  }, [clearLongPressTimer, openTrailer]);
 
   const updateMobileCarouselIndex = useCallback(() => {
     const node = mobileCarouselRef.current;
@@ -1129,6 +1228,33 @@ function MovieCard({
   );
 
 
+  const trailerOverlay = isFeed ? (
+    <button
+      type="button"
+      onClick={handleTrailerClick}
+      className="absolute inset-0 z-10 hidden items-center justify-center bg-black/55 text-center text-xs font-bold uppercase tracking-[0.12em] text-white opacity-0 backdrop-blur-[1px] transition-opacity duration-200 hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0] md:flex"
+      aria-label={`${t("trailerWatch")} ${displayTitle}`}
+    >
+      <span className="rounded-full border border-[#86ADE0]/50 bg-[#1f4f7a]/75 px-3 py-2 shadow-[0_0_18px_rgba(47,155,255,0.28)]">▶ {t("trailerWatch")}</span>
+    </button>
+  ) : !linkToDetail ? (
+    <button
+      type="button"
+      onClick={handleTrailerClick}
+      className="absolute inset-0 z-10 hidden items-center justify-center bg-black/30 text-center text-xs font-bold uppercase tracking-[0.14em] text-white opacity-0 transition-opacity duration-200 hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0] md:flex"
+      aria-label={`${t("trailerTitle")} ${displayTitle}`}
+    >
+      <span className="rounded-full border border-[#86ADE0]/55 bg-black/65 px-3 py-2 shadow-[0_0_18px_rgba(47,155,255,0.25)]">▶ {t("trailerTitle")}</span>
+    </button>
+  ) : null;
+
+  const trailerTouchHandlers = isFeed
+    ? { onTouchStart: handlePosterTouchStart, onTouchMove: handlePosterTouchMove, onTouchEnd: handlePosterTouchEnd, onTouchCancel: handlePosterTouchEnd }
+    : !linkToDetail
+      ? { onTouchStart: handleDetailPosterTouchStart, onTouchEnd: handleDetailPosterTouchEnd, onTouchCancel: handlePosterTouchEnd }
+      : {};
+
+
   const desktopCardContent = (
     <article
       className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
@@ -1136,6 +1262,7 @@ function MovieCard({
       } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}
     >
       <div
+        {...trailerTouchHandlers}
         className={`group relative flex-shrink-0 overflow-hidden ${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} ${
           isFeed
             ? `${stretchPosterColumn ? "h-auto self-stretch" : "h-[164px] sm:h-[172px]"} w-[108px] bg-zinc-900 sm:w-[114px]`
@@ -1185,6 +1312,7 @@ function MovieCard({
             {t("noPoster")}
           </div>
         )}
+        {trailerOverlay}
 
       </div>
 
@@ -1263,10 +1391,23 @@ function MovieCard({
     </article>
   );
 
+  const trailerModal = (
+    <TrailerModal
+      open={trailerOpen}
+      trailerUrl={trailerUrl}
+      watchUrl={trailerWatchUrl}
+      loading={trailerLoading}
+      error={trailerError}
+      unavailable={trailerUnavailable}
+      onClose={closeTrailer}
+      currentLanguage={locale}
+    />
+  );
+
   const mobileDetailCardContent = enableMobileDetailCarousel && isFeed && showExtendedMetadata ? (
     <>
       <article className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors md:hidden">
-        <div className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]">
+        <div className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]" {...trailerTouchHandlers}>
           {posterSrc && !hasPosterError ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -1280,6 +1421,7 @@ function MovieCard({
           ) : (
             <div className="flex h-full w-full items-center justify-center px-3 text-center text-sm text-zinc-400">{t("noPoster")}</div>
           )}
+          <span className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full border border-[#86ADE0]/35 bg-black/55 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-100 md:hidden">▶</span>
         </div>
         <div className="relative min-w-0 flex-1 overflow-hidden">
           {mobileCarouselIndex > 0 ? <span aria-hidden="true" className="pointer-events-none absolute left-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">‹</span> : null}
@@ -1333,8 +1475,14 @@ function MovieCard({
         </div>
       </article>
       <div className="hidden md:block">{desktopCardContent}</div>
+      {trailerModal}
     </>
-  ) : desktopCardContent;
+  ) : (
+    <>
+      {desktopCardContent}
+      {trailerModal}
+    </>
+  );
 
   if (splitFeedActions) {
     return (
