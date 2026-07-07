@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Locale } from "../lib/i18n";
 import { t } from "../lib/i18n";
+import { hasTrailerExternalOnlyFallback, markTrailerExternalOnlyFallback } from "../lib/trailerFallbackCache";
 function useIsMobileTrailerModal(open: boolean) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -36,21 +37,32 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
   const isMobile = useIsMobileTrailerModal(open);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [embedErrorUrl, setEmbedErrorUrl] = useState<string | null>(null);
+  const [iframeReadyUrl, setIframeReadyUrl] = useState<string | null>(null);
+  const [cachedExternalOnlyUrl, setCachedExternalOnlyUrl] = useState<string | null>(null);
   const embedError = Boolean(trailerUrl && embedErrorUrl === trailerUrl);
-  const canRenderIframe = Boolean(open && trailerUrl && !loading && !error && !unavailable && !externalOnly && !embedError);
+  const iframeReady = Boolean(trailerUrl && iframeReadyUrl === trailerUrl);
+  const cachedExternalOnly = Boolean(trailerUrl && (cachedExternalOnlyUrl === trailerUrl || hasTrailerExternalOnlyFallback(trailerUrl, watchUrl)));
+  const shouldAttemptIframe = Boolean(open && trailerUrl && !loading && !error && !unavailable && !externalOnly && !embedError && !cachedExternalOnly);
 
   useEffect(() => {
-    if (!canRenderIframe || !iframeRef.current) return;
+    if (!shouldAttemptIframe || !iframeRef.current) return;
 
     let cancelled = false;
     const iframe = iframeRef.current;
     const handleEmbedError = () => {
-      if (!cancelled) setEmbedErrorUrl(trailerUrl);
+      if (!cancelled) {
+        markTrailerExternalOnlyFallback(trailerUrl, watchUrl);
+        setCachedExternalOnlyUrl(trailerUrl);
+        setEmbedErrorUrl(trailerUrl);
+      }
     };
     const createPlayer = () => {
       if (cancelled || !window.YT?.Player || !iframe.isConnected) return;
       new window.YT.Player(iframe, {
         events: {
+          onReady: () => {
+            if (!cancelled) setIframeReadyUrl(trailerUrl);
+          },
           onError: handleEmbedError,
         },
       });
@@ -76,7 +88,13 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
     return () => {
       cancelled = true;
     };
-  }, [canRenderIframe, trailerUrl]);
+  }, [shouldAttemptIframe, trailerUrl, watchUrl]);
+
+  useEffect(() => {
+    if (externalOnly && (trailerUrl || watchUrl)) {
+      markTrailerExternalOnlyFallback(trailerUrl, watchUrl);
+    }
+  }, [externalOnly, trailerUrl, watchUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +109,11 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
 
   if (!open || typeof document === "undefined") return null;
 
-  const isYouTubeFallback = Boolean((externalOnly || embedError) && watchUrl);
+  const isYouTubeFallback = Boolean((externalOnly || embedError || cachedExternalOnly) && watchUrl);
+  const showIframePlaceholder = shouldAttemptIframe && !iframeReady;
+  const handleFallbackWatchClick = () => {
+    onClose();
+  };
   const statusText = loading
     ? t(currentLanguage, "trailerLoading")
     : isYouTubeFallback
@@ -120,41 +142,65 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
           </button>
         </div>
         <div className="space-y-4 p-4 sm:p-5">
-          {canRenderIframe ? (
-            <div className="aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black">
+          {shouldAttemptIframe ? (
+            <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black">
+              {showIframePlaceholder ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/95 px-4 text-center text-sm font-medium text-zinc-300 sm:text-base">
+                  {posterUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={posterUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45 blur-[1px]" />
+                  ) : null}
+                  <div className="absolute inset-0 bg-black/60" />
+                  <span className="relative z-10 rounded-full border border-[#86ADE0]/35 bg-black/65 px-4 py-2 text-base font-semibold text-white shadow-[0_0_22px_rgba(47,155,255,0.2)]">{t(currentLanguage, "trailerLoading")}</span>
+                </div>
+              ) : null}
               {isMobile ? (
                 <iframe
+                  key={trailerUrl}
                   ref={iframeRef}
                   src={trailerUrl ?? undefined}
                   title="Trailer"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
-                  className="h-full w-full"
+                  className={`h-full w-full transition-opacity duration-150 ${iframeReady ? "opacity-100" : "opacity-0"}`}
                 />
               ) : (
                 <iframe
+                  key={trailerUrl}
                   ref={iframeRef}
                   src={trailerUrl ?? undefined}
                   title="Trailer"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
-                  className="h-full w-full"
+                  className={`h-full w-full transition-opacity duration-150 ${iframeReady ? "opacity-100" : "opacity-0"}`}
                 />
               )}
             </div>
           ) : (
             <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-zinc-950/80 px-4 text-center text-sm font-medium text-zinc-300 sm:text-base">
-              {isYouTubeFallback && posterUrl ? (
+              {posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={posterUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55 blur-[1px]" />
               ) : null}
-              <div className="absolute inset-0 bg-black/45" />
-              <span className="relative z-10 rounded-full border border-[#86ADE0]/35 bg-black/65 px-4 py-2 text-base font-semibold text-white shadow-[0_0_22px_rgba(47,155,255,0.2)]">{statusText}</span>
+              <div className="absolute inset-0 bg-black/55" />
+              {isYouTubeFallback ? (
+                <a
+                  href={watchUrl ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleFallbackWatchClick}
+                  className="relative z-10 rounded-full border border-[#86ADE0]/45 bg-black/70 px-5 py-3 text-base font-semibold text-white shadow-[0_0_22px_rgba(47,155,255,0.24)] transition hover:border-[#86ADE0]/70 hover:bg-[#1f4f7a]/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]"
+                >
+                  {t(currentLanguage, "trailerWatchOnYoutube")}
+                </a>
+              ) : (
+                <span className="relative z-10 rounded-full border border-[#86ADE0]/35 bg-black/65 px-4 py-2 text-base font-semibold text-white shadow-[0_0_22px_rgba(47,155,255,0.2)]">{statusText}</span>
+              )}
             </div>
           )}
-          {watchUrl ? (
+          {watchUrl && !isYouTubeFallback ? (
             <a
               href={watchUrl}
               target="_blank"

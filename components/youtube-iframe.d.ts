@@ -5,7 +5,7 @@ declare global {
     YT?: {
       Player: new (
         element: HTMLIFrameElement,
-        options: { events?: { onError?: () => void } },
+        options: { events?: { onReady?: () => void; onError?: () => void } },
       ) => unknown;
     };
     onYouTubeIframeAPIReady?: () => void;
