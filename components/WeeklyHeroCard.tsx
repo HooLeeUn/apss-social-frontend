@@ -7,6 +7,7 @@ import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import { useTrailerHover } from "../hooks/useTrailerHover";
+import { useTrailerLongPress } from "../hooks/useTrailerLongPress";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
@@ -82,13 +83,14 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
     }
   };
   const trailerHover = useTrailerHover(movie?.id, country, Boolean(movie));
+  const trailerLongPress = useTrailerLongPress(movie?.id, country, Boolean(movie));
   const tagIconClassName = `interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
     <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
         <div className="mx-auto w-full max-w-[270px] px-4 pt-3 sm:max-w-[270px] lg:max-w-[288px]">
-          <div className="relative h-[318px] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900 lg:aspect-[2/3] lg:h-auto" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave}>
+          <div className="relative h-[318px] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900 lg:aspect-[2/3] lg:h-auto" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave} {...trailerLongPress.posterProps}>
             {posterSrc && !hasPosterError ? (
               detailHref ? (
                 <Link href={detailHref} aria-label={`Ver detalle de ${title}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
@@ -126,7 +128,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 Poster próximamente
               </div>
             )}
-            <TrailerHoverOverlay loading={trailerHover.loading} unavailable={trailerHover.unavailable} locale={locale} />
+            <TrailerHoverOverlay loading={trailerHover.loading || trailerLongPress.loading} unavailable={trailerHover.unavailable || trailerLongPress.unavailable} locale={locale} />
           </div>
 
           <div className="py-2">
@@ -258,6 +260,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
         </div>
       </div>
       <TrailerModal open={trailerHover.open} trailerUrl={trailerHover.trailerUrl} watchUrl={trailerHover.watchUrl} loading={trailerHover.loading} unavailable={trailerHover.unavailable} onClose={trailerHover.close} currentLanguage={locale} />
+      <TrailerModal open={trailerLongPress.open} trailerUrl={trailerLongPress.trailerUrl} watchUrl={trailerLongPress.watchUrl} loading={trailerLongPress.loading} error={trailerLongPress.error} unavailable={trailerLongPress.unavailable} onClose={trailerLongPress.close} currentLanguage={locale} />
     </article>
   );
 }
