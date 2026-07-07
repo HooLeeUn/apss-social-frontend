@@ -15,6 +15,14 @@ function readString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+export function withTrailerAutoplayParams(trailerUrl: string): string {
+  const [baseUrl, hash = ""] = trailerUrl.split("#", 2);
+  const separator = baseUrl.includes("?") ? "&" : "?";
+  const params = "autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1";
+
+  return `${baseUrl}${separator}${params}${hash ? `#${hash}` : ""}`;
+}
+
 export async function fetchMovieTrailer(movieId: Movie["id"], country: Country): Promise<MovieTrailer> {
   const encodedMovieId = encodeURIComponent(String(movieId));
   const encodedCountry = encodeURIComponent(country);

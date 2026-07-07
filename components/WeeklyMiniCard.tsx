@@ -6,8 +6,11 @@ import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../lib/rating-format";
+import { useTrailerHover } from "../hooks/useTrailerHover";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
+import TrailerHoverOverlay from "./TrailerHoverOverlay";
+import TrailerModal from "./TrailerModal";
 
 interface WeeklyMiniCardProps {
   movie?: Movie;
@@ -30,7 +33,7 @@ function getAvatarFallback(username?: string | null): string {
 }
 
 function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations }: WeeklyMiniCardProps) {
-  const { locale } = useI18n();
+  const { locale, country } = useI18n();
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
   const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
@@ -83,6 +86,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
       console.warn("No se pudo actualizar Mis recomendadas.", error);
     }
   };
+  const trailerHover = useTrailerHover(movie?.id, country, Boolean(movie));
   const tagIconClassName = `interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
@@ -218,7 +222,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </div>
 
           <div className="w-[32%] min-w-[82px] max-w-[110px] border-l border-white/10 bg-zinc-950 lg:w-[34%] lg:min-w-[72px] lg:max-w-[92px]">
-            <div className="h-full w-full">
+            <div className="relative h-full w-full overflow-hidden" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave}>
               {posterSrc && !hasPosterError ? (
                 detailHref ? (
                   <Link href={detailHref} aria-label={`Ver detalle de ${title}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
@@ -256,10 +260,12 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                   Sin poster
                 </div>
               )}
+              <TrailerHoverOverlay loading={trailerHover.loading} unavailable={trailerHover.unavailable} locale={locale} />
             </div>
           </div>
         </div>
       </div>
+      <TrailerModal open={trailerHover.open} trailerUrl={trailerHover.trailerUrl} watchUrl={trailerHover.watchUrl} loading={trailerHover.loading} unavailable={trailerHover.unavailable} onClose={trailerHover.close} currentLanguage={locale} />
     </article>
   );
 }
