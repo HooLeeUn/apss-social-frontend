@@ -22,6 +22,7 @@ interface WeeklyMiniCardProps {
   onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   isInMyRecommendations?: boolean;
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
+  trailerHoverDelayMs?: number;
 }
 
 function getAvatarFallback(username?: string | null): string {
@@ -33,7 +34,7 @@ function getAvatarFallback(username?: string | null): string {
   return initials || "★";
 }
 
-function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations }: WeeklyMiniCardProps) {
+function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations, trailerHoverDelayMs }: WeeklyMiniCardProps) {
   const { locale, country } = useI18n();
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
@@ -87,7 +88,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
       console.warn("No se pudo actualizar Mis recomendadas.", error);
     }
   };
-  const trailerHover = useTrailerHover(movie?.id, country, Boolean(movie));
+  const trailerHover = useTrailerHover(movie?.id, country, Boolean(movie), trailerHoverDelayMs);
   const trailerLongPress = useTrailerLongPress(movie?.id, country, Boolean(movie));
   const tagIconClassName = `interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 

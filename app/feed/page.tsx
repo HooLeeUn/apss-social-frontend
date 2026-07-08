@@ -1027,7 +1027,7 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} />
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">
