@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { clearToken, getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
-import MovieCard from "../../components/MovieCard";
+import MovieCard, { MAIN_FEED_TRAILER_HOVER_DELAY_MS } from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
 import WeeklyRecommendationsSection from "../../components/WeeklyRecommendationsSection";
 import DirectorBoardMenu from "../../components/DirectorBoardMenu";
@@ -1027,7 +1027,7 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} />
+          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">
@@ -1056,6 +1056,7 @@ export default function FeedPage() {
                   isInMyRecommendationsOverride={recommendedMovieIds.has(String(movie.id))}
                   onToggleMyRecommendations={handleToggleMyRecommendations}
                   stretchPosterColumn
+                  trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS}
                 />
               ))}
               </div>

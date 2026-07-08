@@ -13,9 +13,10 @@ interface WeeklyRecommendationsSectionProps {
   onToggleMyList?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   recommendedMovieIds?: Set<string>;
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
+  trailerHoverDelayMs?: number;
 }
 
-function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations }: WeeklyRecommendationsSectionProps) {
+function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations, trailerHoverDelayMs }: WeeklyRecommendationsSectionProps) {
   const { t } = useI18n({ userId: currentUserId, username: currentUsername });
   const heroMovies = useMemo(() => [weeklyMovies[0], weeklyMovies[1]], [weeklyMovies]);
   const miniMovies = useMemo(() => Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]), [weeklyMovies]);
@@ -30,6 +31,7 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
       onToggleMyList={onToggleMyList}
       isInMyRecommendations={Boolean(movie && recommendedMovieIds?.has(String(movie.id)))}
       onToggleMyRecommendations={onToggleMyRecommendations}
+      trailerHoverDelayMs={trailerHoverDelayMs}
     />
   );
 
@@ -43,6 +45,7 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
       onToggleMyList={onToggleMyList}
       isInMyRecommendations={Boolean(movie && recommendedMovieIds?.has(String(movie.id)))}
       onToggleMyRecommendations={onToggleMyRecommendations}
+      trailerHoverDelayMs={trailerHoverDelayMs}
     />
   );
 
