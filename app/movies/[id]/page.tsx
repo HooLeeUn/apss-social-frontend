@@ -1159,13 +1159,6 @@ export default function MovieDetailPage() {
     [fetchMovieDetail],
   );
 
-  useEffect(() => {
-    console.log("[movie-comments-debug] render public count", publicComments.length);
-  }, [publicComments.length]);
-
-  useEffect(() => {
-    console.log("[movie-comments-debug] render directed conversations count", directedConversations.length);
-  }, [directedConversations.length]);
 
   useEffect(() => {
     if (!expandedConversationKey) return;
