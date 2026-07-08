@@ -667,7 +667,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
   const [locale, setLocale] = useState<Locale>("es");
   const [providers, setProviders] = useState<StreamingProvider[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [hasLoadError, setHasLoadError] = useState(false);
 
   useEffect(() => {
     const syncCountry = () => {
@@ -685,7 +685,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
 
     async function loadProviders() {
       setLoading(true);
-      setError("");
+      setHasLoadError(false);
 
       try {
         const payload = await apiFetch(buildWatchProvidersEndpoint(movieId, country));
@@ -695,7 +695,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
         console.warn("No se pudieron cargar plataformas de streaming.", loadError);
         if (cancelled) return;
         setProviders([]);
-        setError(getStreamingLabels(locale).loadError);
+        setHasLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -706,7 +706,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
     return () => {
       cancelled = true;
     };
-  }, [country, locale, movieId]);
+  }, [country, movieId]);
 
   const labels = getStreamingLabels(locale);
   const subscriptionProviders = useMemo(() => providers.filter((provider) => provider.availability.includes("flatrate")), [providers]);
@@ -733,10 +733,10 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
           </div>
         </div>
       ) : null}
-      {!loading && error ? <p className="text-xs leading-snug text-zinc-500">{error}</p> : null}
-      {!loading && !error && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
+      {!loading && hasLoadError ? <p className="text-xs leading-snug text-zinc-500">{labels.loadError}</p> : null}
+      {!loading && !hasLoadError && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
 
-      {!loading && !error && hasProviders ? (
+      {!loading && !hasLoadError && hasProviders ? (
         <div className="space-y-2 md:space-y-3">
           <ProviderRow providers={subscriptionProviders} label={labels.subscription} locale={locale} />
           <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} mobileMaxVisibleProviders={3} />
