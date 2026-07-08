@@ -93,7 +93,8 @@ const PERSON_CARD_WIDTH_PX = 320;
 const PERSON_HOVER_DELAY_MS = 500;
 const PERSON_POPOVER_HIDE_EVENT = "qnext-hide-person-popovers";
 const MOBILE_METADATA_DRAG_EVENT = "qnext-mobile-metadata-drag";
-const FEED_TRAILER_HOVER_DELAY_MS = 500;
+const DEFAULT_TRAILER_HOVER_DELAY_MS = 500;
+export const MAIN_FEED_TRAILER_HOVER_DELAY_MS = 2000;
 const GLOBAL_POPOVERS_HIDE_EVENT = "qnext-hide-active-popovers";
 const CAST_OVERFLOW_POPOVER_WIDTH_PX = 310;
 const DESKTOP_CAST_MAX_ROWS = 4;
@@ -748,6 +749,7 @@ interface MovieCardProps {
   creditsLoading?: boolean;
   preloadPersonDetails?: boolean;
   enableMobileDetailCarousel?: boolean;
+  trailerHoverDelayMs?: number;
 }
 
 function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
@@ -811,6 +813,7 @@ function MovieCard({
   creditsLoading = false,
   preloadPersonDetails = false,
   enableMobileDetailCarousel = false,
+  trailerHoverDelayMs = DEFAULT_TRAILER_HOVER_DELAY_MS,
 }: MovieCardProps) {
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
@@ -862,7 +865,7 @@ function MovieCard({
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const trailerRequestRef = useRef(0);
   const suppressNextClickRef = useRef(false);
-  const hoverTrailer = useTrailerHover(movie.id, country, isDesktopViewport && (isFeed || !linkToDetail), FEED_TRAILER_HOVER_DELAY_MS);
+  const hoverTrailer = useTrailerHover(movie.id, country, isDesktopViewport && (isFeed || !linkToDetail), trailerHoverDelayMs);
 
 
   const clearLongPressTimer = useCallback(() => {
