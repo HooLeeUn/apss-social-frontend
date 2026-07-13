@@ -11,6 +11,7 @@ export interface AppBranding {
   visited_profile_logo_url: string | null;
   personal_data_logo_url: string | null;
   privacy_security_logo_url: string | null;
+  poster_placeholder?: string | null;
   updated_at: string;
 }
 
@@ -85,6 +86,8 @@ function normalizeAppBranding(payload: AppBranding): AppBranding {
     normalizedBranding[field] = normalizeBackendMediaUrl(payload[field]);
   }
 
+  normalizedBranding.poster_placeholder = normalizeBackendMediaUrl(payload.poster_placeholder);
+
   return normalizedBranding;
 }
 
@@ -112,4 +115,8 @@ export function resolveBrandingLogoUrl(branding: AppBranding | null, slot: Brand
   const slotUrl = branding[slot];
   if (slotUrl) return slotUrl;
   return branding.default_logo_url || null;
+}
+
+export function resolvePosterPlaceholderUrl(branding: AppBranding | null | undefined): string | null {
+  return normalizeBackendMediaUrl(branding?.poster_placeholder);
 }

@@ -1,5 +1,6 @@
 import { memo, useMemo } from "react";
 import { Movie } from "../lib/movies";
+import type { AppBranding } from "../lib/branding";
 import { useI18n } from "../hooks/useI18n";
 import WeeklyHeroCard from "./WeeklyHeroCard";
 import WeeklyMiniCard from "./WeeklyMiniCard";
@@ -14,9 +15,10 @@ interface WeeklyRecommendationsSectionProps {
   recommendedMovieIds?: Set<string>;
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   trailerHoverDelayMs?: number;
+  branding?: AppBranding | null;
 }
 
-function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations, trailerHoverDelayMs }: WeeklyRecommendationsSectionProps) {
+function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations, trailerHoverDelayMs, branding = null }: WeeklyRecommendationsSectionProps) {
   const { t } = useI18n({ userId: currentUserId, username: currentUsername });
   const heroMovies = useMemo(() => [weeklyMovies[0], weeklyMovies[1]], [weeklyMovies]);
   const miniMovies = useMemo(() => Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]), [weeklyMovies]);
@@ -32,6 +34,7 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
       isInMyRecommendations={Boolean(movie && recommendedMovieIds?.has(String(movie.id)))}
       onToggleMyRecommendations={onToggleMyRecommendations}
       trailerHoverDelayMs={trailerHoverDelayMs}
+      branding={branding}
     />
   );
 
@@ -46,6 +49,7 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
       isInMyRecommendations={Boolean(movie && recommendedMovieIds?.has(String(movie.id)))}
       onToggleMyRecommendations={onToggleMyRecommendations}
       trailerHoverDelayMs={trailerHoverDelayMs}
+      branding={branding}
     />
   );
 

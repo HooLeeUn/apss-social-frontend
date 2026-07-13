@@ -1670,6 +1670,7 @@ export default function MovieDetailPage() {
             creditsLoading={creditsLoading}
             preloadPersonDetails
             enableMobileDetailCarousel
+            branding={branding}
           />
         ) : null}
 

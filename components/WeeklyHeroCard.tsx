@@ -12,6 +12,8 @@ import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import TrailerModal from "./TrailerModal";
+import PosterImage from "./PosterImage";
+import type { AppBranding } from "../lib/branding";
 
 interface WeeklyHeroCardProps {
   movie?: Movie;
@@ -23,6 +25,7 @@ interface WeeklyHeroCardProps {
   isInMyRecommendations?: boolean;
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   trailerHoverDelayMs?: number;
+  branding?: AppBranding | null;
 }
 
 function getAvatarFallback(username?: string | null): string {
@@ -34,7 +37,7 @@ function getAvatarFallback(username?: string | null): string {
   return initials || "★";
 }
 
-function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations, trailerHoverDelayMs }: WeeklyHeroCardProps) {
+function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations, trailerHoverDelayMs, branding = null }: WeeklyHeroCardProps) {
   const { locale, country, t } = useI18n();
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
@@ -47,11 +50,9 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const topUserId = movie?.topUser?.id;
   const topUserAvatar = movie?.topUser?.avatar ?? null;
   const [avatarFailedSrc, setAvatarFailedSrc] = useState<string | null>(null);
-  const [posterFailedSrc, setPosterFailedSrc] = useState<string | null>(null);
   const posterSrc = movie?.image || movie?.posterUrl || null;
   const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
   const hasAvatarError = Boolean(topUserAvatar && avatarFailedSrc === topUserAvatar);
-  const hasPosterError = Boolean(posterSrc && posterFailedSrc === posterSrc);
   const hasTopUserNavigationData = Boolean(topUsername && topUserId !== null && topUserId !== undefined);
   const isCurrentUser = hasTopUserNavigationData && currentUserId !== null && currentUserId !== undefined
     ? String(topUserId) === String(currentUserId)
@@ -92,41 +93,25 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
         <div className="mx-auto w-full max-w-[270px] px-4 pt-3 sm:max-w-[270px] lg:max-w-[288px]">
           <div className="relative h-[318px] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900 lg:aspect-[2/3] lg:h-auto" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave} {...trailerLongPress.posterProps}>
-            {posterSrc && !hasPosterError ? (
+            {movie ? (
               detailHref ? (
                 <Link href={detailHref} aria-label={`Ver detalle de ${title}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={posterSrc}
-                    alt={`Poster de ${title}`}
+                  <PosterImage
+                    posterSrc={posterSrc}
+                    title={title}
+                    branding={branding}
                     className="h-full w-full object-cover transition-transform duration-200 hover:scale-[1.02]"
+                    placeholderClassName="h-full w-full bg-gradient-to-br from-zinc-800 to-zinc-950 object-contain p-6"
                     loading="lazy"
                     decoding="async"
-                    onError={() => setPosterFailedSrc(posterSrc)}
                   />
                 </Link>
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={posterSrc}
-                  alt={`Poster de ${title}`}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  onError={() => setPosterFailedSrc(posterSrc)}
-                />
+                <PosterImage posterSrc={posterSrc} title={title} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-gradient-to-br from-zinc-800 to-zinc-950 object-contain p-6" loading="lazy" decoding="async" />
               )
-            ) : detailHref ? (
-              <Link
-                href={detailHref}
-                aria-label={`Ver detalle de ${title}`}
-                className="flex h-full w-full cursor-pointer items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-6 text-center text-sm text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-              >
-                Poster próximamente
-              </Link>
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 px-6 text-center text-sm text-zinc-300">
-                Poster próximamente
+                {fallbackLabel}
               </div>
             )}
             <TrailerHoverOverlay loading={trailerHover.loading || trailerLongPress.loading} unavailable={trailerHover.unavailable || trailerLongPress.unavailable} locale={locale} />

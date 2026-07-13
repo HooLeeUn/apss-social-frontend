@@ -17,6 +17,8 @@ import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 import TrailerModal from "./TrailerModal";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
+import PosterImage from "./PosterImage";
+import type { AppBranding } from "../lib/branding";
 
 const TOOLTIP_OFFSET_PX = 10;
 const TOOLTIP_VIEWPORT_PADDING_PX = 16;
@@ -750,6 +752,7 @@ interface MovieCardProps {
   preloadPersonDetails?: boolean;
   enableMobileDetailCarousel?: boolean;
   trailerHoverDelayMs?: number;
+  branding?: AppBranding | null;
 }
 
 function formatContentType(contentType: string, labels: { movie: string; series: string; unknown: string }) {
@@ -814,6 +817,7 @@ function MovieCard({
   preloadPersonDetails = false,
   enableMobileDetailCarousel = false,
   trailerHoverDelayMs = DEFAULT_TRAILER_HOVER_DELAY_MS,
+  branding = null,
 }: MovieCardProps) {
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
@@ -842,12 +846,10 @@ function MovieCard({
   void _enlargeInteractionIcons;
   const [localIsInMyList, setLocalIsInMyList] = useState<boolean | null>(null);
   const [localIsInMyRecommendations, setLocalIsInMyRecommendations] = useState<boolean | null>(null);
-  const [posterFailedSrc, setPosterFailedSrc] = useState<string | null>(null);
   const [personDetailCache, setPersonDetailCache] = useState<PersonDetailCache>({ ...personDetailMemoryCache });
   const isInMyList = localIsInMyList ?? Boolean(isInMyListOverride ?? movie.isInMyList);
   const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
   const posterSrc = movie.image || movie.posterUrl;
-  const hasPosterError = Boolean(posterSrc && posterFailedSrc === posterSrc);
   const shouldRoundDesktopPosterLeft = isLarge || (isFeed && showExtendedMetadata);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const [mobileCarouselIndex, setMobileCarouselIndex] = useState(0);
@@ -1353,28 +1355,28 @@ function MovieCard({
             : "bg-gray-200"
         } ${isLarge ? "h-72 md:h-auto md:w-48" : isFeed ? "" : "h-56"}`}
       >
-        {posterSrc && !hasPosterError ? (
+        {posterSrc ? (
           canNavigateToDetail && isFeed ? (
             <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={posterSrc}
-                alt={`Poster de ${displayTitle}`}
+              <PosterImage
+                posterSrc={posterSrc}
+                title={displayTitle}
+                branding={branding}
                 className={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full object-cover transition-transform duration-200 hover:scale-[1.02]`}
+                placeholderClassName={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full bg-zinc-900 object-contain p-3`}
                 loading="lazy"
                 decoding="async"
-                onError={() => setPosterFailedSrc(posterSrc)}
               />
             </Link>
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={posterSrc}
-              alt={`Poster de ${displayTitle}`}
+            <PosterImage
+              posterSrc={posterSrc}
+              title={displayTitle}
+              branding={branding}
               className={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full object-cover`}
+              placeholderClassName={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full bg-zinc-900 object-contain p-3`}
               loading={isFeed ? "lazy" : "eager"}
               decoding="async"
-              onError={() => setPosterFailedSrc(posterSrc)}
             />
           )
         ) : canNavigateToDetail && isFeed ? (
@@ -1385,7 +1387,7 @@ function MovieCard({
               isFeed ? "text-zinc-400" : "text-gray-500"
             }`}
           >
-            {t("noPoster")}
+            <PosterImage posterSrc={null} title={displayTitle} branding={branding} className={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full object-cover`} placeholderClassName={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full bg-zinc-900 object-contain p-3`} loading="lazy" decoding="async" />
           </Link>
         ) : (
           <div
@@ -1393,7 +1395,7 @@ function MovieCard({
               isFeed ? "text-zinc-400" : "text-gray-500"
             }`}
           >
-            {t("noPoster")}
+            <PosterImage posterSrc={null} title={displayTitle} branding={branding} className={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full object-cover`} placeholderClassName={`${shouldRoundDesktopPosterLeft ? "rounded-l-xl" : ""} h-full w-full bg-zinc-900 object-contain p-3`} loading={isFeed ? "lazy" : "eager"} decoding="async" />
           </div>
         )}
         {trailerOverlay}
@@ -1507,21 +1509,13 @@ function MovieCard({
     <>
       <article className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors md:hidden">
         <div className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]" {...trailerTouchHandlers}>
-          {posterSrc && !hasPosterError ? (
+          {posterSrc ? (
             <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={posterSrc}
-                alt={`Poster de ${displayTitle}`}
-                className="h-full w-full object-cover"
-                loading="lazy"
-                decoding="async"
-                onError={() => setPosterFailedSrc(posterSrc)}
-              />
+              <PosterImage posterSrc={posterSrc} title={displayTitle} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-3" loading="lazy" decoding="async" />
             </Link>
           ) : (
             <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="flex h-full w-full cursor-pointer items-center justify-center px-3 text-center text-sm text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
-              {t("noPoster")}
+              <PosterImage posterSrc={null} title={displayTitle} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-3" loading="lazy" decoding="async" />
             </Link>
           )}
           <TrailerHoverOverlay loading={trailerLoading} unavailable={trailerUnavailable} locale={locale} />
