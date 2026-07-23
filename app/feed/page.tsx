@@ -236,7 +236,8 @@ export default function FeedPage() {
   const personalizedAbortControllerRef = useRef<AbortController | null>(null);
   const personalizedLoadMoreAbortControllerRef = useRef<AbortController | null>(null);
   const excludedRatedIdsRef = useRef<Set<string>>(new Set());
-  const notificationContainerRef = useRef<HTMLDivElement | null>(null);
+  const desktopNotificationContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileNotificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileNavRef = useRef<HTMLElement | null>(null);
   const isRefreshingNotificationsRef = useRef(false);
@@ -828,9 +829,12 @@ export default function FeedPage() {
     if (!isNotificationPanelOpen) return;
 
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (!notificationContainerRef.current) return;
       if (!(event.target instanceof Node)) return;
-      if (notificationContainerRef.current.contains(event.target) || mobileNavRef.current?.contains(event.target)) return;
+      if (
+        desktopNotificationContainerRef.current?.contains(event.target) ||
+        mobileNotificationContainerRef.current?.contains(event.target) ||
+        mobileNavRef.current?.contains(event.target)
+      ) return;
       setIsNotificationPanelOpen(false);
     };
 
@@ -925,7 +929,7 @@ export default function FeedPage() {
 
                 {isNotificationPanelOpen ? (
                   <div
-                    ref={notificationContainerRef}
+                    ref={desktopNotificationContainerRef}
                     className="absolute right-14 top-0 z-[95] w-[310px] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md md:right-16"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
@@ -1130,7 +1134,7 @@ export default function FeedPage() {
       </nav>
 
       {isNotificationPanelOpen ? (
-        <div ref={notificationContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[70] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md lg:hidden">
+        <div ref={mobileNotificationContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[70] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md lg:hidden">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">{translate(locale, "notificationsTitle")}</p>
             {notificationItems.length > 0 ? (
