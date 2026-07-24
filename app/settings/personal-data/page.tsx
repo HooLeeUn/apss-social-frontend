@@ -92,6 +92,7 @@ export default function PersonalDataPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [birthDateLocked, setBirthDateLocked] = useState(false);
   const [initialBirthDate, setInitialBirthDate] = useState<string>("");
+  const [confirmedEmail, setConfirmedEmail] = useState("");
   const [showBirthDateModal, setShowBirthDateModal] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -129,6 +130,7 @@ export default function PersonalDataPage() {
 
   const applyLoadedData = (data: PersonalData, options?: { clearPendingAvatar?: boolean }) => {
     setForm(toFormState(data));
+    setConfirmedEmail(data.email);
     setBirthDateLocked(data.birth_date_locked);
     setInitialBirthDate(data.birth_date ?? "");
     setAvatarUrl(data.avatar);
@@ -203,10 +205,12 @@ export default function PersonalDataPage() {
   };
 
   const persistChanges = async () => {
+    const requestedEmail = form.email.trim();
+    const emailWasEdited = requestedEmail.toLowerCase() !== confirmedEmail.trim().toLowerCase();
     const payload: PersonalDataPayload = {
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
-      email: form.email.trim(),
+      email: requestedEmail,
       birth_date: form.birth_date ? form.birth_date : null,
       birth_date_visible: form.birth_date_visible === "yes",
       gender_identity: form.gender_identity || null,
@@ -214,7 +218,7 @@ export default function PersonalDataPage() {
     };
 
     const updatedPersonalData = await updatePersonalData(payload);
-    let finalData = updatedPersonalData;
+    let finalData: PersonalData = updatedPersonalData;
 
     if (avatarFile) {
       let avatarUpdateResponse: PersonalData;
@@ -241,13 +245,45 @@ export default function PersonalDataPage() {
       setAvatarUrl(finalData.avatar);
     }
     setAvatarFile(null);
-    setFeedback({ type: "success", message: "Datos personales actualizados correctamente." });
+    const activeEmail = updatedPersonalData.email || confirmedEmail;
+    setConfirmedEmail(activeEmail);
+    setForm((current) => ({ ...current, email: activeEmail }));
+
+    const emailChangePending =
+      emailWasEdited && updatedPersonalData.email_change_pending && updatedPersonalData.confirmation_email_sent;
+    setFeedback({
+      type: "success",
+      message: emailChangePending
+        ? `Guardamos tus cambios. El cambio de email todavía no está completado. Enviamos un enlace de confirmación a ${requestedEmail}. Debes revisar ese correo, abrir el enlace y confirmar el cambio. Hasta entonces, tu email actual seguirá activo.`
+        : "Datos personales actualizados correctamente.",
+    });
 
     if (typeof window !== "undefined") {
       window.localStorage.setItem("profile_avatar_updated_at", String(Date.now()));
     }
-    setRedirecting(true);
-    router.push("/feed");
+    if (!emailChangePending) {
+      setRedirecting(true);
+      router.push("/feed");
+    }
+  };
+
+  const getSaveErrorMessage = (error: unknown): string => {
+    if (!(error instanceof ApiError)) {
+      return "No pudimos conectar con el servidor. Revisa tu conexión e intenta nuevamente.";
+    }
+
+    if (error.status === 401) return "Tu sesión venció. Inicia sesión nuevamente para guardar los cambios.";
+    if (error.status === 429) return "Realizaste demasiadas solicitudes. Espera unos minutos e intenta nuevamente.";
+    if (error.status === 409) return "Ese email ya está registrado o dejó de estar disponible.";
+    if (error.status === 400) {
+      const normalizedMessage = error.message.toLowerCase();
+      if (normalizedMessage.includes("email") && (normalizedMessage.includes("send") || normalizedMessage.includes("correo"))) {
+        return "No pudimos enviar el correo de confirmación. Tu email actual continúa activo; intenta nuevamente.";
+      }
+      return "El email ingresado no es válido o ya está registrado. Revisa el campo e intenta nuevamente.";
+    }
+    if (error.status >= 500) return "No pudimos guardar los cambios en este momento. Intenta nuevamente más tarde.";
+    return "No se pudieron guardar los cambios. Revisa los datos e intenta nuevamente.";
   };
 
   const handleSave = async () => {
@@ -277,7 +313,7 @@ export default function PersonalDataPage() {
       const isAvatarUploadError = error instanceof AvatarUploadError;
       setFeedback({
         type: "error",
-        message: isAvatarUploadError ? "No pudimos guardar la foto/avatar. Intenta nuevamente." : "No se pudieron guardar los cambios.",
+        message: isAvatarUploadError ? "No pudimos guardar la foto/avatar. Intenta nuevamente." : getSaveErrorMessage(error),
       });
       setErrors((current) => ({ ...current, general: "Revisa los datos e intenta nuevamente." }));
     } finally {
@@ -300,7 +336,7 @@ export default function PersonalDataPage() {
       const isAvatarUploadError = error instanceof AvatarUploadError;
       setFeedback({
         type: "error",
-        message: isAvatarUploadError ? "No pudimos guardar la foto/avatar. Intenta nuevamente." : "No se pudieron guardar los cambios.",
+        message: isAvatarUploadError ? "No pudimos guardar la foto/avatar. Intenta nuevamente." : getSaveErrorMessage(error),
       });
       setErrors((current) => ({ ...current, general: "Revisa los datos e intenta nuevamente." }));
     } finally {

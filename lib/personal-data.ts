@@ -18,6 +18,17 @@ export interface PersonalData {
   avatar: string | null;
 }
 
+export interface PersonalDataUpdateResponse extends PersonalData {
+  detail: string;
+  email_change_pending: boolean;
+  confirmation_email_sent: boolean;
+}
+
+export interface EmailChangeConfirmationResponse {
+  detail: string;
+  email: string;
+}
+
 export interface PersonalDataPayload {
   first_name: string;
   last_name: string;
@@ -113,18 +124,41 @@ function normalizePersonalData(payload: unknown): PersonalData {
   };
 }
 
+function normalizePersonalDataUpdate(payload: unknown): PersonalDataUpdateResponse {
+  const source = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+
+  return {
+    ...normalizePersonalData(payload),
+    detail: toString(source.detail),
+    email_change_pending: toBoolean(source.email_change_pending),
+    confirmation_email_sent: toBoolean(source.confirmation_email_sent),
+  };
+}
+
 export async function getPersonalData(): Promise<PersonalData> {
   const response = await apiFetch(PERSONAL_DATA_ENDPOINT, { cache: "no-store" });
   return normalizePersonalData(response);
 }
 
-export async function updatePersonalData(payload: PersonalDataPayload): Promise<PersonalData> {
+export async function updatePersonalData(payload: PersonalDataPayload): Promise<PersonalDataUpdateResponse> {
   const response = await apiFetch(PERSONAL_DATA_ENDPOINT, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
 
-  return normalizePersonalData(response);
+  return normalizePersonalDataUpdate(response);
+}
+
+export async function confirmEmailChange(token: string): Promise<EmailChangeConfirmationResponse> {
+  const response = await apiFetch(`/me/confirm-email-change/${encodeURIComponent(token)}/`, {
+    cache: "no-store",
+  });
+  const source = response && typeof response === "object" ? (response as Record<string, unknown>) : {};
+
+  return {
+    detail: toString(source.detail),
+    email: toString(source.email),
+  };
 }
 
 export async function updatePersonalAvatar(file: File): Promise<PersonalData> {
