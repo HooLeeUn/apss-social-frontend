@@ -241,13 +241,16 @@ export default function UserProfileFeedPage() {
   const { t } = useI18n();
   const routeUsername = resolveUsernameParam(params?.username);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoadError, setProfileLoadError] = useState(false);
   const [authenticatedFriendRequestsRestricted, setAuthenticatedFriendRequestsRestricted] = useState<boolean | null>(null);
 
   const normalizedProfileAccess = profileUser?.profileAccess?.trim().toLocaleLowerCase();
   const hasLimitedAccess =
-    normalizedProfileAccess === "restricted" &&
-    profileUser?.friendshipStatus !== "friends" &&
-    profileUser?.canViewFullProfile !== true;
+    profileUser?.isRestrictedByVisitedUser === true ||
+    (normalizedProfileAccess === "restricted" &&
+      profileUser?.friendshipStatus !== "friends" &&
+      profileUser?.canViewFullProfile !== true);
 
   useEffect(() => {
     const loadAuthenticatedPrivacy = async () => {
@@ -264,16 +267,24 @@ export default function UserProfileFeedPage() {
 
   useEffect(() => {
     const loadProfile = async () => {
+      setProfileLoading(true);
+      setProfileLoadError(false);
       if (!routeUsername) {
         setProfileUser(null);
+        setProfileLoadError(true);
+        setProfileLoading(false);
         return;
       }
 
       try {
         const profile = await getUserProfileByUsername(routeUsername);
         setProfileUser(profile);
+        setProfileLoadError(!profile);
       } catch {
         setProfileUser(null);
+        setProfileLoadError(true);
+      } finally {
+        setProfileLoading(false);
       }
     };
 
@@ -295,6 +306,29 @@ export default function UserProfileFeedPage() {
     <main className="min-h-screen bg-black text-zinc-100">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 md:px-8">
         <section className="rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
+          {hasLimitedAccess ? (
+            <div className="space-y-6">
+              <Link
+                href="/profile-feed"
+                className="inline-flex w-fit items-center rounded-full border border-white/20 bg-zinc-900/70 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-blue-200/70 hover:text-blue-100"
+              >
+                {t("visitedProfileBackToMyProfile")}
+              </Link>
+              <p className="py-16 text-center text-sm text-zinc-400">Este perfil no está disponible.</p>
+            </div>
+          ) : profileLoading ? (
+            <p className="py-16 text-center text-sm text-zinc-400">{t("profileFeedLoading")}</p>
+          ) : profileLoadError ? (
+            <div className="space-y-6">
+              <Link
+                href="/profile-feed"
+                className="inline-flex w-fit items-center rounded-full border border-white/20 bg-zinc-900/70 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-blue-200/70 hover:text-blue-100"
+              >
+                {t("visitedProfileBackToMyProfile")}
+              </Link>
+              <p className="py-16 text-center text-sm text-zinc-400">No se pudo cargar este perfil.</p>
+            </div>
+          ) : (
           <div className="grid items-start gap-6 lg:grid-cols-[1fr_3fr] lg:items-end">
             <div className="flex flex-col gap-5 lg:self-end">
               <Link
@@ -334,18 +368,17 @@ export default function UserProfileFeedPage() {
                   labels={socialActionLabels}
                 />
               ) : null}
-              {!hasLimitedAccess ? (
-                <FavoriteMoviesBlock
-                  title={interpolate(t("visitedProfileFavoriteMovies"), { name: profileTitleName })}
-                  readOnly
-                  viewedUsername={routeUsername}
-                />
-              ) : null}
+              <FavoriteMoviesBlock
+                title={interpolate(t("visitedProfileFavoriteMovies"), { name: profileTitleName })}
+                readOnly
+                viewedUsername={routeUsername}
+              />
             </div>
           </div>
+          )}
         </section>
 
-        {!hasLimitedAccess ? (
+        {!profileLoading && !profileLoadError && !hasLimitedAccess ? (
           <section className="w-full">
             <div className="grid items-start gap-6">
               <MyActivityColumn

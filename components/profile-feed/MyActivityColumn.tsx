@@ -531,6 +531,8 @@ function MessageRow({ item }: { item: MyMessageItem }) {
   const counterpart = item.direction === "sent" ? item.recipient || item.sender : item.sender;
   const counterpartUsername = counterpart?.username || t("profileFeedUser").toLocaleLowerCase();
   const counterpartInitials = counterpartUsername.slice(0, 2).toUpperCase();
+  const canVisitCounterpart = counterpart?.isRestrictedByVisitedUser !== true;
+  const counterpartHref = `/users/${encodeURIComponent(counterpartUsername)}`;
   const messageDirectionIcon = item.direction === "sent" ? (
     <svg
       viewBox="0 0 24 24"
@@ -564,7 +566,18 @@ function MessageRow({ item }: { item: MyMessageItem }) {
   return (
     <article className="border-b border-white/5 py-3 last:border-b-0">
       <div className="relative mb-2 flex items-center gap-2.5 pr-8">
-        {counterpart.avatarUrl ? (
+        {counterpart.avatarUrl && canVisitCounterpart ? (
+          <Link href={counterpartHref} aria-label={`Ver perfil de @${counterpartUsername}`} className="rounded-full focus-visible:outline-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={counterpart.avatarUrl}
+              alt={`Avatar de ${counterpartUsername}`}
+              className="h-7 w-7 rounded-full border border-white/20 object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </Link>
+        ) : counterpart.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={counterpart.avatarUrl}
@@ -573,6 +586,14 @@ function MessageRow({ item }: { item: MyMessageItem }) {
             loading="lazy"
             decoding="async"
           />
+        ) : canVisitCounterpart ? (
+          <Link
+            href={counterpartHref}
+            aria-label={`Ver perfil de @${counterpartUsername}`}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-zinc-900 text-[10px] font-semibold text-zinc-200 focus-visible:outline-none"
+          >
+            {counterpartInitials}
+          </Link>
         ) : (
           <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-zinc-900 text-[10px] font-semibold text-zinc-200">
             {counterpartInitials}
@@ -590,7 +611,13 @@ function MessageRow({ item }: { item: MyMessageItem }) {
               <span className="text-white"> {locale === "en" ? "to" : "a"} </span>
             </>
           )}
-          <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
+          {canVisitCounterpart ? (
+            <Link href={counterpartHref} className="font-semibold text-zinc-100">
+              @{counterpartUsername}
+            </Link>
+          ) : (
+            <span className="font-semibold text-zinc-100">@{counterpartUsername}</span>
+          )}
         </p>
         <div className="pointer-events-auto absolute right-0 top-0 flex h-7 items-center justify-center">{messageDirectionIcon}</div>
       </div>

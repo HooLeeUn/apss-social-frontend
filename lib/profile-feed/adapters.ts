@@ -666,6 +666,7 @@ interface MyMessageApiSender {
   id?: number | string;
   username?: string | null;
   avatar?: string | null;
+  is_restricted_by_visited_user?: boolean | null;
 }
 
 interface MyMessageApiMovie {
@@ -851,6 +852,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
       displayName: null,
       avatarUrl: safeTrim(sender?.avatar),
       followersCount: null,
+      isRestrictedByVisitedUser: toBooleanOrNull(sender?.is_restricted_by_visited_user),
     },
     recipient: recipient
       ? {
@@ -859,6 +861,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
           displayName: null,
           avatarUrl: safeTrim(recipient.avatar),
           followersCount: null,
+          isRestrictedByVisitedUser: toBooleanOrNull(recipient.is_restricted_by_visited_user),
         }
       : null,
     movieId: resolveMessageEntityId(movie?.id, `movie-${index}`),
