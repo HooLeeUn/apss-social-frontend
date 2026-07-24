@@ -96,6 +96,7 @@ export interface SocialUser {
   friendRequestsRestricted?: boolean | null;
   isPrivateProfile?: boolean | null;
   isRestrictedByVisitedUser?: boolean | null;
+  restrictedCurrentUser?: boolean;
 }
 
 export interface PaginatedUserSearchResults {
