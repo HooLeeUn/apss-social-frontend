@@ -14,7 +14,7 @@ export interface BlockedUser {
 
 const PROFILE_PRIVACY_ENDPOINT = "/profile/privacy/";
 const BLOCKED_USERS_ENDPOINT = "/profile/privacy/blocked-users/";
-const USER_RESTRICT_SEARCH_ENDPOINT = "/users/search/";
+const USER_RESTRICT_SEARCH_ENDPOINT = "/profile/privacy/blocked-users/search/";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;

@@ -1401,6 +1401,10 @@ export default function MovieDetailPage() {
       if (error instanceof ApiError) {
         console.log("[movie-comments-debug] submit response status:", error.status);
         console.log("[movie-comments-debug] submit response body on error:", error.message);
+        if (error.code === "bilateral_restriction") {
+          setComposerError("No puedes enviar un comentario dirigido a este usuario.");
+          return;
+        }
       }
       console.error("Comment submit error", error);
       setComposerError(translate(locale, "movieDetailCommentPostError"));
