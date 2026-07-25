@@ -253,14 +253,11 @@ export default function PrivacySecurityPage() {
     try {
       await blockUser(user.id);
       await refreshBlockedUsers();
-      setSearchResults((current) =>
-        current.filter((entry) => String(entry.id) !== String(user.id)),
-      );
-      setDismissedSearchResultIds((current) => {
-        const next = new Set(current);
-        next.delete(String(user.id));
-        return next;
-      });
+      setSearchQuery("");
+      setSearchResults([]);
+      setHasSearched(false);
+      setSearchMessage("");
+      setDismissedSearchResultIds(new Set());
       setBlockedUsersMessage(
         formatMessage("privacySecurityUserRestricted", {
           username: user.username,
@@ -271,23 +268,21 @@ export default function PrivacySecurityPage() {
     }
   };
 
-  const handleCancelSearchResult = (userId: number | string) => {
-    setDismissedSearchResultIds((current) => {
-      const next = new Set(current);
-      next.add(String(userId));
-      return next;
-    });
+  const handleCancelSearchResult = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setHasSearched(false);
+    setSearchMessage("");
+    setDismissedSearchResultIds(new Set());
+    setBlockedUsersMessage("");
   };
 
   const handleUnblockUser = async (user: BlockedUser) => {
+    setBlockedUsersMessage("");
+
     try {
       await unblockUser(user.id);
       await refreshBlockedUsers();
-      setBlockedUsersMessage(
-        formatMessage("privacySecurityRestrictionRemoved", {
-          username: user.username,
-        }),
-      );
     } catch {
       setBlockedUsersMessage(t("privacySecurityRemoveRestrictionError"));
     }
@@ -471,20 +466,18 @@ export default function PrivacySecurityPage() {
                 </button>
               </div>
 
-              {hasSearchQuery ? (
+              {hasSearchQuery && hasSearched ? (
                 <div className="mt-4 space-y-2">
                   <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
                     {t("privacySecurityResults")}
                   </p>
-                  {visibleSearchResults.length === 0 ? (
+                  {searchingUsers ? (
                     <p className="text-sm text-zinc-500">
-                      {searchingUsers
-                        ? t("privacySecuritySearchingUsers")
-                        : hasSearched
-                          ? searchMessage || t("privacySecurityNoResults")
-                          : ""}
+                      {t("privacySecuritySearchingUsers")}
                     </p>
-                  ) : (
+                  ) : searchMessage ? (
+                    <p className="text-sm text-zinc-500">{searchMessage}</p>
+                  ) : visibleSearchResults.length === 0 ? null : (
                     <ul className="space-y-2">
                       {visibleSearchResults.map((user) => (
                         <li
@@ -504,7 +497,7 @@ export default function PrivacySecurityPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleCancelSearchResult(user.id)}
+                              onClick={handleCancelSearchResult}
                               className="rounded-full border border-white/30 px-3 py-1 text-xs font-medium text-zinc-100 transition hover:border-white"
                             >
                               {t("privacySecurityCancel")}
