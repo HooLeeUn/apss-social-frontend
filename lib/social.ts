@@ -211,12 +211,14 @@ function getFriendsSource(payload: unknown): unknown[] {
   if (!root) return [];
 
   if (Array.isArray(root.results)) return root.results;
+  if (Array.isArray(root.users)) return root.users;
   if (Array.isArray(root.items)) return root.items;
 
   const data = toRecord(root.data);
   if (!data) return [];
 
   if (Array.isArray(data.results)) return data.results;
+  if (Array.isArray(data.users)) return data.users;
   if (Array.isArray(data.items)) return data.items;
   if (Array.isArray(data.friends)) return data.friends;
 

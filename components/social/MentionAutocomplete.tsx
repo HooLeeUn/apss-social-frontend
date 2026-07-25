@@ -6,15 +6,24 @@ interface MentionAutocompleteProps {
   activeIndex: number;
   loading: boolean;
   hasSuccessfulResponse: boolean;
+  error: boolean;
   onSelect: (friend: Friend) => void;
 }
 
-export default function MentionAutocomplete({ friends, activeIndex, loading, hasSuccessfulResponse, onSelect }: MentionAutocompleteProps) {
+export default function MentionAutocomplete({ friends, activeIndex, loading, hasSuccessfulResponse, error, onSelect }: MentionAutocompleteProps) {
   const { t } = useI18n();
   if (loading) {
     return (
       <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-white/15 bg-zinc-950/95 p-3 text-sm text-zinc-400 shadow-xl">
         {t("movieDetailLoading")}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-red-300/25 bg-zinc-950/95 p-3 text-sm text-red-300 shadow-xl">
+        {t("movieDetailFriendSearchError")}
       </div>
     );
   }
@@ -35,7 +44,7 @@ export default function MentionAutocomplete({ friends, activeIndex, loading, has
         <li key={friend.id}>
           <button
             type="button"
-            onMouseDown={(event) => {
+            onPointerDown={(event) => {
               event.preventDefault();
               onSelect(friend);
             }}

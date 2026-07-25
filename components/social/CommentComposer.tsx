@@ -48,6 +48,7 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
   const [suggestions, setSuggestions] = useState<Friend[]>([]);
   const [mentionLoading, setMentionLoading] = useState(false);
   const [hasSuccessfulMentionResponse, setHasSuccessfulMentionResponse] = useState(false);
+  const [mentionError, setMentionError] = useState(false);
 
   const hasValidSelectedMention = useMemo(() => {
     if (!selectedMention) return false;
@@ -67,11 +68,13 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
           if (mentionRequestIdRef.current !== requestId) return;
           setSuggestions(friends);
           setHasSuccessfulMentionResponse(true);
+          setMentionError(false);
         })
         .catch((error) => {
           if (!(error instanceof DOMException && error.name === "AbortError") && mentionRequestIdRef.current === requestId) {
             setSuggestions([]);
             setHasSuccessfulMentionResponse(false);
+            setMentionError(true);
           }
         })
         .finally(() => {
@@ -99,6 +102,7 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
       setSuggestions([]);
       setMentionLoading(false);
       setHasSuccessfulMentionResponse(false);
+      setMentionError(false);
       setMentionQuery(null);
       setMentionStart(null);
       return;
@@ -109,6 +113,7 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
       setSuggestions([]);
       setMentionLoading(true);
       setHasSuccessfulMentionResponse(false);
+      setMentionError(false);
     }
     setMentionQuery(currentMention.query);
     setMentionStart(currentMention.start);
@@ -132,9 +137,6 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
     setSuggestions([]);
     setMentionQuery(null);
     setMentionStart(null);
-    console.log("[mentions-debug] selected friend object:", friend);
-    console.log("[mentions-debug] selected mention object:", nextSelection);
-    console.log("[mentions-debug] textarea after selection:", nextText);
 
     requestAnimationFrame(() => {
       if (!textareaRef.current) return;
@@ -177,11 +179,6 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
     if (!trimmed || loading) return;
 
     const mentionUsername = hasValidSelectedMention ? normalizeMentionUsername(selectedMention?.username ?? "") : null;
-    console.log("[mentions-debug] submit mode:", mentionUsername ? "directed" : "public");
-    console.log("[mentions-debug] selected mention object:", selectedMention);
-    console.log("[mentions-debug] mentioned_username final:", mentionUsername);
-    console.log("[mentions-debug] textarea value:", trimmed);
-
     const submitted = await onSubmit({
       text: trimmed,
       mentionUsername,
@@ -220,6 +217,7 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
             activeIndex={activeIndex}
             loading={mentionLoading}
             hasSuccessfulResponse={hasSuccessfulMentionResponse}
+            error={mentionError}
             onSelect={handleSelectSuggestion}
           />
         ) : null}
