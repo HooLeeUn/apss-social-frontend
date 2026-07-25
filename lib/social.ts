@@ -289,8 +289,6 @@ export function parseFriends(payload: unknown): Friend[] {
 
 export async function searchDirectedRecipients(query: string, signal?: AbortSignal): Promise<Friend[]> {
   const normalizedQuery = query.trim().replace(/^@+/, "");
-  if (!normalizedQuery) return [];
-
   const payload = await apiFetch(
     `${DIRECTED_RECIPIENTS_ENDPOINT}?${new URLSearchParams({ q: normalizedQuery }).toString()}`,
     { signal },

@@ -39,12 +39,15 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
 export default function CommentComposer({ onSubmit, directedRecipientsEnabled = true, loading = false, error, placeholder, title }: CommentComposerProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const mentionRequestIdRef = useRef(0);
   const [text, setText] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStart, setMentionStart] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedMention, setSelectedMention] = useState<MentionSelection | null>(null);
   const [suggestions, setSuggestions] = useState<Friend[]>([]);
+  const [mentionLoading, setMentionLoading] = useState(false);
+  const [hasSuccessfulMentionResponse, setHasSuccessfulMentionResponse] = useState(false);
 
   const hasValidSelectedMention = useMemo(() => {
     if (!selectedMention) return false;
@@ -54,14 +57,25 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
   }, [selectedMention, text]);
 
   useEffect(() => {
-    if (!directedRecipientsEnabled || mentionQuery === null || !mentionQuery.trim()) return;
+    const requestId = mentionRequestIdRef.current;
+    if (!directedRecipientsEnabled || mentionQuery === null) return;
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
       void searchDirectedRecipients(mentionQuery, controller.signal)
-        .then(setSuggestions)
+        .then((friends) => {
+          if (mentionRequestIdRef.current !== requestId) return;
+          setSuggestions(friends);
+          setHasSuccessfulMentionResponse(true);
+        })
         .catch((error) => {
-          if (!(error instanceof DOMException && error.name === "AbortError")) setSuggestions([]);
+          if (!(error instanceof DOMException && error.name === "AbortError") && mentionRequestIdRef.current === requestId) {
+            setSuggestions([]);
+            setHasSuccessfulMentionResponse(false);
+          }
+        })
+        .finally(() => {
+          if (mentionRequestIdRef.current === requestId) setMentionLoading(false);
         });
     }, 250);
 
@@ -81,13 +95,21 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
 
     const currentMention = getMentionToken(nextText, caretIndex);
     if (!currentMention) {
+      mentionRequestIdRef.current += 1;
       setSuggestions([]);
+      setMentionLoading(false);
+      setHasSuccessfulMentionResponse(false);
       setMentionQuery(null);
       setMentionStart(null);
       return;
     }
 
-    if (!currentMention.query.trim()) setSuggestions([]);
+    if (currentMention.query !== mentionQuery) {
+      mentionRequestIdRef.current += 1;
+      setSuggestions([]);
+      setMentionLoading(true);
+      setHasSuccessfulMentionResponse(false);
+    }
     setMentionQuery(currentMention.query);
     setMentionStart(currentMention.start);
     setActiveIndex(0);
@@ -106,6 +128,7 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
 
     setText(nextText);
     setSelectedMention(nextSelection);
+    mentionRequestIdRef.current += 1;
     setSuggestions([]);
     setMentionQuery(null);
     setMentionStart(null);
@@ -143,6 +166,7 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
     }
 
     if (event.key === "Escape") {
+      mentionRequestIdRef.current += 1;
       setMentionQuery(null);
       setMentionStart(null);
     }
@@ -191,7 +215,13 @@ export default function CommentComposer({ onSubmit, directedRecipientsEnabled = 
         />
 
         {mentionQuery !== null ? (
-          <MentionAutocomplete friends={suggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
+          <MentionAutocomplete
+            friends={suggestions}
+            activeIndex={activeIndex}
+            loading={mentionLoading}
+            hasSuccessfulResponse={hasSuccessfulMentionResponse}
+            onSelect={handleSelectSuggestion}
+          />
         ) : null}
       </div>
 

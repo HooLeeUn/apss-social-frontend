@@ -4,11 +4,23 @@ import { Friend } from "../../lib/social";
 interface MentionAutocompleteProps {
   friends: Friend[];
   activeIndex: number;
+  loading: boolean;
+  hasSuccessfulResponse: boolean;
   onSelect: (friend: Friend) => void;
 }
 
-export default function MentionAutocomplete({ friends, activeIndex, onSelect }: MentionAutocompleteProps) {
+export default function MentionAutocomplete({ friends, activeIndex, loading, hasSuccessfulResponse, onSelect }: MentionAutocompleteProps) {
   const { t } = useI18n();
+  if (loading) {
+    return (
+      <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-white/15 bg-zinc-950/95 p-3 text-sm text-zinc-400 shadow-xl">
+        {t("movieDetailLoading")}
+      </div>
+    );
+  }
+
+  if (!hasSuccessfulResponse) return null;
+
   if (friends.length === 0) {
     return (
       <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-white/15 bg-zinc-950/95 p-3 text-sm text-zinc-400 shadow-xl">
