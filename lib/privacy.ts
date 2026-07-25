@@ -99,6 +99,17 @@ export function parseBlockedUsers(payload: unknown): BlockedUser[] {
     .filter((entry): entry is BlockedUser => Boolean(entry));
 }
 
+export function parseRestrictionSearchResults(payload: unknown): BlockedUser[] {
+  const record = toRecord(payload);
+  if (!record || !Array.isArray(record.results)) {
+    throw new Error("Invalid restriction search response.");
+  }
+
+  return record.results
+    .map((entry, index) => normalizeBlockedUser(entry, index))
+    .filter((entry): entry is BlockedUser => Boolean(entry));
+}
+
 export async function getProfilePrivacySettings(): Promise<ProfilePrivacySettings> {
   const payload = await apiFetch(PROFILE_PRIVACY_ENDPOINT);
   return parsePrivacySettings(payload);
@@ -154,5 +165,5 @@ export async function searchUsersToRestrict(query: string): Promise<BlockedUser[
   const payload = await apiFetch(
     `${USER_RESTRICT_SEARCH_ENDPOINT}?${new URLSearchParams({ q: normalizedQuery }).toString()}`,
   );
-  return parseBlockedUsers(payload);
+  return parseRestrictionSearchResults(payload);
 }
