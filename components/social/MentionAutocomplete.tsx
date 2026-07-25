@@ -32,7 +32,12 @@ export default function MentionAutocomplete({ friends, activeIndex, onSelect }: 
             }`}
           >
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/30 text-[11px] font-semibold">
-              {friend.username.charAt(0).toUpperCase()}
+              {friend.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={friend.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
+              ) : (
+                friend.username.charAt(0).toUpperCase()
+              )}
             </span>
             <span>@{friend.username}</span>
           </button>

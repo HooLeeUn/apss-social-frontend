@@ -1271,7 +1271,7 @@ export default function MovieDetailPage() {
   );
 
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
-    if (!movieId) return;
+    if (!movieId) return false;
 
     const allowedMentionUsername = canShowDirectedComments ? mentionUsername : null;
 
@@ -1342,7 +1342,7 @@ export default function MovieDetailPage() {
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
             router.replace("/login");
-            return;
+            return false;
           }
           if (parsedSubmittedComment) {
             const counterpart = buildCounterpartData(parsedSubmittedComment, authenticatedUsername);
@@ -1390,20 +1390,30 @@ export default function MovieDetailPage() {
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
             router.replace("/login");
-            return;
+            return false;
           }
           if (parsedSubmittedComment) {
             setPublicComments((current) => [parsedSubmittedComment, ...current]);
           }
         }
       }
+      return true;
     } catch (error) {
       if (error instanceof ApiError) {
         console.log("[movie-comments-debug] submit response status:", error.status);
         console.log("[movie-comments-debug] submit response body on error:", error.message);
       }
       console.error("Comment submit error", error);
-      setComposerError(translate(locale, "movieDetailCommentPostError"));
+      const isRestrictedDirectedMessage =
+        error instanceof ApiError &&
+        error.status === 403 &&
+        (error.code === "directed_message_restricted" || Boolean(allowedMentionUsername));
+      setComposerError(
+        isRestrictedDirectedMessage
+          ? translate(locale, "movieDetailDirectedMessageRestricted")
+          : translate(locale, "movieDetailCommentPostError"),
+      );
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -1636,8 +1646,6 @@ export default function MovieDetailPage() {
     [directedConversations, selectedDirectedFilterUser],
   );
 
-
-  const composerFriends = canShowDirectedComments ? friends : [];
   const isSeriesDetail = isSeriesContentType(movie?.contentType);
   const detailTitle = isSeriesDetail ? t("movieDetailSeriesTitle") : t("movieDetailTitle");
   const composerPlaceholder = isSeriesDetail ? t("movieDetailSeriesCommentPlaceholder") : t("movieDetailCommentPlaceholder");
@@ -1686,7 +1694,7 @@ export default function MovieDetailPage() {
           />
         ) : null}
 
-        <CommentComposer friends={composerFriends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
+        <CommentComposer onSubmit={handleSubmitComment} directedRecipientsEnabled={canShowDirectedComments} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 

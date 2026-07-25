@@ -1,3 +1,5 @@
+import { apiFetch } from "./api";
+
 export type ReactionType = "like" | "dislike" | null;
 
 export interface Friend {
@@ -52,6 +54,7 @@ export const PUBLIC_COMMENTS_ENDPOINT =
   process.env.NEXT_PUBLIC_SOCIAL_PUBLIC_COMMENTS_ENDPOINT || "/social/comments/public/";
 export const DIRECTED_COMMENTS_ENDPOINT =
   process.env.NEXT_PUBLIC_SOCIAL_DIRECTED_COMMENTS_ENDPOINT || "/social/comments/directed/";
+export const DIRECTED_RECIPIENTS_ENDPOINT = "/comments/directed/recipients/";
 export const COMMENT_CREATE_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_COMMENT_CREATE_ENDPOINT || "/social/comments/";
 export const COMMENT_REACTION_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_SOCIAL_COMMENT_REACTION_ENDPOINT_TEMPLATE || "/comments/{id}/reaction/";
@@ -282,6 +285,17 @@ export function parseFriends(payload: unknown): Friend[] {
       };
     })
     .filter((friend) => friend.username.trim().length > 0);
+}
+
+export async function searchDirectedRecipients(query: string, signal?: AbortSignal): Promise<Friend[]> {
+  const normalizedQuery = query.trim().replace(/^@+/, "");
+  if (!normalizedQuery) return [];
+
+  const payload = await apiFetch(
+    `${DIRECTED_RECIPIENTS_ENDPOINT}?${new URLSearchParams({ q: normalizedQuery }).toString()}`,
+    { signal },
+  );
+  return parseFriends(payload);
 }
 
 function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" | "directed"): SocialComment {
