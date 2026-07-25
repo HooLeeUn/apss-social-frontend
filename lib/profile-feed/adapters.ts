@@ -666,6 +666,7 @@ interface MyMessageApiSender {
   id?: number | string;
   username?: string | null;
   avatar?: string | null;
+  restricted_current_user?: boolean | null;
 }
 
 interface MyMessageApiMovie {
@@ -702,6 +703,7 @@ interface MyMessageApiItem {
   receiver?: MyMessageApiSender | null;
   target_user?: MyMessageApiSender | null;
   counterpart?: MyMessageApiSender | null;
+  restricted_current_user?: boolean | null;
   movie?: MyMessageApiMovie | null;
 }
 
@@ -841,6 +843,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
   const metadataType = safeTrim(movie?.type) || undefined;
   const metadataGenre = safeTrim(movie?.genre) || undefined;
   const moviePosterUrl = safeTrim(movie?.image);
+  const representedUserRestricted = isTrueValue(item.restricted_current_user);
 
   return {
     id: String(pickFirst(item.id, `message-${index}`)),
@@ -851,6 +854,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
       displayName: null,
       avatarUrl: safeTrim(sender?.avatar),
       followersCount: null,
+      restrictedCurrentUser: isTrueValue(sender?.restricted_current_user) || (direction === "received" && representedUserRestricted),
     },
     recipient: recipient
       ? {
@@ -859,6 +863,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
           displayName: null,
           avatarUrl: safeTrim(recipient.avatar),
           followersCount: null,
+          restrictedCurrentUser: isTrueValue(recipient.restricted_current_user) || (direction === "sent" && representedUserRestricted),
         }
       : null,
     movieId: resolveMessageEntityId(movie?.id, `movie-${index}`),

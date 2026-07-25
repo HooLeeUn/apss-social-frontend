@@ -26,6 +26,8 @@ export interface SocialComment {
   dislikesCount: number;
   myReaction: ReactionType;
   direction?: "sent" | "received";
+  authorRestrictedCurrentUser: boolean;
+  recipientRestrictedCurrentUser: boolean;
 }
 
 export interface PaginatedComments {
@@ -399,6 +401,8 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
     dislikesCount: toCount(pickFirst(raw.dislikes_count, raw.dislike_count, raw.dislikes, raw.reactions_dislike_count)),
     myReaction: normalizeReaction(pickFirst(raw.my_reaction, raw.user_reaction, raw.current_reaction)),
     direction,
+    authorRestrictedCurrentUser: nestedAuthor?.restricted_current_user === true,
+    recipientRestrictedCurrentUser: nestedRecipient?.restricted_current_user === true,
   };
 }
 

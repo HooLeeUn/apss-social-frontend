@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import FavoriteMoviesBlock from "../../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../../components/profile-feed/MyActivityColumn";
@@ -19,6 +19,7 @@ import { getProfilePrivacySettings } from "../../../lib/privacy";
 import { useAppBranding } from "../../../hooks/useAppBranding";
 import { useI18n } from "../../../hooks/useI18n";
 import { interpolate } from "../../../lib/i18n";
+import { ApiError } from "../../../lib/api";
 
 function resolveUsernameParam(rawValue: string | string[] | undefined): string {
   if (Array.isArray(rawValue)) {
@@ -237,10 +238,12 @@ function SocialActions({
 
 export default function UserProfileFeedPage() {
   const params = useParams<{ username?: string | string[] }>();
+  const router = useRouter();
   const branding = useAppBranding();
   const { t } = useI18n();
   const routeUsername = resolveUsernameParam(params?.username);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
+  const [profileState, setProfileState] = useState<"loading" | "ready" | "not_found" | "error" | "redirecting">("loading");
   const [authenticatedFriendRequestsRestricted, setAuthenticatedFriendRequestsRestricted] = useState<boolean | null>(null);
 
   const normalizedProfileAccess = profileUser?.profileAccess?.trim().toLocaleLowerCase();
@@ -263,22 +266,55 @@ export default function UserProfileFeedPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadProfile = async () => {
       if (!routeUsername) {
         setProfileUser(null);
+        setProfileState("not_found");
         return;
       }
 
+      setProfileState("loading");
       try {
         const profile = await getUserProfileByUsername(routeUsername);
+        if (cancelled) return;
         setProfileUser(profile);
-      } catch {
+        setProfileState(profile ? "ready" : "not_found");
+      } catch (error) {
+        if (cancelled) return;
         setProfileUser(null);
+        if (error instanceof ApiError && error.status === 403 && error.code === "restricted_by_user") {
+          setProfileState("redirecting");
+          router.replace("/profile-feed");
+          return;
+        }
+        setProfileState(error instanceof ApiError && error.status === 404 ? "not_found" : "error");
       }
     };
 
     void loadProfile();
-  }, [routeUsername]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeUsername, router]);
+
+  if (profileState === "loading" || profileState === "redirecting") {
+    return <main className="min-h-screen bg-black" aria-busy="true" />;
+  }
+
+  if (profileState === "not_found" || profileState === "error") {
+    return (
+      <main className="min-h-screen bg-black text-zinc-100">
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-8">
+          <p className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-sm text-zinc-300">
+            {profileState === "not_found" ? "Este usuario no existe." : "No se pudo cargar este perfil."}
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   const profileTitleName = profileUser?.displayName || profileUser?.username || routeUsername || t("profileFeedUser");
   const profileHandle = profileUser?.username || routeUsername || t("profileFeedUser").toLocaleLowerCase();

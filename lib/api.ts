@@ -49,10 +49,12 @@ export const API_BASE_URL = resolveConfiguredApiBaseUrl();
 
 export class ApiError extends Error {
   status: number;
+  code: string | null;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.status = status;
+    this.code = code;
     this.name = "ApiError";
   }
 }
@@ -93,13 +95,24 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
   if (!res.ok) {
     const text = await res.text();
-    const message = text || `HTTP ${res.status}`;
+    let code: string | null = null;
+    let message = text || `HTTP ${res.status}`;
+
+    if (text) {
+      try {
+        const body = JSON.parse(text) as { detail?: unknown; code?: unknown };
+        if (typeof body.detail === "string") message = body.detail;
+        if (typeof body.code === "string") code = body.code;
+      } catch {
+        // Non-JSON error responses keep their original text.
+      }
+    }
 
     if (res.status === 401) {
       clearToken();
     }
 
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, code);
   }
 
   const contentType = res.headers.get("content-type") || "";

@@ -76,6 +76,7 @@ interface DirectedConversation {
   otherUsername: string | null;
   otherDisplayName: string;
   otherAvatar: string | null;
+  restrictedCurrentUser: boolean;
   messages: SocialComment[];
   messagesEndpoint: string | null;
   next: string | null;
@@ -166,6 +167,7 @@ interface ConversationCounterpartContext {
   preferredDisplayName: string | null;
   preferredAvatar: string | null;
   fallbackMessageId: string | null;
+  restrictedCurrentUser: boolean;
 }
 
 function resolveIdentityFromCandidates(candidates: UserIdentity[]): UserIdentity {
@@ -268,6 +270,8 @@ function getConversationCounterpartContext(conversationRecord: Record<string, un
       ? conversationRecord.messagesPreview
       : [];
   const previewFirst = toRecord(messagesPreview[0]);
+  const counterpartRecord = toRecord(conversationRecord.counterpart);
+  const otherUserRecord = toRecord(conversationRecord.other_user ?? conversationRecord.otherUser);
 
   const fallbackMessageId = normalizeId(
     pickFirstPresent(
@@ -283,6 +287,10 @@ function getConversationCounterpartContext(conversationRecord: Record<string, un
     preferredDisplayName: resolvedUser.displayName,
     preferredAvatar: resolvedUser.avatar,
     fallbackMessageId,
+    restrictedCurrentUser:
+      conversationRecord.restricted_current_user === true ||
+      counterpartRecord?.restricted_current_user === true ||
+      otherUserRecord?.restricted_current_user === true,
   };
 }
 
@@ -416,6 +424,8 @@ function groupDirectedConversations(
     const directionMessage: SocialComment = {
       ...message,
       direction: counterpart.direction,
+      authorRestrictedCurrentUser:
+        counterpart.direction === "received" && (context?.restrictedCurrentUser === true || message.authorRestrictedCurrentUser),
     };
     const sortedMessages = mergeUniqueMessages(existing?.messages ?? [], [directionMessage]);
     byConversation.set(counterpart.counterpartKey, {
@@ -424,6 +434,7 @@ function groupDirectedConversations(
       otherUsername: hydratedUsername,
       otherDisplayName: hydratedDisplayName,
       otherAvatar: hydratedAvatar,
+      restrictedCurrentUser: existing?.restrictedCurrentUser === true || context?.restrictedCurrentUser === true,
       messages: sortedMessages,
       messagesEndpoint: existing?.messagesEndpoint ?? messagesEndpoint ?? null,
       next: existing?.next ?? conversationNext ?? null,
@@ -912,6 +923,14 @@ export default function MovieDetailPage() {
     throw new Error("No se pudo cargar detalle con endpoints disponibles");
   }, [movieId]);
 
+  const searchMentionSuggestions = useCallback(async (query: string): Promise<Friend[]> => {
+    const payload = await apiFetch(`/friends/?search=${encodeURIComponent(query)}`);
+    const results = toRecord(payload)?.results;
+    const nextSuggestions = parseFriends(Array.isArray(results) ? results : []);
+    console.log("[mentions-debug] Search payload and normalized results:", { payload, nextSuggestions });
+    return nextSuggestions;
+  }, []);
+
   useEffect(() => {
     const token = getToken();
     if (!token) {
@@ -1347,6 +1366,7 @@ export default function MovieDetailPage() {
                     otherUsername: counterpart.username,
                     otherDisplayName: counterpart.displayName,
                     otherAvatar: counterpart.avatar,
+                    restrictedCurrentUser: parsedSubmittedComment.authorRestrictedCurrentUser,
                     messages: [nextMessage],
                     messagesEndpoint: null,
                     next: null,
@@ -1389,6 +1409,10 @@ export default function MovieDetailPage() {
       if (error instanceof ApiError) {
         console.log("[movie-comments-debug] submit response status:", error.status);
         console.log("[movie-comments-debug] submit response body on error:", error.message);
+        if (error.code === "bilateral_restriction") {
+          setComposerError("No puedes enviar un comentario dirigido a este usuario.");
+          return;
+        }
       }
       console.error("Comment submit error", error);
       setComposerError(translate(locale, "movieDetailCommentPostError"));
@@ -1674,7 +1698,7 @@ export default function MovieDetailPage() {
           />
         ) : null}
 
-        <CommentComposer friends={composerFriends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
+        <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 

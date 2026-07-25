@@ -347,12 +347,9 @@ export default function SocialActivityTabsBlock() {
             myRating: cachedRatings.myRating,
           };
         });
-        const failedRequests = settledRecommendations.filter((result) => result.status === "rejected").length;
-        const failedRatingRequests = settledMovieRatings.filter((result) => result.status === "rejected").length;
-
         followedRecommendationsLoadedRef.current = true;
         setFollowedRecommendations(sortFollowedRecommendations(enrichedRecommendations));
-        setFollowedRecommendationsError(failedRequests > 0 || failedRatingRequests > 0 ? "No pudimos cargar algunas recomendaciones de tus seguidos." : null);
+        setFollowedRecommendationsError(null);
       } catch {
         followedRecommendationsLoadedRef.current = true;
         setFollowedRecommendations([]);
