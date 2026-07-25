@@ -923,6 +923,14 @@ export default function MovieDetailPage() {
     throw new Error("No se pudo cargar detalle con endpoints disponibles");
   }, [movieId]);
 
+  const searchMentionSuggestions = useCallback(async (query: string): Promise<Friend[]> => {
+    const payload = await apiFetch(`/friends/?search=${encodeURIComponent(query)}`);
+    const results = toRecord(payload)?.results;
+    const nextSuggestions = parseFriends(Array.isArray(results) ? results : []);
+    console.log("[mentions-debug] Search payload and normalized results:", { payload, nextSuggestions });
+    return nextSuggestions;
+  }, []);
+
   useEffect(() => {
     const token = getToken();
     if (!token) {
@@ -1401,6 +1409,10 @@ export default function MovieDetailPage() {
       if (error instanceof ApiError) {
         console.log("[movie-comments-debug] submit response status:", error.status);
         console.log("[movie-comments-debug] submit response body on error:", error.message);
+        if (error.code === "bilateral_restriction") {
+          setComposerError("No puedes enviar un comentario dirigido a este usuario.");
+          return;
+        }
       }
       console.error("Comment submit error", error);
       setComposerError(translate(locale, "movieDetailCommentPostError"));
@@ -1686,7 +1698,7 @@ export default function MovieDetailPage() {
           />
         ) : null}
 
-        <CommentComposer friends={composerFriends} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
+        <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 

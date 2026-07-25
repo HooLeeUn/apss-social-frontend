@@ -17,6 +17,7 @@ function normalizeMentionUsername(value: string): string {
 
 interface CommentComposerProps {
   friends: Friend[];
+  searchMentionSuggestions: (query: string) => Promise<Friend[]>;
   onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<void>;
   loading?: boolean;
   error?: string;
@@ -36,7 +37,7 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
   };
 }
 
-export default function CommentComposer({ friends, onSubmit, loading = false, error, placeholder, title }: CommentComposerProps) {
+export default function CommentComposer({ friends, searchMentionSuggestions, onSubmit, loading = false, error, placeholder, title }: CommentComposerProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
@@ -44,6 +45,8 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
   const [mentionStart, setMentionStart] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedMention, setSelectedMention] = useState<MentionSelection | null>(null);
+  const [mentionSuggestions, setMentionSuggestions] = useState<Friend[]>([]);
+  const mentionRequestIdRef = useRef(0);
 
   const hasValidSelectedMention = useMemo(() => {
     if (!selectedMention) return false;
@@ -52,20 +55,25 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
     return friends.some((friend) => friend.username === selectedMention.username);
   }, [friends, selectedMention, text]);
 
-  const suggestions = useMemo(() => {
-    if (mentionQuery === null) return [];
-    const normalized = mentionQuery.trim().replace(/^@+/, "").toLowerCase();
-
-    return friends.filter((friend) => {
-      if (!normalized) return true;
-      return friend.username.toLowerCase().includes(normalized);
-    });
-  }, [friends, mentionQuery]);
-
   useEffect(() => {
+    const requestId = mentionRequestIdRef.current + 1;
+    mentionRequestIdRef.current = requestId;
+
     if (mentionQuery === null) return;
+
     console.log("[mentions-debug] Mention search term:", mentionQuery);
-  }, [mentionQuery]);
+
+    void searchMentionSuggestions(mentionQuery).then(
+      (nextSuggestions) => {
+        if (mentionRequestIdRef.current !== requestId) return;
+        setMentionSuggestions(nextSuggestions);
+      },
+      () => {
+        if (mentionRequestIdRef.current !== requestId) return;
+        setMentionSuggestions([]);
+      },
+    );
+  }, [mentionQuery, searchMentionSuggestions]);
 
   const updateMentionState = (nextText: string, caretIndex: number) => {
     if (selectedMention) {
@@ -77,11 +85,13 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
 
     const currentMention = getMentionToken(nextText, caretIndex);
     if (!currentMention) {
+      setMentionSuggestions([]);
       setMentionQuery(null);
       setMentionStart(null);
       return;
     }
 
+    setMentionSuggestions([]);
     setMentionQuery(currentMention.query);
     setMentionStart(currentMention.start);
     setActiveIndex(0);
@@ -100,6 +110,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
 
     setText(nextText);
     setSelectedMention(nextSelection);
+    setMentionSuggestions([]);
     setMentionQuery(null);
     setMentionStart(null);
     console.log("[mentions-debug] selected friend object:", friend);
@@ -119,23 +130,24 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveIndex((current) => (suggestions.length === 0 ? 0 : (current + 1) % suggestions.length));
+      setActiveIndex((current) => (mentionSuggestions.length === 0 ? 0 : (current + 1) % mentionSuggestions.length));
       return;
     }
 
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActiveIndex((current) => (suggestions.length === 0 ? 0 : (current - 1 + suggestions.length) % suggestions.length));
+      setActiveIndex((current) => (mentionSuggestions.length === 0 ? 0 : (current - 1 + mentionSuggestions.length) % mentionSuggestions.length));
       return;
     }
 
-    if (event.key === "Enter" && suggestions.length > 0) {
+    if (event.key === "Enter" && mentionSuggestions.length > 0) {
       event.preventDefault();
-      handleSelectSuggestion(suggestions[activeIndex]);
+      handleSelectSuggestion(mentionSuggestions[activeIndex]);
       return;
     }
 
     if (event.key === "Escape") {
+      setMentionSuggestions([]);
       setMentionQuery(null);
       setMentionStart(null);
     }
@@ -157,6 +169,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
     });
 
     setText("");
+    setMentionSuggestions([]);
     setMentionQuery(null);
     setMentionStart(null);
     setSelectedMention(null);
@@ -182,7 +195,7 @@ export default function CommentComposer({ friends, onSubmit, loading = false, er
         />
 
         {mentionQuery !== null ? (
-          <MentionAutocomplete friends={suggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
+          <MentionAutocomplete friends={mentionSuggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
         ) : null}
       </div>
 
