@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Country } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
 import { fetchMovieTrailer, withYouTubeIframeApiParams } from "../lib/trailers";
+import { trailerDebugLog } from "../lib/trailerDebug";
 
 const TRAILER_HOVER_DELAY_MS = 500;
 
@@ -51,6 +52,7 @@ export function useTrailerHover(movieId: Movie["id"] | null | undefined, country
       timerRef.current = null;
       try {
         const trailer = await fetchMovieTrailer(movieId, country);
+        trailerDebugLog("Trailer opened by interaction", { interaction: "hover", movieId, videoId: trailer.youtubeKey, externalOnly: trailer.externalOnly, available: trailer.available, watchUrl: trailer.watchUrl, embedUrl: trailer.trailerUrl });
         if (requestRef.current !== requestId) return;
         if (trailer.available && trailer.trailerUrl) {
           setWatchUrl(trailer.watchUrl);

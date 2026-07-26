@@ -11,7 +11,7 @@ import { useTrailerLongPress } from "../hooks/useTrailerLongPress";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
-import TrailerModal from "./TrailerModal";
+import TrailerModal from "./DebugTrailerModal";
 import PosterImage from "./PosterImage";
 import type { AppBranding } from "../lib/branding";
 
@@ -245,8 +245,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </div>
         </div>
       </div>
-      <TrailerModal open={trailerHover.open} trailerUrl={trailerHover.trailerUrl} watchUrl={trailerHover.watchUrl} loading={trailerHover.loading} unavailable={trailerHover.unavailable} onClose={trailerHover.close} currentLanguage={locale} posterUrl={posterSrc} />
-      <TrailerModal open={trailerLongPress.open} trailerUrl={trailerLongPress.trailerUrl} watchUrl={trailerLongPress.watchUrl} loading={trailerLongPress.loading} error={trailerLongPress.error} unavailable={trailerLongPress.unavailable} externalOnly={trailerLongPress.externalOnly} onClose={trailerLongPress.close} currentLanguage={locale} posterUrl={posterSrc} />
+      <TrailerModal open={trailerHover.open} trailerUrl={trailerHover.trailerUrl} watchUrl={trailerHover.watchUrl} loading={trailerHover.loading} unavailable={trailerHover.unavailable} onClose={trailerHover.close} currentLanguage={locale} posterUrl={posterSrc} movieId={movie?.id} movieTitle={title} interaction="hover" />
+      <TrailerModal open={trailerLongPress.open} trailerUrl={trailerLongPress.trailerUrl} watchUrl={trailerLongPress.watchUrl} loading={trailerLongPress.loading} error={trailerLongPress.error} unavailable={trailerLongPress.unavailable} externalOnly={trailerLongPress.externalOnly} onClose={trailerLongPress.close} currentLanguage={locale} posterUrl={posterSrc} movieId={movie?.id} movieTitle={title} interaction="long-press" />
     </article>
   );
 }

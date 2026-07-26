@@ -1,6 +1,7 @@
 import { apiFetch } from "./api";
 import type { Movie } from "./movies";
 import type { Country } from "./i18n";
+import { saveTrailerDebugSnapshot, trailerDebugLog } from "./trailerDebug";
 
 export interface MovieTrailer {
   trailerUrl: string | null;
@@ -49,14 +50,14 @@ export function withYouTubeIframeApiParams(trailerUrl: string): string {
   });
 }
 
-export async function fetchMovieTrailer(movieId: Movie["id"], country: Country): Promise<MovieTrailer> {
+export async function fetchMovieTrailer(movieId: Movie["id"], country: Country, title: string | null = null): Promise<MovieTrailer> {
   const encodedMovieId = encodeURIComponent(String(movieId));
   const encodedCountry = encodeURIComponent(country);
   const payload = (await apiFetch(`/movies/${encodedMovieId}/trailer/?country=${encodedCountry}`, { cache: "no-store" })) as Record<string, unknown> | null;
 
   const trailerUrl = readString(payload?.trailer_url);
 
-  return {
+  const normalized: MovieTrailer = {
     trailerUrl,
     watchUrl: readString(payload?.watch_url),
     youtubeKey: readString(payload?.youtube_key),
@@ -70,4 +71,32 @@ export async function fetchMovieTrailer(movieId: Movie["id"], country: Country):
     available: trailerUrl !== null,
     externalOnly: trailerUrl === null && payload?.external_only === true,
   };
+
+  const snapshot = {
+    movieId,
+    title: title ?? readString(payload?.title),
+    tmdbId: payload?.tmdb_id ?? payload?.tmdbId ?? null,
+    videoId: payload?.video_id ?? payload?.videoId ?? payload?.youtube_key ?? null,
+    trailerKey: payload?.trailer_key ?? payload?.trailerKey ?? payload?.youtube_key ?? null,
+    trailer_url: payload?.trailer_url ?? null,
+    watchUrl: payload?.watch_url ?? null,
+    available: payload?.available ?? null,
+    external_only: payload?.external_only ?? null,
+    source: payload?.source ?? null,
+    language: payload?.language ?? null,
+    normalizedResponse: normalized,
+  };
+  saveTrailerDebugSnapshot(snapshot);
+  trailerDebugLog("Backend trailer response", snapshot);
+  trailerDebugLog("Internal trailer object constructed", {
+    videoId: snapshot.videoId,
+    watchUrl: normalized.watchUrl,
+    available: normalized.available,
+    externalOnly: normalized.externalOnly,
+    embedUrl: normalized.trailerUrl,
+    youtubeUrl: normalized.watchUrl,
+    normalizedState: normalized,
+  });
+
+  return normalized;
 }

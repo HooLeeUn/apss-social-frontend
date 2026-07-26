@@ -15,7 +15,7 @@ import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/peopl
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
-import TrailerModal from "./TrailerModal";
+import TrailerModal from "./DebugTrailerModal";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import PosterImage from "./PosterImage";
 import type { AppBranding } from "../lib/branding";
@@ -910,7 +910,7 @@ function MovieCard({
     if (options?.openWhileLoading) setTrailerOpen(true);
 
     try {
-      const trailer = await fetchMovieTrailer(movie.id, country);
+      const trailer = await fetchMovieTrailer(movie.id, country, displayTitle);
       if (trailerRequestRef.current !== requestId) return;
       if (trailer.available && trailer.trailerUrl) {
         setTrailerWatchUrl(trailer.watchUrl);
@@ -945,7 +945,7 @@ function MovieCard({
     } finally {
       if (trailerRequestRef.current === requestId) setTrailerLoading(false);
     }
-  }, [clearUnavailableTimer, country, movie.id]);
+  }, [clearUnavailableTimer, country, displayTitle, movie.id]);
 
   const closeTrailer = useCallback(() => {
     resetTrailerState(true);
@@ -1491,6 +1491,9 @@ function MovieCard({
       onClose={closeTrailer}
       currentLanguage={locale}
       posterUrl={posterSrc}
+      movieId={movie.id}
+      movieTitle={displayTitle}
+      interaction="long-press"
     />
     <TrailerModal
       open={hoverTrailer.open}
@@ -1501,6 +1504,9 @@ function MovieCard({
       onClose={hoverTrailer.close}
       currentLanguage={locale}
       posterUrl={posterSrc}
+      movieId={movie.id}
+      movieTitle={displayTitle}
+      interaction="hover"
     />
     </>
   );
