@@ -54,13 +54,20 @@ export async function fetchMovieTrailer(movieId: Movie["id"], country: Country):
   const encodedCountry = encodeURIComponent(country);
   const payload = (await apiFetch(`/movies/${encodedMovieId}/trailer/?country=${encodedCountry}`, { cache: "no-store" })) as Record<string, unknown> | null;
 
+  const trailerUrl = readString(payload?.trailer_url);
+
   return {
-    trailerUrl: readString(payload?.trailer_url),
+    trailerUrl,
     watchUrl: readString(payload?.watch_url),
     youtubeKey: readString(payload?.youtube_key),
     language: readString(payload?.language),
     source: readString(payload?.source),
-    available: payload?.available === true,
-    externalOnly: payload?.external_only === true,
+    // An embed URL is the capability signal used by every interaction.  Some
+    // responses contain an inconsistent `available: false`/`external_only:
+    // true` pair even though they also include a valid embed URL. Treating the
+    // URL as authoritative prevents an interaction from propagating that
+    // contradictory fallback classification.
+    available: trailerUrl !== null,
+    externalOnly: trailerUrl === null && payload?.external_only === true,
   };
 }
