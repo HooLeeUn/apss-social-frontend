@@ -5,20 +5,11 @@ import { createPortal } from "react-dom";
 import type { Locale } from "../lib/i18n";
 import { t } from "../lib/i18n";
 import { hasTrailerExternalOnlyFallback, markTrailerExternalOnlyFallback } from "../lib/trailerFallbackCache";
-function useIsMobileTrailerModal(open: boolean) {
-  const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    const mediaQuery = window.matchMedia("(max-width: 767px), (pointer: coarse)");
-    const sync = () => setIsMobile(mediaQuery.matches);
-    sync();
-    mediaQuery.addEventListener("change", sync);
-    return () => mediaQuery.removeEventListener("change", sync);
-  }, [open]);
+const PLAYER_READY_TIMEOUT_MS = 20_000;
+const TERMINAL_YOUTUBE_ERROR_CODES = new Set([2, 100, 101, 150]);
 
-  return isMobile;
-}
+type PlayerStatus = "idle" | "loading" | "ready" | "playing" | "embedError";
 
 interface TrailerModalProps {
   open: boolean;
@@ -34,36 +25,58 @@ interface TrailerModalProps {
 }
 
 export default function TrailerModal({ open, trailerUrl, watchUrl, loading, error = false, unavailable = false, externalOnly = false, onClose, currentLanguage, posterUrl = null }: TrailerModalProps) {
-  const isMobile = useIsMobileTrailerModal(open);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const [embedErrorUrl, setEmbedErrorUrl] = useState<string | null>(null);
-  const [iframeReadyUrl, setIframeReadyUrl] = useState<string | null>(null);
-  const [cachedExternalOnlyUrl, setCachedExternalOnlyUrl] = useState<string | null>(null);
-  const embedError = Boolean(trailerUrl && embedErrorUrl === trailerUrl);
-  const iframeReady = Boolean(trailerUrl && iframeReadyUrl === trailerUrl);
-  const cachedExternalOnly = Boolean(trailerUrl && (cachedExternalOnlyUrl === trailerUrl || hasTrailerExternalOnlyFallback(trailerUrl, watchUrl)));
+  const playerRef = useRef<YouTubePlayer | null>(null);
+  const [playerState, setPlayerState] = useState<{ url: string | null; status: PlayerStatus }>({ url: null, status: "idle" });
+  const embedError = Boolean(trailerUrl && playerState.url === trailerUrl && playerState.status === "embedError");
+  const iframeReady = Boolean(trailerUrl && playerState.url === trailerUrl && (playerState.status === "ready" || playerState.status === "playing"));
+  const cachedExternalOnly = Boolean(trailerUrl && hasTrailerExternalOnlyFallback(trailerUrl, watchUrl));
   const shouldAttemptIframe = Boolean(open && trailerUrl && !loading && !error && !unavailable && !externalOnly && !embedError && !cachedExternalOnly);
 
   useEffect(() => {
     if (!shouldAttemptIframe || !iframeRef.current) return;
 
     let cancelled = false;
+    let ready = false;
     const iframe = iframeRef.current;
-    const handleEmbedError = () => {
+    const readyTimeout = window.setTimeout(() => {
       if (!cancelled) {
-        markTrailerExternalOnlyFallback(trailerUrl, watchUrl);
-        setCachedExternalOnlyUrl(trailerUrl);
-        setEmbedErrorUrl(trailerUrl);
+        setPlayerState({ url: trailerUrl, status: "embedError" });
       }
+    }, PLAYER_READY_TIMEOUT_MS);
+
+    const handleTerminalEmbedError = () => {
+      markTrailerExternalOnlyFallback(trailerUrl, watchUrl);
+      setPlayerState({ url: trailerUrl, status: "embedError" });
     };
     const createPlayer = () => {
       if (cancelled || !window.YT?.Player || !iframe.isConnected) return;
-      new window.YT.Player(iframe, {
+      playerRef.current = new window.YT.Player(iframe, {
         events: {
-          onReady: () => {
-            if (!cancelled) setIframeReadyUrl(trailerUrl);
+          onReady: (event) => {
+            if (cancelled) return;
+            ready = true;
+            window.clearTimeout(readyTimeout);
+            setPlayerState({ url: trailerUrl, status: "ready" });
+            event.target.mute();
+            // A mobile browser may still require another tap. That is not an embed failure.
+            event.target.playVideo();
           },
-          onError: handleEmbedError,
+          onStateChange: (event) => {
+            if (!cancelled && event.data === 1) {
+              setPlayerState({ url: trailerUrl, status: "playing" });
+            }
+          },
+          onError: (event) => {
+            if (cancelled) return;
+            window.clearTimeout(readyTimeout);
+            if (TERMINAL_YOUTUBE_ERROR_CODES.has(event.data)) {
+              handleTerminalEmbedError();
+            } else {
+              // Error 5 and unknown/transient errors keep the player available for a user retry.
+              setPlayerState({ url: trailerUrl, status: "ready" });
+            }
+          },
         },
       });
     };
@@ -87,6 +100,10 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
 
     return () => {
       cancelled = true;
+      window.clearTimeout(readyTimeout);
+      if (ready) playerRef.current?.stopVideo();
+      playerRef.current?.destroy();
+      playerRef.current = null;
     };
   }, [shouldAttemptIframe, trailerUrl, watchUrl]);
 
@@ -154,29 +171,16 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
                   <span className="relative z-10 rounded-full border border-[#86ADE0]/35 bg-black/65 px-4 py-2 text-base font-semibold text-white shadow-[0_0_22px_rgba(47,155,255,0.2)]">{t(currentLanguage, "trailerLoading")}</span>
                 </div>
               ) : null}
-              {isMobile ? (
-                <iframe
-                  key={trailerUrl}
-                  ref={iframeRef}
-                  src={trailerUrl ?? undefined}
-                  title="Trailer"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className={`h-full w-full transition-opacity duration-150 ${iframeReady ? "opacity-100" : "opacity-0"}`}
-                />
-              ) : (
-                <iframe
-                  key={trailerUrl}
-                  ref={iframeRef}
-                  src={trailerUrl ?? undefined}
-                  title="Trailer"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className={`h-full w-full transition-opacity duration-150 ${iframeReady ? "opacity-100" : "opacity-0"}`}
-                />
-              )}
+              <iframe
+                key={trailerUrl}
+                ref={iframeRef}
+                src={trailerUrl ?? undefined}
+                title="Trailer"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen; web-share"
+                allowFullScreen
+                className={`h-full w-full transition-opacity duration-150 ${iframeReady ? "opacity-100" : "opacity-0"}`}
+              />
             </div>
           ) : (
             <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-zinc-950/80 px-4 text-center text-sm font-medium text-zinc-300 sm:text-base">
