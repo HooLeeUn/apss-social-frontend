@@ -1,4 +1,7 @@
+import { recordTrailerDebugEvent } from "./trailerDebug";
+
 const externalOnlyFallbacks = new Set<string>();
+const fallbackMetadata = new Map<string, { writtenAt: string; reason: string; stack: string }>();
 
 function readYouTubeVideoId(url: string): string | null {
   try {
@@ -32,8 +35,32 @@ export function getTrailerFallbackCacheKeys(...urlsOrKeys: Array<string | null |
   return Array.from(keys);
 }
 
+export function markTrailerExternalOnlyFallbackWithReason(reason: string, ...urlsOrKeys: Array<string | null | undefined>): void {
+  getTrailerFallbackCacheKeys(...urlsOrKeys).forEach((key) => {
+    const previousValue = externalOnlyFallbacks.has(key);
+    const stack = new Error("CACHE WRITE").stack ?? "Stack unavailable";
+    recordTrailerDebugEvent("CACHE WRITE", "trailerFallbackCache.ts · markTrailerExternalOnlyFallbackWithReason() (~line 39)", "fallback", {
+      cacheType: "module-level Set<string>", key, previousValue, newValue: true, reason,
+    }, stack);
+    externalOnlyFallbacks.add(key);
+    fallbackMetadata.set(key, { writtenAt: new Date().toISOString(), reason, stack });
+  });
+}
+
 export function markTrailerExternalOnlyFallback(...urlsOrKeys: Array<string | null | undefined>): void {
-  getTrailerFallbackCacheKeys(...urlsOrKeys).forEach((key) => externalOnlyFallbacks.add(key));
+  markTrailerExternalOnlyFallbackWithReason("markTrailerExternalOnlyFallback called without diagnostic reason", ...urlsOrKeys);
+}
+
+export function inspectTrailerExternalOnlyFallback(...urlsOrKeys: Array<string | null | undefined>) {
+  const keys = getTrailerFallbackCacheKeys(...urlsOrKeys);
+  const matchedKey = keys.find((key) => externalOnlyFallbacks.has(key)) ?? null;
+  return {
+    cacheType: "module-level Set<string>",
+    keys,
+    matchedKey,
+    value: matchedKey !== null,
+    metadata: matchedKey ? fallbackMetadata.get(matchedKey) ?? null : null,
+  };
 }
 
 export function hasTrailerExternalOnlyFallback(...urlsOrKeys: Array<string | null | undefined>): boolean {

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Locale } from "../lib/i18n";
 import { t } from "../lib/i18n";
-import { hasTrailerExternalOnlyFallback, markTrailerExternalOnlyFallback } from "../lib/trailerFallbackCache";
+import { inspectTrailerExternalOnlyFallback, markTrailerExternalOnlyFallbackWithReason } from "../lib/trailerFallbackCache";
+import { recordTrailerDebugEvent, recordTrailerStateInitialization, traceFallbackWriteAttempt } from "../lib/trailerDebug";
 
 const PLAYER_READY_TIMEOUT_MS = 20_000;
 const TERMINAL_YOUTUBE_ERROR_CODES = new Set([2, 100, 101, 150]);
@@ -22,16 +23,81 @@ interface TrailerModalProps {
   onClose: () => void;
   currentLanguage: Locale;
   posterUrl?: string | null;
+  diagnosticContext?: {
+    movieId: unknown;
+    videoId: unknown;
+    available: unknown;
+    interaction: "hover" | "long-press";
+    device: "mobile" | "desktop";
+  };
 }
 
-export default function TrailerModal({ open, trailerUrl, watchUrl, loading, error = false, unavailable = false, externalOnly = false, onClose, currentLanguage, posterUrl = null }: TrailerModalProps) {
+export default function TrailerModal({ open, trailerUrl, watchUrl, loading, error = false, unavailable = false, externalOnly = false, onClose, currentLanguage, posterUrl = null, diagnosticContext }: TrailerModalProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const playerCreatedRef = useRef(false);
+  const lastErrorCodeRef = useRef<number | null>(null);
+  const recordedFallbackConditionsRef = useRef(new Set<string>());
+  const initializationRecordedRef = useRef(false);
+  const hasOpenedBeforeRef = useRef(false);
   const [playerState, setPlayerState] = useState<{ url: string | null; status: PlayerStatus }>({ url: null, status: "idle" });
   const embedError = Boolean(trailerUrl && playerState.url === trailerUrl && playerState.status === "embedError");
   const iframeReady = Boolean(trailerUrl && playerState.url === trailerUrl && (playerState.status === "ready" || playerState.status === "playing"));
-  const cachedExternalOnly = Boolean(trailerUrl && hasTrailerExternalOnlyFallback(trailerUrl, watchUrl));
+  const cacheLookup = inspectTrailerExternalOnlyFallback(trailerUrl, watchUrl);
+  const cachedExternalOnly = Boolean(trailerUrl && cacheLookup.value);
   const shouldAttemptIframe = Boolean(open && trailerUrl && !loading && !error && !unavailable && !externalOnly && !embedError && !cachedExternalOnly);
+
+  const traceFallback = (reason: string, previousState: unknown, requestedState: unknown, sourceFunction: string, sourceLine: string) => {
+    const attemptKey = `${reason}|${String(previousState)}|${String(requestedState)}`;
+    if (recordedFallbackConditionsRef.current.has(attemptKey)) return;
+    recordedFallbackConditionsRef.current.add(attemptKey);
+    traceFallbackWriteAttempt({
+      previousState,
+      requestedState,
+      reason,
+      movieId: diagnosticContext?.movieId ?? null,
+      videoId: diagnosticContext?.videoId ?? null,
+      available: diagnosticContext?.available ?? Boolean(trailerUrl),
+      externalOnly,
+      currentError: error ? "error prop=true" : playerState.status === "embedError" ? "embedError" : null,
+      errorCode: lastErrorCodeRef.current,
+      cachedFallbackValue: cacheLookup.value,
+      cacheKey: cacheLookup.matchedKey ?? cacheLookup.keys,
+      playerReady: iframeReady,
+      playerCreated: playerCreatedRef.current,
+      iframeMounted: Boolean(iframeRef.current),
+      interaction: diagnosticContext?.interaction ?? "unknown",
+      device: diagnosticContext?.device ?? "unknown",
+      sourceFile: "components/TrailerModal.tsx",
+      sourceFunction,
+      sourceLine,
+    });
+  };
+
+  useEffect(() => {
+    if (!open || initializationRecordedRef.current) return;
+    initializationRecordedRef.current = true;
+    const retainedFromPreviousOpening = hasOpenedBeforeRef.current && playerState.status !== "idle";
+    recordTrailerStateInitialization({
+      playerState: { value: playerState, source: hasOpenedBeforeRef.current ? "retained useState value from mounted TrailerModal" : 'useState literal { url: null, status: "idle" }', dependency: "component instance lifetime", fromPreviousOpening: retainedFromPreviousOpening },
+      embedError: { value: embedError, source: "derived from playerState.url/status and trailerUrl", dependency: "playerState + trailerUrl", fromPreviousOpening: retainedFromPreviousOpening && embedError },
+      playerError: { value: playerState.status === "embedError" ? "embedError" : null, source: "playerState.status", dependency: "player callbacks or ready timeout", fromPreviousOpening: retainedFromPreviousOpening },
+      externalOnly: { value: externalOnly, source: "TrailerModal prop (default false)", dependency: "interaction hook response", fromPreviousOpening: false },
+      cachedExternalOnly: { value: cachedExternalOnly, source: "module-level externalOnlyFallbacks Set lookup", dependency: cacheLookup.keys, fromPreviousOpening: cachedExternalOnly },
+      isYouTubeFallback: { value: Boolean((externalOnly || embedError || cachedExternalOnly) && watchUrl), source: "derived render condition", dependency: "externalOnly || embedError || cachedExternalOnly, gated by watchUrl", fromPreviousOpening: cachedExternalOnly || (retainedFromPreviousOpening && embedError) },
+    });
+    hasOpenedBeforeRef.current = true;
+    recordTrailerDebugEvent("CACHE LOOKUP", "TrailerModal.tsx · modal initialization effect (~line 78)", cachedExternalOnly ? "fallback" : "normal", {
+      ...cacheLookup, movieId: diagnosticContext?.movieId ?? null, videoId: diagnosticContext?.videoId ?? null,
+    }, cacheLookup.metadata?.stack);
+  }, [cacheLookup, cachedExternalOnly, diagnosticContext?.movieId, diagnosticContext?.videoId, embedError, externalOnly, open, playerState, watchUrl]);
+
+  useEffect(() => {
+    if (!open) {
+      initializationRecordedRef.current = false;
+      recordedFallbackConditionsRef.current.clear();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!shouldAttemptIframe || !iframeRef.current) return;
@@ -41,16 +107,19 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
     const iframe = iframeRef.current;
     const readyTimeout = window.setTimeout(() => {
       if (!cancelled) {
+        traceFallback("readyTimeout callback fired && cancelled === false", playerState, { url: trailerUrl, status: "embedError" }, "readyTimeout callback", "~line 105");
         setPlayerState({ url: trailerUrl, status: "embedError" });
       }
     }, PLAYER_READY_TIMEOUT_MS);
 
     const handleTerminalEmbedError = () => {
-      markTrailerExternalOnlyFallback(trailerUrl, watchUrl);
+      traceFallback(`TERMINAL_YOUTUBE_ERROR_CODES.has(${String(lastErrorCodeRef.current)}) === true`, playerState, { url: trailerUrl, status: "embedError" }, "handleTerminalEmbedError", "~line 111");
+      markTrailerExternalOnlyFallbackWithReason(`TERMINAL_YOUTUBE_ERROR_CODES.has(${String(lastErrorCodeRef.current)}) === true`, trailerUrl, watchUrl);
       setPlayerState({ url: trailerUrl, status: "embedError" });
     };
     const createPlayer = () => {
       if (cancelled || !window.YT?.Player || !iframe.isConnected) return;
+      playerCreatedRef.current = true;
       playerRef.current = new window.YT.Player(iframe, {
         events: {
           onReady: (event) => {
@@ -70,6 +139,7 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
           onError: (event) => {
             if (cancelled) return;
             window.clearTimeout(readyTimeout);
+            lastErrorCodeRef.current = event.data;
             if (TERMINAL_YOUTUBE_ERROR_CODES.has(event.data)) {
               handleTerminalEmbedError();
             } else {
@@ -104,13 +174,19 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
       if (ready) playerRef.current?.stopVideo();
       playerRef.current?.destroy();
       playerRef.current = null;
+      playerCreatedRef.current = false;
     };
+  // Diagnostic callbacks deliberately stay outside the dependency list so tracing cannot restart the player lifecycle.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldAttemptIframe, trailerUrl, watchUrl]);
 
   useEffect(() => {
     if (externalOnly && (trailerUrl || watchUrl)) {
-      markTrailerExternalOnlyFallback(trailerUrl, watchUrl);
+      traceFallback("externalOnly === true && Boolean(trailerUrl || watchUrl)", "cache entries unchanged", "cache entries set to true", "externalOnly cache effect", "~line 173");
+      markTrailerExternalOnlyFallbackWithReason("externalOnly === true && Boolean(trailerUrl || watchUrl)", trailerUrl, watchUrl);
     }
+  // Diagnostic callbacks deliberately stay outside the dependency list so tracing cannot alter this product effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalOnly, trailerUrl, watchUrl]);
 
   useEffect(() => {
@@ -124,9 +200,18 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose, open]);
 
+  const isYouTubeFallback = Boolean((externalOnly || embedError || cachedExternalOnly) && watchUrl);
+  useEffect(() => {
+    if (!isYouTubeFallback) return;
+    if (externalOnly) traceFallback("externalOnly === true && Boolean(watchUrl)", "non-fallback render", "fallback render", "TrailerModal fallback decision effect", "~line 199");
+    else if (embedError) traceFallback('playerState.status === "embedError" && playerState.url === trailerUrl && Boolean(watchUrl)', playerState.status, "fallback", "TrailerModal fallback decision effect", "~line 200");
+    else if (cachedExternalOnly) traceFallback("externalOnlyFallbacks contains a generated cache key && Boolean(watchUrl)", false, true, "TrailerModal fallback decision effect", "~line 201");
+  // traceFallback is intentionally omitted so diagnostics never change the product effect lifecycle.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedExternalOnly, embedError, externalOnly, isYouTubeFallback, playerState.status, watchUrl]);
+
   if (!open || typeof document === "undefined") return null;
 
-  const isYouTubeFallback = Boolean((externalOnly || embedError || cachedExternalOnly) && watchUrl);
   const showIframePlaceholder = shouldAttemptIframe && !iframeReady;
   const handleFallbackWatchClick = () => {
     onClose();

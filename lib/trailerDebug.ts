@@ -10,13 +10,40 @@ export type TrailerDebugEvent = {
   label: string;
   source: string;
   level: TrailerDebugLevel;
+  details?: Record<string, unknown>;
+  stack?: string;
 };
 
-const TIMELINE_LIMIT = 40;
+export type TrailerFallbackWrite = {
+  elapsedMs: number;
+  previousState: unknown;
+  requestedState: unknown;
+  reason: string;
+  movieId: unknown;
+  videoId: unknown;
+  available: unknown;
+  externalOnly: boolean;
+  currentError: unknown;
+  errorCode: unknown;
+  cachedFallbackValue: unknown;
+  cacheKey: unknown;
+  playerReady: boolean;
+  playerCreated: boolean;
+  iframeMounted: boolean;
+  interaction: unknown;
+  device: unknown;
+  sourceFile: string;
+  sourceFunction: string;
+  sourceLine: string;
+  stack: string;
+};
+
+const TIMELINE_LIMIT = 60;
 let timelineStartedAt = 0;
 let nextEventId = 1;
 let timeline: TrailerDebugEvent[] = [];
 let fallbackReason: string | null = null;
+let firstFallbackWrite: TrailerFallbackWrite | null = null;
 const timelineListeners = new Set<() => void>();
 let playerDiagnosticsInstalled = false;
 let playerReadyHookInstalled = false;
@@ -106,16 +133,49 @@ export function startTrailerDebugTimeline(label = "Modal opened", source = "Debu
   timelineStartedAt = performance.now();
   timeline = [];
   fallbackReason = null;
+  firstFallbackWrite = null;
   recordTrailerDebugEvent(label, source, "normal");
 }
 
-export function recordTrailerDebugEvent(label: string, source: string, level: TrailerDebugLevel = "normal"): void {
+export function recordTrailerDebugEvent(label: string, source: string, level: TrailerDebugLevel = "normal", details?: Record<string, unknown>, stack?: string): void {
   if (!TRAILER_DEBUG || typeof performance === "undefined") return;
   if (!timelineStartedAt) timelineStartedAt = performance.now();
   if (level === "fallback") fallbackReason = label;
-  timeline = [...timeline, { id: nextEventId++, elapsedMs: Math.round(performance.now() - timelineStartedAt), label, source, level }].slice(-TIMELINE_LIMIT);
+  timeline = [...timeline, { id: nextEventId++, elapsedMs: Math.round(performance.now() - timelineStartedAt), label, source, level, details, stack }].slice(-TIMELINE_LIMIT);
   trailerDebugLog(label, { source, elapsedMs: timeline.at(-1)?.elapsedMs });
   timelineListeners.forEach((listener) => listener());
+}
+
+export function traceFallbackWriteAttempt(write: Omit<TrailerFallbackWrite, "elapsedMs" | "stack"> & { stack?: string }): void {
+  if (!TRAILER_DEBUG || typeof performance === "undefined") return;
+  const stack = write.stack ?? new Error("FALLBACK WRITE ATTEMPT").stack ?? "Stack unavailable";
+  const entry: TrailerFallbackWrite = { ...write, elapsedMs: Math.round(performance.now() - timelineStartedAt), stack };
+  if (!firstFallbackWrite) firstFallbackWrite = entry;
+  console.trace("[TRAILER DEBUG] FALLBACK WRITE ATTEMPT", entry);
+  recordTrailerDebugEvent("FALLBACK WRITE ATTEMPT", `${write.sourceFile} · ${write.sourceFunction} (${write.sourceLine})`, "fallback", { ...entry }, stack);
+}
+
+export function getFirstTrailerFallbackWrite(): TrailerFallbackWrite | null {
+  return firstFallbackWrite;
+}
+
+export function recordTrailerStateInitialization(details: Record<string, unknown>): void {
+  recordTrailerDebugEvent("STATE INITIALIZATION", "TrailerModal.tsx · TrailerModal() (~line 30)", "normal", details, new Error("STATE INITIALIZATION").stack);
+}
+
+export function buildTrailerDebugReport(general: Record<string, unknown>): string {
+  const serialize = (value: unknown) => JSON.stringify(value, null, 2);
+  const initializations = timeline.filter((event) => event.label === "STATE INITIALIZATION");
+  const cacheLookups = timeline.filter((event) => event.label === "CACHE LOOKUP");
+  return [
+    "TRAILER DEBUG REPORT",
+    "\nGENERAL\n" + serialize(general),
+    "\nFIRST FALLBACK WRITE\n" + serialize(firstFallbackWrite),
+    "\nSTATE INITIALIZATION\n" + serialize(initializations),
+    "\nCACHE LOOKUP\n" + serialize(cacheLookups),
+    "\nEVENT TIMELINE\n" + serialize(timeline),
+    "\nSTACK TRACE\n" + (firstFallbackWrite?.stack ?? "No fallback write captured"),
+  ].join("\n");
 }
 
 export function getTrailerDebugTimeline(): TrailerDebugEvent[] {
