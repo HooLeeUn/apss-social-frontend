@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UIEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -126,7 +126,7 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
 }
 
 
-export default function ProfileFeedPage() {
+function ProfileFeedContent() {
   const searchParams = useSearchParams();
   const branding = useAppBranding();
   const { locale, t } = useI18n();
@@ -729,5 +729,13 @@ export default function ProfileFeedPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ProfileFeedPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-black text-zinc-100" />}>
+      <ProfileFeedContent />
+    </Suspense>
   );
 }

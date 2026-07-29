@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import GenreChips from "../../components/GenreChips";
@@ -37,7 +37,7 @@ function mergeUniqueMovies(existing: Movie[], incoming: Movie[]): Movie[] {
   return merged;
 }
 
-export default function SearchPage() {
+function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -283,5 +283,13 @@ export default function SearchPage() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-black" />}>
+      <SearchPageContent />
+    </Suspense>
   );
 }
