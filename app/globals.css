@@ -31,6 +31,14 @@ textarea,
   caret-color: auto;
 }
 
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 .activity-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(161, 161, 170, 0.45) transparent;
