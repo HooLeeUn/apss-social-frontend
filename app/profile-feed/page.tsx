@@ -149,6 +149,7 @@ function ProfileFeedContent() {
   const [followingError, setFollowingError] = useState<string | null>(null);
   const [pendingRequestsError, setPendingRequestsError] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
+  const [loadingProfileUser, setLoadingProfileUser] = useState(true);
   const requestedTab = searchParams.get("tab");
   const requestedFriendsTab = searchParams.get("friendsTab");
   const [myListMovies, setMyListMovies] = useState<Movie[]>([]);
@@ -235,6 +236,8 @@ function ProfileFeedContent() {
   }, [loadFollowing, loadFriends, loadPendingRequests]);
 
   useEffect(() => {
+    let isCurrent = true;
+
     const loadOwnProfileData = async () => {
       try {
         const [myProfile, personalData, privacySettings] = await Promise.all([
@@ -242,6 +245,7 @@ function ProfileFeedContent() {
           getPersonalData(),
           getProfilePrivacySettings(),
         ]);
+        if (!isCurrent) return;
         setProfileUser({
           id: myProfile?.id ?? "me",
           username: myProfile?.username ?? "usuario",
@@ -262,6 +266,7 @@ function ProfileFeedContent() {
           getMyProfile().catch(() => null),
           getProfilePrivacySettings().catch(() => null),
         ]);
+        if (!isCurrent) return;
         setProfileUser(
           myProfile || privacySettings
             ? {
@@ -277,10 +282,15 @@ function ProfileFeedContent() {
               }
             : null,
         );
+      } finally {
+        if (isCurrent) setLoadingProfileUser(false);
       }
     };
 
     void loadOwnProfileData();
+    return () => {
+      isCurrent = false;
+    };
   }, []);
 
   const handleAcceptFriendRequest = useCallback(async (request: FriendRequest) => {
@@ -560,13 +570,15 @@ function ProfileFeedContent() {
   );
 
   return (
-    <main className="min-h-screen bg-black text-zinc-100">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col px-4 py-8 md:px-8">
-        <section className="rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
-          <div className="grid items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
-            <div className="flex">
+    <main className="min-h-screen overflow-x-clip bg-black text-zinc-100">
+      <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 py-8 md:px-8">
+        <section className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
+          <div className="grid min-w-0 items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
+            <div className="mx-auto flex w-full min-w-0 max-w-full">
               <ProfileIdentityCard
                 username={profileUser?.username || "usuario"}
+                isLoading={loadingProfileUser || !profileUser}
+                stabilizeMobileHeight
                 avatarUrl={profileUser?.avatarUrl}
                 firstName={profileUser?.firstName}
                 lastName={profileUser?.lastName}
