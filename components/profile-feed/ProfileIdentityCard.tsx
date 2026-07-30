@@ -4,6 +4,8 @@ import { AppBranding, BrandingLogoSlot } from "../../lib/branding";
 
 interface ProfileIdentityCardProps {
   username: string;
+  isLoading?: boolean;
+  stabilizeMobileHeight?: boolean;
   avatarUrl?: string | null;
   firstName?: string | null;
   lastName?: string | null;
@@ -38,6 +40,8 @@ function formatGender(gender: string): string {
 
 export default function ProfileIdentityCard({
   username,
+  isLoading = false,
+  stabilizeMobileHeight = false,
   avatarUrl = null,
   firstName = null,
   lastName = null,
@@ -64,22 +68,42 @@ export default function ProfileIdentityCard({
   const shouldRenderPersonalData = autoHeight ? hasVisiblePersonalData : true;
   const cardHeightClass = autoHeight ? "h-fit min-h-0 self-start" : "min-h-[220px]";
   const personalDataSpacingClass = autoHeight ? "mt-0" : "mt-auto";
+  const stableMobileHeightClass = stabilizeMobileHeight ? "min-h-[264px] md:min-h-[220px]" : "";
+  const cardClassName = `relative mx-auto flex w-full min-w-0 max-w-full box-border flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass} ${stableMobileHeightClass}`;
+
+  if (isLoading) {
+    return (
+      <div className={cardClassName} aria-busy="true" aria-label="Cargando perfil">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75" />
+        <div className="relative flex min-w-0 items-start justify-between gap-4" aria-hidden="true">
+          <div className="h-[68px] min-w-0 flex-1 animate-pulse rounded-xl bg-white/5" />
+          <div className="relative top-24 h-20 w-20 shrink-0 animate-pulse rounded-full border border-white/10 bg-zinc-800/90" />
+        </div>
+        <div className="relative min-w-0 space-y-2 pr-24" aria-hidden="true">
+          <div className="h-4 w-20 max-w-full animate-pulse rounded bg-white/5" />
+          <div className="h-7 w-40 max-w-full animate-pulse rounded bg-white/10" />
+          <div className="h-5 w-32 max-w-full animate-pulse rounded bg-white/5" />
+        </div>
+        <div className="relative mt-auto h-6 w-24 max-w-full animate-pulse rounded-full bg-white/5" aria-hidden="true" />
+      </div>
+    );
+  }
 
   return (
-    <div className={`relative flex w-full flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass}`}>
+    <div className={cardClassName}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75" />
 
-      <div className="relative flex items-start justify-between gap-4">
+      <div className="relative flex min-w-0 items-start justify-between gap-4">
         <Link
           href="/feed"
-          className="inline-flex min-h-[68px] min-w-[188px] items-center justify-center overflow-hidden rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100"
+          className="inline-flex min-h-[68px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100 md:min-w-[188px] md:flex-initial"
           aria-label="Ir al feed principal"
         >
           <AppLogo
             branding={appBranding}
             slot={logoSlot}
             alt={appTitle}
-            className="block h-12 w-auto max-w-[184px] object-contain object-center"
+            className="block h-12 min-w-0 w-auto max-w-full object-contain object-center md:max-w-[184px]"
             textClassName="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100"
           />
         </Link>
