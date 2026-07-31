@@ -14,6 +14,7 @@ import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import TrailerModal from "./TrailerModal";
 import PosterImage from "./PosterImage";
 import type { AppBranding } from "../lib/branding";
+import { RatingUserSmileIcon } from "./RatingIcons";
 
 interface WeeklyHeroCardProps {
   movie?: Movie;
@@ -235,10 +236,11 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     onRated={(score, payload) => onRated(movie.id, score, payload)}
                     nullLabel="—"
                     ariaLabel="Mi calificación"
+                    icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
                     className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/25 [&_button]:px-1 [&_button]:text-xs [&_button]:text-blue-100 lg:[&_button]:justify-between lg:[&_button]:bg-blue-950/45 lg:[&_button]:text-sm lg:[&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] lg:[&_button:hover]:bg-blue-900/50 lg:[&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
                   />
                 ) : (
-                  <p className="text-base font-semibold text-blue-100">🙋 {formatMyRating(movie?.myRating)}</p>
+                  <p className="inline-flex items-center gap-1 text-base font-semibold text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /> {formatMyRating(movie?.myRating)}</p>
                 )}
               </div>
             </div>

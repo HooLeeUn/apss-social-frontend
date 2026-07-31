@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, apiFetch } from "../lib/api";
 import { formatMyRating } from "../lib/rating-format";
@@ -13,7 +13,8 @@ interface RatingPopoverProps {
   onRateError?: () => void;
   submitRatingRequest?: (score: number) => Promise<unknown>;
   className?: string;
-  icon?: string;
+  icon?: ReactNode;
+  disabled?: boolean;
   nullLabel?: string;
   ariaLabel?: string;
 }
@@ -30,6 +31,7 @@ export default function RatingPopover({
   submitRatingRequest,
   className = "",
   icon = "🙋",
+  disabled = false,
   nullLabel = "Mi calificación",
   ariaLabel = "Mi calificación",
 }: RatingPopoverProps) {
@@ -46,6 +48,8 @@ export default function RatingPopover({
   const closeTimeoutRef = useRef<number | null>(null);
 
   const previewScore = hoveredScore ?? currentRating;
+  const hasValidMovieId = movieId !== null && movieId !== undefined && String(movieId).trim().length > 0;
+  const isDisabled = disabled || !hasValidMovieId;
 
   const displayScore = useMemo(() => {
     if (previewScore === null || Number.isNaN(previewScore)) return "-";
@@ -68,6 +72,10 @@ export default function RatingPopover({
     setHoveredScore(null);
     setError("");
   }, [clearScheduledClose]);
+
+  useEffect(() => {
+    if (isDisabled) closePopover();
+  }, [closePopover, isDisabled]);
 
   const scheduleDesktopClose = useCallback(() => {
     clearScheduledClose();
@@ -139,7 +147,7 @@ export default function RatingPopover({
   }, [closePopover, isOpen]);
 
   const submitRating = async (score: number) => {
-    if (isSaving) return;
+    if (isSaving || isDisabled) return;
     clearScheduledClose();
     onOptimisticRate?.(score);
 
@@ -177,17 +185,18 @@ export default function RatingPopover({
         onClick={(event) => {
           event.stopPropagation();
           event.preventDefault();
-          if (isSaving) return;
+          if (isSaving || isDisabled) return;
           clearScheduledClose();
           setIsOpen((value) => !value);
           setError("");
         }}
-        disabled={isSaving}
+        disabled={isSaving || isDisabled}
         className={`inline-flex items-center gap-1 rounded-md border border-white/10 bg-zinc-900/80 px-2 py-1 text-sm font-semibold text-zinc-100 transition-all hover:border-white/35 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 ${
           selectedFlash !== null ? "scale-[1.02] ring-1 ring-emerald-400/70" : ""
         }`}
         aria-label={ariaLabel}
-        aria-expanded={isOpen}
+        aria-expanded={isDisabled ? false : isOpen}
+        aria-disabled={isDisabled}
       >
         <span aria-hidden="true">{icon}</span>
         <span>{currentRating !== null ? formatMyRating(currentRating) : nullLabel}</span>
