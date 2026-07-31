@@ -4,6 +4,7 @@ import Link from "next/link";
 import { memo, TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, apiFetch } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
+import { RatingSmileIcon } from "../RatingIcons";
 import {
   getFavoriteMovies,
   getFavoriteMoviesByUsername,
@@ -48,20 +49,21 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
   const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const movieImage = movie?.image || movie?.posterUrl || null;
+  const hasValidProduction = Boolean(movie && movie.id !== null && movie.id !== undefined && String(movie.id).trim());
 
   const handleOptimisticRate = (score: number) => {
-    if (!movie) return;
+    if (!hasValidProduction || !movie) return;
     lastCommittedRatingRef.current = movie.myRating;
     onUpdateMovieRating(movie.id, score);
   };
 
   const handleRateError = () => {
-    if (!movie) return;
+    if (!hasValidProduction || !movie) return;
     onUpdateMovieRating(movie.id, lastCommittedRatingRef.current);
   };
 
   const handleRated = (score: number) => {
-    if (!movie) return;
+    if (!hasValidProduction || !movie) return;
     lastCommittedRatingRef.current = score;
     onUpdateMovieRating(movie.id, score);
   };
@@ -78,7 +80,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
         <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-blue-300/10 opacity-80" />
         <div className="relative flex h-full min-w-0 pr-8">
           <div className="flex min-w-0 flex-1 flex-col justify-between">
-            {movie ? (
+            {hasValidProduction && movie ? (
               <>
                 <div className="grid min-w-0 grid-cols-[60px_minmax(0,1fr)] items-center gap-3.5">
                   {movieImage && movieImage !== failedImageUrl ? (
@@ -150,7 +152,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                         className="inline-flex h-10 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200"
                         aria-label={viewedUsername ? `Calificación visible de ${viewedUsername}` : "Calificación visible"}
                       >
-                        <span aria-hidden="true">🧑</span>
+                        <RatingSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />
                         <span>{readOnlyOwnerRating === null ? "—" : formatAverageRating(readOnlyOwnerRating)}</span>
                       </div>
                     ) : (
@@ -161,7 +163,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                         onRateError={handleRateError}
                         onRated={(score) => handleRated(score)}
                         submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
-                        icon="🧑"
+                        icon={<RatingSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
                         nullLabel="—"
                         ariaLabel={t("myRating")}
                         className="shrink-0"
@@ -172,12 +174,28 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
               </>
             ) : (
               <>
-                <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
-                  <span className="text-zinc-600">{t("profileFeedNoItems")}</span>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">{`${locale === "en" ? "Favorite" : "Favorita"} ${slot}`}</p>
-                  <p className="text-sm text-zinc-500">{locale === "en" ? "Select a movie for this slot." : "Selecciona una película para este espacio."}</p>
+                <div className="flex min-w-0 flex-1 flex-col justify-between">
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
+                      <span className="text-zinc-600">{t("profileFeedNoItems")}</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">{`${locale === "en" ? "Favorite" : "Favorita"} ${slot}`}</p>
+                      <p className="text-sm text-zinc-500">{locale === "en" ? "Select a movie for this slot." : "Selecciona una película para este espacio."}</p>
+                    </div>
+                  </div>
+                  {!readOnly ? (
+                    <RatingPopover
+                      movieId={movie?.id ?? ""}
+                      currentRating={null}
+                      onRated={() => undefined}
+                      disabled
+                      icon={<RatingSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
+                      nullLabel="—"
+                      ariaLabel={t("myRating")}
+                      className="ml-auto shrink-0 [&_button]:hover:border-white/10 [&_button]:hover:bg-zinc-900/80"
+                    />
+                  ) : null}
                 </div>
               </>
             )}

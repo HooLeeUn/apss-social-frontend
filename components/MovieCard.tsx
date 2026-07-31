@@ -15,6 +15,7 @@ import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/peopl
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RatingPopover from "./RatingPopover";
+import { RatingUserSmileIcon } from "./RatingIcons";
 import TrailerModal from "./TrailerModal";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import PosterImage from "./PosterImage";
@@ -1117,6 +1118,7 @@ function MovieCard({
             onRated={(score, payload) => onRated(movie.id, score, payload)}
             nullLabel="—"
             ariaLabel="Mi calificación"
+            icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
             className={`[&_button]:px-1.5 [&_button]:py-0.5 [&_button]:text-xs sm:[&_button]:px-2 sm:[&_button]:py-1 sm:[&_button]:text-sm ${
               highlightMyRatingSlot
                 ? "[&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
@@ -1125,7 +1127,7 @@ function MovieCard({
           />
         ) : (
           <>
-            <span aria-hidden="true" className={highlightMyRatingSlot ? "text-blue-100" : ""}>🙋</span>
+            <RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />
             <span aria-label="Mi calificación" className={highlightMyRatingSlot ? "text-blue-100" : ""}>{formatMyRating(movie.myRating)}</span>
           </>
         )}
@@ -1229,6 +1231,7 @@ function MovieCard({
               onRated={(score, payload) => onRated(movie.id, score, payload)}
               nullLabel="—"
               ariaLabel="Mi calificación"
+              icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
               className={
                 highlightMyRatingSlot
                   ? "[&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
@@ -1237,7 +1240,7 @@ function MovieCard({
             />
           ) : (
             <>
-              <span aria-hidden="true" className={highlightMyRatingSlot ? "text-blue-100" : ""}>🙋</span>
+              <RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />
               <span aria-label="Mi calificación" className={highlightMyRatingSlot ? "text-blue-100" : ""}>
                 {formatMyRating(movie.myRating)}
               </span>
