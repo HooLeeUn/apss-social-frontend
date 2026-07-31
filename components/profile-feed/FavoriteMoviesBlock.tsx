@@ -194,7 +194,9 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">{`${locale === "en" ? "Favorite" : "Favorita"} ${slot}`}</p>
-                      <p className="text-sm text-zinc-500">{t("favoriteProductionComingSoon")}</p>
+                      <p className="text-sm text-zinc-500">
+                        {t(readOnly ? "favoriteProductionComingSoon" : "profileFeedSelectFavoriteProduction")}
+                      </p>
                     </div>
                   </div>
                   {!readOnly ? (
