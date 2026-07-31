@@ -15,13 +15,17 @@ import { FavoriteMovie } from "../../lib/profile-feed/types";
 import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../../lib/movies";
 import { formatAverageRating, formatFollowingRating } from "../../lib/rating-format";
 import { useI18n } from "../../hooks/useI18n";
+import { useAppBranding } from "../../hooks/useAppBranding";
 import { formatProfileFeedRatingsCount, interpolate, resolveMovieTitles, translateVisibleGenre } from "../../lib/i18n";
+import type { AppBranding } from "../../lib/branding";
+import PosterImage from "../PosterImage";
 
 interface FavoriteMovieItemProps {
   movie?: FavoriteMovie;
   slot: number;
   readOnly: boolean;
   viewedUsername?: string;
+  branding: AppBranding | null;
   onOpenSearch: (slot: number) => void;
   onUpdateMovieRating: (movieId: string, score: number | null) => void;
 }
@@ -45,17 +49,15 @@ function hasValidFavoriteProductionId(movie: FavoriteMovie | undefined): boolean
   return Boolean(movie && VALID_FAVORITE_PRODUCTION_ID_PATTERN.test(String(movie.id).trim()));
 }
 
-function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
+function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
   const { locale, t } = useI18n();
   const resolvedTitles = readOnly && movie ? resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.title) : null;
   const displayTitle = resolvedTitles?.primary || movie?.title || "";
   const displaySecondaryTitle = resolvedTitles?.secondary ?? movie?.displaySecondaryTitle ?? null;
   const displayGenre = readOnly ? translateVisibleGenre(locale, movie?.genre) : movie?.genre;
-  const firstLetter = displayTitle.charAt(0)?.toUpperCase() ?? "—";
-  const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
-  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const movieImage = movie?.image || movie?.posterUrl || null;
   const hasValidProduction = hasValidFavoriteProductionId(movie);
+  const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
 
   const handleOptimisticRate = (score: number) => {
     if (!hasValidProduction || !movie) return;
@@ -95,21 +97,15 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
             {hasValidProduction && movie ? (
               <>
                 <div className="grid min-w-0 grid-cols-[60px_minmax(0,1fr)] items-center gap-3.5">
-                  {movieImage && movieImage !== failedImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={movieImage}
-                      alt={`Poster de ${displayTitle}`}
-                      className="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 object-cover shadow-inner shadow-black/30"
-                      loading="lazy"
-                      decoding="async"
-                      onError={() => setFailedImageUrl(movieImage)}
-                    />
-                  ) : (
-                    <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
-                      <span className="text-lg">{firstLetter}</span>
-                    </div>
-                  )}
+                  <PosterImage
+                    posterSrc={movieImage}
+                    title={displayTitle}
+                    branding={branding}
+                    className="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 object-cover shadow-inner shadow-black/30"
+                    placeholderClassName="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 bg-zinc-900/80 object-contain p-2 shadow-inner shadow-black/30"
+                    loading="lazy"
+                    decoding="async"
+                  />
                   <div className="min-w-0">
                     <h3 className="truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">
                       {detailHref ? (
@@ -189,9 +185,15 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
               <>
                 <div className="flex min-w-0 flex-1 flex-col justify-between">
                   <div className="flex items-start gap-3.5">
-                    <div className="flex h-[84px] w-[60px] shrink-0 items-center justify-center rounded-xl border border-white/15 bg-zinc-900/80 text-xs font-semibold text-zinc-300 shadow-inner shadow-black/30">
-                      <span className="text-zinc-600">{t("profileFeedNoItems")}</span>
-                    </div>
+                    <PosterImage
+                      posterSrc={null}
+                      title={`${locale === "en" ? "Favorite" : "Favorita"} ${slot}`}
+                      branding={branding}
+                      className="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 object-cover shadow-inner shadow-black/30"
+                      placeholderClassName="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 bg-zinc-900/80 object-contain p-2 shadow-inner shadow-black/30"
+                      loading="lazy"
+                      decoding="async"
+                    />
                     <div className="space-y-1">
                       <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">{`${locale === "en" ? "Favorite" : "Favorita"} ${slot}`}</p>
                       <p className="text-sm text-zinc-500">
@@ -594,6 +596,7 @@ export default function FavoriteMoviesBlock({
   viewedUsername,
 }: FavoriteMoviesBlockProps = {}) {
   const { t } = useI18n();
+  const branding = useAppBranding();
   const [favorites, setFavorites] = useState<FavoriteMovie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -636,7 +639,7 @@ export default function FavoriteMoviesBlock({
   }, [loadFavorites]);
 
   const slots = [1, 2, 3].map((slot) => favorites.find((movie) => movie.slot === slot));
-  const mobileSlots = readOnly ? slots.filter((movie): movie is FavoriteMovie => Boolean(movie)) : slots;
+  const mobileSlots = slots;
   const maxMobileIndex = Math.max(0, mobileSlots.length - 1);
 
   useEffect(() => {
@@ -738,6 +741,7 @@ export default function FavoriteMoviesBlock({
                   movie={movie}
                   readOnly={readOnly}
                   viewedUsername={viewedUsername}
+                  branding={branding}
                   onOpenSearch={setActiveSlot}
                   onUpdateMovieRating={handleUpdateMovieRating}
                 />
@@ -765,6 +769,7 @@ export default function FavoriteMoviesBlock({
             movie={movie}
             readOnly={readOnly}
             viewedUsername={viewedUsername}
+            branding={branding}
             onOpenSearch={setActiveSlot}
             onUpdateMovieRating={handleUpdateMovieRating}
           />
