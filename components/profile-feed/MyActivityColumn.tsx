@@ -716,6 +716,11 @@ export default function MyActivityColumn({
 
   const resolvedTitle = title ?? t("profileFeedMyActivity");
   const resolvedEmptyCopy = emptyCopy ?? (locale === "en" ? "You have no registered activity yet." : "Aún no tienes actividad registrada.");
+  const visitedEmptyCopy = visitedActivityTab === "public_comments"
+    ? t("visitedProfileNoPublicComments")
+    : visitedActivityTab === "ratings"
+      ? t("visitedProfileNoRatings")
+      : t("visitedProfileNoSocialActivity");
   const resolvedErrorCopy = errorCopy ?? (locale === "en" ? "Activity could not be loaded." : "No se pudo cargar la actividad.");
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
@@ -1090,7 +1095,7 @@ export default function MyActivityColumn({
                   <p className="text-sm text-zinc-400">No pudimos cargar las recomendaciones de este usuario.</p>
                 ) : null}
                 {!recommendationsLoading && !recommendationsError && userRecommendations.length === 0 ? (
-                  <p className="text-sm text-zinc-500">Este usuario aún no ha compartido recomendaciones.</p>
+                  <p className="text-sm text-zinc-500">{t("visitedProfileNoRecommendations")}</p>
                 ) : null}
                 {!recommendationsLoading && !recommendationsError && userRecommendations.length > 0
                   ? userRecommendations.map((movie) => {
@@ -1124,7 +1129,7 @@ export default function MyActivityColumn({
             {!activity.loading &&
             !activity.error &&
             (isOwnProfile ? ownActivityItems.length === 0 : visitedActivityTab !== "recommendations" && filteredActivityItems.length === 0) ? (
-              <p className="text-sm text-zinc-500">{resolvedEmptyCopy}</p>
+              <p className="text-sm text-zinc-500">{isOwnProfile ? resolvedEmptyCopy : visitedEmptyCopy}</p>
             ) : null}
 
             {!activity.loading && !activity.error

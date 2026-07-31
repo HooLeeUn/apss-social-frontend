@@ -388,7 +388,6 @@ export default function UserProfileFeedPage() {
                 isOwnProfile={false}
                 viewedUsername={routeUsername}
                 title={interpolate(t("visitedProfileActivity"), { name: profileTitleName })}
-                emptyCopy="Este usuario no tiene actividad social visible aún."
                 errorCopy="No se pudo cargar la actividad de este usuario."
               />
             </div>
