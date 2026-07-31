@@ -39,6 +39,12 @@ interface FavoriteMoviesBlockProps {
   viewedUsername?: string;
 }
 
+const VALID_FAVORITE_PRODUCTION_ID_PATTERN = /^[1-9]\d*$/;
+
+function hasValidFavoriteProductionId(movie: FavoriteMovie | undefined): boolean {
+  return Boolean(movie && VALID_FAVORITE_PRODUCTION_ID_PATTERN.test(String(movie.id).trim()));
+}
+
 function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
   const { locale, t } = useI18n();
   const resolvedTitles = readOnly && movie ? resolveMovieTitles(locale, movie.titleSpanish, movie.titleEnglish, movie.title) : null;
@@ -49,7 +55,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
   const lastCommittedRatingRef = useRef<number | null>(movie?.myRating ?? null);
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const movieImage = movie?.image || movie?.posterUrl || null;
-  const hasValidProduction = Boolean(movie && movie.id !== null && movie.id !== undefined && String(movie.id).trim());
+  const hasValidProduction = hasValidFavoriteProductionId(movie);
 
   const handleOptimisticRate = (score: number) => {
     if (!hasValidProduction || !movie) return;
@@ -67,7 +73,13 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
     lastCommittedRatingRef.current = score;
     onUpdateMovieRating(movie.id, score);
   };
-  const detailHref = movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
+
+  const handleSubmitRating = (score: number): Promise<unknown> => {
+    if (!hasValidProduction || !movie) return Promise.resolve(undefined);
+    return rateFavoriteMovie(movie.id, score);
+  };
+
+  const detailHref = hasValidProduction && movie ? `/movies/${encodeURIComponent(String(movie.id))}` : null;
   const readOnlyFollowingRating = readOnly ? (movie?.visitedFollowingAvgRating ?? movie?.followingRating ?? null) : movie?.followingRating ?? null;
   const readOnlyFollowingRatingsCount = readOnly
     ? (movie?.visitedFollowingRatingsCount ?? movie?.followingRatingsCount ?? 0)
@@ -162,7 +174,8 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                         onOptimisticRate={handleOptimisticRate}
                         onRateError={handleRateError}
                         onRated={(score) => handleRated(score)}
-                        submitRatingRequest={(score) => rateFavoriteMovie(movie.id, score)}
+                        submitRatingRequest={handleSubmitRating}
+                        disabled={!hasValidProduction}
                         icon={<RatingSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
                         nullLabel="—"
                         ariaLabel={t("myRating")}
@@ -193,7 +206,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, onOpenSearch
                       icon={<RatingSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
                       nullLabel="—"
                       ariaLabel={t("myRating")}
-                      className="ml-auto shrink-0 [&_button]:hover:border-white/10 [&_button]:hover:bg-zinc-900/80"
+                      className="ml-auto shrink-0 [&_button]:hover:border-white/10 [&_button]:hover:bg-zinc-900/80 [&_button:disabled]:cursor-default [&_button:disabled]:transform-none [&_button:disabled]:shadow-none"
                     />
                   ) : null}
                 </div>
