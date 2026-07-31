@@ -4,6 +4,7 @@ import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import { ApiError, apiFetch } from "../lib/api";
 import { formatMyRating } from "../lib/rating-format";
+import { useI18n } from "../hooks/useI18n";
 
 interface RatingPopoverProps {
   movieId: number | string;
@@ -35,6 +36,7 @@ export default function RatingPopover({
   nullLabel = "Mi calificación",
   ariaLabel = "Mi calificación",
 }: RatingPopoverProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hoveredScore, setHoveredScore] = useState<number | null>(null);
@@ -215,8 +217,8 @@ export default function RatingPopover({
                 event.stopPropagation();
               }}
             >
-              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-zinc-400">Calificar película</p>
-              <p className="mb-2 text-sm text-zinc-200">Tu calificación: {displayScore}</p>
+              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-zinc-400">{t("ratingPopoverTitle")}</p>
+              <p className="mb-2 text-sm text-zinc-200">{t("ratingPopoverLabel")}: {displayScore}</p>
 
               <div className="grid grid-cols-5 gap-1.5">
                 {RATING_OPTIONS.map((score) => {
