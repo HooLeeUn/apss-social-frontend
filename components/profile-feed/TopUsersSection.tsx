@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { CSSProperties, MouseEvent, PointerEvent, ReactNode, TouchEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { interpolate } from "../../lib/i18n";
+import type { AppBranding } from "../../lib/branding";
+import { resolveBrandingLogoUrl } from "../../lib/branding";
+import EmptyStatePanel from "./EmptyStatePanel";
 
 interface TopUsersSectionProps {
   friends: SocialUser[];
@@ -25,6 +28,27 @@ interface TopUsersSectionProps {
   redirectOwnClicksToProfileFeed?: boolean;
   friendRequestsRestricted?: boolean;
   initialConnectionView?: "friends" | "pending";
+  branding?: AppBranding | null;
+}
+
+function FollowingGroupIcon() {
+  const people = [
+    { color: "text-yellow-300", background: "bg-yellow-400/15" },
+    { color: "text-rose-200", background: "bg-rose-300/15" },
+    { color: "text-amber-800", background: "bg-amber-700/25" },
+  ];
+  return (
+    <span className="flex items-center justify-center" aria-hidden="true">
+      {people.map(({ color, background }, index) => (
+        <span key={color} className={`flex h-9 w-9 items-center justify-center rounded-full border border-white/15 ${background} ${index ? "-ml-2" : ""}`}>
+          <svg viewBox="0 0 24 24" className={`h-5 w-5 ${color}`} fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="12" cy="8" r="3.25" />
+            <path d="M5.5 20c.45-4.25 2.6-6.4 6.5-6.4s6.05 2.15 6.5 6.4" />
+          </svg>
+        </span>
+      ))}
+    </span>
+  );
 }
 
 function UserRow({
@@ -152,6 +176,9 @@ function Block({
   onNavigateUser,
   centerEmpty = false,
   headerSlot,
+  emptyDescription,
+  emptyIcon,
+  emptyLogoUrl,
 }: {
   title: string;
   users: SocialUser[];
@@ -162,6 +189,9 @@ function Block({
   onNavigateUser?: (clickedUser: SocialUser) => void;
   centerEmpty?: boolean;
   headerSlot?: ReactNode;
+  emptyDescription?: string;
+  emptyIcon?: ReactNode;
+  emptyLogoUrl?: string | null;
 }) {
   const { t } = useI18n();
   return (
@@ -194,7 +224,9 @@ function Block({
         ) : null}
 
         {!loading && !error && users.length === 0 ? (
-          centerEmpty ? (
+          emptyDescription && emptyIcon ? (
+            <EmptyStatePanel title={emptyCopy} description={emptyDescription} icon={emptyIcon} logoUrl={emptyLogoUrl} className="h-full" />
+          ) : centerEmpty ? (
             <div className="flex h-full items-center justify-center px-3 text-center">
               <p className="text-sm text-zinc-500">{emptyCopy}</p>
             </div>
@@ -285,9 +317,11 @@ export default function TopUsersSection({
   redirectOwnClicksToProfileFeed = false,
   friendRequestsRestricted = false,
   initialConnectionView = "friends",
+  branding = null,
 }: TopUsersSectionProps) {
   const router = useRouter();
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
+  const feedLogoUrl = resolveBrandingLogoUrl(branding, "feed_logo_url");
   const [activeConnectionView, setActiveConnectionView] = useState<"friends" | "pending">(initialConnectionView);
   const [activeMobileBlock, setActiveMobileBlock] = useState<0 | 1>(0);
   const [mobileDragOffset, setMobileDragOffset] = useState(0);
@@ -584,7 +618,10 @@ export default function TopUsersSection({
       title={t("profileFeedFollowing")}
       users={following}
       loading={loadingFollowing}
-      emptyCopy={locale === "en" ? "You are not following anyone yet" : "Aún no sigues a ningún usuario"}
+      emptyCopy={t("emptyFollowingTitle")}
+      emptyDescription={t("emptyFollowingDescription")}
+      emptyIcon={<FollowingGroupIcon />}
+      emptyLogoUrl={feedLogoUrl}
       error={followingError}
       onRetry={onRetryFollowing}
       onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
@@ -598,7 +635,10 @@ export default function TopUsersSection({
         headerSlot={connectionHeader}
         users={friendRequestsRestricted ? [] : friends}
         loading={friendRequestsRestricted ? false : loadingFriends}
-        emptyCopy={friendRequestsRestricted ? restrictedFriendRequestsCopy : locale === "en" ? "You have no friends added yet" : "Aún no tienes amigos agregados"}
+        emptyCopy={friendRequestsRestricted ? restrictedFriendRequestsCopy : t("emptyFriendsTitle")}
+        emptyDescription={friendRequestsRestricted ? undefined : t("emptyFriendsDescription")}
+        emptyIcon={friendRequestsRestricted ? undefined : <span aria-hidden="true">🫱🏻‍🫲🏿</span>}
+        emptyLogoUrl={friendRequestsRestricted ? null : feedLogoUrl}
         centerEmpty={shouldShowRestrictedFriendsEmptyState}
         error={friendsError}
         onRetry={onRetryFriends}
