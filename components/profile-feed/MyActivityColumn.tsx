@@ -11,6 +11,7 @@ import { formatAverageRating } from "../../lib/rating-format";
 import { useI18n } from "../../hooks/useI18n";
 import { formatProfileFeedRelativeDate, Locale, resolveMovieTitles, translateVisibleGenre, translateVisitedProfileMovieType } from "../../lib/i18n";
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
+import EmptyStatePanel from "./EmptyStatePanel";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
@@ -715,7 +716,7 @@ export default function MyActivityColumn({
 
 
   const resolvedTitle = title ?? t("profileFeedMyActivity");
-  const resolvedEmptyCopy = emptyCopy ?? (locale === "en" ? "You have no registered activity yet." : "Aún no tienes actividad registrada.");
+  const resolvedEmptyCopy = emptyCopy ?? t("emptyMyActivityTitle");
   const visitedEmptyCopy = visitedActivityTab === "public_comments"
     ? t("visitedProfileNoPublicComments")
     : visitedActivityTab === "ratings"
@@ -1129,7 +1130,15 @@ export default function MyActivityColumn({
             {!activity.loading &&
             !activity.error &&
             (isOwnProfile ? ownActivityItems.length === 0 : visitedActivityTab !== "recommendations" && filteredActivityItems.length === 0) ? (
-              <p className="text-sm text-zinc-500">{isOwnProfile ? resolvedEmptyCopy : visitedEmptyCopy}</p>
+              isOwnProfile ? (
+                <EmptyStatePanel
+                  title={resolvedEmptyCopy}
+                  description={t("emptyMyActivityDescription")}
+                  icon={<span aria-hidden="true">💆🏽‍♂️</span>}
+                />
+              ) : (
+                <p className="text-sm text-zinc-500">{visitedEmptyCopy}</p>
+              )
             ) : null}
 
             {!activity.loading && !activity.error
@@ -1166,7 +1175,11 @@ export default function MyActivityColumn({
             ) : null}
 
             {!messages.loading && !messages.error && messages.items.length === 0 ? (
-              <p className="text-sm text-zinc-500">{t("profileFeedNoMessages")}</p>
+              <EmptyStatePanel
+                title={t("emptyInboxTitle")}
+                description={t("emptyInboxDescription")}
+                icon={<span aria-hidden="true">📧</span>}
+              />
             ) : null}
 
             {!messages.loading && !messages.error && messages.items.length > 0 && filteredMessages.length === 0 ? (
@@ -1197,7 +1210,11 @@ export default function MyActivityColumn({
             ) : null}
 
             {!activity.loading && !activity.error && ownRatedItems.length === 0 ? (
-              <p className="text-sm text-zinc-500">{locale === "en" ? "You have no rated movies yet." : "Aún no tienes películas calificadas."}</p>
+              <EmptyStatePanel
+                title={t("emptyRatingsTitle")}
+                description={t("emptyRatingsDescription")}
+                icon={<span aria-hidden="true">⭐</span>}
+              />
             ) : null}
 
             {!activity.loading && !activity.error

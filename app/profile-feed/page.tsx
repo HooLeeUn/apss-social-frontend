@@ -9,6 +9,7 @@ import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
 import ProfileIdentityCard from "../../components/profile-feed/ProfileIdentityCard";
 import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivityTabsBlock";
 import TopUsersSection from "../../components/profile-feed/TopUsersSection";
+import EmptyStatePanel from "../../components/profile-feed/EmptyStatePanel";
 import {
   acceptFriendship,
   cancelFriendRequest,
@@ -515,9 +516,21 @@ function ProfileFeedContent() {
       </div>
       <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
         {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
-        {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">{t("profileFeedNoMovies")}</p> : null}
+        {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? (
+          <EmptyStatePanel
+            title={t("emptyMyRecommendationsTitle")}
+            description={t("emptyMyRecommendationsDescription")}
+            icon={<span aria-hidden="true">🎬</span>}
+          />
+        ) : null}
         {activeListView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
-        {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? <p className="text-center text-xs text-zinc-500">{t("profileFeedNoMovies")}</p> : null}
+        {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? (
+          <EmptyStatePanel
+            title={t("emptyMyListTitle")}
+            description={t("emptyMyListDescription")}
+            icon={<span aria-hidden="true">🎞️</span>}
+          />
+        ) : null}
         {activeListView === "my-list" && myListMovies.map((movie) => {
           const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
           const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
@@ -696,6 +709,7 @@ function ProfileFeedContent() {
               redirectOwnClicksToProfileFeed
               friendRequestsRestricted={shouldShowRestrictedFriendsEmptyState}
               initialConnectionView={initialConnectionView}
+              branding={branding}
             />
             <div className="w-full max-w-full overflow-hidden md:hidden">
               <div
