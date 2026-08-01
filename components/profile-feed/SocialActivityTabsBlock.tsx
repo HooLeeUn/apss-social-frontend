@@ -10,6 +10,7 @@ import { formatAverageRating, formatFollowingRating, formatMyRating } from "../.
 import { useI18n } from "../../hooks/useI18n";
 import { resolveMovieTitles, translateProfileFeedMovieType } from "../../lib/i18n";
 import SocialActivityCard from "./SocialActivityCard";
+import EmptyStatePanel from "./EmptyStatePanel";
 
 type InteractionsTab = SocialTab | "recommendations";
 
@@ -536,10 +537,13 @@ export default function SocialActivityTabsBlock() {
                   </p>
                 ) : null}
 
-                {!followedRecommendationsLoading && visibleFollowedRecommendations.length === 0 ? (
-                  <div className="rounded-2xl border border-white/10 bg-zinc-950/60 px-4 py-8 text-center shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
-                    <p className="text-sm font-medium text-zinc-300">{t("profileFeedNoItems")}</p>
-                  </div>
+                {!followedRecommendationsLoading && !followedRecommendationsError && followedRecommendations.length === 0 ? (
+                  <EmptyStatePanel
+                    description={t("emptyFollowingRecommendationsDescription")}
+                    icon={<span aria-hidden="true">🎬</span>}
+                    layout="horizontal"
+                    className="rounded-2xl border border-white/10 bg-zinc-950/60 shadow-[0_18px_44px_rgba(0,0,0,0.24)]"
+                  />
                 ) : null}
 
                 {visibleFollowedRecommendations.map((recommendation) => (
@@ -587,7 +591,13 @@ export default function SocialActivityTabsBlock() {
                       </div>
                     ) : null}
 
-                    {!isPanelLoading && !activity.error && visibleItems.length === 0 ? <p className="text-sm text-zinc-500">{meta.emptyCopy}</p> : null}
+                    {!isPanelLoading && !activity.error && visibleItems.length === 0 ? (
+                      <EmptyStatePanel
+                        description={t("emptyFollowingActionsDescription")}
+                        icon={<span aria-hidden="true">🎬</span>}
+                        layout="horizontal"
+                      />
+                    ) : null}
 
                     {visibleItems.map((item) => (
                       <SocialActivityCard key={item.id} item={item} />
