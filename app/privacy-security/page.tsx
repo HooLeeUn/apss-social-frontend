@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError } from "../../lib/api";
 import AppLogo from "../../components/AppLogo";
+import MobileDarkSelect from "../../components/MobileDarkSelect";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { useI18n } from "../../hooks/useI18n";
 import {
@@ -397,6 +398,14 @@ export default function PrivacySecurityPage() {
                     {t("privacySecurityRestrictFriendRequestsDescription")}
                   </p>
                 </div>
+                <MobileDarkSelect
+                  ariaLabel={t("privacySecurityRestrictFriendRequests")}
+                  value={friendRequestsRestricted ? "yes" : "no"}
+                  options={[{ value: "no", label: t("privacySecurityNo") }, { value: "yes", label: t("privacySecurityYes") }]}
+                  onChange={(value) => handleFriendRequestsRestrictionChange(value === "yes")}
+                  disabled={savingFriendRequestsRestriction}
+                  className="min-w-28 rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-300/70 disabled:cursor-not-allowed disabled:opacity-60"
+                />
                 <select
                   value={friendRequestsRestricted ? "yes" : "no"}
                   disabled={savingFriendRequestsRestriction}
@@ -405,7 +414,7 @@ export default function PrivacySecurityPage() {
                       event.target.value === "yes",
                     )
                   }
-                  className="min-w-28 rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-300/70 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="hidden min-w-28 rounded-2xl border border-white/20 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-100 focus:outline-none md:block focus:ring-2 focus:ring-blue-300/70 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label={t("privacySecurityRestrictFriendRequests")}
                 >
                   <option value="no">{t("privacySecurityNo")}</option>

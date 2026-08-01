@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "../../../lib/api";
 import AppLogo from "../../../components/AppLogo";
+import MobileDarkSelect from "../../../components/MobileDarkSelect";
 import { useAppBranding } from "../../../hooks/useAppBranding";
 import { useI18n } from "../../../hooks/useI18n";
 import {
@@ -464,11 +465,18 @@ export default function PersonalDataPage() {
                 <label htmlFor="birth-date-visible" className={labelClassName}>
                   {t("personalDataVisible")}
                 </label>
+                <MobileDarkSelect
+                  ariaLabel={t("personalDataVisible")}
+                  value={form.birth_date_visible}
+                  options={[{ value: "yes", label: t("personalDataYes") }, { value: "no", label: t("personalDataNo") }]}
+                  onChange={(value) => updateField("birth_date_visible", value)}
+                  className={inputClassName}
+                />
                 <select
                   id="birth-date-visible"
                   value={form.birth_date_visible}
                   onChange={(event) => updateField("birth_date_visible", event.target.value as VisibilityOption)}
-                  className={inputClassName}
+                  className={`${inputClassName} hidden md:block`}
                 >
                   <option value="yes">{t("personalDataYes")}</option>
                   <option value="no">{t("personalDataNo")}</option>
@@ -485,11 +493,18 @@ export default function PersonalDataPage() {
                 <label htmlFor="gender-identity" className={labelClassName}>
                   {t("personalDataGenderIdentity")}
                 </label>
+                <MobileDarkSelect
+                  ariaLabel={t("personalDataGenderIdentity")}
+                  value={form.gender_identity}
+                  options={[{ value: "", label: t("personalDataSelectOption") }, ...genderOptions.map((option) => ({ value: option.value, label: t(option.labelKey) }))]}
+                  onChange={(value) => updateField("gender_identity", value)}
+                  className={inputClassName}
+                />
                 <select
                   id="gender-identity"
                   value={form.gender_identity}
                   onChange={(event) => updateField("gender_identity", event.target.value as FormState["gender_identity"])}
-                  className={inputClassName}
+                  className={`${inputClassName} hidden md:block`}
                 >
                   <option value="">{t("personalDataSelectOption")}</option>
                   {genderOptions.map((option) => (
@@ -504,12 +519,20 @@ export default function PersonalDataPage() {
                 <label htmlFor="gender-visible" className={labelClassName}>
                   {t("personalDataVisible")}
                 </label>
+                <MobileDarkSelect
+                  ariaLabel={t("personalDataVisible")}
+                  value={form.gender_identity_visible}
+                  options={[{ value: "yes", label: t("personalDataYes") }, { value: "no", label: t("personalDataNo") }]}
+                  onChange={(value) => updateField("gender_identity_visible", value)}
+                  disabled={isGenderVisibilityLocked}
+                  className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-65`}
+                />
                 <select
                   id="gender-visible"
                   value={form.gender_identity_visible}
                   onChange={(event) => updateField("gender_identity_visible", event.target.value as VisibilityOption)}
                   disabled={isGenderVisibilityLocked}
-                  className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-65`}
+                  className={`${inputClassName} hidden disabled:cursor-not-allowed disabled:opacity-65 md:block`}
                 >
                   <option value="yes">{t("personalDataYes")}</option>
                   <option value="no">{t("personalDataNo")}</option>

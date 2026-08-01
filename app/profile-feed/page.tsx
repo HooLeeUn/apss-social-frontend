@@ -10,6 +10,7 @@ import ProfileIdentityCard from "../../components/profile-feed/ProfileIdentityCa
 import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivityTabsBlock";
 import TopUsersSection from "../../components/profile-feed/TopUsersSection";
 import EmptyStatePanel from "../../components/profile-feed/EmptyStatePanel";
+import MobileDarkSelect from "../../components/MobileDarkSelect";
 import {
   acceptFriendship,
   cancelFriendRequest,
@@ -503,16 +504,26 @@ function ProfileFeedContent() {
   const renderMovieListPanel = (className: string) => (
     <section className={className}>
       <div className="relative mx-auto w-fit">
+        <MobileDarkSelect
+          ariaLabel={t("profileFeedMyList")}
+          value={activeListView}
+          options={[
+            { value: "my-list", label: t("profileFeedMyList") },
+            { value: "recommended", label: t("profileFeedMyRecommendations") },
+          ]}
+          onChange={setActiveListView}
+          className="rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+        />
         <select
           aria-label={t("profileFeedMyList")}
           value={activeListView}
           onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
-          className="appearance-none overflow-hidden rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
+          className="hidden appearance-none overflow-hidden rounded-xl border md:block border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
         >
           <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyList")}</option>
           <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyRecommendations")}</option>
         </select>
-        <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
+        <span aria-hidden="true" className="pointer-events-none absolute right-3 hidden md:block top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
       </div>
       <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
         {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
