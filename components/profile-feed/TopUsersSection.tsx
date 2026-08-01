@@ -29,6 +29,7 @@ interface TopUsersSectionProps {
   friendRequestsRestricted?: boolean;
   initialConnectionView?: "friends" | "pending";
   branding?: AppBranding | null;
+  mobileBlockRequest?: { block: 0 | 1; id: number } | null;
 }
 
 function FollowingGroupIcon() {
@@ -318,6 +319,7 @@ export default function TopUsersSection({
   friendRequestsRestricted = false,
   initialConnectionView = "friends",
   branding = null,
+  mobileBlockRequest,
 }: TopUsersSectionProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -377,6 +379,24 @@ export default function TopUsersSection({
     clearTimeout(mobileSlideTimeoutRef.current);
     mobileSlideTimeoutRef.current = null;
   };
+
+  useEffect(() => {
+    if (!mobileBlockRequest || mobileBlockRequest.block === activeMobileBlock) return;
+    resetMobileSlideTimeout();
+    const direction = mobileBlockRequest.block > activeMobileBlock ? "next" : "previous";
+    const frame = window.requestAnimationFrame(() => {
+      setMobileDragDirection(direction);
+      setIsMobileSlideAnimating(true);
+      setMobileDragOffset(direction === "next" ? -mobileCarouselWidth : mobileCarouselWidth);
+      mobileSlideTimeoutRef.current = setTimeout(() => {
+        setActiveMobileBlock(mobileBlockRequest.block);
+        setIsMobileSlideAnimating(false);
+        setMobileDragOffset(0);
+        mobileSlideTimeoutRef.current = null;
+      }, 300);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeMobileBlock, mobileBlockRequest, mobileCarouselWidth]);
 
   const completeMobileSlide = (direction: "next" | "previous") => {
     resetMobileSlideTimeout();
