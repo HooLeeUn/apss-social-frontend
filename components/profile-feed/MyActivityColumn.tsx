@@ -668,6 +668,7 @@ interface MyActivityColumnProps {
   scope?: "me" | `user:${string}`;
   isOwnProfile?: boolean;
   initialActiveTab?: "activity" | "messages" | "rated";
+  activeTabRequest?: { tab: "activity" | "messages" | "rated"; id: number } | null;
   hidePrivateInbox?: boolean | null;
   viewedUsername?: string;
   title?: string;
@@ -679,6 +680,7 @@ export default function MyActivityColumn({
   scope,
   isOwnProfile = true,
   initialActiveTab = "activity",
+  activeTabRequest,
   hidePrivateInbox = null,
   viewedUsername,
   title,
@@ -689,6 +691,7 @@ export default function MyActivityColumn({
   const initialResolvedActiveTab =
     isOwnProfile && hidePrivateInbox !== false && initialActiveTab === "messages" ? "activity" : initialActiveTab;
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
+
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
     "recommendations",
   );
@@ -705,6 +708,10 @@ export default function MyActivityColumn({
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
   const canShowPrivateInbox = isOwnProfile && hidePrivateInbox === false;
   const shouldBlockPrivateInbox = isOwnProfile && !canShowPrivateInbox;
+  useEffect(() => {
+    if (!activeTabRequest) return;
+    setActiveTab(shouldBlockPrivateInbox && activeTabRequest.tab === "messages" ? "activity" : activeTabRequest.tab);
+  }, [activeTabRequest, shouldBlockPrivateInbox]);
   const effectiveActiveTab = shouldBlockPrivateInbox && activeTab === "messages" ? "activity" : activeTab;
   const activityEnabled = !isOwnProfile || effectiveActiveTab === "activity" || effectiveActiveTab === "rated";
   const messagesEnabled = canShowPrivateInbox && effectiveActiveTab === "messages";
