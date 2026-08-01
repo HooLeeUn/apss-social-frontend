@@ -532,18 +532,30 @@ function ProfileFeedContent() {
     setPendingNavigationTarget(target);
   }, [selectMobileContentSlide]);
 
+  const completeConnectionNavigation = useCallback((requestId: number) => {
+    setConnectionBlockRequest((current) => current?.id === requestId ? null : current);
+    setPendingNavigationTarget((current) => {
+      if (current !== "following" && current !== "friends") return current;
+      const destination = connectionsSectionRef.current;
+      if (destination && typeof window !== "undefined") {
+        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        destination.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      }
+      return null;
+    });
+  }, []);
+
   useEffect(() => {
     if (!pendingNavigationTarget) return;
+    if (pendingNavigationTarget === "following" || pendingNavigationTarget === "friends") return;
     const requiredListView = pendingNavigationTarget === "my-list" ? "my-list" : pendingNavigationTarget === "recommended" ? "recommended" : null;
     if (requiredListView && activeListView !== requiredListView) return;
 
-    const destination = pendingNavigationTarget === "following" || pendingNavigationTarget === "friends"
-      ? connectionsSectionRef.current
-      : pendingNavigationTarget === "activity"
-        ? activitySectionRef.current
-        : requiredListView
-          ? movieListSectionRef.current
-          : followingActivitySectionRef.current;
+    const destination = pendingNavigationTarget === "activity"
+      ? activitySectionRef.current
+      : requiredListView
+        ? movieListSectionRef.current
+        : followingActivitySectionRef.current;
     if (!destination || typeof window === "undefined") return;
 
     let secondFrame = 0;
@@ -781,6 +793,7 @@ function ProfileFeedContent() {
               initialConnectionView={initialConnectionView}
               branding={branding}
               mobileBlockRequest={connectionBlockRequest}
+              onMobileBlockRequestComplete={completeConnectionNavigation}
             />
             <div className="w-full max-w-full overflow-hidden md:hidden">
               <div

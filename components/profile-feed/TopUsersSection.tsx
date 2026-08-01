@@ -30,6 +30,7 @@ interface TopUsersSectionProps {
   initialConnectionView?: "friends" | "pending";
   branding?: AppBranding | null;
   mobileBlockRequest?: { block: 0 | 1; id: number } | null;
+  onMobileBlockRequestComplete?: (requestId: number) => void;
 }
 
 function FollowingGroupIcon() {
@@ -320,6 +321,7 @@ export default function TopUsersSection({
   initialConnectionView = "friends",
   branding = null,
   mobileBlockRequest,
+  onMobileBlockRequestComplete,
 }: TopUsersSectionProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -332,6 +334,7 @@ export default function TopUsersSection({
   const [isMobileSlideAnimating, setIsMobileSlideAnimating] = useState(false);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const mobileSlideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completedMobileBlockRequestRef = useRef<number | null>(null);
   const mobileSwipeStartRef = useRef<{ x: number; y: number; time: number; pointerId: number; intent: "horizontal" | "vertical" | null } | null>(null);
   const mobileTouchStartRef = useRef<{ x: number; y: number; time: number; identifier: number; intent: "horizontal" | "vertical" | null } | null>(null);
   const mobileSwipeMovedRef = useRef(false);
@@ -381,7 +384,12 @@ export default function TopUsersSection({
   };
 
   useEffect(() => {
-    if (!mobileBlockRequest || mobileBlockRequest.block === activeMobileBlock) return;
+    if (!mobileBlockRequest || completedMobileBlockRequestRef.current === mobileBlockRequest.id) return;
+    if (mobileBlockRequest.block === activeMobileBlock) {
+      completedMobileBlockRequestRef.current = mobileBlockRequest.id;
+      onMobileBlockRequestComplete?.(mobileBlockRequest.id);
+      return;
+    }
     resetMobileSlideTimeout();
     const direction = mobileBlockRequest.block > activeMobileBlock ? "next" : "previous";
     const frame = window.requestAnimationFrame(() => {
@@ -393,10 +401,12 @@ export default function TopUsersSection({
         setIsMobileSlideAnimating(false);
         setMobileDragOffset(0);
         mobileSlideTimeoutRef.current = null;
+        completedMobileBlockRequestRef.current = mobileBlockRequest.id;
+        onMobileBlockRequestComplete?.(mobileBlockRequest.id);
       }, 300);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeMobileBlock, mobileBlockRequest, mobileCarouselWidth]);
+  }, [activeMobileBlock, mobileBlockRequest, mobileCarouselWidth, onMobileBlockRequestComplete]);
 
   const completeMobileSlide = (direction: "next" | "previous") => {
     resetMobileSlideTimeout();
