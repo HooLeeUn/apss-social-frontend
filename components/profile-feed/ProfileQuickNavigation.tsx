@@ -1,6 +1,6 @@
 "use client";
 
-import { type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type PointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 type QuickNavigationItem = {
   label: string;
@@ -18,7 +18,7 @@ const LONG_PRESS_DELAY = 500;
 
 function LineIcon({ children }: { children: ReactNode }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       {children}
     </svg>
   );
@@ -41,10 +41,18 @@ export default function ProfileQuickNavigation({ ariaLabel, items }: ProfileQuic
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressClick = useRef(false);
 
-  const clearLongPress = () => {
+  const clearLongPress = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-  };
+  }, []);
+
+  const cancelGesture = useCallback(() => {
+    const hadGesture = gesture.current !== null;
+    clearLongPress();
+    gesture.current = null;
+    setTooltipIndex(null);
+    if (hadGesture) suppressClick.current = true;
+  }, [clearLongPress]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -52,6 +60,7 @@ export default function ProfileQuickNavigation({ ariaLabel, items }: ProfileQuic
     const onScroll = () => {
       const next = Math.max(window.scrollY, 0);
       const delta = next - lastScrollY.current;
+      if (Math.abs(delta) > 0) cancelGesture();
       if (next < 80) setVisible(true);
       else if (delta > 8) setVisible(false);
       else if (delta < -8) setVisible(true);
@@ -59,13 +68,14 @@ export default function ProfileQuickNavigation({ ariaLabel, items }: ProfileQuic
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [cancelGesture]);
 
-  useEffect(() => () => clearLongPress(), []);
+  useEffect(() => () => clearLongPress(), [clearLongPress]);
 
   const start = (event: PointerEvent<HTMLButtonElement>, index: number) => {
     if (event.pointerType === "mouse") return;
     clearLongPress();
+    suppressClick.current = false;
     gesture.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false, longPressed: false };
     timer.current = setTimeout(() => {
       if (!gesture.current || gesture.current.moved) return;
@@ -96,11 +106,17 @@ export default function ProfileQuickNavigation({ ariaLabel, items }: ProfileQuic
 
   return (
     <nav aria-label={ariaLabel} className={`fixed inset-x-4 z-[60] md:hidden bottom-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
+      {tooltipIndex !== null ? (
+        <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
+          {items[tooltipIndex]?.label}
+        </span>
+      ) : null}
       <div className="overflow-visible rounded-full border border-white/15 bg-zinc-950/85 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-        <div className="flex touch-pan-x gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="w-full touch-pan-x touch-pan-y overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={cancelGesture}>
+          <div className="flex w-full min-w-[264px] justify-between">
           {items.map((item, index) => (
             <button key={item.label} type="button" aria-label={item.label} title={item.label}
-              className="relative flex h-11 min-h-11 w-11 min-w-11 shrink-0 items-center justify-center rounded-full text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-300"
+              className="relative flex h-11 min-h-11 min-w-11 flex-1 shrink-0 items-center justify-center rounded-full text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-300"
               onClick={() => {
                 if (suppressClick.current) {
                   suppressClick.current = false;
@@ -110,12 +126,13 @@ export default function ProfileQuickNavigation({ ariaLabel, items }: ProfileQuic
               }}
               onPointerDown={(event) => start(event, index)} onPointerMove={move}
               onPointerUp={(event) => finish(event, item.onNavigate)}
-              onPointerCancel={() => { clearLongPress(); gesture.current = null; setTooltipIndex(null); }}
+              onPointerCancel={cancelGesture}
+              onPointerLeave={cancelGesture}
             >
-              {tooltipIndex === index ? <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-10 w-max max-w-[12rem] -translate-x-1/2 rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">{item.label}</span> : null}
               {item.icon}
             </button>
           ))}
+          </div>
         </div>
       </div>
     </nav>

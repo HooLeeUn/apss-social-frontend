@@ -532,8 +532,13 @@ function ProfileFeedContent() {
     setPendingNavigationTarget(target);
   }, [selectMobileContentSlide]);
 
+  const completeConnectionBlockRequest = useCallback((requestId: number) => {
+    setConnectionBlockRequest((current) => current?.id === requestId ? null : current);
+  }, []);
+
   useEffect(() => {
     if (!pendingNavigationTarget) return;
+    if ((pendingNavigationTarget === "following" || pendingNavigationTarget === "friends") && connectionBlockRequest) return;
     const requiredListView = pendingNavigationTarget === "my-list" ? "my-list" : pendingNavigationTarget === "recommended" ? "recommended" : null;
     if (requiredListView && activeListView !== requiredListView) return;
 
@@ -558,7 +563,7 @@ function ProfileFeedContent() {
       window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
-  }, [activeListView, pendingNavigationTarget]);
+  }, [activeListView, connectionBlockRequest, pendingNavigationTarget]);
 
   const renderMovieListPanel = (className: string) => (
     <section className={className}>
@@ -781,6 +786,7 @@ function ProfileFeedContent() {
               initialConnectionView={initialConnectionView}
               branding={branding}
               mobileBlockRequest={connectionBlockRequest}
+              onMobileBlockRequestComplete={completeConnectionBlockRequest}
             />
             <div className="w-full max-w-full overflow-hidden md:hidden">
               <div
