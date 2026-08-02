@@ -187,6 +187,9 @@ export interface MyNotificationItem {
   text: string;
   targetTab: NotificationTargetTab;
   movieId: number | string | null;
+  actorId: number | string | null;
+  actorUsername: string | null;
+  directedCommentId: number | string | null;
   createdAt: string | null;
 }
 

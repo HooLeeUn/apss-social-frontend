@@ -27,6 +27,7 @@ interface CommentsListProps {
   actionErrorByCommentId?: Record<string, string>;
   getDisplayText?: (comment: SocialComment) => string;
   borderlessContainer?: boolean;
+  exposeDirectedCommentIds?: boolean;
 }
 
 export default function CommentsList({
@@ -54,6 +55,7 @@ export default function CommentsList({
   actionErrorByCommentId = {},
   getDisplayText,
   borderlessContainer = false,
+  exposeDirectedCommentIds = false,
 }: CommentsListProps) {
   const { t } = useI18n();
 
@@ -75,7 +77,12 @@ export default function CommentsList({
     return (
       <div className="space-y-0">
         {comments.map((comment, index) => (
-          <div key={comment.id} className={index === 0 ? "" : "border-t border-white/10"}>
+          <div
+            key={comment.id}
+            className={index === 0 ? "" : "border-t border-white/10"}
+            data-directed-comment-id={exposeDirectedCommentIds ? String(comment.id) : undefined}
+            data-directed-comment-direction={exposeDirectedCommentIds ? comment.direction : undefined}
+          >
             <CommentItem
               comment={comment}
               onReact={onReact}
@@ -114,7 +121,12 @@ export default function CommentsList({
     >
       <div className="space-y-0">
         {comments.map((comment, index) => (
-          <div key={comment.id} className={index === 0 ? "" : "border-t border-white/10"}>
+          <div
+            key={comment.id}
+            className={index === 0 ? "" : "border-t border-white/10"}
+            data-directed-comment-id={exposeDirectedCommentIds ? String(comment.id) : undefined}
+            data-directed-comment-direction={exposeDirectedCommentIds ? comment.direction : undefined}
+          >
             <CommentItem
               comment={comment}
               onReact={onReact}

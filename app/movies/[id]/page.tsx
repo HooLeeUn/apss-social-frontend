@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "../../../components/AppLogo";
 import CommentComposer from "../../../components/social/CommentComposer";
 import CommentsList from "../../../components/social/CommentsList";
@@ -81,6 +81,14 @@ interface DirectedConversation {
   messagesEndpoint: string | null;
   next: string | null;
   lastMessageAt: string | null;
+}
+
+interface PendingDirectedNotificationTarget {
+  actorId: string | null;
+  actorUsername: string | null;
+  commentId: string | null;
+  conversationKey: string | null;
+  stage: "find-conversation" | "open-conversation" | "scroll-to-message";
 }
 
 
@@ -823,8 +831,9 @@ function CommentUserSearch({
   );
 }
 
-export default function MovieDetailPage() {
+function MovieDetailPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const branding = useAppBranding();
   const { locale, t } = useI18n();
   const params = useParams<{ id: string }>();
@@ -869,6 +878,10 @@ export default function MovieDetailPage() {
   const [isPublicSearchOpen, setIsPublicSearchOpen] = useState(false);
   const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
   const [activeCommentsTab, setActiveCommentsTab] = useState<"public" | "directed">("public");
+  const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
+    useState<PendingDirectedNotificationTarget | null>(null);
+  const directedCommentsSectionRef = useRef<HTMLElement | null>(null);
+  const processedDirectedTargetRef = useRef<string | null>(null);
 
   const canShowDirectedComments = friendRequestsRestricted === false;
   const shouldRenderDirectedComments = friendRequestsRestricted !== true;
@@ -1277,6 +1290,80 @@ export default function MovieDetailPage() {
     },
     [expandedConversationKey, fullLoadedByConversationKey, loadingFullHistoryByConversationKey],
   );
+
+  useEffect(() => {
+    if (searchParams.get("section") !== "directed-comments") return;
+    const actorId = normalizeId(searchParams.get("actorId"));
+    const actorUsername = normalizeUsername(searchParams.get("actorUsername"));
+    const commentId = normalizeId(searchParams.get("commentId"));
+    if (!actorId && !actorUsername) return;
+
+    const targetKey = `${movieId}:${actorId ?? ""}:${actorUsername ?? ""}:${commentId ?? ""}`;
+    if (processedDirectedTargetRef.current === targetKey) return;
+    processedDirectedTargetRef.current = targetKey;
+    setActiveCommentsTab("directed");
+    setPendingDirectedNotificationTarget({ actorId, actorUsername, commentId, conversationKey: null, stage: "find-conversation" });
+  }, [movieId, searchParams]);
+
+  useEffect(() => {
+    const target = pendingDirectedNotificationTarget;
+    if (!target || target.stage !== "find-conversation" || loadingDirected) return;
+    const normalizedActorUsername = normalizeUsername(target.actorUsername)?.toLowerCase();
+    const conversationByActorId = target.actorId
+      ? directedConversations.find((candidate) => candidate.counterpartKey === `counterpart:${target.actorId}`)
+      : null;
+    const conversation =
+      conversationByActorId ??
+      directedConversations.find((candidate) =>
+        Boolean(normalizedActorUsername && normalizeUsername(candidate.otherUsername)?.toLowerCase() === normalizedActorUsername),
+      );
+
+    if (!conversation) {
+      directedCommentsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setPendingDirectedNotificationTarget(null);
+      return;
+    }
+    setPendingDirectedNotificationTarget({ ...target, conversationKey: conversation.key, stage: "open-conversation" });
+  }, [directedConversations, loadingDirected, pendingDirectedNotificationTarget]);
+
+  useEffect(() => {
+    const target = pendingDirectedNotificationTarget;
+    if (!target || target.stage !== "open-conversation" || !target.conversationKey) return;
+    const conversation = directedConversations.find((candidate) => candidate.key === target.conversationKey);
+    if (!conversation) {
+      setPendingDirectedNotificationTarget(null);
+      return;
+    }
+
+    void (async () => {
+      if (expandedConversationKey !== conversation.key) await handleToggleConversation(conversation);
+      setPendingDirectedNotificationTarget((current) =>
+        current?.conversationKey === conversation.key ? { ...current, stage: "scroll-to-message" } : current,
+      );
+    })();
+  }, [directedConversations, expandedConversationKey, handleToggleConversation, pendingDirectedNotificationTarget]);
+
+  useEffect(() => {
+    const target = pendingDirectedNotificationTarget;
+    if (!target || target.stage !== "scroll-to-message" || !target.conversationKey || expandedConversationKey !== target.conversationKey || loadingFullHistoryByConversationKey[target.conversationKey]) return;
+
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        const section = directedCommentsSectionRef.current;
+        const messages = Array.from(section?.querySelectorAll<HTMLElement>("[data-directed-comment-id]") ?? []);
+        const exactMessage = messages.find((element) => element.dataset.directedCommentId === target.commentId);
+        const lastReceivedMessage = messages.find((element) => element.dataset.directedCommentDirection === "received");
+        section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        (exactMessage ?? lastReceivedMessage)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setPendingDirectedNotificationTarget(null);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [directedConversations, expandedConversationKey, loadingFullHistoryByConversationKey, pendingDirectedNotificationTarget]);
 
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
     if (!movieId) return;
@@ -1777,7 +1864,7 @@ export default function MovieDetailPage() {
           </section>
 
           {shouldRenderDirectedComments ? (
-            <section className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
+            <section ref={directedCommentsSectionRef} className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="hidden text-xl font-bold text-[#86ADE0] lg:block">{t("movieDetailDirectedComments")}</h2>
                 <CommentUserSearch
@@ -1881,6 +1968,7 @@ export default function MovieDetailPage() {
                                 getDisplayText={(message) =>
                                   message.type === "directed" ? stripLeadingMention(message.text) : message.text
                                 }
+                                exposeDirectedCommentIds
                               />
                               {loadingDirectedMoreByKey[conversation.key] ? (
                                 <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingPreviousMessages")}</p>
@@ -1901,5 +1989,13 @@ export default function MovieDetailPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function MovieDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <MovieDetailPageContent />
+    </Suspense>
   );
 }

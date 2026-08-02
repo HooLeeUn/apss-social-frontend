@@ -2095,6 +2095,29 @@ function toNotificationActorUsername(record: Record<string, unknown>): string | 
   );
 }
 
+function toNotificationActorId(record: Record<string, unknown>): string | number | null {
+  const actorRecord = toRecord(record.actor);
+  const senderRecord = toRecord(record.sender);
+  const fromUserRecord = toRecord(record.from_user);
+  const rawActorId = pickFirst(actorRecord?.id, senderRecord?.id, fromUserRecord?.id);
+
+  if (typeof rawActorId === "number" && Number.isFinite(rawActorId)) return rawActorId;
+  return safeTrim(rawActorId);
+}
+
+function toNotificationDirectedCommentId(record: Record<string, unknown>): string | number | null {
+  const objectRecord = toRecord(record.object);
+  const rawCommentId = pickFirst(
+    objectRecord?.comment_id,
+    objectRecord?.commentId,
+    objectRecord?.directed_comment_id,
+    objectRecord?.message_id,
+  );
+
+  if (typeof rawCommentId === "number" && Number.isFinite(rawCommentId)) return rawCommentId;
+  return safeTrim(rawCommentId);
+}
+
 function toNotificationItem(value: unknown, index: number): MyNotificationItem | null {
   const record = toRecord(value);
   if (!record) return null;
@@ -2128,6 +2151,9 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
     text,
     targetTab,
     movieId: toNotificationMovieId(record),
+    actorId: toNotificationActorId(record),
+    actorUsername,
+    directedCommentId: toNotificationDirectedCommentId(record),
     createdAt: safeTrim(pickFirst(record.created_at, record.createdAt, record.timestamp)),
   };
 }
