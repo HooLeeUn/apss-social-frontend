@@ -33,6 +33,12 @@ import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 type QuickTarget = "following" | "friends" | "activity" | "my-list" | "recommended" | "following-activity";
+const debugFriendRequestNavigation = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
+
+function logFriendRequestNavigation(event: string, details: Record<string, unknown> = {}) {
+  if (!debugFriendRequestNavigation) return;
+  console.debug("[friend-request-navigation]", { event, ...details });
+}
 
 function normalizeUsername(username: string | null | undefined): string {
   return (username || "").trim().toLocaleLowerCase();
@@ -173,6 +179,9 @@ function ProfileFeedContent() {
   const [connectionViewRequest, setConnectionViewRequest] = useState<{ view: "friends" | "pending"; id: number } | null>(null);
   const [pendingFriendRequestNavigation, setPendingFriendRequestNavigation] = useState(false);
   const friendRequestNavigationStarted = useRef(false);
+  const friendRequestNavigationCompleted = useRef(false);
+  const [activeConnectionBlock, setActiveConnectionBlock] = useState<0 | 1>(0);
+  const [activeFriendsView, setActiveFriendsView] = useState<"friends" | "pending">("friends");
   const navigationRequestId = useRef(0);
   const observedFriendsTab = useRef<string | null>(null);
   const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity"; id: number } | null>(null);
@@ -190,7 +199,10 @@ function ProfileFeedContent() {
   useEffect(() => {
     if (requestedFriendsTab === "pending" && observedFriendsTab.current !== requestedFriendsTab) {
       observedFriendsTab.current = requestedFriendsTab;
+      friendRequestNavigationStarted.current = false;
+      friendRequestNavigationCompleted.current = false;
       setPendingFriendRequestNavigation(true);
+      logFriendRequestNavigation("parameter-detected", { friendsTabParam: requestedFriendsTab });
     } else if (requestedFriendsTab !== "pending") {
       observedFriendsTab.current = requestedFriendsTab;
     }
@@ -573,6 +585,16 @@ function ProfileFeedContent() {
     setConnectionViewRequest((current) => current?.id === requestId ? null : current);
   }, []);
 
+  const handleConnectionBlockChange = useCallback((block: 0 | 1) => {
+    setActiveConnectionBlock(block);
+    logFriendRequestNavigation("connection-block-active", { activeConnectionBlock: block });
+  }, []);
+
+  const handleFriendsViewChange = useCallback((view: "friends" | "pending") => {
+    setActiveFriendsView(view);
+    logFriendRequestNavigation("friends-view-active", { activeFriendsView: view });
+  }, []);
+
   useEffect(() => {
     if (
       !pendingFriendRequestNavigation ||
@@ -583,11 +605,82 @@ function ProfileFeedContent() {
     ) return;
 
     friendRequestNavigationStarted.current = true;
+    logFriendRequestNavigation("friends-and-pending-requested");
     navigateToFriends({ pendingTab: true });
   }, [loadingFriends, loadingPendingRequests, navigateToFriends, pendingFriendRequestNavigation]);
 
   useEffect(() => {
+    if (
+      !pendingFriendRequestNavigation ||
+      !friendRequestNavigationStarted.current ||
+      friendRequestNavigationCompleted.current ||
+      activeConnectionBlock !== 1 ||
+      activeFriendsView !== "pending" ||
+      loadingProfileUser ||
+      loadingPendingRequests ||
+      !connectionsSectionRef.current ||
+      typeof window === "undefined"
+    ) return;
+
+    const target = connectionsSectionRef.current;
+    let firstFrame = 0;
+    let layoutFrame = 0;
+    let verificationFrame = 0;
+    let retryFrame = 0;
+    let cancelled = false;
+
+    const isVisible = () => {
+      const rect = target.getBoundingClientRect();
+      return rect.top >= 0 && rect.top < window.innerHeight;
+    };
+
+    const finishNavigation = () => {
+      if (cancelled) return;
+      logFriendRequestNavigation("navigation-cleanup", { visible: isVisible() });
+      friendRequestNavigationCompleted.current = true;
+      setPendingFriendRequestNavigation(false);
+      setPendingNavigationTarget(null);
+      setConnectionBlockRequest(null);
+      setConnectionViewRequest(null);
+
+      const nextSearchParams = new URLSearchParams(searchParams.toString());
+      nextSearchParams.delete("friendsTab");
+      const nextQuery = nextSearchParams.toString();
+      router.replace(nextQuery ? `/profile-feed?${nextQuery}` : "/profile-feed", { scroll: false });
+    };
+
+    const scrollAndVerify = (allowRetry: boolean) => {
+      const beforeTop = target.getBoundingClientRect().top;
+      logFriendRequestNavigation("scroll-attempt", { attempt: allowRetry ? 1 : 2, beforeTop });
+      target.scrollIntoView({ behavior: "auto", block: "start" });
+      verificationFrame = window.requestAnimationFrame(() => {
+        const afterTop = target.getBoundingClientRect().top;
+        const visible = isVisible();
+        logFriendRequestNavigation("scroll-verified", { attempt: allowRetry ? 1 : 2, afterTop, visible });
+        if (visible || !allowRetry) {
+          finishNavigation();
+          return;
+        }
+        retryFrame = window.requestAnimationFrame(() => scrollAndVerify(false));
+      });
+    };
+
+    firstFrame = window.requestAnimationFrame(() => {
+      layoutFrame = window.requestAnimationFrame(() => scrollAndVerify(true));
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(layoutFrame);
+      window.cancelAnimationFrame(verificationFrame);
+      window.cancelAnimationFrame(retryFrame);
+    };
+  }, [activeConnectionBlock, activeFriendsView, loadingPendingRequests, loadingProfileUser, pendingFriendRequestNavigation, router, searchParams]);
+
+  useEffect(() => {
     if (!pendingNavigationTarget) return;
+    if (pendingFriendRequestNavigation) return;
     if ((pendingNavigationTarget === "following" || pendingNavigationTarget === "friends") && (connectionBlockRequest || connectionViewRequest)) return;
     const requiredListView = pendingNavigationTarget === "my-list" ? "my-list" : pendingNavigationTarget === "recommended" ? "recommended" : null;
     if (requiredListView && activeListView !== requiredListView) return;
@@ -607,14 +700,6 @@ function ProfileFeedContent() {
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         destination.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
         setPendingNavigationTarget(null);
-        if (pendingFriendRequestNavigation) {
-          setPendingFriendRequestNavigation(false);
-          friendRequestNavigationStarted.current = false;
-          const nextSearchParams = new URLSearchParams(searchParams.toString());
-          nextSearchParams.delete("friendsTab");
-          const nextQuery = nextSearchParams.toString();
-          router.replace(nextQuery ? `/profile-feed?${nextQuery}` : "/profile-feed", { scroll: false });
-        }
       });
     });
     return () => {
@@ -846,8 +931,10 @@ function ProfileFeedContent() {
               branding={branding}
               mobileBlockRequest={connectionBlockRequest}
               onMobileBlockRequestComplete={completeConnectionBlockRequest}
+              onMobileBlockChange={handleConnectionBlockChange}
               connectionViewRequest={connectionViewRequest}
               onConnectionViewRequestComplete={completeConnectionViewRequest}
+              onConnectionViewChange={handleFriendsViewChange}
             />
             <div className="w-full max-w-full overflow-hidden md:hidden">
               <div
