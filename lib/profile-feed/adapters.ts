@@ -2065,15 +2065,32 @@ export async function markMyMessagesAsRead(signal?: AbortSignal): Promise<number
   return toNonNegativeInteger(toRecord(payload)?.updated);
 }
 
-function toTargetTab(value: unknown): NotificationTargetTab | null {
+function normalizeNotificationTargetTab(value: unknown): NotificationTargetTab | null {
   const normalized = safeTrim(value)?.toLocaleLowerCase();
   if (!normalized) return null;
   if (normalized === "activity") return "activity";
   if (normalized === "private_inbox" || normalized === "messages") return "private_inbox";
-  if (["friend_requests_pending", "friend_requests", "pending_friends", "pending"].includes(normalized)) {
+  if (
+    [
+      "friend_request",
+      "friendship_request",
+      "friend_request_received",
+      "pending_friend_request",
+      "friend_requests_pending",
+      "friend_requests",
+      "pending_friends",
+      "pending",
+    ].includes(normalized)
+  ) {
     return "friend_requests_pending";
   }
   return null;
+}
+
+function isFriendRequestNotification(record: Record<string, unknown>): boolean {
+  return [record.activity_type, record.activityType, record.notification_type, record.type].some(
+    (value) => normalizeNotificationTargetTab(value) === "friend_requests_pending",
+  );
 }
 
 function toNotificationActorUsername(record: Record<string, unknown>): string | null {
@@ -2125,24 +2142,25 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
   const rawId = pickFirst(record.notification_id, record.notificationId, record.id, record.uuid);
   const id = normalizeNotificationId(rawId) ?? `${FALLBACK_NOTIFICATION_ID_PREFIX}${index}`;
   const normalizedActivityType = safeTrim(pickFirst(record.activity_type, record.activityType, record.type, record.notification_type))?.toLocaleLowerCase();
+  const isFriendRequest = isFriendRequestNotification(record);
 
   const actorUsername = toNotificationActorUsername(record);
   const text =
-    normalizedActivityType === "friend_request_received"
+    isFriendRequest
       ? `Tienes una solicitud de amistad de @${actorUsername || "Usuario"}`
       : safeTrim(pickFirst(record.text, record.message, record.title, record.description, record.label)) || "Tienes una notificación pendiente";
-  const targetTabFromPayload = toTargetTab(
+  const targetTabFromPayload = normalizeNotificationTargetTab(
     pickFirst(record.target_tab, record.targetTab, record.destination_tab, record.destinationTab, record.tab),
   );
   const targetTab =
-    targetTabFromPayload ||
-    (normalizedActivityType === "friend_request_received"
+    (isFriendRequest
       ? "friend_requests_pending"
-      : normalizedActivityType === "private_message" || normalizedActivityType === "private_comment_reaction"
-        ? "private_inbox"
-        : normalizedActivityType === "public_comment_reaction"
-          ? "activity"
-          : null);
+      : targetTabFromPayload ||
+        (normalizedActivityType === "private_message" || normalizedActivityType === "private_comment_reaction"
+          ? "private_inbox"
+          : normalizedActivityType === "public_comment_reaction"
+            ? "activity"
+            : null));
 
   if (!targetTab) return null;
 
