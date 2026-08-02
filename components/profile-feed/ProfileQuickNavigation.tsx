@@ -11,6 +11,7 @@ type QuickNavigationItem = {
 interface ProfileQuickNavigationProps {
   ariaLabel: string;
   items: QuickNavigationItem[];
+  pendingFriendRequestsCount: number;
 }
 
 const MOVE_THRESHOLD = 10;
@@ -26,14 +27,14 @@ function LineIcon({ children }: { children: ReactNode }) {
 
 export const profileQuickNavigationIcons = {
   following: <LineIcon><circle cx="9" cy="8" r="3" /><circle cx="16.5" cy="9" r="2.5" /><path d="M3.5 20c.4-4.2 2.2-6.4 5.5-6.4s5.1 2.2 5.5 6.4M14 14.2c3.6-.7 5.8 1.3 6.4 4.8" /></LineIcon>,
-  friends: <LineIcon><path d="m3 12 4-4 3 2 2-1.5 2 1.5 3-2 4 4-3.2 3.2-2-1.7-3.8 3.7-3.8-3.7-2 1.7L3 12Z" /><path d="m9.2 13.5 2.8 2.7 2.8-2.7" /></LineIcon>,
+  friends: <LineIcon><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></LineIcon>,
   activity: <LineIcon><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.8" /></LineIcon>,
   list: <LineIcon><path d="M20 13 13 20l-9-9V4h7l9 9Z" /><circle cx="8" cy="8" r="1" /></LineIcon>,
   recommendations: <LineIcon><path d="M4 5h16v4a3 3 0 0 0 0 6v4H4v-4a3 3 0 0 0 0-6V5Z" /><path d="M12 7v2M12 12v1M12 16v1" /></LineIcon>,
   followingActivity: <LineIcon><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M3 10h18M6 3l2 3m3-3 2 3m3-3 2 3" /></LineIcon>,
 };
 
-export default function ProfileQuickNavigation({ ariaLabel, items }: ProfileQuickNavigationProps) {
+export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriendRequestsCount }: ProfileQuickNavigationProps) {
   const [visible, setVisible] = useState(true);
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
   const lastScrollY = useRef(0);
@@ -130,6 +131,11 @@ export default function ProfileQuickNavigation({ ariaLabel, items }: ProfileQuic
               onPointerLeave={cancelGesture}
             >
               {item.icon}
+              {index === 1 && pendingFriendRequestsCount > 0 ? (
+                <span className="pointer-events-none absolute right-1 top-0 z-10 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-bold leading-none text-zinc-950 shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
+                  {pendingFriendRequestsCount}
+                </span>
+              ) : null}
             </button>
           ))}
           </div>

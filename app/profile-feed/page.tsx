@@ -169,13 +169,29 @@ function ProfileFeedContent() {
   const followingActivitySectionRef = useRef<HTMLDivElement | null>(null);
   const [pendingNavigationTarget, setPendingNavigationTarget] = useState<QuickTarget | null>(null);
   const [connectionBlockRequest, setConnectionBlockRequest] = useState<{ block: 0 | 1; id: number } | null>(null);
+  const [connectionViewRequest, setConnectionViewRequest] = useState<{ view: "friends" | "pending"; id: number } | null>(null);
+  const [pendingFriendRequestNavigation, setPendingFriendRequestNavigation] = useState(false);
+  const observedFriendsTab = useRef<string | null>(null);
   const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity"; id: number } | null>(null);
   const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
-  const initialConnectionView = requestedFriendsTab === "pending" ? "pending" : "friends";
+  const initialConnectionView = "friends";
   const canRenderPrivateInbox = profileUser?.friendRequestsRestricted === false;
   const initialActivityTab = requestedPrivateInboxTab && canRenderPrivateInbox ? "messages" : "activity";
   const shouldShowRestrictedFriendsEmptyState =
     profileUser?.friendRequestsRestricted === true && profileUser.profileVisibility === "public";
+  const receivedPendingRequestsCount = useMemo(
+    () => pendingRequests.filter((request) => request.direction === "received").length,
+    [pendingRequests],
+  );
+
+  useEffect(() => {
+    if (requestedFriendsTab === "pending" && observedFriendsTab.current !== requestedFriendsTab) {
+      observedFriendsTab.current = requestedFriendsTab;
+      setPendingFriendRequestNavigation(true);
+    } else if (requestedFriendsTab !== "pending") {
+      observedFriendsTab.current = requestedFriendsTab;
+    }
+  }, [requestedFriendsTab]);
 
   const friendsByUsername = useMemo(
     () => new Map(friends.map((user) => [normalizeUsername(user.username), user])),
@@ -536,9 +552,21 @@ function ProfileFeedContent() {
     setConnectionBlockRequest((current) => current?.id === requestId ? null : current);
   }, []);
 
+  const completeConnectionViewRequest = useCallback((requestId: number) => {
+    setConnectionViewRequest((current) => current?.id === requestId ? null : current);
+  }, []);
+
+  useEffect(() => {
+    if (!pendingFriendRequestNavigation || loadingFriends || loadingPendingRequests) return;
+    const requestId = Date.now();
+    setConnectionBlockRequest({ block: 1, id: requestId });
+    setConnectionViewRequest({ view: "pending", id: requestId });
+    setPendingNavigationTarget("friends");
+  }, [loadingFriends, loadingPendingRequests, pendingFriendRequestNavigation]);
+
   useEffect(() => {
     if (!pendingNavigationTarget) return;
-    if ((pendingNavigationTarget === "following" || pendingNavigationTarget === "friends") && connectionBlockRequest) return;
+    if ((pendingNavigationTarget === "following" || pendingNavigationTarget === "friends") && (connectionBlockRequest || connectionViewRequest)) return;
     const requiredListView = pendingNavigationTarget === "my-list" ? "my-list" : pendingNavigationTarget === "recommended" ? "recommended" : null;
     if (requiredListView && activeListView !== requiredListView) return;
 
@@ -557,13 +585,14 @@ function ProfileFeedContent() {
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         destination.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
         setPendingNavigationTarget(null);
+        setPendingFriendRequestNavigation(false);
       });
     });
     return () => {
       window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
-  }, [activeListView, connectionBlockRequest, pendingNavigationTarget]);
+  }, [activeListView, connectionBlockRequest, connectionViewRequest, pendingNavigationTarget]);
 
   const renderMovieListPanel = (className: string) => (
     <section className={className}>
@@ -768,6 +797,7 @@ function ProfileFeedContent() {
               friends={friends}
               following={following}
               pendingRequests={pendingRequests}
+              receivedPendingRequestsCount={receivedPendingRequestsCount}
               loadingFriends={loadingFriends}
               loadingFollowing={loadingFollowing}
               loadingPendingRequests={loadingPendingRequests}
@@ -787,6 +817,8 @@ function ProfileFeedContent() {
               branding={branding}
               mobileBlockRequest={connectionBlockRequest}
               onMobileBlockRequestComplete={completeConnectionBlockRequest}
+              connectionViewRequest={connectionViewRequest}
+              onConnectionViewRequestComplete={completeConnectionViewRequest}
             />
             <div className="w-full max-w-full overflow-hidden md:hidden">
               <div
@@ -834,6 +866,7 @@ function ProfileFeedContent() {
       </div>
       <ProfileQuickNavigation
         ariaLabel={t("profileFeedQuickNavigation")}
+        pendingFriendRequestsCount={receivedPendingRequestsCount}
         items={[
           { label: t("profileFeedFollowing"), icon: profileQuickNavigationIcons.following, onNavigate: () => requestQuickNavigation("following") },
           { label: t("profileFeedFriends"), icon: profileQuickNavigationIcons.friends, onNavigate: () => requestQuickNavigation("friends") },
