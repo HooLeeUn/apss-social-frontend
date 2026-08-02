@@ -1,7 +1,7 @@
 import { FriendRequest, SocialUser } from "../../lib/profile-feed/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CSSProperties, MouseEvent, PointerEvent, ReactNode, TouchEvent, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, MouseEvent, PointerEvent, ReactNode, TouchEvent, useEffect, useRef, useState } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { interpolate } from "../../lib/i18n";
 import type { AppBranding } from "../../lib/branding";
@@ -12,6 +12,7 @@ interface TopUsersSectionProps {
   friends: SocialUser[];
   following: SocialUser[];
   pendingRequests: FriendRequest[];
+  receivedPendingRequestsCount: number;
   loadingFriends: boolean;
   loadingFollowing: boolean;
   loadingPendingRequests: boolean;
@@ -31,6 +32,8 @@ interface TopUsersSectionProps {
   branding?: AppBranding | null;
   mobileBlockRequest?: { block: 0 | 1; id: number } | null;
   onMobileBlockRequestComplete?: (requestId: number) => void;
+  connectionViewRequest?: { view: "friends" | "pending"; id: number } | null;
+  onConnectionViewRequestComplete?: (requestId: number) => void;
 }
 
 function FollowingGroupIcon() {
@@ -303,6 +306,7 @@ export default function TopUsersSection({
   friends,
   following,
   pendingRequests,
+  receivedPendingRequestsCount,
   loadingFriends,
   loadingFollowing,
   loadingPendingRequests,
@@ -322,6 +326,8 @@ export default function TopUsersSection({
   branding = null,
   mobileBlockRequest,
   onMobileBlockRequestComplete,
+  connectionViewRequest,
+  onConnectionViewRequestComplete,
 }: TopUsersSectionProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -337,14 +343,19 @@ export default function TopUsersSection({
   const mobileSwipeStartRef = useRef<{ x: number; y: number; time: number; pointerId: number; intent: "horizontal" | "vertical" | null } | null>(null);
   const mobileTouchStartRef = useRef<{ x: number; y: number; time: number; identifier: number; intent: "horizontal" | "vertical" | null } | null>(null);
   const mobileSwipeMovedRef = useRef(false);
-  const receivedPendingRequestsCount = useMemo(
-    () => pendingRequests.filter((request) => request.direction === "received").length,
-    [pendingRequests],
-  );
   const normalizedAuthenticatedUsername = authenticatedUsername?.trim().toLocaleLowerCase() ?? "";
   const effectiveConnectionView = friendRequestsRestricted ? "friends" : activeConnectionView;
   const restrictedFriendRequestsCopy = t("profileFeedRequestRejected");
   const shouldShowRestrictedFriendsEmptyState = effectiveConnectionView === "friends" && friendRequestsRestricted;
+
+  useEffect(() => {
+    if (!connectionViewRequest) return;
+    const frame = window.requestAnimationFrame(() => {
+      setActiveConnectionView(connectionViewRequest.view);
+      onConnectionViewRequestComplete?.(connectionViewRequest.id);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [connectionViewRequest, onConnectionViewRequestComplete]);
 
   useEffect(() => {
     const updateMobileCarouselWidth = () => {
