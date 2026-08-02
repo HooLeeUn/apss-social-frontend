@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UIEvent } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
@@ -131,6 +131,7 @@ function UserSearchResultRow({ user }: { user: SocialUser }) {
 
 
 function ProfileFeedContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const branding = useAppBranding();
   const { locale, t } = useI18n();
@@ -171,6 +172,8 @@ function ProfileFeedContent() {
   const [connectionBlockRequest, setConnectionBlockRequest] = useState<{ block: 0 | 1; id: number } | null>(null);
   const [connectionViewRequest, setConnectionViewRequest] = useState<{ view: "friends" | "pending"; id: number } | null>(null);
   const [pendingFriendRequestNavigation, setPendingFriendRequestNavigation] = useState(false);
+  const friendRequestNavigationStarted = useRef(false);
+  const navigationRequestId = useRef(0);
   const observedFriendsTab = useRef<string | null>(null);
   const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity"; id: number } | null>(null);
   const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
@@ -533,10 +536,24 @@ function ProfileFeedContent() {
     setActiveMobileProfileFeedSlide(slide);
   }, []);
 
+  const navigateToFriends = useCallback((options?: { pendingTab?: boolean }) => {
+    const requestId = ++navigationRequestId.current;
+    setConnectionBlockRequest({ block: 1, id: requestId });
+    if (options?.pendingTab) {
+      setConnectionViewRequest({ view: "pending", id: requestId });
+    }
+    setPendingNavigationTarget("friends");
+  }, []);
+
   const requestQuickNavigation = useCallback((target: QuickTarget) => {
-    const requestId = Date.now();
-    if (target === "following" || target === "friends") {
-      setConnectionBlockRequest({ block: target === "following" ? 0 : 1, id: requestId });
+    if (target === "friends") {
+      navigateToFriends();
+      return;
+    }
+
+    const requestId = ++navigationRequestId.current;
+    if (target === "following") {
+      setConnectionBlockRequest({ block: 0, id: requestId });
     } else if (target === "activity") {
       setActivityTabRequest({ tab: "activity", id: requestId });
       selectMobileContentSlide(0);
@@ -546,7 +563,7 @@ function ProfileFeedContent() {
       selectMobileContentSlide(1);
     }
     setPendingNavigationTarget(target);
-  }, [selectMobileContentSlide]);
+  }, [navigateToFriends, selectMobileContentSlide]);
 
   const completeConnectionBlockRequest = useCallback((requestId: number) => {
     setConnectionBlockRequest((current) => current?.id === requestId ? null : current);
@@ -557,12 +574,17 @@ function ProfileFeedContent() {
   }, []);
 
   useEffect(() => {
-    if (!pendingFriendRequestNavigation || loadingFriends || loadingPendingRequests) return;
-    const requestId = Date.now();
-    setConnectionBlockRequest({ block: 1, id: requestId });
-    setConnectionViewRequest({ view: "pending", id: requestId });
-    setPendingNavigationTarget("friends");
-  }, [loadingFriends, loadingPendingRequests, pendingFriendRequestNavigation]);
+    if (
+      !pendingFriendRequestNavigation ||
+      friendRequestNavigationStarted.current ||
+      loadingFriends ||
+      loadingPendingRequests ||
+      !connectionsSectionRef.current
+    ) return;
+
+    friendRequestNavigationStarted.current = true;
+    navigateToFriends({ pendingTab: true });
+  }, [loadingFriends, loadingPendingRequests, navigateToFriends, pendingFriendRequestNavigation]);
 
   useEffect(() => {
     if (!pendingNavigationTarget) return;
@@ -585,14 +607,21 @@ function ProfileFeedContent() {
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         destination.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
         setPendingNavigationTarget(null);
-        setPendingFriendRequestNavigation(false);
+        if (pendingFriendRequestNavigation) {
+          setPendingFriendRequestNavigation(false);
+          friendRequestNavigationStarted.current = false;
+          const nextSearchParams = new URLSearchParams(searchParams.toString());
+          nextSearchParams.delete("friendsTab");
+          const nextQuery = nextSearchParams.toString();
+          router.replace(nextQuery ? `/profile-feed?${nextQuery}` : "/profile-feed", { scroll: false });
+        }
       });
     });
     return () => {
       window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
-  }, [activeListView, connectionBlockRequest, connectionViewRequest, pendingNavigationTarget]);
+  }, [activeListView, connectionBlockRequest, connectionViewRequest, pendingFriendRequestNavigation, pendingNavigationTarget, router, searchParams]);
 
   const renderMovieListPanel = (className: string) => (
     <section className={className}>
