@@ -32,8 +32,10 @@ interface TopUsersSectionProps {
   branding?: AppBranding | null;
   mobileBlockRequest?: { block: 0 | 1; id: number } | null;
   onMobileBlockRequestComplete?: (requestId: number) => void;
+  onMobileBlockChange?: (block: 0 | 1) => void;
   connectionViewRequest?: { view: "friends" | "pending"; id: number } | null;
   onConnectionViewRequestComplete?: (requestId: number) => void;
+  onConnectionViewChange?: (view: "friends" | "pending") => void;
 }
 
 function FollowingGroupIcon() {
@@ -326,8 +328,10 @@ export default function TopUsersSection({
   branding = null,
   mobileBlockRequest,
   onMobileBlockRequestComplete,
+  onMobileBlockChange,
   connectionViewRequest,
   onConnectionViewRequestComplete,
+  onConnectionViewChange,
 }: TopUsersSectionProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -347,6 +351,14 @@ export default function TopUsersSection({
   const effectiveConnectionView = friendRequestsRestricted ? "friends" : activeConnectionView;
   const restrictedFriendRequestsCopy = t("profileFeedRequestRejected");
   const shouldShowRestrictedFriendsEmptyState = effectiveConnectionView === "friends" && friendRequestsRestricted;
+
+  useEffect(() => {
+    onMobileBlockChange?.(activeMobileBlock);
+  }, [activeMobileBlock, onMobileBlockChange]);
+
+  useEffect(() => {
+    onConnectionViewChange?.(effectiveConnectionView);
+  }, [effectiveConnectionView, onConnectionViewChange]);
 
   useEffect(() => {
     if (!connectionViewRequest) return;
