@@ -669,7 +669,14 @@ export default function FeedPage() {
         item.targetTab === "friend_requests_pending"
           ? "/profile-feed?friendsTab=pending"
           : item.movieId !== null && item.movieId !== ""
-            ? `/movies/${item.movieId}`
+            ? item.targetTab === "private_inbox" &&
+              item.directedCommentId !== null &&
+              item.directedCommentId !== "" &&
+              ((item.actorId !== null && item.actorId !== "") || item.actorUsername)
+              ? `/movies/${encodeURIComponent(String(item.movieId))}?section=directed-comments${
+                  item.actorId !== null && item.actorId !== "" ? `&actorId=${encodeURIComponent(String(item.actorId))}` : ""
+                }${item.actorUsername ? `&actorUsername=${encodeURIComponent(item.actorUsername)}` : ""}&commentId=${encodeURIComponent(String(item.directedCommentId))}`
+              : `/movies/${item.movieId}`
             : item.targetTab === "private_inbox"
               ? "/profile-feed?tab=private_inbox"
               : "/profile-feed?tab=activity";
