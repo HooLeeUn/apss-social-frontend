@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, type RefObject } from "react";
 import { Movie } from "../lib/movies";
 import type { AppBranding } from "../lib/branding";
 import { useI18n } from "../hooks/useI18n";
@@ -16,9 +16,11 @@ interface WeeklyRecommendationsSectionProps {
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   trailerHoverDelayMs?: number;
   branding?: AppBranding | null;
+  sectionRef?: RefObject<HTMLElement | null>;
+  mobileCarouselRef?: RefObject<HTMLDivElement | null>;
 }
 
-function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations, trailerHoverDelayMs, branding = null }: WeeklyRecommendationsSectionProps) {
+function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations, trailerHoverDelayMs, branding = null, sectionRef, mobileCarouselRef }: WeeklyRecommendationsSectionProps) {
   const { t } = useI18n({ userId: currentUserId, username: currentUsername });
   const heroMovies = useMemo(() => [weeklyMovies[0], weeklyMovies[1]], [weeklyMovies]);
   const miniMovies = useMemo(() => Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]), [weeklyMovies]);
@@ -54,10 +56,10 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
   );
 
   return (
-    <section className="space-y-4 pt-4 pb-8 lg:space-y-6 lg:pb-0">
+    <section ref={sectionRef} className="space-y-4 pt-4 pb-8 lg:space-y-6 lg:pb-0">
       <h2 className="text-center text-2xl font-semibold text-zinc-100">{t("weeklyRecs")}</h2>
 
-      <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
+      <div ref={mobileCarouselRef} className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
         <div className="min-h-[34.5rem] w-[min(84vw,22rem)] flex-none snap-center">
           {renderHeroCard(heroMovies[0], 0)}
         </div>

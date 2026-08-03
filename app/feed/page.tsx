@@ -200,6 +200,11 @@ function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<strin
 }
 
 type StreamingCountry = Country;
+type MobileFeedScrollStage = "initial" | "weekly" | "free";
+
+const MOBILE_FEED_MEDIA_QUERY = "(max-width: 1023px)";
+const MOBILE_FEED_GESTURE_THRESHOLD_PX = 36;
+const MOBILE_FEED_VERTICAL_DOMINANCE = 1.2;
 
 export default function FeedPage() {
   const router = useRouter();
@@ -240,6 +245,13 @@ export default function FeedPage() {
   const mobileNotificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileNavRef = useRef<HTMLElement | null>(null);
+  const feedMainRef = useRef<HTMLElement | null>(null);
+  const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
+  const weeklyRecommendationsRef = useRef<HTMLElement | null>(null);
+  const weeklyCarouselRef = useRef<HTMLDivElement | null>(null);
+  const billboardSectionRef = useRef<HTMLElement | null>(null);
+  const mobileFeedScrollStageRef = useRef<MobileFeedScrollStage>("initial");
+  const isMobileFeedScrollAnimatingRef = useRef(false);
   const isRefreshingNotificationsRef = useRef(false);
   const lastMobileScrollYRef = useRef(0);
 
@@ -283,6 +295,122 @@ export default function FeedPage() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isMobileSearchOpen, isNotificationPanelOpen]);
+
+  useEffect(() => {
+    const feedNode = feedMainRef.current;
+    if (!feedNode) return;
+
+    const mediaQuery = window.matchMedia(MOBILE_FEED_MEDIA_QUERY);
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let gestureHandled = false;
+    let gestureStartedInCarousel = false;
+    let animationFrameId: number | null = null;
+
+    const resetGesture = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      gestureHandled = false;
+      gestureStartedInCarousel = Boolean(
+        event.target instanceof Node && weeklyCarouselRef.current?.contains(event.target),
+      );
+    };
+
+    const finishProgrammaticScroll = (nextStage: MobileFeedScrollStage) => {
+      mobileFeedScrollStageRef.current = nextStage;
+      isMobileFeedScrollAnimatingRef.current = false;
+      if (animationFrameId !== null) window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    };
+
+    const scrollToMobileFeedSection = (target: HTMLElement, nextStage: MobileFeedScrollStage) => {
+      isMobileFeedScrollAnimatingRef.current = true;
+      setIsMobileBottomNavVisible(false);
+
+      const headerBottom = mobileHeaderRef.current?.getBoundingClientRect().bottom ?? 0;
+      const targetTop = target.getBoundingClientRect().top;
+      const destination = Math.max(0, window.scrollY + targetTop - Math.max(0, headerBottom));
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let movementObserved = reducedMotion || Math.abs(window.scrollY - destination) < 2;
+      let stableFrames = 0;
+      let previousScrollY = window.scrollY;
+
+      window.scrollTo({ top: destination, behavior: reducedMotion ? "auto" : "smooth" });
+
+      const verifyPosition = () => {
+        const currentScrollY = window.scrollY;
+        if (Math.abs(currentScrollY - previousScrollY) > 0.5) movementObserved = true;
+        stableFrames = Math.abs(currentScrollY - previousScrollY) <= 0.5 ? stableFrames + 1 : 0;
+        previousScrollY = currentScrollY;
+
+        const currentHeaderBottom = mobileHeaderRef.current?.getBoundingClientRect().bottom ?? 0;
+        const targetOffset = target.getBoundingClientRect().top - Math.max(0, currentHeaderBottom);
+        if (Math.abs(targetOffset) <= 2 || (movementObserved && stableFrames >= 8)) {
+          finishProgrammaticScroll(nextStage);
+          return;
+        }
+        animationFrameId = window.requestAnimationFrame(verifyPosition);
+      };
+
+      animationFrameId = window.requestAnimationFrame(verifyPosition);
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!mediaQuery.matches || gestureHandled || gestureStartedInCarousel) return;
+      if (isMobileFeedScrollAnimatingRef.current || mobileFeedScrollStageRef.current === "free") return;
+
+      const touch = event.touches[0];
+      if (!touch) return;
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = touch.clientY - touchStartY;
+      const verticalDistance = Math.abs(deltaY);
+
+      if (verticalDistance < MOBILE_FEED_GESTURE_THRESHOLD_PX || deltaY >= 0) return;
+      if (verticalDistance <= Math.abs(deltaX) * MOBILE_FEED_VERTICAL_DOMINANCE) return;
+
+      const target = mobileFeedScrollStageRef.current === "initial"
+        ? weeklyRecommendationsRef.current
+        : billboardSectionRef.current;
+      if (!target || !weeklyRecommendationsRef.current || !billboardSectionRef.current) return;
+
+      event.preventDefault();
+      gestureHandled = true;
+      scrollToMobileFeedSection(
+        target,
+        mobileFeedScrollStageRef.current === "initial" ? "weekly" : "free",
+      );
+    };
+
+    const handleScrollReset = () => {
+      if (!mediaQuery.matches || isMobileFeedScrollAnimatingRef.current) return;
+      const nearFeedStart = window.scrollY <= document.documentElement.clientHeight * 0.05;
+      if (nearFeedStart) mobileFeedScrollStageRef.current = "initial";
+    };
+
+    const handleViewportChange = () => {
+      if (mediaQuery.matches) return;
+      mobileFeedScrollStageRef.current = "initial";
+      isMobileFeedScrollAnimatingRef.current = false;
+      gestureHandled = false;
+      if (animationFrameId !== null) window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    };
+
+    feedNode.addEventListener("touchstart", resetGesture, { passive: true });
+    feedNode.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("scroll", handleScrollReset, { passive: true });
+    mediaQuery.addEventListener("change", handleViewportChange);
+    return () => {
+      feedNode.removeEventListener("touchstart", resetGesture);
+      feedNode.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("scroll", handleScrollReset);
+      mediaQuery.removeEventListener("change", handleViewportChange);
+      if (animationFrameId !== null) window.cancelAnimationFrame(animationFrameId);
+      isMobileFeedScrollAnimatingRef.current = false;
+    };
+  }, [error, loading]);
 
   useEffect(() => {
     const syncCountry = () => setStreamingCountry(getStoredCountry(null));
@@ -875,9 +1003,9 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black">
+    <main ref={feedMainRef} className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
-        <div className="sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
+        <div ref={mobileHeaderRef} className="sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
           <div className="flex items-center gap-3 lg:block">
             <div className="relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
               <MobileFeedDefaultLogo branding={branding} onClick={handleMobileLogoClick} />
@@ -1038,10 +1166,10 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} branding={branding} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS} />
+          <WeeklyRecommendationsSection sectionRef={weeklyRecommendationsRef} mobileCarouselRef={weeklyCarouselRef} weeklyMovies={weeklyMovies} branding={branding} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS} />
         </section>
 
-        <section className="space-y-5 bg-black pb-8">
+        <section ref={billboardSectionRef} className="space-y-5 bg-black pb-8">
           <div className="mx-auto w-full max-w-[860px] px-3 sm:px-4">
             <h2 className="text-xl font-semibold text-zinc-100">{translate(locale, "yourWatchlist")}</h2>
           </div>
