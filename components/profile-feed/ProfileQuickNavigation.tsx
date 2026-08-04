@@ -16,6 +16,8 @@ interface ProfileQuickNavigationProps {
 
 const MOVE_THRESHOLD = 10;
 const LONG_PRESS_DELAY = 500;
+const PROGRAMMATIC_SCROLL_SETTLE_DELAY = 180;
+const PROGRAMMATIC_SCROLL_MAX_DELAY = 3000;
 const PROFILE_FEED_SELECTOR = ".profile-feed-mobile-framing";
 const INTERACTIVE_TARGET_SELECTOR = [
   "button",
@@ -60,6 +62,25 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
   const suppressClick = useRef(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealGesture = useRef<{ pointerId: number; x: number; y: number; cancelled: boolean; triggered: boolean } | null>(null);
+  const quickNavigationInProgress = useRef(false);
+  const programmaticScrollSettleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const programmaticScrollFallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const finishQuickNavigation = useCallback(() => {
+    quickNavigationInProgress.current = false;
+    if (programmaticScrollSettleTimer.current) clearTimeout(programmaticScrollSettleTimer.current);
+    if (programmaticScrollFallbackTimer.current) clearTimeout(programmaticScrollFallbackTimer.current);
+    programmaticScrollSettleTimer.current = null;
+    programmaticScrollFallbackTimer.current = null;
+  }, []);
+
+  const navigateAndHide = useCallback((action: () => void) => {
+    finishQuickNavigation();
+    quickNavigationInProgress.current = true;
+    setVisible(false);
+    action();
+    programmaticScrollFallbackTimer.current = setTimeout(finishQuickNavigation, PROGRAMMATIC_SCROLL_MAX_DELAY);
+  }, [finishQuickNavigation]);
 
   const clearLongPress = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -81,16 +102,22 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
       const next = Math.max(window.scrollY, 0);
       const delta = next - lastScrollY.current;
       if (Math.abs(delta) > 0) cancelGesture();
-      if (next < 80) setVisible(true);
+      if (quickNavigationInProgress.current) {
+        if (programmaticScrollSettleTimer.current) clearTimeout(programmaticScrollSettleTimer.current);
+        programmaticScrollSettleTimer.current = setTimeout(finishQuickNavigation, PROGRAMMATIC_SCROLL_SETTLE_DELAY);
+      } else if (next < 80) setVisible(true);
       else if (delta > 8) setVisible(false);
       else if (delta < -8) setVisible(true);
       if (Math.abs(delta) > 8) lastScrollY.current = next;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [cancelGesture]);
+  }, [cancelGesture, finishQuickNavigation]);
 
-  useEffect(() => () => clearLongPress(), [clearLongPress]);
+  useEffect(() => () => {
+    clearLongPress();
+    finishQuickNavigation();
+  }, [clearLongPress, finishQuickNavigation]);
 
   const clearRevealGesture = useCallback(() => {
     if (revealTimer.current) clearTimeout(revealTimer.current);
@@ -183,7 +210,7 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
     gesture.current = null;
     setTooltipIndex(null);
     suppressClick.current = true;
-    if (!current.moved && !current.longPressed) action();
+    if (!current.moved && !current.longPressed) navigateAndHide(action);
   };
 
   return (
@@ -204,7 +231,7 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
                   suppressClick.current = false;
                   return;
                 }
-                item.onNavigate();
+                navigateAndHide(item.onNavigate);
               }}
               onPointerDown={(event) => start(event, index)} onPointerMove={move}
               onPointerUp={(event) => finish(event, item.onNavigate)}
