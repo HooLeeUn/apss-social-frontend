@@ -25,8 +25,6 @@ export type Country =
   | "BZ";
 
 const STORAGE_KEY = "app_locale_country";
-const USER_STORAGE_KEY_PREFIX = "app_locale_country:";
-const ACTIVE_SCOPE_STORAGE_KEY = "app_locale_active_scope";
 export const localeEventName = "app-locale-change";
 
 export interface LocaleUserScope {
@@ -649,35 +647,22 @@ export function resolveLocaleScope(scope?: LocaleUserScope | null): string | nul
   return normalizedUsername ? `username:${normalizedUsername}` : null;
 }
 
-function buildScopedStorageKey(scopeKey: string): string {
-  return `${USER_STORAGE_KEY_PREFIX}${scopeKey}`;
-}
-
-function getActiveScopeKey(): string | null {
-  if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(ACTIVE_SCOPE_STORAGE_KEY);
-  return value?.trim() || null;
-}
-
 export function setActiveLocaleScope(scope?: LocaleUserScope | null): Country {
   if (typeof window === "undefined") return "CO";
   const scopeKey = resolveLocaleScope(scope);
-  if (!scopeKey) {
-    window.localStorage.removeItem(ACTIVE_SCOPE_STORAGE_KEY);
-  } else {
-    window.localStorage.setItem(ACTIVE_SCOPE_STORAGE_KEY, scopeKey);
-  }
-  const country = getStoredCountry(scope);
+  const country = getStoredCountry();
   window.dispatchEvent(new CustomEvent(localeEventName, { detail: { country, language: countryToLocale(country), locale: countryToLocale(country), scopeKey } }));
   return country;
 }
 
+export function hasStoredCountryPreference(): boolean {
+  return typeof window !== "undefined" && window.localStorage.getItem(STORAGE_KEY) !== null;
+}
+
 export function getStoredCountry(scope?: LocaleUserScope | null): Country {
+  void scope; // Kept for call-site compatibility; country preference is intentionally global.
   if (typeof window === "undefined") return "CO";
-  const scopeKey = resolveLocaleScope(scope) ?? getActiveScopeKey();
-  const value = scopeKey
-    ? window.localStorage.getItem(buildScopedStorageKey(scopeKey)) ?? window.localStorage.getItem(STORAGE_KEY)
-    : window.localStorage.getItem(STORAGE_KEY);
+  const value = window.localStorage.getItem(STORAGE_KEY);
   return parseStoredLocaleSelection(value).country;
 }
 
@@ -687,18 +672,12 @@ export function getStoredLocaleSelection(scope?: LocaleUserScope | null): Locale
 }
 
 export function setStoredCountry(country: Country, scope?: LocaleUserScope | null) {
+  void scope; // Kept for call-site compatibility; country preference is intentionally global.
   if (typeof window === "undefined") return;
-  const scopeKey = resolveLocaleScope(scope) ?? getActiveScopeKey();
   const selection = JSON.stringify({ country, language: countryToLocale(country) });
 
   window.localStorage.setItem(STORAGE_KEY, selection);
-
-  if (scopeKey) {
-    window.localStorage.setItem(buildScopedStorageKey(scopeKey), selection);
-    window.localStorage.setItem(ACTIVE_SCOPE_STORAGE_KEY, scopeKey);
-  }
-
-  window.dispatchEvent(new CustomEvent(localeEventName, { detail: { country, language: countryToLocale(country), locale: countryToLocale(country), scopeKey } }));
+  window.dispatchEvent(new CustomEvent(localeEventName, { detail: { country, language: countryToLocale(country), locale: countryToLocale(country) } }));
 }
 
 export function t(locale: Locale, key: TranslationKey): string {

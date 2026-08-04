@@ -25,7 +25,8 @@ import {
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { normalizeBackendMediaUrl } from "../../lib/branding";
-import { type Country, countryToLocale, getStoredCountry, isSupportedCountry, localeEventName, normalizeCountry, setActiveLocaleScope, setStoredCountry, t as translate } from "../../lib/i18n";
+import { type Country, countryToLocale, hasStoredCountryPreference, isSupportedCountry, normalizeCountry, setActiveLocaleScope, t as translate } from "../../lib/i18n";
+import { useI18n } from "../../hooks/useI18n";
 import {
   addMovieToMyList,
   addMovieToMyRecommendations,
@@ -223,10 +224,9 @@ export default function FeedPage() {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isMobileBottomNavVisible, setIsMobileBottomNavVisible] = useState(true);
-  const [streamingCountry, setStreamingCountry] = useState<StreamingCountry>("CO");
+  const { country: streamingCountry, locale, setCountry: setStreamingCountry } = useI18n(null);
   const [isSavingStreamingCountry, setIsSavingStreamingCountry] = useState(false);
   const [streamingCountryError, setStreamingCountryError] = useState("");
-  const locale = countryToLocale(streamingCountry);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -283,14 +283,6 @@ export default function FeedPage() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isMobileSearchOpen, isNotificationPanelOpen]);
-
-  useEffect(() => {
-    const syncCountry = () => setStreamingCountry(getStoredCountry(null));
-
-    syncCountry();
-    window.addEventListener(localeEventName, syncCountry as EventListener);
-    return () => window.removeEventListener(localeEventName, syncCountry as EventListener);
-  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -431,9 +423,8 @@ export default function FeedPage() {
           ? normalizeCountry(meRecord?.streaming_country)
           : isSupportedCountry(meRecord?.country)
             ? normalizeCountry(meRecord?.country)
-            : getStoredCountry({ userId: normalizedUserId, username: resolvedUsername });
-        setStoredCountry(backendCountry, { userId: normalizedUserId, username: resolvedUsername });
-        setStreamingCountry(backendCountry);
+            : null;
+        if (!hasStoredCountryPreference() && backendCountry) setStreamingCountry(backendCountry);
         setStreamingCountryError("");
         const storedVersion = typeof window !== "undefined" ? window.localStorage.getItem("profile_avatar_updated_at") : null;
         setProfileAvatarVersion(storedVersion);
@@ -449,7 +440,7 @@ export default function FeedPage() {
     };
 
     void loadProfileContext();
-  }, [refreshNotifications]);
+  }, [refreshNotifications, setStreamingCountry]);
 
   useEffect(() => {
     const token = getToken();
@@ -644,7 +635,6 @@ export default function FeedPage() {
       if (nextCountry === streamingCountry || isSavingStreamingCountry) return;
 
       setStreamingCountry(nextCountry);
-      setStoredCountry(nextCountry, { userId: currentUserId, username: currentUsername });
       setStreamingCountryError("");
       setIsSavingStreamingCountry(true);
 
@@ -659,7 +649,7 @@ export default function FeedPage() {
         setIsSavingStreamingCountry(false);
       }
     },
-    [currentUserId, currentUsername, isSavingStreamingCountry, streamingCountry],
+    [isSavingStreamingCountry, setStreamingCountry, streamingCountry],
   );
 
   const handleNotificationItemClick = useCallback(
