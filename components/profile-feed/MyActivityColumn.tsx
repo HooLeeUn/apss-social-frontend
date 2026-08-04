@@ -988,7 +988,7 @@ export default function MyActivityColumn({
   );
 
   return (
-    <section className={`w-full min-w-0 max-w-full ${isOwnProfile ? "md:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}>
+    <section className={`my-activity-column w-full min-w-0 max-w-full ${isOwnProfile ? "md:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}>
       {isOwnProfile ? (
         <header className="flex flex-wrap gap-2">
           {ownProfileTabs.map((tab) => (
@@ -1072,7 +1072,7 @@ export default function MyActivityColumn({
       ) : null}
 
       <div
-        className="activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
+        className="my-activity-scroll-area activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
         onScroll={handleScroll}
       >
         {effectiveActiveTab === "activity" ? (

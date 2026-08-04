@@ -704,7 +704,7 @@ export default function FavoriteMoviesBlock({
   };
 
   return (
-    <section className="rounded-3xl bg-zinc-950/65 p-6 shadow-[0_24px_45px_rgba(0,0,0,0.38)]">
+    <section className="favorite-movies-block rounded-3xl bg-zinc-950/65 p-6 shadow-[0_24px_45px_rgba(0,0,0,0.38)]">
       {title ? <h2 className="mb-4 text-lg font-semibold text-zinc-100 md:text-left">{title}</h2> : null}
       {loading ? <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p> : null}
       {!loading && error ? <p className="mb-3 text-xs text-zinc-400">{error}</p> : null}

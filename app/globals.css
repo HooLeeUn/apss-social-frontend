@@ -264,6 +264,14 @@ textarea,
     --mobile-profile-nav-clearance: calc(5rem + var(--mobile-profile-safe-bottom));
     --mobile-profile-useful-height: calc(100dvh - 2rem);
     --mobile-profile-connections-height: calc(var(--mobile-profile-useful-height) - 3.75rem);
+    --mobile-profile-row-height: clamp(32rem, calc(100dvh - 10rem - var(--mobile-profile-safe-bottom)), 42rem);
+    --mobile-favorite-poster-width: clamp(5.25rem, 24vw, 6.25rem);
+  }
+
+  .profile-feed-mobile-framing .favorite-movies-block {
+    width: 100%;
+    max-width: none;
+    padding-inline: 0;
   }
 
   .profile-feed-mobile-framing .favorite-movies-mobile-cube__stage,
@@ -276,8 +284,14 @@ textarea,
   }
 
   .profile-feed-mobile-framing .favorite-movie-card__poster {
-    width: clamp(4.5rem, 21vw, 5.25rem);
-    height: clamp(6.5rem, 29vw, 7.5rem);
+    width: var(--mobile-favorite-poster-width);
+    height: auto;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+  }
+
+  .profile-feed-mobile-framing .favorite-movie-card article .grid {
+    grid-template-columns: var(--mobile-favorite-poster-width) minmax(0, 1fr);
   }
 
   .profile-feed-mobile-framing .favorite-movie-card__title {
@@ -295,17 +309,61 @@ textarea,
     min-height: var(--mobile-profile-connections-height);
   }
 
-  .profile-feed-mobile-framing .profile-feed-mobile-content-row,
-  .profile-feed-mobile-framing .profile-feed-mobile-content-panel,
-  .profile-feed-mobile-framing .profile-feed-mobile-list-panel,
-  .profile-feed-mobile-framing .profile-feed-following-activity > section {
-    min-height: var(--mobile-profile-useful-height);
+  .profile-feed-mobile-framing .profile-feed-mobile-content-row {
+    display: flex;
+    height: var(--mobile-profile-row-height);
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
   }
 
-  .profile-feed-mobile-framing .profile-feed-mobile-content-panel,
+  .profile-feed-mobile-framing .profile-feed-mobile-content-track {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-mobile-content-panel {
+    width: 100%;
+    min-width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
   .profile-feed-mobile-framing .profile-feed-mobile-list-panel,
-  .profile-feed-mobile-framing .profile-feed-following-activity > section {
-    padding-bottom: var(--mobile-profile-nav-clearance);
+  .profile-feed-mobile-framing .profile-feed-mobile-content-panel > .my-activity-column {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .profile-feed-mobile-framing .my-activity-scroll-area,
+  .profile-feed-mobile-framing .profile-feed-mobile-list-scroll {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-padding-bottom: var(--mobile-profile-nav-clearance);
+    touch-action: pan-y;
+  }
+
+  .profile-feed-mobile-framing .my-activity-scroll-area::after,
+  .profile-feed-mobile-framing .profile-feed-mobile-list-scroll::after {
+    display: block;
+    height: var(--mobile-profile-nav-clearance);
+    content: "";
+  }
+
+  .profile-feed-mobile-framing .profile-feed-mobile-carousel-dots {
+    flex: 0 0 auto;
   }
 
   .favorite-movies-mobile-cube {
