@@ -468,7 +468,7 @@ export default function SocialActivityTabsBlock() {
   ];
 
   return (
-    <section className="ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 pt-4 [overflow-anchor:none] md:pt-6">
+    <section className="profile-feed-following-activity-panel ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 pt-4 [overflow-anchor:none] md:pt-6">
       <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 md:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
       <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md md:mt-4" style={activityTabsLayoutStyle}>
         <div className="grid grid-cols-[max-content_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
@@ -505,9 +505,9 @@ export default function SocialActivityTabsBlock() {
         </div>
       </header>
 
-      <div className="px-4 pt-5">
+      <div className="profile-feed-following-activity-body px-4 pt-5">
         {isRecommendationsActive ? (
-          <div className="space-y-3">
+          <div className="profile-feed-following-recommendations space-y-3">
             <div className="flex items-center justify-start">
               <input
                 type="search"
@@ -523,7 +523,7 @@ export default function SocialActivityTabsBlock() {
             </div>
 
             <div
-              className="activity-scrollbar max-h-[39rem] overflow-y-auto pr-2"
+              className="profile-feed-following-scroll activity-scrollbar max-h-[39rem] overflow-y-auto pr-2"
               role="listbox"
               aria-label={t("profileFeedRecommendations")}
               onScroll={handleFollowedRecommendationsScroll}
@@ -558,7 +558,7 @@ export default function SocialActivityTabsBlock() {
             </div>
           </div>
         ) : (
-          <div className="relative h-[49rem] overflow-hidden [overflow-anchor:none]" aria-label={`Actividad de ${activeTabMeta.label}`}>
+          <div className="profile-feed-following-actions relative h-[49rem] overflow-hidden [overflow-anchor:none]" aria-label={`Actividad de ${activeTabMeta.label}`}>
             {activityPanels.map(({ tab, meta, visibleItems, activity }) => {
               const isPanelActive = activityTab === tab;
               const isPanelLoading = activity.loading || !activity.loaded;
@@ -566,7 +566,7 @@ export default function SocialActivityTabsBlock() {
               return (
                 <div
                   key={tab}
-                  className={`activity-scrollbar absolute inset-0 overflow-y-auto pr-2 transition-opacity duration-200 [overflow-anchor:none] ${
+                  className={`profile-feed-following-scroll activity-scrollbar absolute inset-0 overflow-y-auto pr-2 transition-opacity duration-200 [overflow-anchor:none] ${
                     isPanelActive ? "opacity-100" : "pointer-events-none opacity-0"
                   }`}
                   role="listbox"
