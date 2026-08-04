@@ -171,9 +171,8 @@ function ProfileFeedContent() {
   const [activeMobileProfileFeedSlide, setActiveMobileProfileFeedSlide] = useState(0);
   const mobileProfileFeedCarouselRef = useRef<HTMLDivElement | null>(null);
   const connectionsSearchSectionRef = useRef<HTMLElement | null>(null);
-  const activitySectionRef = useRef<HTMLDivElement | null>(null);
-  const movieListSectionRef = useRef<HTMLDivElement | null>(null);
-  const followingActivitySectionRef = useRef<HTMLDivElement | null>(null);
+  const activityAndListsPanelRef = useRef<HTMLDivElement | null>(null);
+  const followingActivityPanelRef = useRef<HTMLDivElement | null>(null);
   const [pendingNavigationTarget, setPendingNavigationTarget] = useState<QuickTarget | null>(null);
   const [connectionBlockRequest, setConnectionBlockRequest] = useState<{ block: 0 | 1; id: number } | null>(null);
   const [connectionViewRequest, setConnectionViewRequest] = useState<{ view: "friends" | "pending"; id: number } | null>(null);
@@ -687,16 +686,21 @@ function ProfileFeedContent() {
 
     const destination = pendingNavigationTarget === "following" || pendingNavigationTarget === "friends"
       ? connectionsSearchSectionRef.current
-      : pendingNavigationTarget === "activity"
-        ? activitySectionRef.current
-        : requiredListView
-          ? movieListSectionRef.current
-          : followingActivitySectionRef.current;
+      : pendingNavigationTarget === "following-activity"
+        ? followingActivityPanelRef.current
+        : activityAndListsPanelRef.current;
     if (!destination || typeof window === "undefined") return;
 
     let secondFrame = 0;
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
+        if (pendingNavigationTarget === "activity") {
+          activityAndListsPanelRef.current?.querySelector<HTMLElement>(".my-activity-scroll-area")?.scrollTo({ top: 0 });
+        } else if (requiredListView) {
+          activityAndListsPanelRef.current?.querySelector<HTMLElement>(".profile-feed-mobile-list-scroll")?.scrollTo({ top: 0 });
+        } else if (pendingNavigationTarget === "following-activity") {
+          followingActivityPanelRef.current?.querySelector<HTMLElement>(".profile-feed-following-scroll")?.scrollTo({ top: 0 });
+        }
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         destination.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
         setPendingNavigationTarget(null);
@@ -936,13 +940,13 @@ function ProfileFeedContent() {
               onConnectionViewRequestComplete={completeConnectionViewRequest}
               onConnectionViewChange={handleFriendsViewChange}
             />
-            <div className="profile-feed-mobile-content-row w-full max-w-full overflow-hidden md:hidden">
+            <div ref={activityAndListsPanelRef} className="profile-feed-mobile-content-row w-full max-w-full scroll-mt-4 overflow-hidden md:hidden">
               <div
                 ref={mobileProfileFeedCarouselRef}
                 className="profile-feed-mobile-content-track flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 onScroll={handleMobileProfileFeedCarouselScroll}
               >
-                <div ref={activitySectionRef} className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start scroll-mt-4">
+                <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start">
                   <MyActivityColumn
                     key={`my-activity-mobile-${initialActivityTab}`}
                     isOwnProfile
@@ -951,7 +955,7 @@ function ProfileFeedContent() {
                     activeTabRequest={activityTabRequest}
                   />
                 </div>
-                <div ref={movieListSectionRef} className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start scroll-mt-4">
+                <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start">
                   {renderMovieListPanel("profile-feed-mobile-list-panel flex min-w-0 flex-col rounded-none bg-zinc-950/55 p-4")}
                 </div>
               </div>
@@ -976,7 +980,7 @@ function ProfileFeedContent() {
           </div>
         </section>
 
-        <div ref={followingActivitySectionRef} className="profile-feed-following-activity mt-3 scroll-mt-4 md:mt-4">
+        <div ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 md:mt-4">
           <SocialActivityTabsBlock />
         </div>
       </div>

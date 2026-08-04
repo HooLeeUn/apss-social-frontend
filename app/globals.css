@@ -262,9 +262,11 @@ textarea,
   .profile-feed-mobile-framing {
     --mobile-profile-safe-bottom: env(safe-area-inset-bottom, 0px);
     --mobile-profile-nav-clearance: calc(5rem + var(--mobile-profile-safe-bottom));
+    --profile-mobile-top-offset: 1rem;
+    --profile-mobile-bottom-nav-space: var(--mobile-profile-nav-clearance);
+    --mobile-profile-panel-height: calc(100dvh - var(--profile-mobile-top-offset) - var(--profile-mobile-bottom-nav-space));
     --mobile-profile-useful-height: calc(100dvh - 2rem);
     --mobile-profile-connections-height: calc(var(--mobile-profile-useful-height) - 3.75rem);
-    --mobile-profile-row-height: clamp(32rem, calc(100dvh - 10rem - var(--mobile-profile-safe-bottom)), 42rem);
     --mobile-favorite-poster-width: clamp(5.25rem, 24vw, 6.25rem);
   }
 
@@ -310,17 +312,21 @@ textarea,
   }
 
   .profile-feed-mobile-framing .profile-feed-mobile-content-row {
+    position: relative;
     display: flex;
-    height: var(--mobile-profile-row-height);
-    min-height: 0;
+    height: var(--mobile-profile-panel-height);
+    min-height: var(--mobile-profile-panel-height);
+    max-height: var(--mobile-profile-panel-height);
     flex-direction: column;
     overflow: hidden;
   }
 
   .profile-feed-mobile-framing .profile-feed-mobile-content-track {
     flex: 1 1 auto;
+    height: 100%;
     min-width: 0;
     min-height: 0;
+    touch-action: pan-x pan-y pinch-zoom;
   }
 
   .profile-feed-mobile-framing .profile-feed-mobile-content-panel {
@@ -350,20 +356,69 @@ textarea,
     flex: 1 1 auto;
     overflow-x: hidden;
     overflow-y: auto;
-    overscroll-behavior-y: contain;
+    overscroll-behavior-y: auto;
     scroll-padding-bottom: var(--mobile-profile-nav-clearance);
-    touch-action: pan-y;
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
   }
 
   .profile-feed-mobile-framing .my-activity-scroll-area::after,
-  .profile-feed-mobile-framing .profile-feed-mobile-list-scroll::after {
+  .profile-feed-mobile-framing .profile-feed-mobile-list-scroll::after,
+  .profile-feed-mobile-framing .profile-feed-following-scroll::after {
     display: block;
     height: var(--mobile-profile-nav-clearance);
     content: "";
   }
 
   .profile-feed-mobile-framing .profile-feed-mobile-carousel-dots {
+    position: absolute;
+    right: 0;
+    bottom: 0.25rem;
+    left: 0;
+    z-index: 2;
     flex: 0 0 auto;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-activity {
+    height: var(--mobile-profile-panel-height);
+    min-height: var(--mobile-profile-panel-height);
+    max-height: var(--mobile-profile-panel-height);
+    overflow: hidden;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-activity-panel {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-activity-body,
+  .profile-feed-mobile-framing .profile-feed-following-recommendations {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+    scroll-padding-bottom: var(--mobile-profile-nav-clearance);
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-actions {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
   }
 
   .favorite-movies-mobile-cube {
