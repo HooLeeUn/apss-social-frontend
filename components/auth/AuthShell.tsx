@@ -15,6 +15,8 @@ interface AuthShellProps {
   brandingSlot: BrandingLogoSlot;
   children: ReactNode;
   fitMobileViewport?: boolean;
+  headerAction?: ReactNode;
+  logoAlt?: string;
 }
 
 export default function AuthShell({
@@ -26,6 +28,8 @@ export default function AuthShell({
   brandingSlot,
   children,
   fitMobileViewport = false,
+  headerAction,
+  logoAlt = "Logo de la app",
 }: AuthShellProps) {
   const branding = useAppBranding();
   const shellClassName = fitMobileViewport
@@ -50,13 +54,16 @@ export default function AuthShell({
 
       <div className={cardClassName}>
         <header className={headerClassName}>
-          <AppLogo
-            branding={branding}
-            slot={brandingSlot}
-            alt="Logo de la app"
-            className={logoClassName}
-            textClassName="text-[0.69rem] font-semibold uppercase tracking-[0.25em] text-zinc-400/90"
-          />
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <AppLogo
+              branding={branding}
+              slot={brandingSlot}
+              alt={logoAlt}
+              className={`${logoClassName} min-w-0 max-w-[min(16rem,calc(100%-6rem))]`}
+              textClassName="text-[0.69rem] font-semibold uppercase tracking-[0.25em] text-zinc-400/90"
+            />
+            {headerAction ? <div className="relative z-20 shrink-0">{headerAction}</div> : null}
+          </div>
           <h1 className={titleClassName}>{title}</h1>
           <p className="max-w-prose text-[0.94rem] leading-relaxed text-zinc-300">{description}</p>
         </header>
