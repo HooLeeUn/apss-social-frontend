@@ -265,6 +265,7 @@ textarea,
     --profile-mobile-top-offset: 1rem;
     --profile-mobile-bottom-nav-space: var(--mobile-profile-nav-clearance);
     --mobile-profile-panel-height: calc(100dvh - var(--profile-mobile-top-offset) - var(--profile-mobile-bottom-nav-space));
+    --mobile-profile-content-panel-height: calc(var(--mobile-profile-panel-height) + 1rem);
     --mobile-profile-useful-height: calc(100dvh - 2rem);
     --mobile-profile-connections-height: calc(var(--mobile-profile-useful-height) - 3.75rem);
     --mobile-favorite-poster-width: clamp(5.25rem, 24vw, 6.25rem);
@@ -314,9 +315,9 @@ textarea,
   .profile-feed-mobile-framing .profile-feed-mobile-content-row {
     position: relative;
     display: flex;
-    height: var(--mobile-profile-panel-height);
-    min-height: var(--mobile-profile-panel-height);
-    max-height: var(--mobile-profile-panel-height);
+    height: var(--mobile-profile-content-panel-height);
+    min-height: var(--mobile-profile-content-panel-height);
+    max-height: var(--mobile-profile-content-panel-height);
     flex-direction: column;
     overflow: hidden;
   }

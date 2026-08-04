@@ -16,6 +16,23 @@ interface ProfileQuickNavigationProps {
 
 const MOVE_THRESHOLD = 10;
 const LONG_PRESS_DELAY = 500;
+const PROFILE_FEED_SELECTOR = ".profile-feed-mobile-framing";
+const INTERACTIVE_TARGET_SELECTOR = [
+  "button",
+  "a",
+  "input",
+  "select",
+  "textarea",
+  "summary",
+  "label",
+  "[role='button']",
+  "[role='link']",
+  "[href]",
+  "[contenteditable='true']",
+  "[data-interactive='true']",
+  "[tabindex]:not([tabindex='-1'])",
+  "[class*='cursor-pointer']",
+].join(",");
 
 function LineIcon({ children }: { children: ReactNode }) {
   return (
@@ -41,6 +58,8 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
   const gesture = useRef<{ pointerId: number; x: number; y: number; moved: boolean; longPressed: boolean } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressClick = useRef(false);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealGesture = useRef<{ pointerId: number; x: number; y: number; cancelled: boolean; triggered: boolean } | null>(null);
 
   const clearLongPress = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -72,6 +91,68 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
   }, [cancelGesture]);
 
   useEffect(() => () => clearLongPress(), [clearLongPress]);
+
+  const clearRevealGesture = useCallback(() => {
+    if (revealTimer.current) clearTimeout(revealTimer.current);
+    revealTimer.current = null;
+    revealGesture.current = null;
+  }, []);
+
+  useEffect(() => {
+    const mobileViewport = window.matchMedia("(max-width: 767px)");
+
+    const handlePointerDown = (event: globalThis.PointerEvent) => {
+      if (!mobileViewport.matches || event.pointerType === "mouse" || !event.isPrimary) return;
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest(PROFILE_FEED_SELECTOR) || target.closest(INTERACTIVE_TARGET_SELECTOR)) return;
+
+      clearRevealGesture();
+      revealGesture.current = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        cancelled: false,
+        triggered: false,
+      };
+      revealTimer.current = setTimeout(() => {
+        const current = revealGesture.current;
+        if (!current || current.cancelled || current.triggered) return;
+        current.triggered = true;
+        setVisible(true);
+        revealTimer.current = null;
+      }, LONG_PRESS_DELAY);
+    };
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      const current = revealGesture.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      if (Math.hypot(event.clientX - current.x, event.clientY - current.y) > MOVE_THRESHOLD) {
+        current.cancelled = true;
+        clearRevealGesture();
+      }
+    };
+
+    const handlePointerEnd = (event: globalThis.PointerEvent) => {
+      if (revealGesture.current?.pointerId === event.pointerId) clearRevealGesture();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("pointermove", handlePointerMove, { passive: true });
+    document.addEventListener("pointerup", handlePointerEnd);
+    document.addEventListener("pointercancel", handlePointerEnd);
+    document.addEventListener("scroll", clearRevealGesture, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", clearRevealGesture);
+
+    return () => {
+      clearRevealGesture();
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerEnd);
+      document.removeEventListener("pointercancel", handlePointerEnd);
+      document.removeEventListener("scroll", clearRevealGesture, true);
+      document.removeEventListener("visibilitychange", clearRevealGesture);
+    };
+  }, [clearRevealGesture]);
 
   const start = (event: PointerEvent<HTMLButtonElement>, index: number) => {
     if (event.pointerType === "mouse") return;
