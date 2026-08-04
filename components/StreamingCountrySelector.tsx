@@ -12,6 +12,11 @@ interface StreamingCountrySelectorProps {
   buttonId?: string;
   compact?: boolean;
   iconOnly?: boolean;
+  labels?: {
+    country: string;
+    search: string;
+    noResults: string;
+  };
 }
 
 export default function StreamingCountrySelector({
@@ -23,6 +28,7 @@ export default function StreamingCountrySelector({
   buttonId = "streaming-country-button",
   compact = false,
   iconOnly = false,
+  labels = { country: "País de streaming", search: "Buscar país", noResults: "Sin resultados" },
 }: StreamingCountrySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -81,7 +87,7 @@ export default function StreamingCountrySelector({
   return (
     <div ref={containerRef} className={`relative flex ${iconOnly ? "max-w-[44px]" : "max-w-[88px]"} flex-col items-start gap-1 ${className}`}>
       <label htmlFor={buttonId} className="sr-only">
-        País de streaming
+        {labels.country}
       </label>
       <button
         id={buttonId}
@@ -109,11 +115,11 @@ export default function StreamingCountrySelector({
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar país"
+            placeholder={labels.search}
             className="mb-1 h-8 w-full rounded-lg border border-white/10 bg-zinc-950/80 px-2 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-slate-300/45 focus:outline-none"
-            aria-label="Buscar país de streaming"
+            aria-label={labels.search}
           />
-          <ul role="listbox" aria-label="País de streaming" className="streaming-country-scrollbar max-h-64 overflow-y-auto pr-1">
+          <ul role="listbox" aria-label={labels.country} className="streaming-country-scrollbar max-h-64 overflow-y-auto pr-1">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
                 <li key={option.value} role="option" aria-selected={country === option.value}>
@@ -139,7 +145,7 @@ export default function StreamingCountrySelector({
                 </li>
               ))
             ) : (
-              <li className="px-2 py-2 text-xs text-zinc-400">Sin resultados</li>
+              <li className="px-2 py-2 text-xs text-zinc-400">{labels.noResults}</li>
             )}
           </ul>
         </div>
