@@ -31,6 +31,16 @@ textarea,
   caret-color: auto;
 }
 
+@media (pointer: coarse) {
+  .qnext-disable-native-callout {
+    -webkit-touch-callout: none;
+  }
+
+  .qnext-disable-native-callout :is(input, textarea, select, [contenteditable]) {
+    -webkit-touch-callout: default;
+  }
+}
+
 @media (max-width: 767px) {
   input,
   select,
