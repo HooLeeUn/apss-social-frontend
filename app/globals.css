@@ -259,6 +259,55 @@ textarea,
 }
 
 @media (max-width: 767px) {
+  .profile-feed-mobile-framing {
+    --mobile-profile-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --mobile-profile-nav-clearance: calc(5rem + var(--mobile-profile-safe-bottom));
+    --mobile-profile-useful-height: calc(100dvh - 2rem);
+    --mobile-profile-connections-height: calc(var(--mobile-profile-useful-height) - 3.75rem);
+  }
+
+  .profile-feed-mobile-framing .favorite-movies-mobile-cube__stage,
+  .profile-feed-mobile-framing .favorite-movie-card {
+    height: clamp(14rem, 34dvh, 17rem);
+  }
+
+  .profile-feed-mobile-framing .favorite-movie-card > article {
+    padding: 1.15rem 1.45rem;
+  }
+
+  .profile-feed-mobile-framing .favorite-movie-card__poster {
+    width: clamp(4.5rem, 21vw, 5.25rem);
+    height: clamp(6.5rem, 29vw, 7.5rem);
+  }
+
+  .profile-feed-mobile-framing .favorite-movie-card__title {
+    font-size: 1rem;
+  }
+
+  .profile-feed-mobile-framing .favorite-movie-card__ratings > * {
+    min-height: 2.75rem;
+    font-size: 0.95rem;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-mobile-slider__stage,
+  .profile-feed-mobile-framing .profile-feed-connections-panel {
+    height: var(--mobile-profile-connections-height);
+    min-height: var(--mobile-profile-connections-height);
+  }
+
+  .profile-feed-mobile-framing .profile-feed-mobile-content-row,
+  .profile-feed-mobile-framing .profile-feed-mobile-content-panel,
+  .profile-feed-mobile-framing .profile-feed-mobile-list-panel,
+  .profile-feed-mobile-framing .profile-feed-following-activity > section {
+    min-height: var(--mobile-profile-useful-height);
+  }
+
+  .profile-feed-mobile-framing .profile-feed-mobile-content-panel,
+  .profile-feed-mobile-framing .profile-feed-mobile-list-panel,
+  .profile-feed-mobile-framing .profile-feed-following-activity > section {
+    padding-bottom: var(--mobile-profile-nav-clearance);
+  }
+
   .favorite-movies-mobile-cube {
     width: 100%;
     max-width: 100%;

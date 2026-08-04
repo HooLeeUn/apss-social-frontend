@@ -170,7 +170,7 @@ function ProfileFeedContent() {
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
   const [activeMobileProfileFeedSlide, setActiveMobileProfileFeedSlide] = useState(0);
   const mobileProfileFeedCarouselRef = useRef<HTMLDivElement | null>(null);
-  const connectionsSectionRef = useRef<HTMLElement | null>(null);
+  const connectionsSearchSectionRef = useRef<HTMLElement | null>(null);
   const activitySectionRef = useRef<HTMLDivElement | null>(null);
   const movieListSectionRef = useRef<HTMLDivElement | null>(null);
   const followingActivitySectionRef = useRef<HTMLDivElement | null>(null);
@@ -601,7 +601,7 @@ function ProfileFeedContent() {
       friendRequestNavigationStarted.current ||
       loadingFriends ||
       loadingPendingRequests ||
-      !connectionsSectionRef.current
+      !connectionsSearchSectionRef.current
     ) return;
 
     friendRequestNavigationStarted.current = true;
@@ -618,11 +618,11 @@ function ProfileFeedContent() {
       activeFriendsView !== "pending" ||
       loadingProfileUser ||
       loadingPendingRequests ||
-      !connectionsSectionRef.current ||
+      !connectionsSearchSectionRef.current ||
       typeof window === "undefined"
     ) return;
 
-    const target = connectionsSectionRef.current;
+    const target = connectionsSearchSectionRef.current;
     let firstFrame = 0;
     let layoutFrame = 0;
     let verificationFrame = 0;
@@ -686,7 +686,7 @@ function ProfileFeedContent() {
     if (requiredListView && activeListView !== requiredListView) return;
 
     const destination = pendingNavigationTarget === "following" || pendingNavigationTarget === "friends"
-      ? connectionsSectionRef.current
+      ? connectionsSearchSectionRef.current
       : pendingNavigationTarget === "activity"
         ? activitySectionRef.current
         : requiredListView
@@ -801,7 +801,7 @@ function ProfileFeedContent() {
   );
 
   return (
-    <main className="min-h-screen overflow-x-clip bg-black text-zinc-100">
+    <main className="profile-feed-mobile-framing min-h-screen overflow-x-clip bg-black text-zinc-100">
       <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 md:px-8 md:pb-8">
         <section className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
           <div className="grid min-w-0 items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
@@ -835,7 +835,7 @@ function ProfileFeedContent() {
           </div>
         </section>
 
-        <section ref={userSearchContainerRef} className="relative z-30 mx-auto mt-4 w-full max-w-2xl md:mt-5" aria-label={t("profileFeedSearchUser")}>
+        <section ref={(node) => { userSearchContainerRef.current = node; connectionsSearchSectionRef.current = node; }} className="profile-feed-connections-search relative z-30 mx-auto mt-4 w-full max-w-2xl scroll-mt-4 md:mt-5" aria-label={t("profileFeedSearchUser")}>
           <div className="flex w-full rounded-full border border-white/55 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
             <div className="relative min-w-0 flex-1">
               <svg
@@ -905,7 +905,7 @@ function ProfileFeedContent() {
           ) : null}
         </section>
 
-        <section ref={connectionsSectionRef} className="mt-4 w-full scroll-mt-4 md:mt-5">
+        <section className="mt-4 w-full md:mt-5">
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(260px,1fr)]">
             <TopUsersSection
               friends={friends}
@@ -936,13 +936,13 @@ function ProfileFeedContent() {
               onConnectionViewRequestComplete={completeConnectionViewRequest}
               onConnectionViewChange={handleFriendsViewChange}
             />
-            <div className="w-full max-w-full overflow-hidden md:hidden">
+            <div className="profile-feed-mobile-content-row w-full max-w-full overflow-hidden md:hidden">
               <div
                 ref={mobileProfileFeedCarouselRef}
                 className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 onScroll={handleMobileProfileFeedCarouselScroll}
               >
-                <div ref={activitySectionRef} className="w-full min-w-full shrink-0 snap-start scroll-mt-4">
+                <div ref={activitySectionRef} className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start scroll-mt-4">
                   <MyActivityColumn
                     key={`my-activity-mobile-${initialActivityTab}`}
                     isOwnProfile
@@ -951,8 +951,8 @@ function ProfileFeedContent() {
                     activeTabRequest={activityTabRequest}
                   />
                 </div>
-                <div ref={movieListSectionRef} className="w-full min-w-full shrink-0 snap-start scroll-mt-4">
-                  {renderMovieListPanel("flex h-[30rem] min-w-0 flex-col rounded-none bg-zinc-950/55 p-4")}
+                <div ref={movieListSectionRef} className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start scroll-mt-4">
+                  {renderMovieListPanel("profile-feed-mobile-list-panel flex min-w-0 flex-col rounded-none bg-zinc-950/55 p-4")}
                 </div>
               </div>
               <div className="profile-feed-mobile-carousel-dots mb-8 mt-3 py-1" aria-hidden="true">
@@ -976,7 +976,7 @@ function ProfileFeedContent() {
           </div>
         </section>
 
-        <div ref={followingActivitySectionRef} className="mt-3 scroll-mt-4 md:mt-4">
+        <div ref={followingActivitySectionRef} className="profile-feed-following-activity mt-3 scroll-mt-4 md:mt-4">
           <SocialActivityTabsBlock />
         </div>
       </div>
