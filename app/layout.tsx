@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import IOSPinchZoomGuard from "@/components/IOSPinchZoomGuard";
+import DisableNativeContextMenu from "@/components/DisableNativeContextMenu";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,6 +37,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-black text-zinc-100 antialiased`}
       >
         <IOSPinchZoomGuard />
+        <DisableNativeContextMenu />
         {children}
       </body>
     </html>
