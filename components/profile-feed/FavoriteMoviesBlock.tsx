@@ -89,7 +89,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
   const readOnlyOwnerRating = readOnly ? (movie?.visitedOwnerRating ?? movie?.myRating ?? null) : movie?.myRating ?? null;
 
   return (
-    <div className="group relative isolate h-[180px] overflow-visible">
+    <div className="favorite-movie-card group relative isolate h-[180px] overflow-visible">
       <article className="relative h-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/85 px-5.5 py-3.5 shadow-[0_16px_35px_rgba(0,0,0,0.3)] [clip-path:polygon(7%_0%,100%_0%,93%_100%,0%_100%)]">
         <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-blue-300/10 opacity-80" />
         <div className="relative flex h-full min-w-0 pr-8">
@@ -101,13 +101,13 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                     posterSrc={movieImage}
                     title={displayTitle}
                     branding={branding}
-                    className="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 object-cover shadow-inner shadow-black/30"
-                    placeholderClassName="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 bg-zinc-900/80 object-contain p-2 shadow-inner shadow-black/30"
+                    className="favorite-movie-card__poster h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 object-cover shadow-inner shadow-black/30"
+                    placeholderClassName="favorite-movie-card__poster h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 bg-zinc-900/80 object-contain p-2 shadow-inner shadow-black/30"
                     loading="lazy"
                     decoding="async"
                   />
                   <div className="min-w-0">
-                    <h3 className="truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">
+                    <h3 className="favorite-movie-card__title truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">
                       {detailHref ? (
                         <Link
                           href={detailHref}
@@ -141,7 +141,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                     </div>
                   </div>
                 </div>
-                <div className="mt-auto flex items-end justify-between gap-2 pb-0.5">
+                <div className="favorite-movie-card__ratings mt-auto flex items-end justify-between gap-2 pb-0.5">
                   <div className="inline-flex h-10 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200" aria-label="General">
                     <span aria-hidden="true">⭐</span>
                     <span>{formatAverageRating(movie.generalRating)}</span>
@@ -189,8 +189,8 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                       posterSrc={null}
                       title={`${locale === "en" ? "Favorite" : "Favorita"} ${slot}`}
                       branding={branding}
-                      className="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 object-cover shadow-inner shadow-black/30"
-                      placeholderClassName="h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 bg-zinc-900/80 object-contain p-2 shadow-inner shadow-black/30"
+                      className="favorite-movie-card__poster h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 object-cover shadow-inner shadow-black/30"
+                      placeholderClassName="favorite-movie-card__poster h-[84px] w-[60px] shrink-0 rounded-xl border border-white/15 bg-zinc-900/80 object-contain p-2 shadow-inner shadow-black/30"
                       loading="lazy"
                       decoding="async"
                     />

@@ -202,7 +202,7 @@ function Block({
 }) {
   const { t } = useI18n();
   return (
-    <section className="flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
+    <section className="profile-feed-connections-panel flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot ?? <h2 className="text-base font-semibold text-zinc-100">{title}</h2>}
       </header>
@@ -277,7 +277,7 @@ function PendingRequestsBlock({
 }) {
   const { t } = useI18n();
   return (
-    <section className="flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
+    <section className="profile-feed-connections-panel flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot}
       </header>
