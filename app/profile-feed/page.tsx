@@ -732,7 +732,7 @@ function ProfileFeedContent() {
         </select>
         <span aria-hidden="true" className="pointer-events-none absolute right-3 hidden md:block top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
       </div>
-      <div className="activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
+      <div className="profile-feed-mobile-list-scroll activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
         {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
         {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? (
           <EmptyStatePanel
@@ -939,7 +939,7 @@ function ProfileFeedContent() {
             <div className="profile-feed-mobile-content-row w-full max-w-full overflow-hidden md:hidden">
               <div
                 ref={mobileProfileFeedCarouselRef}
-                className="flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="profile-feed-mobile-content-track flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 onScroll={handleMobileProfileFeedCarouselScroll}
               >
                 <div ref={activitySectionRef} className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start scroll-mt-4">
