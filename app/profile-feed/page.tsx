@@ -959,7 +959,7 @@ function ProfileFeedContent() {
                   {renderMovieListPanel("profile-feed-mobile-list-panel flex min-w-0 flex-col rounded-none bg-zinc-950/55 p-4")}
                 </div>
               </div>
-              <div className="profile-feed-mobile-carousel-dots mb-8 mt-3 py-1" aria-hidden="true">
+              <div className="profile-feed-mobile-carousel-dots mb-2 mt-1 py-0.5" aria-hidden="true">
                 {[0, 1].map((slideIndex) => (
                   <span
                     key={slideIndex}
