@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { getToken } from "../lib/auth";
-import { getStoredCountry, isSupportedCountry, localeEventName, normalizeCountry, setActiveLocaleScope, setStoredCountry } from "../lib/i18n";
+import { getStoredCountry, hasStoredCountryPreference, isSupportedCountry, localeEventName, normalizeCountry, setActiveLocaleScope, setStoredCountry } from "../lib/i18n";
 import type { Country } from "../lib/i18n";
 import StreamingCountrySelector from "./StreamingCountrySelector";
 
@@ -18,7 +18,7 @@ export default function MovieDetailStreamingCountrySelector() {
     const syncCountry = () => setCountry(getStoredCountry(null));
 
     const loadBackendCountry = async () => {
-      if (!getToken()) {
+      if (!getToken() || hasStoredCountryPreference()) {
         syncCountry();
         return;
       }
