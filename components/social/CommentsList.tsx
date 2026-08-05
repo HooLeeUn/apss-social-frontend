@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { SocialComment } from "../../lib/social";
 import CommentItem from "./CommentItem";
@@ -28,6 +29,7 @@ interface CommentsListProps {
   getDisplayText?: (comment: SocialComment) => string;
   borderlessContainer?: boolean;
   exposeDirectedCommentIds?: boolean;
+  unboundedOnMobile?: boolean;
 }
 
 export default function CommentsList({
@@ -56,8 +58,28 @@ export default function CommentsList({
   getDisplayText,
   borderlessContainer = false,
   exposeDirectedCommentIds = false,
+  unboundedOnMobile = false,
 }: CommentsListProps) {
   const { t } = useI18n();
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!hasMore || loadingMore || !onLoadMore) return;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: "160px 0px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore]);
 
   if (loading) {
     return (
@@ -110,7 +132,15 @@ export default function CommentsList({
 
   return (
     <div
-      className={borderlessContainer ? "scrollbar-dark max-h-[28rem] overflow-y-auto px-1 py-2" : "scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/15 bg-zinc-950/65 p-4"}
+      className={
+        unboundedOnMobile
+          ? borderlessContainer
+            ? "px-1 py-2 lg:scrollbar-dark lg:max-h-[28rem] lg:overflow-y-auto"
+            : "rounded-xl border border-white/15 bg-zinc-950/65 p-4 lg:scrollbar-dark lg:max-h-[28rem] lg:overflow-y-auto"
+          : borderlessContainer
+            ? "scrollbar-dark max-h-[28rem] overflow-y-auto px-1 py-2"
+            : "scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/15 bg-zinc-950/65 p-4"
+      }
       onScroll={(event) => {
         if (!hasMore || loadingMore || !onLoadMore) return;
         const target = event.currentTarget;
@@ -150,6 +180,7 @@ export default function CommentsList({
         ))}
       </div>
       {loadingMore ? <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingMoreComments")}</p> : null}
+      {hasMore ? <div ref={loadMoreSentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
   );
 }
