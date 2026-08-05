@@ -23,6 +23,7 @@ interface CommentComposerProps {
   error?: string;
   placeholder?: string;
   title?: string;
+  hideTitleOnMobile?: boolean;
 }
 
 function getMentionToken(value: string, caretIndex: number): { start: number; query: string } | null {
@@ -37,7 +38,7 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
   };
 }
 
-export default function CommentComposer({ friends, searchMentionSuggestions, onSubmit, loading = false, error, placeholder, title }: CommentComposerProps) {
+export default function CommentComposer({ friends, searchMentionSuggestions, onSubmit, loading = false, error, placeholder, title, hideTitleOnMobile = false }: CommentComposerProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
@@ -177,13 +178,13 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
 
   return (
     <section className="rounded-2xl bg-zinc-950/55 p-4">
-      <h3 className="mb-3 text-xl font-bold text-[#86ADE0]">{title ?? t("movieDetailCommentTitle")}</h3>
+      <h3 className={`mb-3 text-xl font-bold text-[#86ADE0] ${hideTitleOnMobile ? "hidden md:block" : ""}`}>{title ?? t("movieDetailCommentTitle")}</h3>
 
       <div className="relative">
         <textarea
           ref={textareaRef}
           value={text}
-          rows={4}
+          rows={2}
           onChange={(event) => {
             const nextText = event.target.value;
             setText(nextText);
@@ -191,7 +192,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder ?? t("movieDetailCommentPlaceholder")}
-          className="w-full rounded-xl border border-white/30 bg-black/30 p-3 text-sm text-zinc-100 outline-none transition focus:border-white/45"
+          className="max-h-[4.5rem] min-h-[4.5rem] w-full resize-none overflow-y-auto rounded-xl border border-white/30 bg-black/30 p-3 text-sm leading-5 text-zinc-100 outline-none transition focus:border-white/45"
         />
 
         {mentionQuery !== null ? (

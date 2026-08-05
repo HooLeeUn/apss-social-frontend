@@ -41,6 +41,8 @@ import { getTopFollowing } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { t as translate } from "../../../lib/i18n";
 
+type CommentInputMode = "text-comment" | "video-comment";
+
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
@@ -878,6 +880,7 @@ function MovieDetailPageContent() {
   const [isPublicSearchOpen, setIsPublicSearchOpen] = useState(false);
   const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
   const [activeCommentsTab, setActiveCommentsTab] = useState<"public" | "directed">("public");
+  const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("text-comment");
   const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
     useState<PendingDirectedNotificationTarget | null>(null);
   const directedCommentsSectionRef = useRef<HTMLElement | null>(null);
@@ -1745,47 +1748,75 @@ function MovieDetailPageContent() {
   return (
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-8 md:px-8">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-zinc-100">{detailTitle}</h1>
-          <Link
-            href="/feed"
-            className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
-            aria-label="Volver al feed"
-          >
-            <AppLogo
+        <div className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-8 md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold text-zinc-100">{detailTitle}</h1>
+            <Link
+              href="/feed"
+              className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
+              aria-label="Volver al feed"
+            >
+              <AppLogo
+                branding={branding}
+                slot="movie_detail_logo_url"
+                alt="Volver al feed"
+                className="block h-11 w-auto max-w-[220px] object-contain object-center"
+                textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+              />
+            </Link>
+          </div>
+
+          {movieLoading ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-zinc-300">{t("movieDetailLoadingMovie")}</div> : null}
+          {!movieLoading && movieError ? (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">{movieError}</div>
+          ) : null}
+          {!movieLoading && !movieError && movie ? (
+            <MovieCard
+              movie={movie}
+              variant="feed"
+              linkToDetail={false}
+              showExtendedMetadata
+              highlightMyRatingSlot
+              enlargeInteractionIcons
+              extendedMetadataMiddleSlot={<StreamingProviders movieId={movie.id} />}
+              ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
+              separateRatingsActionsCard
+              onRated={handleMovieRated}
+              creditsLoading={creditsLoading}
+              preloadPersonDetails
+              enableMobileDetailCarousel
               branding={branding}
-              slot="movie_detail_logo_url"
-              alt="Volver al feed"
-              className="block h-11 w-auto max-w-[220px] object-contain object-center"
-              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
             />
-          </Link>
+          ) : null}
+
+          <div className="flex rounded-xl border border-white/10 bg-zinc-950/60 p-1 md:hidden" role="tablist" aria-label={composerTitle}>
+            {(["text-comment", "video-comment"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={commentInputMode === mode}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${commentInputMode === mode ? "border border-[#86ADE0]/45 bg-zinc-950/50 text-[#c7dcf6] shadow-[0_0_16px_rgba(134,173,224,0.16)]" : "border border-transparent text-zinc-300 hover:bg-white/10 hover:text-white"}`}
+                onClick={() => setCommentInputMode(mode)}
+              >
+                {mode === "text-comment" ? composerTitle : t("movieDetailVideoCommentTitle")}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {movieLoading ? <div className="rounded-xl border border-white/15 bg-zinc-950/45 p-4 text-zinc-300">{t("movieDetailLoadingMovie")}</div> : null}
-        {!movieLoading && movieError ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">{movieError}</div>
-        ) : null}
-        {!movieLoading && !movieError && movie ? (
-          <MovieCard
-            movie={movie}
-            variant="feed"
-            linkToDetail={false}
-            showExtendedMetadata
-            highlightMyRatingSlot
-            enlargeInteractionIcons
-            extendedMetadataMiddleSlot={<StreamingProviders movieId={movie.id} />}
-            ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
-            separateRatingsActionsCard
-            onRated={handleMovieRated}
-            creditsLoading={creditsLoading}
-            preloadPersonDetails
-            enableMobileDetailCarousel
-            branding={branding}
-          />
-        ) : null}
-
-        <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
+        {commentInputMode === "text-comment" ? (
+          <div className="md:hidden">
+            <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
+          </div>
+        ) : (
+          <section className="flex justify-center rounded-2xl bg-zinc-950/55 p-4 md:hidden">
+            <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")}>Rec</button>
+          </section>
+        )}
+        <div className="hidden md:block">
+          <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
+        </div>
 
         {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
