@@ -1963,6 +1963,7 @@ function MovieDetailPageContent() {
               deletingCommentIds={deletingCommentIds}
               actionErrorByCommentId={commentActionErrorById}
               borderlessContainer
+              unboundedOnMobile
             />
           </section>
 
@@ -1995,7 +1996,7 @@ function MovieDetailPageContent() {
                 </p>
               ) : null}
               {!loadingDirected && !directedError ? (
-                <div className="scrollbar-dark max-h-[28rem] overflow-y-auto px-1 py-2">
+                <div className="px-1 py-2 lg:scrollbar-dark lg:max-h-[28rem] lg:overflow-y-auto">
                   <div className="space-y-0">
                     {filteredDirectedConversations.map((conversation) => {
                       const isExpanded = expandedConversationKey === conversation.key;
@@ -2036,7 +2037,7 @@ function MovieDetailPageContent() {
 
                           {isExpanded ? (
                             <div
-                              className="scrollbar-metallic-blue mt-3 max-h-[24rem] overflow-y-auto border-t border-white/10 pt-3"
+                              className="mt-3 border-t border-white/10 pt-3 lg:scrollbar-metallic-blue lg:max-h-[24rem] lg:overflow-y-auto"
                               onScroll={(event) => {
                                 const target = event.currentTarget;
                                 if (
@@ -2072,6 +2073,7 @@ function MovieDetailPageContent() {
                                   message.type === "directed" ? stripLeadingMention(message.text) : message.text
                                 }
                                 exposeDirectedCommentIds
+                                unboundedOnMobile
                               />
                               {loadingDirectedMoreByKey[conversation.key] ? (
                                 <p className="pt-2 text-xs text-zinc-400">{t("movieDetailLoadingPreviousMessages")}</p>
