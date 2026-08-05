@@ -43,6 +43,59 @@ import { t as translate } from "../../../lib/i18n";
 
 type CommentInputMode = "text-comment" | "video-comment";
 
+const VIDEO_COMMENT_MAX_SECONDS = 20;
+const VIDEO_COMMENT_MAX_BYTES = 50 * 1024 * 1024;
+const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+type VideoRecorderState = "idle" | "menu" | "requestingPermission" | "recording" | "preview" | "uploading" | "error";
+interface VideoCommentUser { id: string | number; username: string; avatar: string | null; }
+interface VideoComment { id: string | number; user: VideoCommentUser; video_url: string; duration_seconds: number | null; mime_type: string | null; file_size: number | null; created_at: string; updated_at: string; can_delete: boolean; }
+interface VideoCommentsPage { count: number; next: string | null; previous: string | null; results: VideoComment[]; }
+function selectSupportedVideoMime(): string {
+  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
+  return VIDEO_COMMENT_MIME_CANDIDATES.find((mime) => MediaRecorder.isTypeSupported(mime)) ?? "";
+}
+function getVideoFileName(mimeType: string): string {
+  const base = mimeType.split(";")[0];
+  const ext = base === "video/mp4" ? "mp4" : base === "video/webm" ? "webm" : "video";
+  return `video-comment-${Date.now()}.${ext}`;
+}
+function formatVideoDuration(seconds: number): string {
+  const safe = Math.max(0, Math.min(VIDEO_COMMENT_MAX_SECONDS, Math.floor(seconds)));
+  return `00:${String(safe).padStart(2, "0")}`;
+}
+function dedupeVideoComments(existing: VideoComment[], incoming: VideoComment[]): VideoComment[] {
+  const seen = new Set<string>();
+  return [...existing, ...incoming].filter((item) => {
+    const key = String(item.id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function normalizeVideoCommentsNext(nextValue: string | null): string | null {
+  return normalizeEndpointPath(nextValue);
+}
+function mapVideoCommentError(error: unknown, t: (key: Parameters<typeof translate>[1]) => string): string {
+  if (error instanceof DOMException) {
+    if (error.name === "NotAllowedError" || error.name === "SecurityError") return t("movieDetailVideoPermissionDenied");
+    if (error.name === "NotFoundError") return t("movieDetailVideoCameraUnavailable");
+    if (error.name === "NotReadableError" || error.name === "AbortError") return t("movieDetailVideoCameraBusy");
+  }
+  if (error instanceof ApiError) {
+    if (error.status === 401 || error.status === 403) return t("movieDetailVideoAuthError");
+    if (error.status === 413) return t("movieDetailVideoTooLarge");
+    if (error.status === 400) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("duration") || msg.includes("long") || msg.includes("largo")) return t("movieDetailVideoTooLong");
+      if (msg.includes("format") || msg.includes("mime") || msg.includes("unsupported")) return t("movieDetailVideoUnsupportedFormat");
+      if (msg.includes("size") || msg.includes("large")) return t("movieDetailVideoTooLarge");
+    }
+    if (error.status >= 500) return t("movieDetailVideoServerError");
+  }
+  return t("movieDetailVideoNetworkError");
+}
+
+
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
@@ -833,6 +886,116 @@ function CommentUserSearch({
   );
 }
 
+function MobileVideoComments({ movieId, active, t }: { movieId: string; active: boolean; t: (key: Parameters<typeof translate>[1]) => string }) {
+  const [recorderState, setRecorderState] = useState<VideoRecorderState>("idle");
+  const [error, setError] = useState("");
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewDuration, setPreviewDuration] = useState(0);
+  const [comments, setComments] = useState<VideoComment[]>([]);
+  const [, setCount] = useState(0);
+  const [next, setNext] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [deletingIds, setDeletingIds] = useState<Record<string, boolean>>({});
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const livePreviewRef = useRef<HTMLVideoElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<number | null>(null);
+  const requestSeqRef = useRef(0);
+
+  const revokePreview = useCallback(() => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null); setPreviewBlob(null); setPreviewFile(null); setPreviewDuration(0);
+  }, [previewUrl]);
+  const stopTracks = useCallback(() => { streamRef.current?.getTracks().forEach((track) => track.stop()); streamRef.current = null; if (livePreviewRef.current) livePreviewRef.current.srcObject = null; }, []);
+  const clearTimer = useCallback(() => { if (timerRef.current !== null) window.clearInterval(timerRef.current); timerRef.current = null; }, []);
+  const resetRecorder = useCallback((clearPreview = false) => { clearTimer(); try { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); } catch {} recorderRef.current = null; chunksRef.current = []; stopTracks(); setRecordingSeconds(0); if (clearPreview) revokePreview(); }, [clearTimer, revokePreview, stopTracks]);
+
+  const fetchPage = useCallback(async (endpoint: string, mode: "initial" | "more") => {
+    if (!movieId) return;
+    const seq = ++requestSeqRef.current;
+    if (mode === "initial") setInitialLoading(true); else setLoadingMore(true);
+    setHistoryError("");
+    try {
+      const payload = (await apiFetch(endpoint)) as VideoCommentsPage;
+      if (seq !== requestSeqRef.current) return;
+      setComments((current) => mode === "initial" ? payload.results : dedupeVideoComments(current, payload.results));
+      setCount(payload.count); setNext(normalizeVideoCommentsNext(payload.next));
+    } catch { if (seq === requestSeqRef.current) setHistoryError(t("movieDetailVideoLoadError")); }
+    finally { if (seq === requestSeqRef.current) { setInitialLoading(false); setLoadingMore(false); } }
+  }, [movieId, t]);
+  const reloadFirstPage = useCallback(() => fetchPage(`/movies/${encodeURIComponent(movieId)}/video-comments/`, "initial"), [fetchPage, movieId]);
+
+  useEffect(() => { if (active) reloadFirstPage(); else { setRecorderState("idle"); resetRecorder(true); } return () => { requestSeqRef.current += 1; resetRecorder(true); }; }, [active, movieId, reloadFirstPage, resetRecorder]);
+  useEffect(() => { if (recorderState !== "menu") return; const onDown = (e: PointerEvent) => { if (!menuRef.current?.contains(e.target as Node)) setRecorderState("idle"); }; document.addEventListener("pointerdown", onDown); return () => document.removeEventListener("pointerdown", onDown); }, [recorderState]);
+  useEffect(() => { if (!active || !next || initialLoading || loadingMore) return; const node = sentinelRef.current; if (!node) return; const obs = new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting) && next && !loadingMore) fetchPage(next, "more"); }, { root: null, rootMargin: "260px" }); obs.observe(node); return () => obs.disconnect(); }, [active, fetchPage, initialLoading, loadingMore, next]);
+
+  const finishRecording = useCallback(() => { clearTimer(); const recorder = recorderRef.current; if (recorder?.state === "recording") recorder.stop(); }, [clearTimer]);
+  const startRecording = useCallback(async () => {
+    if (recorderState === "recording" || recorderState === "requestingPermission") return;
+    setError(""); revokePreview(); setRecorderState("requestingPermission");
+    if (!window.isSecureContext) { setError(t("movieDetailVideoInsecureContext")); setRecorderState("error"); return; }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError(t("movieDetailVideoUnsupportedBrowser")); setRecorderState("error"); return; }
+    try {
+      stopTracks();
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+      const mimeType = selectSupportedVideoMime(); if (!mimeType) throw new Error("unsupported");
+      streamRef.current = stream; if (livePreviewRef.current) livePreviewRef.current.srcObject = stream;
+      const recorder = new MediaRecorder(stream, { mimeType }); recorderRef.current = recorder; chunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
+      recorder.onstop = () => { const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType }); chunksRef.current = []; stopTracks(); if (!blob.size) return; const url = URL.createObjectURL(blob); setPreviewBlob(blob); setPreviewFile(null); setPreviewUrl(url); setPreviewDuration(recordingSeconds || VIDEO_COMMENT_MAX_SECONDS); setRecorderState("preview"); };
+      setRecordingSeconds(0); recorder.start(); setRecorderState("recording");
+      timerRef.current = window.setInterval(() => setRecordingSeconds((s) => { const n = s + 1; if (n >= VIDEO_COMMENT_MAX_SECONDS) window.setTimeout(finishRecording, 0); return Math.min(n, VIDEO_COMMENT_MAX_SECONDS); }), 1000);
+    } catch (err) { resetRecorder(true); setError(err instanceof Error && err.message === "unsupported" ? t("movieDetailVideoUnsupportedFormat") : mapVideoCommentError(err, t)); setRecorderState("error"); }
+  }, [finishRecording, recordingSeconds, recorderState, resetRecorder, revokePreview, stopTracks, t]);
+
+  const cancelAll = useCallback(() => { resetRecorder(true); setError(""); setRecorderState("idle"); }, [resetRecorder]);
+  const handleFile = useCallback(async (file?: File) => {
+    if (!file) return; setError(""); revokePreview();
+    if (!file.type.startsWith("video/")) { setError(t("movieDetailVideoUnsupportedFormat")); setRecorderState("error"); return; }
+    if (file.size > VIDEO_COMMENT_MAX_BYTES) { setError(t("movieDetailVideoTooLarge")); setRecorderState("error"); return; }
+    const url = URL.createObjectURL(file); const probe = document.createElement("video"); probe.preload = "metadata"; probe.src = url;
+    try { await new Promise<void>((resolve, reject) => { probe.onloadedmetadata = () => resolve(); probe.onerror = () => reject(new Error("metadata")); }); if (probe.duration > VIDEO_COMMENT_MAX_SECONDS) { URL.revokeObjectURL(url); setError(t("movieDetailVideoTooLong")); setRecorderState("error"); return; } setPreviewFile(file); setPreviewBlob(file); setPreviewUrl(url); setPreviewDuration(probe.duration); setRecorderState("preview"); } catch { URL.revokeObjectURL(url); setError(t("movieDetailVideoUnsupportedFormat")); setRecorderState("error"); }
+  }, [revokePreview, t]);
+  const sendVideo = useCallback(async () => { const blob = previewFile ?? previewBlob; if (!blob || recorderState === "uploading") return; setRecorderState("uploading"); setError(""); try { const data = new FormData(); data.append("video", blob, previewFile?.name || getVideoFileName(blob.type)); await apiFetch(`/movies/${encodeURIComponent(movieId)}/video-comments/`, { method: "POST", body: data }); revokePreview(); setRecorderState("idle"); reloadFirstPage(); } catch (err) { setError(mapVideoCommentError(err, t)); setRecorderState("preview"); } }, [movieId, previewBlob, previewFile, recorderState, reloadFirstPage, revokePreview, t]);
+  const deleteVideo = useCallback(async (id: string | number) => { if (!window.confirm(t("movieDetailVideoDeleteConfirm"))) return; const key = String(id); setDeletingIds((v) => ({ ...v, [key]: true })); try { await apiFetch(`/video-comments/${encodeURIComponent(key)}/`, { method: "DELETE" }); setComments((items) => items.filter((item) => String(item.id) !== key)); setCount((v) => Math.max(0, v - 1)); } catch { setHistoryError(t("movieDetailVideoDeleteError")); } finally { setDeletingIds((v) => ({ ...v, [key]: false })); } }, [t]);
+  const onPlay = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => { document.querySelectorAll<HTMLVideoElement>('[data-video-comment-player="true"]').forEach((video) => { if (video !== event.currentTarget) video.pause(); }); }, []);
+
+  return <section className={`rounded-2xl bg-zinc-950/55 p-4 md:hidden ${active ? "block" : "hidden"}`}>
+    <div className="flex flex-col items-center gap-4">
+      <div ref={menuRef} className="relative flex justify-center">
+        <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((s) => s === "menu" ? "idle" : "menu")}>Rec</button>
+        {recorderState === "menu" ? <div className="absolute left-1/2 top-full z-20 mt-3 w-48 -translate-x-1/2 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl">
+          <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoRecord")} onClick={startRecording}><span className="h-2.5 w-2.5 rounded-full bg-red-500" />{t("movieDetailVideoRecord")}</button>
+          <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoUpload")} onClick={() => fileInputRef.current?.click()}><span>▣</span>{t("movieDetailVideoUpload")}</button>
+        </div> : null}
+      </div>
+      <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { void handleFile(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+      {recorderState === "requestingPermission" ? <p className="text-sm text-zinc-300">{t("movieDetailVideoRequestingPermission")}</p> : null}
+      {recorderState === "recording" ? <div className="w-full space-y-3"><div className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black"><video ref={livePreviewRef} autoPlay muted playsInline className="h-full w-full object-cover" /><span className="absolute left-3 top-3 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-100">{t("movieDetailVideoRecording")} {formatVideoDuration(recordingSeconds)}</span></div><div className="flex gap-3"><button className="flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelAll}>{t("movieDetailVideoCancel")}</button><button className="flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black" onClick={finishRecording}>{t("movieDetailVideoStop")}</button></div></div> : null}
+      {(recorderState === "preview" || recorderState === "uploading") && previewUrl ? <div className="w-full space-y-3"><div className="aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black"><video ref={videoRef} src={previewUrl} controls preload="metadata" playsInline className="h-full w-full object-cover" /></div><p className="text-center text-xs text-zinc-400">{formatVideoDuration(previewDuration)}</p><div className="flex gap-3"><button disabled={recorderState === "uploading"} className="flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100 disabled:opacity-60" onClick={previewFile ? cancelAll : startRecording}>{previewFile ? t("movieDetailVideoCancel") : t("movieDetailVideoRetake")}</button><button disabled={recorderState === "uploading"} className="flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black disabled:opacity-60" onClick={sendVideo}>{recorderState === "uploading" ? t("movieDetailVideoUploading") : t("movieDetailVideoSend")}</button></div></div> : null}
+      {error ? <p className="w-full rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
+    </div>
+    <div className="mt-6 space-y-4">
+      {initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
+      {historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
+      {!initialLoading && !historyError && comments.length === 0 ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
+      {comments.map((comment) => <article key={comment.id} className="space-y-2 rounded-2xl border border-white/10 bg-black/25 p-3"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300">{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
+              <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-zinc-100">{comment.user.username}</p><time className="text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete ? <button className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[String(comment.id)]} onClick={() => deleteVideo(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div><div className="aspect-square overflow-hidden rounded-xl bg-black"><video data-video-comment-player="true" src={comment.video_url} controls preload="metadata" playsInline className="h-full w-full object-cover" onPlay={onPlay} /></div></article>)}
+      {loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}<div ref={sentinelRef} aria-hidden="true" className="h-1" />
+    </div>
+  </section>;
+}
+
 function MovieDetailPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -885,7 +1048,7 @@ function MovieDetailPageContent() {
     useState<PendingDirectedNotificationTarget | null>(null);
   const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
   const textCommentStartRef = useRef<HTMLDivElement | null>(null);
-  const videoCommentStartRef = useRef<HTMLElement | null>(null);
+  const videoCommentStartRef = useRef<HTMLDivElement | null>(null);
   const pendingCommentInputScrollRef = useRef<CommentInputMode | null>(null);
   const directedCommentsSectionRef = useRef<HTMLElement | null>(null);
   const processedDirectedTargetRef = useRef<string | null>(null);
@@ -1883,9 +2046,9 @@ function MovieDetailPageContent() {
         <div ref={textCommentStartRef} className={`md:hidden ${commentInputMode === "text-comment" ? "block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
-        <section ref={videoCommentStartRef} className={`justify-center rounded-2xl bg-zinc-950/55 p-4 md:hidden ${commentInputMode === "video-comment" ? "flex" : "hidden"}`}>
-          <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")}>Rec</button>
-        </section>
+        <div ref={videoCommentStartRef}>
+          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment"} t={t} />
+        </div>
         <div className="hidden md:block">
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
         </div>
