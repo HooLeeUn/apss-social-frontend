@@ -39,8 +39,8 @@ test('empty recorded Blob shows a recording-specific error', () => {
 });
 
 test('recorded preview uses real metadata duration and valid File for Send', () => {
-  has(/readVideoDurationFromUrl\(url\)/);
-  has(/setPreviewDuration\(duration\)/);
+  has(/prepareVideoPreview\(file, "recorded"\)/);
+  has(/setPreviewDuration\(metadata\.duration\)/);
   has(/disabled=\{recorderState === "uploading" \|\| !previewFile \|\| previewFile\.size <= 0 \|\| previewDuration <= 0/);
 });
 
@@ -69,10 +69,10 @@ test('selected file accepts empty Android MIME when extension is video-like', ()
 });
 
 test('selected and recorded video durations come from metadata loader', () => {
-  has(/function readVideoDurationFromUrl/);
-  has(/probe\.onloadedmetadata = read/);
-  has(/probe\.onloadeddata = read/);
-  has(/probe\.src = url/);
+  has(/function prepareVideoPreview/);
+  has(/video\.addEventListener\(eventName, listenerMap\[eventName\]\)/);
+  has(/"durationchange", "loadeddata", "canplay"/);
+  has(/video\.src = objectUrl/);
 });
 
 test('uploadVideo performs POST with FormData video and no manual Content-Type', () => {

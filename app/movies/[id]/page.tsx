@@ -53,6 +53,7 @@ type VideoRecorderState = "idle" | "menu" | "permissionInfo" | "requestingPermis
 interface VideoCommentUser { id: string | number; username: string; avatar: string | null; }
 interface VideoComment { id: string | number; user: VideoCommentUser; video_url: string; duration_seconds: number | null; mime_type: string | null; file_size: number | null; created_at: string; updated_at: string; can_delete: boolean; }
 interface VideoCommentsPage { count: number; next: string | null; previous: string | null; results: VideoComment[]; }
+interface VideoPreviewMetadata { objectUrl: string; duration: number; width: number; height: number; playable: boolean; }
 function getSupportedRecorderMimeType(): string {
   if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
   return VIDEO_COMMENT_MIME_CANDIDATES.find((mime) => MediaRecorder.isTypeSupported(mime)) ?? "";
@@ -76,39 +77,88 @@ function hasVideoLikeExtension(fileName: string): boolean {
   const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
   return VIDEO_COMMENT_ALLOWED_EXTENSIONS.includes(extension);
 }
-function readVideoDurationFromUrl(url: string): Promise<number> {
+function getVideoFileExtension(fileName: string): string {
+  return fileName.split(".").pop()?.toLowerCase() ?? "";
+}
+function inferVideoMimeType(file: File): string {
+  if (file.type) return file.type;
+  const extension = getVideoFileExtension(file.name);
+  if (extension === "mp4" || extension === "m4v" || extension === "mov") return "video/mp4";
+  if (extension === "webm") return "video/webm";
+  return "video/*";
+}
+function debugVideoComments(message: string, payload: Record<string, unknown>): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.info("[VideoCommentsDebug]", message, payload);
+}
+function debugVideoCommentsError(message: string, payload: Record<string, unknown>): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.error("[VideoCommentsDebug]", message, payload);
+}
+function prepareVideoPreview(file: File, source: "recorded" | "selected"): Promise<VideoPreviewMetadata> {
+  if (file.size <= 0) return Promise.reject(new Error("empty-preview-file"));
+  const objectUrl = URL.createObjectURL(file);
+  const extension = getVideoFileExtension(file.name);
+  const canPlayMime = inferVideoMimeType(file);
+  debugVideoComments("prepareVideoPreview:file", { source, fileName: file.name, fileType: file.type, fileSize: file.size, extension, objectUrl });
+
   return new Promise((resolve, reject) => {
-    const probe = document.createElement("video");
+    const video = document.createElement("video");
     let settled = false;
-    const finish = (duration: number) => {
+    let lastDuration = 0;
+    const finish = () => {
+      const duration = video.duration;
+      if (!Number.isFinite(duration) || duration <= 0) return;
+      settled = true;
+      cleanup();
+      resolve({ objectUrl, duration, width: video.videoWidth, height: video.videoHeight, playable: true });
+    };
+    const fail = (error: Error) => {
       if (settled) return;
       settled = true;
       cleanup();
-      resolve(duration);
+      URL.revokeObjectURL(objectUrl);
+      reject(error);
     };
-    const fail = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error("video-metadata-unavailable"));
+    const logEvent = (eventName: string) => {
+      lastDuration = Number.isFinite(video.duration) ? video.duration : lastDuration;
+      debugVideoComments(`preview:${eventName}`, {
+        source,
+        currentSrc: video.currentSrc,
+        duration: video.duration,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        paused: video.paused,
+        mediaErrorCode: video.error?.code ?? null,
+        mediaErrorMessage: video.error?.message ?? null,
+        canPlayType: video.canPlayType(canPlayMime),
+      });
+      finish();
     };
+    const onError = () => {
+      debugVideoCommentsError("preview:error", { source, code: video.error?.code ?? null, message: video.error?.message ?? null, canPlayType: video.canPlayType(canPlayMime) });
+      fail(new Error(`preview-media-error:${video.error?.code ?? "unknown"}`));
+    };
+    const events = ["loadstart", "loadedmetadata", "durationchange", "loadeddata", "canplay", "playing", "stalled", "suspend", "abort"] as const;
     const cleanup = () => {
       window.clearTimeout(timeout);
-      probe.onloadedmetadata = null;
-      probe.onloadeddata = null;
-      probe.onerror = null;
+      events.forEach((eventName) => video.removeEventListener(eventName, listenerMap[eventName]));
+      video.removeEventListener("error", onError);
     };
-    const read = () => {
-      const duration = probe.duration;
-      if (Number.isFinite(duration) && duration > 0) finish(duration);
-    };
-    const timeout = window.setTimeout(fail, 8000);
-    probe.preload = "metadata";
-    probe.onloadedmetadata = read;
-    probe.onloadeddata = read;
-    probe.onerror = fail;
-    probe.src = url;
-    probe.load();
+    const listenerMap = Object.fromEntries(events.map((eventName) => [eventName, () => logEvent(eventName)])) as unknown as Record<(typeof events)[number], EventListener>;
+    const timeout = window.setTimeout(() => {
+      debugVideoCommentsError("preview:timeout", { source, lastDuration, readyState: video.readyState, networkState: video.networkState, canPlayType: video.canPlayType(canPlayMime) });
+      fail(new Error("preview-duration-timeout"));
+    }, 8000);
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+    events.forEach((eventName) => video.addEventListener(eventName, listenerMap[eventName]));
+    video.addEventListener("error", onError);
+    video.src = objectUrl;
+    video.load();
   });
 }
 function dedupeVideoComments(existing: VideoComment[], incoming: VideoComment[]): VideoComment[] {
@@ -955,6 +1005,8 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewPlayable, setPreviewPlayable] = useState(false);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const selectedFileRef = useRef<File | null>(null);
   const [previewDuration, setPreviewDuration] = useState(0);
   const [comments, setComments] = useState<VideoComment[]>([]);
@@ -985,6 +1037,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     setPreviewUrl(null);
     setPreviewFile(null);
     selectedFileRef.current = null;
+    setPreviewPlayable(false);
     setPreviewDuration(0);
   }, [previewUrl]);
 
@@ -1084,7 +1137,10 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     stopModeRef.current = "previewRecorded";
     clearTimer();
     const recorder = recorderRef.current;
-    if (recorder?.state === "recording") recorder.stop();
+    if (recorder?.state === "recording") {
+      try { recorder.requestData(); } catch (err) { logRecorderPhaseError("recording.requestData", err, recorder.mimeType, recorder, streamRef.current); }
+      recorder.stop();
+    }
   }, [clearTimer]);
 
   const createRecorderWithFallback = useCallback((stream: MediaStream, mimeType: string) => {
@@ -1137,6 +1193,9 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
         return;
       }
       const realMimeType = recorder.mimeType || chunks[0]?.type || currentMimeTypeRef.current || mimeType;
+      const chunkSizes = chunks.map((chunk) => chunk.size);
+      const totalBytes = chunkSizes.reduce((total, size) => total + size, 0);
+      debugVideoComments("recorded:chunks", { recorderMimeType: recorder.mimeType, chunksLength: chunks.length, chunkSizes, totalBytes });
       const blob = new Blob(chunks, { type: realMimeType });
       if (!blob.size) {
         chunksRef.current = [];
@@ -1146,20 +1205,20 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
         return;
       }
       const file = createVideoCommentFile(blob, realMimeType);
-      const url = URL.createObjectURL(file);
-      readVideoDurationFromUrl(url)
-        .then((duration) => {
-          if (duration <= 0 || duration > VIDEO_COMMENT_MAX_SECONDS) throw new Error("recorded-duration-invalid");
+      debugVideoComments("recorded:file", { blobType: blob.type, blobSize: blob.size, fileType: file.type, fileSize: file.size });
+      prepareVideoPreview(file, "recorded")
+        .then((metadata) => {
+          if (metadata.duration <= 0 || metadata.duration > VIDEO_COMMENT_MAX_SECONDS || !metadata.playable) throw new Error("recorded-duration-invalid");
           setPreviewFile(file);
           selectedFileRef.current = file;
-          setPreviewUrl(url);
-          setPreviewDuration(duration);
+          setPreviewUrl(metadata.objectUrl);
+          setPreviewPlayable(metadata.playable);
+          setPreviewDuration(metadata.duration);
           setRecordingSeconds(0);
           setRecorderState("previewRecorded");
         })
         .catch((err) => {
           logRecorderPhaseError("recordedMetadata", err, realMimeType, null, null);
-          URL.revokeObjectURL(url);
           setError(t("movieDetailVideoRecordedCreateError"));
           setRecorderState("error");
         })
@@ -1242,26 +1301,25 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     revokePreview();
     if (file.type && !file.type.startsWith("video/") && !hasVideoLikeExtension(file.name)) { setError(t("movieDetailVideoUnsupportedFormat")); setRecorderState("error"); return; }
     if (file.size > VIDEO_COMMENT_MAX_BYTES) { setError(t("movieDetailVideoFileTooLarge50Mb")); setRecorderState("error"); return; }
-    const url = URL.createObjectURL(file);
     try {
-      const duration = await readVideoDurationFromUrl(url);
-      if (duration <= 0) throw new Error("selected-duration-invalid");
-      if (duration > VIDEO_COMMENT_MAX_SECONDS) { URL.revokeObjectURL(url); setError(t("movieDetailVideoLongerThan20Seconds")); setRecorderState("error"); return; }
+      const metadata = await prepareVideoPreview(file, "selected");
+      if (metadata.duration <= 0) throw new Error("selected-duration-invalid");
+      if (metadata.duration > VIDEO_COMMENT_MAX_SECONDS) { URL.revokeObjectURL(metadata.objectUrl); setError(t("movieDetailVideoLongerThan20Seconds")); setRecorderState("error"); return; }
       setPreviewFile(file);
       selectedFileRef.current = file;
-      setPreviewUrl(url);
-      setPreviewDuration(duration);
+      setPreviewUrl(metadata.objectUrl);
+      setPreviewPlayable(metadata.playable);
+      setPreviewDuration(metadata.duration);
       setRecorderState("previewSelected");
     } catch (err) {
       logRecorderPhaseError("fileSelection", err, "", null, null);
-      URL.revokeObjectURL(url);
-      setError(t("movieDetailVideoSelectedReadError"));
+      setError(t("movieDetailVideoPreviewPlaybackError"));
       setRecorderState("error");
     }
   }, [revokePreview, t]);
 
   const uploadVideo = useCallback(async (file: File) => {
-    if (!file || file.size <= 0 || !previewUrl || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || recorderState === "uploading") return;
+    if (!file || file.size <= 0 || !previewUrl || !previewPlayable || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || !previewPlayable || recorderState === "uploading") return;
     const previousState = recorderState;
     setRecorderState("uploading");
     setError("");
@@ -1277,7 +1335,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       setError(mapVideoCommentError(err, t));
       setRecorderState(previousState === "previewSelected" ? "previewSelected" : "previewRecorded");
     }
-  }, [movieId, previewDuration, previewUrl, recorderState, reloadFirstPage, revokePreview, t]);
+  }, [movieId, previewDuration, previewPlayable, previewUrl, recorderState, reloadFirstPage, revokePreview, t]);
   const sendVideo = useCallback(() => { if (previewFile) void uploadVideo(previewFile); }, [previewFile, uploadVideo]);
 
   const deleteVideo = useCallback(async (id: string | number) => {
@@ -1299,12 +1357,30 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     document.querySelectorAll<HTMLVideoElement>('[data-video-comment-player="true"]').forEach((video) => { if (video !== event.currentTarget) video.pause(); });
   }, []);
 
+  useEffect(() => {
+    if (!previewUrl || !previewVideoRef.current) return;
+    previewVideoRef.current.srcObject = null;
+    previewVideoRef.current.load();
+  }, [previewUrl]);
+
+  const sendDisabledReason = {
+    hasFile: !!previewFile,
+    fileSize: previewFile?.size ?? 0,
+    hasUrl: !!previewUrl,
+    duration: previewDuration,
+    playable: previewPlayable,
+    uploading: recorderState === "uploading",
+  };
+  if (process.env.NODE_ENV !== "production" && (recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading")) console.info("[VideoCommentsDebug] sendDisabled", sendDisabledReason);
+
   const isLocalVideoState = recorderState === "preparingRecorder" || recorderState === "recording" || recorderState === "validatingSelected" || recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading";
   const showRecorderShell = recorderState === "preparingRecorder" || recorderState === "recording" || recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading";
   const showMenu = recorderState === "menu";
   const showEmpty = recorderState === "idle" && !initialLoading && !historyError && comments.length === 0;
 
-  return <section className={`rounded-2xl bg-zinc-950/55 p-4 md:hidden ${active ? "block" : "hidden"}`}>
+  const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording";
+
+  return <section className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)]">
       <div ref={menuRef} className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
@@ -1320,12 +1396,12 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       {recorderState === "requestingPermission" ? <div className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 text-center"><p className="text-sm text-zinc-300">{t("movieDetailVideoRequestingPermission")}</p><button type="button" className="mt-3 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelRequest}>{t("movieDetailVideoCancel")}</button></div> : null}
       {showRecorderShell ? <div className="w-full space-y-3">
         <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black mx-auto" style={{ width: VIDEO_COMMENT_PREVIEW_SIZE, maxWidth: "100%" }}>
-          {recorderState === "preparingRecorder" || recorderState === "recording" ? <video ref={livePreviewRef} autoPlay muted playsInline className="h-full w-full object-cover" /> : previewUrl ? <video src={previewUrl} controls preload="metadata" playsInline className="h-full w-full object-contain" /> : null}
+          {recorderState === "preparingRecorder" || recorderState === "recording" ? <video ref={livePreviewRef} autoPlay muted playsInline className="h-full w-full object-cover" /> : previewUrl ? <video key={previewUrl} ref={previewVideoRef} src={previewUrl} controls preload="auto" playsInline className="h-full w-full object-contain" onError={(event) => debugVideoCommentsError("visiblePreview:error", { code: event.currentTarget.error?.code ?? null, message: event.currentTarget.error?.message ?? null, currentSrc: event.currentTarget.currentSrc })} /> : null}
           {recorderState === "preparingRecorder" ? <span className="absolute left-3 top-3 rounded-full bg-zinc-900/80 px-3 py-1 text-xs font-bold text-zinc-100">{t("movieDetailVideoPreparingCamera")}</span> : null}
           {recorderState === "recording" ? <span className="absolute left-3 top-3 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-100">{t("movieDetailVideoRecording")} {formatVideoDuration(recordingSeconds)}</span> : null}
         </div>
         {recorderState === "recording" ? <div className="relative z-20 flex gap-3 pb-3"><button type="button" className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelToIdle}>{t("movieDetailVideoCancel")}</button><button type="button" className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black" onClick={finishRecording}>{t("movieDetailVideoStop")}</button></div> : null}
-        {recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading" ? <><p className="text-center text-xs text-zinc-400">{formatVideoDuration(previewDuration)}</p><div className="relative z-20 flex gap-3 pb-3"><button type="button" disabled={recorderState === "uploading"} className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100 disabled:opacity-60" onClick={recorderState === "previewRecorded" ? retake : cancelToIdle}>{recorderState === "previewRecorded" ? t("movieDetailVideoRetake") : t("movieDetailVideoCancel")}</button><button type="button" disabled={recorderState === "uploading" || !previewFile || previewFile.size <= 0 || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS} className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black disabled:opacity-60" onClick={sendVideo}>{recorderState === "uploading" ? t("movieDetailVideoUploading") : t("movieDetailVideoSend")}</button></div></> : null}
+        {recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading" ? <><p className="text-center text-xs text-zinc-400">{previewDuration > 0 ? formatVideoDuration(previewDuration) : t("movieDetailVideoPreparingPreview")}</p><div className="relative z-20 flex gap-3 pb-3"><button type="button" disabled={recorderState === "uploading"} className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100 disabled:opacity-60" onClick={recorderState === "previewRecorded" ? retake : cancelToIdle}>{recorderState === "previewRecorded" ? t("movieDetailVideoRetake") : t("movieDetailVideoCancel")}</button><button type="button" disabled={recorderState === "uploading" || !previewFile || previewFile.size <= 0 || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || !previewPlayable} className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black disabled:opacity-60" onClick={sendVideo}>{recorderState === "uploading" ? t("movieDetailVideoUploading") : t("movieDetailVideoSend")}</button></div></> : null}
       </div> : null}
       {recorderState === "error" && error ? <div className="w-full rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"><p>{error}</p><button type="button" className="mt-3 rounded-lg border border-red-200/30 px-3 py-1 text-red-100" onClick={() => setRecorderState("menu")}>{t("movieDetailVideoRetry")}</button></div> : null}
     </div>
