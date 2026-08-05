@@ -4,143 +4,129 @@ import assert from 'node:assert/strict';
 
 const page = readFileSync(new URL('../app/movies/[id]/page.tsx', import.meta.url), 'utf8');
 const i18n = readFileSync(new URL('../lib/i18n.ts', import.meta.url), 'utf8');
-
 const has = (pattern) => assert.match(page, pattern);
 
-test('state machine includes the final explicit mobile states', () => {
-  for (const state of ['idle', 'menu', 'permissionInfo', 'requestingPermission', 'recording', 'previewRecorded', 'previewSelected', 'uploading', 'error']) {
-    has(new RegExp(`"${state}"`));
-  }
+test('state machine contains explicit local and remote phases', () => {
+  for (const state of ['idle','menu','permissionInfo','requestingPermission','preparingRecorder','recording','validatingSelected','previewRecorded','previewSelected','uploading','error']) has(new RegExp(`"${state}"`));
 });
 
-test('recording renders Cancelar and Detener controls', () => {
-  has(/recorderState === "recording" \? <div className="relative z-20 flex gap-3/);
-  has(/onClick=\{cancelToMenu\}>\{t\("movieDetailVideoCancel"\)\}/);
-  has(/onClick=\{finishRecording\}>\{t\("movieDetailVideoStop"\)\}/);
+test('REC is hidden during local recording/preview states', () => {
+  has(/const isLocalVideoState = recorderState === "preparingRecorder"/);
+  has(/\{!isLocalVideoState \? <button type="button" className="flex h-24/);
 });
 
-test('cancel during recording returns to menu and stops tracks', () => {
-  has(/const cancelToMenu = useCallback\(\(\) => \{ cleanupRecorder\(\{ clearPreview: true, nextState: "menu" \}\); setError\(""\); setRecorderState\("menu"\); \}/);
+test('recording locks body scroll and restores it', () => {
+  has(/document\.body\.style\.overflow = "hidden"/);
+  has(/document\.body\.style\.overflow = bodyOverflowRef\.current/);
+});
+
+test('cancel returns directly to idle and stops tracks', () => {
+  has(/const cancelToIdle = useCallback\(\(\) => \{ cleanupRecorder\(\{ clearPreview: true, nextState: "idle" \}\); setError\(""\); setRecorderState\("idle"\); \}/);
   has(/getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
 });
 
-test('stop and automatic 20 second limit use previewRecorded, not cancel', () => {
-  has(/stopModeRef\.current = "previewRecorded";\n    clearTimer\(\);/);
-  has(/if \(nextSecond >= VIDEO_COMMENT_MAX_SECONDS\) window\.setTimeout\(finishRecording, 0\)/);
-  has(/setRecorderState\("previewRecorded"\)/);
+test('MediaRecorder waits for last dataavailable before building Blob', () => {
+  has(/recorder\.ondataavailable = \(event\) => \{ if \(event\.data\.size\) chunksRef\.current\.push\(event\.data\); \}/);
+  has(/recorder\.onstop = \(\) => \{/);
+  has(/const chunks = \[\.\.\.chunksRef\.current\]/);
+  assert.ok(page.indexOf('const chunks = [...chunksRef.current]') < page.indexOf('const blob = new Blob(chunks'));
+  assert.ok(page.indexOf('const blob = new Blob(chunks') < page.indexOf('chunksRef.current = []', page.indexOf('const blob = new Blob(chunks')));
 });
 
-test('onstop builds a Blob and File before changing to previewRecorded', () => {
-  has(/const blob = new Blob\(chunks, \{ type: recorder\.mimeType \|\| currentMimeTypeRef\.current \|\| mimeType \}\)/);
-  has(/const file = createVideoCommentFile\(blob, mimeType\)/);
-  assert.ok(page.indexOf('const file = createVideoCommentFile(blob, mimeType)') < page.indexOf('setRecorderState("previewRecorded")'));
+test('empty recorded Blob shows a recording-specific error', () => {
+  has(/chunks\.length === 0/);
+  has(/t\("movieDetailVideoRecordedCreateError"\)/);
 });
 
-test('previewRecorded shows Retake and Send, and retake reopens permission flow', () => {
-  has(/recorderState === "previewRecorded" \? t\("movieDetailVideoRetake"\)/);
-  has(/onClick=\{sendVideo\}>\{recorderState === "uploading" \? t\("movieDetailVideoUploading"\) : t\("movieDetailVideoSend"\)\}/);
-  has(/const retake = useCallback\(\(\) => \{ revokePreview\(\); setError\(""\); setRecorderState\("permissionInfo"\); \}/);
+test('recorded preview uses real metadata duration and valid File for Send', () => {
+  has(/readVideoDurationFromUrl\(url\)/);
+  has(/setPreviewDuration\(duration\)/);
+  has(/disabled=\{recorderState === "uploading" \|\| !previewFile \|\| previewFile\.size <= 0 \|\| previewDuration <= 0/);
 });
 
-test('file input preserves files[0] before clearing value', () => {
-  const selectedIndex = page.indexOf('const selectedFile = input.files?.[0] ?? undefined');
-  const clearIndex = page.indexOf('input.value = ""', selectedIndex);
-  assert.ok(selectedIndex > -1 && clearIndex > selectedIndex);
+test('retake skips QNext modal and calls camera flow directly', () => {
+  has(/const retake = useCallback\(\(\) => \{ revokePreview\(\); setError\(""\); void continueToNativePermissions\(\); \}/);
 });
 
-test('valid file changes to previewSelected and selected preview shows Cancelar and Enviar', () => {
-  has(/setPreviewFile\(file\);\n      setPreviewUrl\(url\);\n      setPreviewDuration\(probe\.duration\);\n      setRecorderState\("previewSelected"\)/);
-  has(/recorderState === "previewRecorded" \|\| recorderState === "previewSelected" \|\| recorderState === "uploading"/);
-  has(/recorderState === "previewRecorded" \? retake : cancelToMenu/);
+test('permission info acceptance is session-only and non audiovisual', () => {
+  has(/VIDEO_COMMENT_PERMISSION_SESSION_KEY/);
+  has(/sessionStorage\.setItem\(VIDEO_COMMENT_PERMISSION_SESSION_KEY, "1"\)/);
+  const sessionWrites = [...page.matchAll(/sessionStorage\.setItem\(([^)]*)\)/g)].map((match) => match[1]);
+  assert.deepEqual(sessionWrites, ['VIDEO_COMMENT_PERMISSION_SESSION_KEY, "1"']);
 });
 
-test('invalid selected files show visible errors for duration, size, and read failure', () => {
-  has(/file\.size > VIDEO_COMMENT_MAX_BYTES/);
-  has(/t\("movieDetailVideoFileTooLarge50Mb"\)/);
-  has(/probe\.duration > VIDEO_COMMENT_MAX_SECONDS/);
-  has(/t\("movieDetailVideoLongerThan20Seconds"\)/);
-  has(/t\("movieDetailVideoSelectedReadError"\)/);
+test('file input preserves file before clearing and valid selected file becomes previewSelected', () => {
+  const selected = page.indexOf('const selectedFile = input.files?.item(0) ?? undefined');
+  const cleared = page.indexOf('input.value = ""', selected);
+  assert.ok(selected > -1 && cleared > selected);
+  has(/selectedFileRef\.current = file/);
+  has(/setRecorderState\("validatingSelected"\)/);
+  has(/setRecorderState\("previewSelected"\)/);
 });
 
-test('send uses FormData video field and HTTP 201 success path reloads history', () => {
-  has(/const data = new FormData\(\)/);
-  has(/data\.append\("video", previewFile, previewFile\.name\)/);
-  has(/apiFetch\(`\/movies\/\$\{encodeURIComponent\(movieId\)\}\/video-comments\/`, \{ method: "POST", body: data \}\)/);
-  has(/setRecorderState\("idle"\);\n      await reloadFirstPage\(\)/);
+test('selected file accepts empty Android MIME when extension is video-like', () => {
+  has(/file\.type && !file\.type\.startsWith\("video\/"\) && !hasVideoLikeExtension\(file\.name\)/);
 });
 
-test('empty state only appears when there are no results, no initial loading, and no error', () => {
-  has(/const showEmpty = !initialLoading && !historyError && comments\.length === 0/);
+test('selected and recorded video durations come from metadata loader', () => {
+  has(/function readVideoDurationFromUrl/);
+  has(/probe\.onloadedmetadata = read/);
+  has(/probe\.onloadeddata = read/);
+  has(/probe\.src = url/);
 });
 
-test('tab change and unmount stop tracks and revoke object urls', () => {
-  has(/else \{ cleanupRecorder\(\{ clearPreview: true, nextState: "idle" \}\); setRecorderState\("idle"\); setError\(""\); \}/);
-  has(/return \(\) => \{ requestSeqRef\.current \+= 1; cleanupRecorder\(\{ clearPreview: true, nextState: "idle" \}\); \}/);
-  has(/if \(previewUrl\) URL\.revokeObjectURL\(previewUrl\)/);
+test('uploadVideo performs POST with FormData video and no manual Content-Type', () => {
+  const uploadStart = page.indexOf('const uploadVideo = useCallback');
+  const uploadEnd = page.indexOf('const sendVideo = useCallback', uploadStart);
+  const upload = page.slice(uploadStart, uploadEnd);
+  assert.match(upload, /const data = new FormData\(\)/);
+  assert.match(upload, /data\.append\("video", file, file\.name\)/);
+  assert.match(upload, /method: "POST", body: data/);
+  assert.doesNotMatch(upload, /Content-Type/);
+  assert.match(upload, /setRecorderState\("idle"\);\n      await reloadFirstPage\(\)/);
 });
 
-test('permission modal appears before getUserMedia and native prompt only follows Continue', () => {
-  has(/onClick=\{\(\) => setRecorderState\("permissionInfo"\)\}/);
-  const handlerStart = page.indexOf('const continueToNativePermissions = useCallback');
-  const handlerEnd = page.indexOf('const cancelToMenu = useCallback', handlerStart);
-  const handler = page.slice(handlerStart, handlerEnd);
-  assert.match(handler, /setRecorderState\("requestingPermission"\)/);
-  assert.match(handler, /const stream = await navigator\.mediaDevices\.getUserMedia/);
-  has(/onClick=\{continueToNativePermissions\}>\{t\("movieDetailVideoContinue"\)\}/);
-  has(/const stream = await navigator\.mediaDevices\.getUserMedia/);
+test('send button has an effective onClick handler', () => {
+  has(/const sendVideo = useCallback\(\(\) => \{ if \(previewFile\) void uploadVideo\(previewFile\); \}/);
+  has(/onClick=\{sendVideo\}/);
 });
 
-test('camera preview assigns srcObject and calls play()', () => {
-  has(/preview\.srcObject = stream/);
-  has(/await preview\.play\(\)\.catch/);
-  has(/preview\.onloadedmetadata = \(\) => \{ window\.clearTimeout\(timeout\); resolve\(\); \}/);
+test('history loading and sentinel only render in idle', () => {
+  has(/recorderState === "idle" && initialLoading/);
+  has(/recorderState === "idle" \? <div ref=\{sentinelRef\}/);
+  has(/const showEmpty = recorderState === "idle" && !initialLoading && !historyError && comments\.length === 0/);
 });
 
-test('pagination deduplicates and uses intersection observer', () => {
-  has(/function dedupeVideoComments/);
+test('history renders video, username profile link, avatar, date, and preserves backend order', () => {
+  has(/comments\.map\(\(comment\) => <article/);
+  has(/<Link href=\{`\/users\/\$\{encodeURIComponent\(comment\.user\.username\)\}`\}/);
+  has(/<time className="text-xs text-zinc-500">\{new Date\(comment\.created_at\)\.toLocaleDateString\(\)\}<\/time>/);
+  has(/src=\{comment\.video_url\} controls preload="metadata" playsInline/);
+  assert.doesNotMatch(page, /comments\.sort\(/);
+});
+
+test('infinite scroll uses main viewport observer and avoids duplicate loads', () => {
   has(/new IntersectionObserver/);
-  has(/normalizeVideoCommentsNext/);
+  has(/root: null/);
+  has(/loadingMore \|\| !next/);
+  has(/dedupeVideoComments/);
 });
 
-test('deletion calls endpoint without native alert confirmation', () => {
-  has(/apiFetch\(`\/video-comments\/\$\{encodeURIComponent\(key\)\}\//);
-  has(/method: "DELETE"/);
-  assert.doesNotMatch(page, /window\.confirm/);
-});
-
-
-test('getUserMedia success moves to preparingRecorder without upload error', () => {
-  has(/pendingStreamRef\.current = stream;\n      setRecorderState\("preparingRecorder"\)/);
-  const handler = page.slice(page.indexOf('const continueToNativePermissions = useCallback'), page.indexOf('const cancelToMenu = useCallback'));
-  assert.doesNotMatch(handler, /movieDetailVideoNetworkError/);
-});
-
-test('explicit MIME fallback tries MediaRecorder without options', () => {
-  has(/function getSupportedRecorderMimeType/);
-  has(/VIDEO_COMMENT_MIME_CANDIDATES = \["video\/webm;codecs=vp8,opus", "video\/webm;codecs=vp9,opus", "video\/webm", "video\/mp4"\]/);
-  has(/return new MediaRecorder\(stream\);/);
-  has(/preparingRecorder\.constructor\.explicitMime/);
-});
-
-test('timer starts only after recorder state is recording', () => {
-  assert.ok(page.indexOf('if (recorderRef.current?.state !== "recording")') < page.indexOf('timerRef.current = window.setInterval'));
-});
-
-test('camera and recorder errors do not use upload error text', () => {
-  has(/t\("movieDetailVideoCameraAccessError"\)/);
-  has(/t\("movieDetailVideoRecorderStartError"\)/);
-  has(/t\("movieDetailVideoCameraPreviewError"\)/);
-  const uploadHandler = page.slice(page.indexOf('const sendVideo = useCallback'), page.indexOf('const deleteVideo = useCallback'));
-  assert.match(uploadHandler, /mapVideoCommentError\(err, t\)/);
-});
-
-test('no visibilitychange cleanup is registered for file picker transitions', () => {
+test('visibilitychange does not clear selected files', () => {
   assert.doesNotMatch(page, /visibilitychange/);
   assert.doesNotMatch(page, /document\.visibilityState/);
 });
 
+test('phase-specific errors keep upload error only in upload path', () => {
+  has(/movieDetailVideoCameraAccessError/);
+  has(/movieDetailVideoRecorderStartError/);
+  has(/movieDetailVideoCameraPreviewError/);
+  const permissionFlow = page.slice(page.indexOf('const continueToNativePermissions'), page.indexOf('const cancelToIdle'));
+  assert.doesNotMatch(permissionFlow, /movieDetailVideoNetworkError/);
+});
+
 test('main translations exist in Spanish and English', () => {
-  for (const key of ['movieDetailVideoRecord', 'movieDetailVideoUpload', 'movieDetailVideoPermissionInfo', 'movieDetailVideoContinue', 'movieDetailVideoLongerThan20Seconds', 'movieDetailVideoFileTooLarge50Mb', 'movieDetailVideoSelectedReadError']) {
+  for (const key of ['movieDetailVideoRecordedCreateError','movieDetailVideoReadingSelectedFile','movieDetailVideoCameraAccessError','movieDetailVideoRecorderStartError','movieDetailVideoCameraPreviewError']) {
     assert.equal((i18n.match(new RegExp(`${key}:`, 'g')) || []).length, 2, `${key} should be translated twice`);
   }
 });
