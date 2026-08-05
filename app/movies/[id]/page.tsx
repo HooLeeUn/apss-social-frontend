@@ -883,8 +883,79 @@ function MovieDetailPageContent() {
   const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("text-comment");
   const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
     useState<PendingDirectedNotificationTarget | null>(null);
+  const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
+  const textCommentStartRef = useRef<HTMLDivElement | null>(null);
+  const videoCommentStartRef = useRef<HTMLElement | null>(null);
+  const pendingCommentInputScrollRef = useRef<CommentInputMode | null>(null);
   const directedCommentsSectionRef = useRef<HTMLElement | null>(null);
   const processedDirectedTargetRef = useRef<string | null>(null);
+
+
+  const getMobileStickyOffset = useCallback(() => {
+    // Keep targets below the primary mobile sticky header plus the page gap; desktop keeps the existing static layout.
+    if (typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches) return 0;
+    const headerHeight = stickyHeaderRef.current?.getBoundingClientRect().height ?? 0;
+    const containerGap = parseFloat(window.getComputedStyle(stickyHeaderRef.current?.parentElement ?? document.documentElement).rowGap || "0") || 0;
+    return headerHeight + containerGap;
+  }, []);
+
+  const scrollCommentStartIntoView = useCallback(
+    (mode: CommentInputMode, behavior: ScrollBehavior = "smooth") => {
+      const target = mode === "text-comment" ? textCommentStartRef.current : videoCommentStartRef.current;
+      if (!target || typeof window === "undefined") return;
+
+      const stickyOffset = getMobileStickyOffset();
+      const scrollableParent = (() => {
+        let parent = target.parentElement;
+        while (parent && parent !== document.body) {
+          const style = window.getComputedStyle(parent);
+          if (/(auto|scroll|overlay)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight) return parent;
+          parent = parent.parentElement;
+        }
+        return null;
+      })();
+
+      if (scrollableParent) {
+        const targetTop = target.getBoundingClientRect().top - scrollableParent.getBoundingClientRect().top + scrollableParent.scrollTop;
+        scrollableParent.scrollTo({ top: Math.max(targetTop - stickyOffset, 0), behavior });
+        return;
+      }
+
+      const targetTop = target.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(targetTop - stickyOffset, 0), behavior });
+    },
+    [getMobileStickyOffset],
+  );
+
+  const handleCommentInputTabClick = useCallback(
+    (mode: CommentInputMode) => {
+      if (commentInputMode === mode) {
+        scrollCommentStartIntoView(mode);
+        return;
+      }
+
+      pendingCommentInputScrollRef.current = mode;
+      setCommentInputMode(mode);
+    },
+    [commentInputMode, scrollCommentStartIntoView],
+  );
+
+  useEffect(() => {
+    if (pendingCommentInputScrollRef.current !== commentInputMode) return;
+
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        scrollCommentStartIntoView(commentInputMode, "auto");
+        pendingCommentInputScrollRef.current = null;
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [commentInputMode, scrollCommentStartIntoView]);
 
   const canShowDirectedComments = friendRequestsRestricted === false;
   const shouldRenderDirectedComments = friendRequestsRestricted !== true;
@@ -1748,7 +1819,7 @@ function MovieDetailPageContent() {
   return (
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 md:px-8 md:py-8">
-        <div className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
+        <div ref={stickyHeaderRef} className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold text-zinc-100">{detailTitle}</h1>
             <Link
@@ -1800,7 +1871,7 @@ function MovieDetailPageContent() {
                   role="tab"
                   aria-selected={isActiveMode}
                   className={`flex min-h-11 flex-1 items-center justify-center px-2 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
-                  onClick={() => setCommentInputMode(mode)}
+                  onClick={() => handleCommentInputTabClick(mode)}
                 >
                   {mode === "text-comment" ? composerTitle : t("movieDetailVideoCommentTitle")}
                 </button>
@@ -1809,15 +1880,12 @@ function MovieDetailPageContent() {
           </div>
         </div>
 
-        {commentInputMode === "text-comment" ? (
-          <div className="md:hidden">
-            <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
-          </div>
-        ) : (
-          <section className="flex justify-center rounded-2xl bg-zinc-950/55 p-4 md:hidden">
-            <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")}>Rec</button>
-          </section>
-        )}
+        <div ref={textCommentStartRef} className={`md:hidden ${commentInputMode === "text-comment" ? "block" : "hidden"}`}>
+          <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
+        </div>
+        <section ref={videoCommentStartRef} className={`justify-center rounded-2xl bg-zinc-950/55 p-4 md:hidden ${commentInputMode === "video-comment" ? "flex" : "hidden"}`}>
+          <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")}>Rec</button>
+        </section>
         <div className="hidden md:block">
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
         </div>
