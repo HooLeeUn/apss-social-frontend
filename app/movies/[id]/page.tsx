@@ -1747,8 +1747,8 @@ function MovieDetailPageContent() {
 
   return (
     <main className="min-h-screen bg-black">
-      <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-8 md:px-8">
-        <div className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-8 md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
+      <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 md:px-8 md:py-8">
+        <div className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold text-zinc-100">{detailTitle}</h1>
             <Link
@@ -1789,19 +1789,23 @@ function MovieDetailPageContent() {
             />
           ) : null}
 
-          <div className="flex rounded-xl border border-white/10 bg-zinc-950/60 p-1 md:hidden" role="tablist" aria-label={composerTitle}>
-            {(["text-comment", "video-comment"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                role="tab"
-                aria-selected={commentInputMode === mode}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${commentInputMode === mode ? "border border-[#86ADE0]/45 bg-zinc-950/50 text-[#c7dcf6] shadow-[0_0_16px_rgba(134,173,224,0.16)]" : "border border-transparent text-zinc-300 hover:bg-white/10 hover:text-white"}`}
-                onClick={() => setCommentInputMode(mode)}
-              >
-                {mode === "text-comment" ? composerTitle : t("movieDetailVideoCommentTitle")}
-              </button>
-            ))}
+          <div className="flex items-center justify-between gap-4 md:hidden" role="tablist" aria-label={composerTitle}>
+            {(["text-comment", "video-comment"] as const).map((mode) => {
+              const isActiveMode = commentInputMode === mode;
+
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActiveMode}
+                  className={`flex min-h-11 flex-1 items-center justify-center px-2 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
+                  onClick={() => setCommentInputMode(mode)}
+                >
+                  {mode === "text-comment" ? composerTitle : t("movieDetailVideoCommentTitle")}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1818,9 +1822,9 @@ function MovieDetailPageContent() {
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
         </div>
 
-        {reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
+        {reactionError ? <div className={`rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200 ${commentInputMode === "video-comment" ? "hidden md:block" : ""}`}>{reactionError}</div> : null}
 
-        <div className={`relative grid grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
+        <div className={`relative grid-cols-1 gap-6 ${commentInputMode === "video-comment" ? "hidden md:grid" : "grid"} ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
           {shouldRenderDirectedComments ? (
             <>
               <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
