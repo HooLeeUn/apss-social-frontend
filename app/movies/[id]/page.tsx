@@ -45,12 +45,12 @@ type CommentInputMode = "text-comment" | "video-comment";
 
 const VIDEO_COMMENT_MAX_SECONDS = 20;
 const VIDEO_COMMENT_MAX_BYTES = 50 * 1024 * 1024;
-const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
-type VideoRecorderState = "idle" | "menu" | "permissionInfo" | "requestingPermission" | "recording" | "previewRecorded" | "previewSelected" | "uploading" | "error";
+const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm", "video/mp4"];
+type VideoRecorderState = "idle" | "menu" | "permissionInfo" | "requestingPermission" | "preparingRecorder" | "recording" | "previewRecorded" | "previewSelected" | "uploading" | "error";
 interface VideoCommentUser { id: string | number; username: string; avatar: string | null; }
 interface VideoComment { id: string | number; user: VideoCommentUser; video_url: string; duration_seconds: number | null; mime_type: string | null; file_size: number | null; created_at: string; updated_at: string; can_delete: boolean; }
 interface VideoCommentsPage { count: number; next: string | null; previous: string | null; results: VideoComment[]; }
-function selectSupportedVideoMime(): string {
+function getSupportedRecorderMimeType(): string {
   if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
   return VIDEO_COMMENT_MIME_CANDIDATES.find((mime) => MediaRecorder.isTypeSupported(mime)) ?? "";
 }
@@ -100,6 +100,18 @@ function mapVideoCommentError(error: unknown, t: (key: Parameters<typeof transla
 }
 function logVideoCommentDevError(message: string, error: unknown): void {
   if (process.env.NODE_ENV !== "production") console.error(`[video-comments] ${message}`, error);
+}
+function logRecorderPhaseError(phase: string, error: unknown, mimeType: string, recorder: MediaRecorder | null, stream: MediaStream | null): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.error("[video-comments] recorder phase failed", {
+    phase,
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message : String(error),
+    mimeType,
+    recorderState: recorder?.state ?? null,
+    audioTracks: stream?.getAudioTracks().length ?? 0,
+    videoTracks: stream?.getVideoTracks().length ?? 0,
+  });
 }
 
 
@@ -913,6 +925,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const pendingStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -1004,22 +1017,34 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     if (recorder?.state === "recording") recorder.stop();
   }, [clearTimer]);
 
+  const createRecorderWithFallback = useCallback((stream: MediaStream, mimeType: string) => {
+    if (!mimeType) return new MediaRecorder(stream);
+    try {
+      return new MediaRecorder(stream, { mimeType });
+    } catch (err) {
+      logRecorderPhaseError("preparingRecorder.constructor.explicitMime", err, mimeType, null, stream);
+      return new MediaRecorder(stream);
+    }
+  }, []);
+
   const startRecorderWithStream = useCallback(async (stream: MediaStream) => {
-    const mimeType = selectSupportedVideoMime();
-    if (!mimeType) throw new Error("unsupported-format");
-    currentMimeTypeRef.current = mimeType;
+    if (!stream.active || stream.getVideoTracks().length === 0 || stream.getAudioTracks().length === 0) throw new Error("missing-tracks");
     streamRef.current = stream;
     const preview = livePreviewRef.current;
     if (!preview) throw new Error("preview-unavailable");
     preview.srcObject = stream;
     preview.muted = true;
     preview.playsInline = true;
-    await new Promise<void>((resolve) => {
-      if (preview.readyState >= HTMLMediaElement.HAVE_METADATA) resolve();
-      else preview.onloadedmetadata = () => resolve();
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error("preview-metadata-timeout")), 6000);
+      if (preview.readyState >= HTMLMediaElement.HAVE_METADATA) { window.clearTimeout(timeout); resolve(); return; }
+      preview.onloadedmetadata = () => { window.clearTimeout(timeout); resolve(); };
+      preview.onerror = () => { window.clearTimeout(timeout); reject(new Error("preview-metadata-error")); };
     });
     await preview.play().catch((err) => { throw new Error(`preview-play:${err instanceof Error ? err.message : "unknown"}`); });
-    const recorder = new MediaRecorder(stream, { mimeType });
+    const mimeType = getSupportedRecorderMimeType();
+    currentMimeTypeRef.current = mimeType;
+    const recorder = createRecorderWithFallback(stream, mimeType);
     recorderRef.current = recorder;
     chunksRef.current = [];
     recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
@@ -1040,7 +1065,22 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       setRecordingSeconds(0);
       setRecorderState("previewRecorded");
     };
-    recorder.start();
+    try {
+      recorder.start();
+    } catch (err) {
+      logRecorderPhaseError("preparingRecorder.start", err, recorder.mimeType || mimeType, recorder, stream);
+      if (mimeType) {
+        const fallbackRecorder = new MediaRecorder(stream);
+        recorderRef.current = fallbackRecorder;
+        fallbackRecorder.ondataavailable = recorder.ondataavailable;
+        fallbackRecorder.onstop = recorder.onstop;
+        fallbackRecorder.start();
+      } else {
+        throw err;
+      }
+    }
+    if (recorderRef.current?.state !== "recording") throw new Error("recorder-not-recording");
+    currentMimeTypeRef.current = recorderRef.current.mimeType || mimeType;
     setRecordingSeconds(0);
     setRecorderState("recording");
     timerRef.current = window.setInterval(() => setRecordingSeconds((seconds) => {
@@ -1048,7 +1088,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       if (nextSecond >= VIDEO_COMMENT_MAX_SECONDS) window.setTimeout(finishRecording, 0);
       return nextSecond;
     }), 1000);
-  }, [finishRecording, recordingSeconds, stopTracks, t]);
+  }, [createRecorderWithFallback, finishRecording, recordingSeconds, stopTracks, t]);
 
   const continueToNativePermissions = useCallback(async () => {
     setError("");
@@ -1058,15 +1098,31 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     try {
       cleanupRecorder({ clearPreview: true, nextState: "idle" });
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-      await startRecorderWithStream(stream);
+      if (!stream.active || stream.getVideoTracks().length === 0 || stream.getAudioTracks().length === 0) throw new Error("missing-tracks");
+      streamRef.current = stream;
+      pendingStreamRef.current = stream;
+      setRecorderState("preparingRecorder");
     } catch (err) {
-      logVideoCommentDevError("Could not open camera", err);
+      logRecorderPhaseError("requestingPermission", err, currentMimeTypeRef.current, recorderRef.current, streamRef.current);
       cleanupRecorder({ clearPreview: true, nextState: "idle" });
-      const message = err instanceof Error && err.message.startsWith("preview-play") ? t("movieDetailVideoPreviewPlaybackError") : err instanceof Error && err.message === "unsupported-format" ? t("movieDetailVideoUnsupportedFormat") : mapVideoCommentError(err, t);
-      setError(message);
+      setError(t("movieDetailVideoCameraAccessError"));
       setRecorderState("error");
     }
-  }, [cleanupRecorder, startRecorderWithStream, t]);
+  }, [cleanupRecorder, t]);
+
+  useEffect(() => {
+    if (recorderState !== "preparingRecorder") return;
+    const stream = pendingStreamRef.current;
+    if (!stream) return;
+    pendingStreamRef.current = null;
+    void startRecorderWithStream(stream).catch((err) => {
+      const phase = err instanceof Error && err.message.startsWith("preview") ? "cameraPreview" : "preparingRecorder";
+      logRecorderPhaseError(phase, err, currentMimeTypeRef.current, recorderRef.current, stream);
+      cleanupRecorder({ clearPreview: true, nextState: "idle" });
+      setError(phase === "cameraPreview" ? t("movieDetailVideoCameraPreviewError") : t("movieDetailVideoRecorderStartError"));
+      setRecorderState("error");
+    });
+  }, [cleanupRecorder, recorderState, startRecorderWithStream, t]);
 
   const cancelToMenu = useCallback(() => { cleanupRecorder({ clearPreview: true, nextState: "menu" }); setError(""); setRecorderState("menu"); }, [cleanupRecorder]);
   const cancelRequest = useCallback(() => { cleanupRecorder({ clearPreview: true, nextState: "menu" }); setError(""); setRecorderState("menu"); }, [cleanupRecorder]);
@@ -1093,7 +1149,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       setPreviewDuration(probe.duration);
       setRecorderState("previewSelected");
     } catch (err) {
-      logVideoCommentDevError("Selected video metadata could not be read", err);
+      logRecorderPhaseError("fileSelection", err, "", null, null);
       URL.revokeObjectURL(url);
       setError(t("movieDetailVideoSelectedReadError"));
       setRecorderState("error");
@@ -1113,7 +1169,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       setRecorderState("idle");
       await reloadFirstPage();
     } catch (err) {
-      logVideoCommentDevError("Video upload failed", err);
+      logRecorderPhaseError("upload", err, previewFile.type, recorderRef.current, streamRef.current);
       setError(mapVideoCommentError(err, t));
       setRecorderState(previousState === "previewSelected" ? "previewSelected" : "previewRecorded");
     }
@@ -1138,7 +1194,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     document.querySelectorAll<HTMLVideoElement>('[data-video-comment-player="true"]').forEach((video) => { if (video !== event.currentTarget) video.pause(); });
   }, []);
 
-  const showRecorderShell = recorderState === "recording" || recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading";
+  const showRecorderShell = recorderState === "preparingRecorder" || recorderState === "recording" || recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading";
   const showMenu = recorderState === "menu";
   const showEmpty = !initialLoading && !historyError && comments.length === 0;
 
@@ -1151,13 +1207,14 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoUpload")} onClick={() => fileInputRef.current?.click()}><span>▣</span>{t("movieDetailVideoUpload")}</button>
         </div> : null}
       </div>
-      <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(event) => { const selectedFile = event.currentTarget.files?.[0]; void handleFile(selectedFile); event.currentTarget.value = ""; }} />
+      <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(event) => { const input = event.currentTarget; const selectedFile = input.files?.[0] ?? undefined; input.value = ""; void handleFile(selectedFile); }} />
       {recorderState === "permissionInfo" ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950 p-5 text-center shadow-2xl"><p className="text-sm font-semibold text-zinc-100">{t("movieDetailVideoPermissionInfo")}</p><div className="mt-5 flex gap-3"><button type="button" className="flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={() => setRecorderState("menu")}>{t("movieDetailVideoCancel")}</button><button type="button" className="flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black" onClick={continueToNativePermissions}>{t("movieDetailVideoContinue")}</button></div></div></div> : null}
       {deleteConfirmId !== null ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950 p-5 text-center shadow-2xl"><p className="text-sm font-semibold text-zinc-100">{t("movieDetailVideoDeleteConfirm")}</p><div className="mt-5 flex gap-3"><button type="button" className="flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={() => setDeleteConfirmId(null)}>{t("movieDetailVideoCancel")}</button><button type="button" className="flex-1 rounded-xl bg-red-400 px-4 py-2 text-sm font-bold text-black" onClick={() => { const id = deleteConfirmId; setDeleteConfirmId(null); void deleteVideo(id); }}>{t("movieDetailVideoDeleteAction")}</button></div></div></div> : null}
       {recorderState === "requestingPermission" ? <div className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 text-center"><p className="text-sm text-zinc-300">{t("movieDetailVideoRequestingPermission")}</p><button type="button" className="mt-3 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelRequest}>{t("movieDetailVideoCancel")}</button></div> : null}
       {showRecorderShell ? <div className="w-full space-y-3">
         <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black">
-          {recorderState === "recording" ? <video ref={livePreviewRef} autoPlay muted playsInline className="h-full w-full object-cover" /> : previewUrl ? <video src={previewUrl} controls preload="metadata" playsInline className="h-full w-full object-cover" /> : null}
+          {recorderState === "preparingRecorder" || recorderState === "recording" ? <video ref={livePreviewRef} autoPlay muted playsInline className="h-full w-full object-cover" /> : previewUrl ? <video src={previewUrl} controls preload="metadata" playsInline className="h-full w-full object-cover" /> : null}
+          {recorderState === "preparingRecorder" ? <span className="absolute left-3 top-3 rounded-full bg-zinc-900/80 px-3 py-1 text-xs font-bold text-zinc-100">{t("movieDetailVideoPreparingCamera")}</span> : null}
           {recorderState === "recording" ? <span className="absolute left-3 top-3 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-100">{t("movieDetailVideoRecording")} {formatVideoDuration(recordingSeconds)}</span> : null}
         </div>
         {recorderState === "recording" ? <div className="relative z-20 flex gap-3 pb-3"><button type="button" className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelToMenu}>{t("movieDetailVideoCancel")}</button><button type="button" className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black" onClick={finishRecording}>{t("movieDetailVideoStop")}</button></div> : null}

@@ -43,8 +43,8 @@ test('previewRecorded shows Retake and Send, and retake reopens permission flow'
 });
 
 test('file input preserves files[0] before clearing value', () => {
-  const selectedIndex = page.indexOf('const selectedFile = event.currentTarget.files?.[0]');
-  const clearIndex = page.indexOf('event.currentTarget.value = ""', selectedIndex);
+  const selectedIndex = page.indexOf('const selectedFile = input.files?.[0] ?? undefined');
+  const clearIndex = page.indexOf('input.value = ""', selectedIndex);
   assert.ok(selectedIndex > -1 && clearIndex > selectedIndex);
 });
 
@@ -93,7 +93,7 @@ test('permission modal appears before getUserMedia and native prompt only follow
 test('camera preview assigns srcObject and calls play()', () => {
   has(/preview\.srcObject = stream/);
   has(/await preview\.play\(\)\.catch/);
-  has(/preview\.onloadedmetadata = \(\) => resolve\(\)/);
+  has(/preview\.onloadedmetadata = \(\) => \{ window\.clearTimeout\(timeout\); resolve\(\); \}/);
 });
 
 test('pagination deduplicates and uses intersection observer', () => {
@@ -106,6 +106,37 @@ test('deletion calls endpoint without native alert confirmation', () => {
   has(/apiFetch\(`\/video-comments\/\$\{encodeURIComponent\(key\)\}\//);
   has(/method: "DELETE"/);
   assert.doesNotMatch(page, /window\.confirm/);
+});
+
+
+test('getUserMedia success moves to preparingRecorder without upload error', () => {
+  has(/pendingStreamRef\.current = stream;\n      setRecorderState\("preparingRecorder"\)/);
+  const handler = page.slice(page.indexOf('const continueToNativePermissions = useCallback'), page.indexOf('const cancelToMenu = useCallback'));
+  assert.doesNotMatch(handler, /movieDetailVideoNetworkError/);
+});
+
+test('explicit MIME fallback tries MediaRecorder without options', () => {
+  has(/function getSupportedRecorderMimeType/);
+  has(/VIDEO_COMMENT_MIME_CANDIDATES = \["video\/webm;codecs=vp8,opus", "video\/webm;codecs=vp9,opus", "video\/webm", "video\/mp4"\]/);
+  has(/return new MediaRecorder\(stream\);/);
+  has(/preparingRecorder\.constructor\.explicitMime/);
+});
+
+test('timer starts only after recorder state is recording', () => {
+  assert.ok(page.indexOf('if (recorderRef.current?.state !== "recording")') < page.indexOf('timerRef.current = window.setInterval'));
+});
+
+test('camera and recorder errors do not use upload error text', () => {
+  has(/t\("movieDetailVideoCameraAccessError"\)/);
+  has(/t\("movieDetailVideoRecorderStartError"\)/);
+  has(/t\("movieDetailVideoCameraPreviewError"\)/);
+  const uploadHandler = page.slice(page.indexOf('const sendVideo = useCallback'), page.indexOf('const deleteVideo = useCallback'));
+  assert.match(uploadHandler, /mapVideoCommentError\(err, t\)/);
+});
+
+test('no visibilitychange cleanup is registered for file picker transitions', () => {
+  assert.doesNotMatch(page, /visibilitychange/);
+  assert.doesNotMatch(page, /document\.visibilityState/);
 });
 
 test('main translations exist in Spanish and English', () => {
