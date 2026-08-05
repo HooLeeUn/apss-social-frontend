@@ -26,7 +26,7 @@ test('cancel returns directly to idle and stops tracks', () => {
 });
 
 test('MediaRecorder waits for last dataavailable before building Blob', () => {
-  has(/recorder\.ondataavailable = \(event\) => \{ if \(event\.data\.size\) chunksRef\.current\.push\(event\.data\); \}/);
+  has(/recorder\.ondataavailable = \(event\) => \{\s+if \(event\.data\.size\) chunksRef\.current\.push\(event\.data\)/);
   has(/recorder\.onstop = \(\) => \{/);
   has(/const chunks = \[\.\.\.chunksRef\.current\]/);
   assert.ok(page.indexOf('const chunks = [...chunksRef.current]') < page.indexOf('const blob = new Blob(chunks'));
@@ -38,10 +38,10 @@ test('empty recorded Blob shows a recording-specific error', () => {
   has(/t\("movieDetailVideoRecordedCreateError"\)/);
 });
 
-test('recorded preview uses real metadata duration and valid File for Send', () => {
-  has(/prepareVideoPreview\(file, "recorded"\)/);
-  has(/setPreviewDuration\(metadata\.duration\)/);
-  has(/disabled=\{recorderState === "uploading" \|\| !previewFile \|\| previewFile\.size <= 0 \|\| previewDuration <= 0/);
+test('recorded preview mounts immediately and valid playable File enables Send', () => {
+  has(/mountPreviewImmediately\(file, "recorded"\)/);
+  has(/setPreviewDuration\(null\)/);
+  has(/disabled=\{recorderState === "uploading" \|\| !previewFile \|\| previewFile\.size <= 0 \|\| previewDuration === null/);
 });
 
 test('retake skips QNext modal and calls camera flow directly', () => {
@@ -61,18 +61,66 @@ test('file input preserves file before clearing and valid selected file becomes 
   assert.ok(selected > -1 && cleared > selected);
   has(/selectedFileRef\.current = file/);
   has(/setRecorderState\("validatingSelected"\)/);
-  has(/setRecorderState\("previewSelected"\)/);
+  has(/changeRecorderState\(source === "recorded" \? "previewRecorded" : "previewSelected"\)/);
 });
 
 test('selected file accepts empty Android MIME when extension is video-like', () => {
   has(/file\.type && !file\.type\.startsWith\("video\/"\) && !hasVideoLikeExtension\(file\.name\)/);
 });
 
-test('selected and recorded video durations come from metadata loader', () => {
+test('selected and recorded previews use one immediate object URL pipeline', () => {
   has(/function prepareVideoPreview/);
-  has(/video\.addEventListener\(eventName, listenerMap\[eventName\]\)/);
-  has(/"durationchange", "loadeddata", "canplay"/);
+  has(/mountPreviewImmediately\(file, "recorded"\)/);
+  has(/mountPreviewImmediately\(file, "selected"\)/);
+  has(/video\.addEventListener\(eventName, listener\)/);
+  has(/"loadedmetadata", "durationchange", "loadeddata", "canplay", "canplaythrough"/);
   has(/video\.src = objectUrl/);
+});
+
+test('visible preview mounts before duration and drives duration/playability', () => {
+  has(/setPreviewUrl\(prepared\.objectUrl\)/);
+  has(/setPreviewDuration\(null\)/);
+  has(/changeRecorderState\(source === "recorded" \? "previewRecorded" : "previewSelected"\)/);
+  has(/src=\{previewUrl\} controls preload="auto" playsInline/);
+  has(/onLoadedMetadata=\{\(event\) => logVisibleVideoEvent\("VISIBLE_PREVIEW_LOADEDMETADATA"/);
+  has(/onDurationChange=\{\(event\) => logVisibleVideoEvent\("VISIBLE_PREVIEW_DURATIONCHANGE"/);
+  has(/VISIBLE_PREVIEW_LOADEDDATA/);
+  has(/VISIBLE_PREVIEW_CANPLAY/);
+});
+
+test('Infinity is rejected and seekable can resolve duration', () => {
+  has(/Number\.isFinite\(video\.duration\) && video\.duration > 0/);
+  has(/video\.seekable\.length > 0 \? video\.seekable\.end\(video\.seekable\.length - 1\)/);
+});
+
+test('preview timeout always ends indefinite preparing state with visible error', () => {
+  has(/window\.setTimeout\(\(\) => \{/);
+  has(/PREVIEW_TIMEOUT/);
+  has(/setPreviewError\(t\("movieDetailVideoPreviewTimeout"\)\)/);
+  has(/\}, 10000\)/);
+});
+
+test('object URL cleanup is stable and does not run on preview phase changes', () => {
+  has(/const previewUrlRef = useRef<string \| null>\(null\)/);
+  has(/const revokePreview = useCallback/);
+  const revokeStart = page.indexOf('const revokePreview = useCallback');
+  const revokeEnd = page.indexOf('const stopTracks', revokeStart);
+  assert.doesNotMatch(page.slice(revokeStart, revokeEnd), /\[.*previewUrl.*\]/);
+});
+
+test('debug panel is query-enabled, bounded, copyable, and contains no auth data', () => {
+  has(/searchParams\.get\("videoDebug"\) === "1"/);
+  has(/\[\.\.\.current\.slice\(-99\), entry\]/);
+  has(/navigator\.clipboard\?\.writeText\(text\)/);
+  has(/>Copiar logs<\/button>/);
+  has(/>Limpiar<\/button>/);
+  has(/>Cerrar<\/button>/);
+  const debugPanel = page.slice(page.indexOf('videoDebugEnabled && debugPanelOpen'), page.indexOf('</section>;', page.indexOf('videoDebugEnabled && debugPanelOpen')));
+  assert.doesNotMatch(debugPanel, /token|authorization|headers/i);
+});
+
+test('diagnostics include recorder, file, temporary and visible video events', () => {
+  for (const event of ['FILE_SELECTED','RECORDER_STOP_REQUESTED','RECORDER_DATA_AVAILABLE','RECORDER_STOPPED','OBJECT_URL_CREATED','TEMP_VIDEO_CREATED','TEMP_VIDEO_SRC_ASSIGNED','TEMP_VIDEO_LOAD_CALLED','VISIBLE_PREVIEW_MOUNTED','VISIBLE_PREVIEW_ERROR','SEND_STATE']) has(new RegExp(event));
 });
 
 test('uploadVideo performs POST with FormData video and no manual Content-Type', () => {
