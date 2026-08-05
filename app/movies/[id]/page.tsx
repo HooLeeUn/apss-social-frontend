@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { createPortal } from "react-dom";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "../../../components/AppLogo";
 import CommentComposer from "../../../components/social/CommentComposer";
 import CommentsList from "../../../components/social/CommentsList";
@@ -56,6 +57,22 @@ interface VideoCommentsPage { count: number; next: string | null; previous: stri
 type VideoDebugLevel = "info" | "warning" | "error";
 interface VideoDebugEntry { id: number; timestamp: string; level: VideoDebugLevel; event: string; details: Record<string, unknown>; }
 type VideoDebugLogger = (level: VideoDebugLevel, event: string, details?: Record<string, unknown>) => void;
+function sanitizeVideoDebugDetails(details: Record<string, unknown>): Record<string, unknown> {
+  const seen = new WeakSet<object>();
+  try {
+    return JSON.parse(JSON.stringify(details, (_key, value: unknown) => {
+      if (typeof value === "string") return value.slice(0, 500);
+      if (value instanceof Error) return { name: value.name, message: value.message.slice(0, 500) };
+      if (typeof value === "object" && value !== null) {
+        if (seen.has(value)) return "[circular]";
+        seen.add(value);
+      }
+      return value;
+    })) as Record<string, unknown>;
+  } catch {
+    return { serializationError: true };
+  }
+}
 function getSupportedRecorderMimeType(): string {
   if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
   return VIDEO_COMMENT_MIME_CANDIDATES.find((mime) => MediaRecorder.isTypeSupported(mime)) ?? "";
@@ -980,7 +997,10 @@ function CommentUserSearch({
 
 function MobileVideoComments({ movieId, active, t }: { movieId: string; active: boolean; t: (key: Parameters<typeof translate>[1]) => string }) {
   const searchParams = useSearchParams();
-  const videoDebugEnabled = process.env.NODE_ENV !== "production" || searchParams.get("videoDebug") === "1";
+  const pathname = usePathname();
+  const videoDebugValue = searchParams.get("videoDebug");
+  const videoDebugEnabled = videoDebugValue === "1";
+  const videoDebugBuild = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || "video-debug-panel-v2";
   const [recorderState, setRecorderState] = useState<VideoRecorderState>("idle");
   const [error, setError] = useState("");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -993,6 +1013,8 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   const [previewError, setPreviewError] = useState("");
   const [debugEntries, setDebugEntries] = useState<VideoDebugEntry[]>([]);
   const [debugPanelOpen, setDebugPanelOpen] = useState(true);
+  const [debugPanelMinimized, setDebugPanelMinimized] = useState(false);
+  const [clientMounted, setClientMounted] = useState(false);
   const [comments, setComments] = useState<VideoComment[]>([]);
   const [, setCount] = useState(0);
   const [next, setNext] = useState<string | null>(null);
@@ -1023,14 +1045,31 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   const previewStartedAtRef = useRef(0);
   const previousPhaseRef = useRef<VideoRecorderState>("idle");
   const debugIdRef = useRef(0);
+  const debugInitializedRef = useRef(false);
+  const reloadFirstPageRef = useRef<() => Promise<void>>(async () => undefined);
 
-  const addDebugEntry = useCallback<VideoDebugLogger>((level, event, details = {}) => {
+  const appendVideoDebugLog = useCallback<VideoDebugLogger>((level, event, details = {}) => {
     if (!videoDebugEnabled) return;
-    const entry = { id: ++debugIdRef.current, timestamp: new Date().toISOString(), level, event, details };
+    const entry = { id: ++debugIdRef.current, timestamp: new Date().toISOString(), level, event, details: sanitizeVideoDebugDetails(details) };
     setDebugEntries((current) => [...current.slice(-99), entry]);
     const method = level === "error" ? console.error : level === "warning" ? console.warn : console.info;
     method("[VideoCommentsDebug]", event, details);
   }, [videoDebugEnabled]);
+
+  useEffect(() => setClientMounted(true), []);
+
+  useEffect(() => {
+    if (!videoDebugEnabled || debugInitializedRef.current) return;
+    debugInitializedRef.current = true;
+    appendVideoDebugLog("info", "DEBUG_PANEL_INITIALIZED", {
+      pathname,
+      search: `?${searchParams.toString()}`,
+      videoDebug: videoDebugValue,
+      userAgent: navigator.userAgent.slice(0, 180),
+      phase: "idle",
+      build: videoDebugBuild,
+    });
+  }, [appendVideoDebugLog, pathname, searchParams, videoDebugBuild, videoDebugEnabled, videoDebugValue]);
 
   const changeRecorderState = useCallback((nextState: VideoRecorderState) => {
     setRecorderState(nextState);
@@ -1038,22 +1077,22 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
 
   useEffect(() => {
     if (previousPhaseRef.current !== recorderState) {
-      addDebugEntry("info", "PHASE_CHANGED", { from: previousPhaseRef.current, to: recorderState });
+      appendVideoDebugLog("info", "PREVIEW_PHASE_CHANGED", { from: previousPhaseRef.current, to: recorderState });
       previousPhaseRef.current = recorderState;
     }
-  }, [addDebugEntry, recorderState]);
+  }, [appendVideoDebugLog, recorderState]);
 
   const revokePreview = useCallback(() => {
     if (previewTimeoutRef.current !== null) window.clearTimeout(previewTimeoutRef.current);
     previewTimeoutRef.current = null;
     const objectUrl = previewUrlRef.current;
     if (objectUrl) {
-      addDebugEntry("info", "OBJECT_URL_REVOKED", { reason: "explicit-cleanup", urlId: objectUrl.slice(-12) });
+      appendVideoDebugLog("info", "OBJECT_URL_REVOKED", { reason: "explicit-cleanup", urlId: objectUrl.slice(-12) });
       URL.revokeObjectURL(objectUrl);
     }
     previewUrlRef.current = null;
-    addDebugEntry("info", "PREVIEW_FILE_SET", { present: false });
-    addDebugEntry("info", "PREVIEW_URL_SET", { present: false });
+    appendVideoDebugLog("info", "PREVIEW_FILE_SET", { present: false });
+    appendVideoDebugLog("info", "PREVIEW_URL_SET", { present: false });
     setPreviewUrl(null);
     setPreviewFile(null);
     selectedFileRef.current = null;
@@ -1062,7 +1101,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     previewPlayableRef.current = false;
     previewDurationRef.current = null;
     setPreviewError("");
-  }, [addDebugEntry]);
+  }, [appendVideoDebugLog]);
 
   const stopTracks = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -1110,6 +1149,10 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   }, [loadingMore, movieId, next, t]);
   const reloadFirstPage = useCallback(() => fetchPage(`/movies/${encodeURIComponent(movieId)}/video-comments/`, "initial"), [fetchPage, movieId]);
 
+  useEffect(() => {
+    reloadFirstPageRef.current = reloadFirstPage;
+  }, [reloadFirstPage]);
+
 
   useEffect(() => {
     try {
@@ -1133,10 +1176,10 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   }, [recorderState]);
 
   useEffect(() => {
-    if (active) reloadFirstPage();
+    if (active) void reloadFirstPageRef.current();
     else { cleanupRecorder({ clearPreview: true, nextState: "idle" }); setRecorderState("idle"); setError(""); }
     return () => { requestSeqRef.current += 1; cleanupRecorder({ clearPreview: true, nextState: "idle" }); };
-  }, [active, cleanupRecorder, reloadFirstPage]);
+  }, [active, cleanupRecorder]);
 
   useEffect(() => {
     if (recorderState !== "menu") return;
@@ -1161,14 +1204,14 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     clearTimer();
     const recorder = recorderRef.current;
     if (recorder?.state === "recording") {
-      addDebugEntry("info", "RECORDER_STOP_REQUESTED", { state: recorder.state, mimeType: recorder.mimeType, chunksLength: chunksRef.current.length });
+      appendVideoDebugLog("info", "RECORDER_STOP_REQUESTED", { state: recorder.state, mimeType: recorder.mimeType, chunksLength: chunksRef.current.length });
       try { recorder.requestData(); } catch (err) { logRecorderPhaseError("recording.requestData", err, recorder.mimeType, recorder, streamRef.current); }
       recorder.stop();
     }
-  }, [addDebugEntry, clearTimer]);
+  }, [appendVideoDebugLog, clearTimer]);
 
   const mountPreviewImmediately = useCallback((file: File, source: "recorded" | "selected") => {
-    const prepared = prepareVideoPreview(file, source, addDebugEntry);
+    const prepared = prepareVideoPreview(file, source, appendVideoDebugLog);
     previewSourceRef.current = source;
     selectedFileRef.current = file;
     setPreviewFile(file);
@@ -1179,10 +1222,10 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     previewDurationRef.current = null;
     previewPlayableRef.current = false;
     setPreviewError("");
-    addDebugEntry("info", "PREVIEW_FILE_SET", { source, fileType: file.type || prepared.inferredMime, fileSize: file.size });
-    addDebugEntry("info", "PREVIEW_URL_SET", { source, present: true, urlId: prepared.objectUrl.slice(-12) });
+    appendVideoDebugLog("info", "PREVIEW_FILE_SET", { source, fileType: file.type || prepared.inferredMime, fileSize: file.size });
+    appendVideoDebugLog("info", "PREVIEW_URL_SET", { source, present: true, urlId: prepared.objectUrl.slice(-12) });
     changeRecorderState(source === "recorded" ? "previewRecorded" : "previewSelected");
-  }, [addDebugEntry, changeRecorderState]);
+  }, [appendVideoDebugLog, changeRecorderState]);
 
   const createRecorderWithFallback = useCallback((stream: MediaStream, mimeType: string) => {
     if (!mimeType) return new MediaRecorder(stream);
@@ -1216,12 +1259,12 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     chunksRef.current = [];
     recorder.ondataavailable = (event) => {
       if (event.data.size) chunksRef.current.push(event.data);
-      addDebugEntry("info", "RECORDER_DATA_AVAILABLE", { recorderState: recorder.state, mimeType: recorder.mimeType, chunkSize: event.data.size, chunksLength: chunksRef.current.length });
+      appendVideoDebugLog("info", "RECORDER_DATA_AVAILABLE", { recorderState: recorder.state, mimeType: recorder.mimeType, chunkSize: event.data.size, chunksLength: chunksRef.current.length });
     };
     recorder.onstop = () => {
       const targetState = stopModeRef.current;
       const chunks = [...chunksRef.current];
-      addDebugEntry("info", "RECORDER_STOPPED", { recorderState: recorder.state, mimeType: recorder.mimeType, chunksLength: chunks.length, chunkSizes: chunks.map((chunk) => chunk.size), totalBytes: chunks.reduce((total, chunk) => total + chunk.size, 0) });
+      appendVideoDebugLog("info", "RECORDER_STOPPED", { recorderState: recorder.state, mimeType: recorder.mimeType, chunksLength: chunks.length, chunkSizes: chunks.map((chunk) => chunk.size), totalBytes: chunks.reduce((total, chunk) => total + chunk.size, 0) });
       recorderRef.current = null;
       if (targetState !== "previewRecorded") {
         chunksRef.current = [];
@@ -1251,8 +1294,8 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       }
       const file = createVideoCommentFile(blob, realMimeType);
       debugVideoComments("recorded:file", { blobType: blob.type, blobSize: blob.size, fileType: file.type, fileSize: file.size });
-      addDebugEntry("info", "RECORDED_FILE_CREATED", { blobType: blob.type, blobSize: blob.size, fileType: file.type, fileSize: file.size });
-      addDebugEntry("info", "RECORDER_STOPPED_FINALIZED", { recorderMimeType: recorder.mimeType, chunksLength: chunks.length, chunkSizes, totalBytes, blobType: blob.type, blobSize: blob.size, fileType: file.type, fileSize: file.size });
+      appendVideoDebugLog("info", "RECORDED_FILE_CREATED", { blobType: blob.type, blobSize: blob.size, fileType: file.type, fileSize: file.size });
+      appendVideoDebugLog("info", "RECORDER_STOPPED_FINALIZED", { recorderMimeType: recorder.mimeType, chunksLength: chunks.length, chunkSizes, totalBytes, blobType: blob.type, blobSize: blob.size, fileType: file.type, fileSize: file.size });
       try {
         mountPreviewImmediately(file, "recorded");
         setRecordingSeconds(0);
@@ -1288,7 +1331,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       if (nextSecond >= VIDEO_COMMENT_MAX_SECONDS) window.setTimeout(finishRecording, 0);
       return nextSecond;
     }), 1000);
-  }, [addDebugEntry, changeRecorderState, createRecorderWithFallback, finishRecording, mountPreviewImmediately, stopTracks, t]);
+  }, [appendVideoDebugLog, changeRecorderState, createRecorderWithFallback, finishRecording, mountPreviewImmediately, stopTracks, t]);
 
   const continueToNativePermissions = useCallback(async () => {
     setError("");
@@ -1333,7 +1376,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
 
   const processSelectedVideo = useCallback(async (file: File | undefined) => {
     if (!file) return;
-    addDebugEntry("info", "FILE_SELECTED", { name: file.name, type: file.type, size: file.size, extension: getVideoFileExtension(file.name), lastModified: file.lastModified, phase: recorderState });
+    appendVideoDebugLog("info", "FILE_SELECTED", { name: file.name, type: file.type, size: file.size, extension: getVideoFileExtension(file.name), lastModified: file.lastModified, phase: recorderState });
     selectedFileRef.current = file;
     setRecorderState("validatingSelected");
     setError("");
@@ -1347,7 +1390,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       setError(t("movieDetailVideoPreviewPlaybackError"));
       setRecorderState("error");
     }
-  }, [addDebugEntry, mountPreviewImmediately, recorderState, revokePreview, t]);
+  }, [appendVideoDebugLog, mountPreviewImmediately, recorderState, revokePreview, t]);
 
   const uploadVideo = useCallback(async (file: File) => {
     if (!file || file.size <= 0 || !previewUrl || !previewPlayable || previewDuration === null || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || recorderState === "uploading") return;
@@ -1394,13 +1437,13 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     video.srcObject = null;
     const startedAt = performance.now();
     previewStartedAtRef.current = startedAt;
-    addDebugEntry("info", "VISIBLE_PREVIEW_MOUNTED", { source: previewSourceRef.current, urlId: previewUrl.slice(-12) });
+    appendVideoDebugLog("info", "VISIBLE_PREVIEW_MOUNTED", { source: previewSourceRef.current, urlId: previewUrl.slice(-12) });
     video.load();
-    addDebugEntry("info", "VISIBLE_PREVIEW_LOAD_CALLED", { source: previewSourceRef.current });
+    appendVideoDebugLog("info", "VISIBLE_PREVIEW_LOAD_CALLED", { source: previewSourceRef.current });
     previewTimeoutRef.current = window.setTimeout(() => {
       previewTimeoutRef.current = null;
       if (previewPlayableRef.current && previewDurationRef.current !== null) return;
-      addDebugEntry("error", "PREVIEW_TIMEOUT", { source: previewSourceRef.current, elapsedMs: Math.round(performance.now() - startedAt), duration: video.duration, readyState: video.readyState, networkState: video.networkState });
+      appendVideoDebugLog("error", "PREVIEW_TIMEOUT", { source: previewSourceRef.current, elapsedMs: Math.round(performance.now() - startedAt), duration: video.duration, readyState: video.readyState, networkState: video.networkState });
       setPreviewError(t("movieDetailVideoPreviewTimeout"));
     }, 10000);
     return () => {
@@ -1427,12 +1470,12 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       canPlayType: video.canPlayType(previewFile ? inferVideoMimeType(previewFile) : ""),
       elapsedMs: Math.round(performance.now() - previewStartedAtRef.current),
     };
-    addDebugEntry(eventName === "VISIBLE_PREVIEW_ERROR" ? "error" : "info", eventName, details);
+    appendVideoDebugLog(eventName === "VISIBLE_PREVIEW_ERROR" ? "error" : "info", eventName, details);
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : seekableDuration && seekableDuration > 0 ? seekableDuration : null;
     if (duration !== null) {
       previewDurationRef.current = duration;
       setPreviewDuration(duration);
-      addDebugEntry("info", "PREVIEW_DURATION_RESOLVED", { duration, method: Number.isFinite(video.duration) && video.duration > 0 ? eventName : "seekable" });
+      appendVideoDebugLog("info", "PREVIEW_DURATION_RESOLVED", { duration, method: Number.isFinite(video.duration) && video.duration > 0 ? eventName : "seekable" });
       if (duration > VIDEO_COMMENT_MAX_SECONDS) setPreviewError(t("movieDetailVideoLongerThan20Seconds"));
     }
     if ((eventName === "VISIBLE_PREVIEW_LOADEDDATA" || eventName === "VISIBLE_PREVIEW_CANPLAY") && !video.error) {
@@ -1441,16 +1484,16 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       if (previewDurationRef.current !== null && previewTimeoutRef.current !== null) {
         window.clearTimeout(previewTimeoutRef.current);
         previewTimeoutRef.current = null;
-        addDebugEntry("info", "PREVIEW_RESOLVED", { duration: previewDurationRef.current, event: eventName });
+        appendVideoDebugLog("info", "PREVIEW_RESOLVED", { duration: previewDurationRef.current, event: eventName });
       }
     }
-  }, [addDebugEntry, previewFile, t]);
+  }, [appendVideoDebugLog, previewFile, t]);
 
   useEffect(() => {
     if (recorderState !== "previewRecorded" && recorderState !== "previewSelected" && recorderState !== "uploading") return;
     const disabledReason = !previewFile ? "missing-file" : !previewUrl ? "missing-url" : !previewPlayable ? "not-playable" : previewDuration === null ? "duration-pending" : previewDuration <= 0 ? "invalid-duration" : previewDuration > VIDEO_COMMENT_MAX_SECONDS ? "too-long" : recorderState === "uploading" ? "uploading" : null;
-    addDebugEntry("info", "SEND_STATE", { hasFile: !!previewFile, fileSize: previewFile?.size ?? 0, hasUrl: !!previewUrl, duration: previewDuration, playable: previewPlayable, uploading: recorderState === "uploading", disabledReason });
-  }, [addDebugEntry, previewDuration, previewFile, previewPlayable, previewUrl, recorderState]);
+    appendVideoDebugLog("info", "SEND_STATE", { hasFile: !!previewFile, fileSize: previewFile?.size ?? 0, hasUrl: !!previewUrl, duration: previewDuration, playable: previewPlayable, uploading: recorderState === "uploading", disabledReason });
+  }, [appendVideoDebugLog, previewDuration, previewFile, previewPlayable, previewUrl, recorderState]);
 
   const isLocalVideoState = recorderState === "preparingRecorder" || recorderState === "recording" || recorderState === "validatingSelected" || recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading";
   const showRecorderShell = recorderState === "preparingRecorder" || recorderState === "recording" || recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading";
@@ -1462,8 +1505,29 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     const text = debugEntries.map((entry) => `${entry.timestamp} ${entry.level.toUpperCase()} ${entry.event} ${JSON.stringify(entry.details)}`).join("\n");
     void navigator.clipboard?.writeText(text).catch((copyError) => console.error("[VideoCommentsDebug] COPY_LOGS_FAILED", copyError));
   }, [debugEntries]);
+  const debugOverlay = videoDebugEnabled && active && clientMounted ? createPortal(<>
+    <button type="button" className="fixed left-2 top-2 z-[101] rounded-md border-2 border-amber-300 bg-black px-2 py-1 text-[10px] font-black text-amber-200 shadow-2xl" onClick={() => { setDebugPanelOpen(true); setDebugPanelMinimized(false); }}>
+      VIDEO DEBUG ACTIVO · {recorderState}
+    </button>
+    {debugPanelOpen ? <aside className="fixed bottom-[calc(env(safe-area-inset-bottom)+8px)] left-2 right-2 z-[100] max-h-[40dvh] overflow-y-auto rounded-xl border-2 border-amber-300 bg-zinc-950 p-3 text-left text-[10px] text-zinc-100 shadow-2xl" aria-label="Video comments debug logs">
+      <div className="sticky top-0 z-10 mb-2 bg-zinc-950 pb-2">
+        <strong className="block text-sm text-amber-200">VIDEO DEBUG ACTIVO</strong>
+        <p className="select-text break-all text-zinc-300">pathname: {pathname}</p>
+        <p className="select-text text-zinc-300">videoDebug: {videoDebugValue ?? "null"} · fase: {recorderState}</p>
+        <p className="select-text text-zinc-300">Video debug build: {videoDebugBuild}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" className="rounded border border-white/30 px-2 py-1" onClick={copyDebugLogs}>Copiar logs</button>
+          <button type="button" className="rounded border border-white/30 px-2 py-1" onClick={() => setDebugEntries([])}>Limpiar</button>
+          <button type="button" className="rounded border border-white/30 px-2 py-1" onClick={() => setDebugPanelMinimized((value) => !value)}>{debugPanelMinimized ? "Expandir" : "Minimizar"}</button>
+          <button type="button" className="rounded border border-white/30 px-2 py-1" onClick={() => setDebugPanelOpen(false)}>Cerrar</button>
+          <button type="button" className="rounded border border-amber-300/70 px-2 py-1 text-amber-100" onClick={() => appendVideoDebugLog("info", "MANUAL_DEBUG_TEST", { phase: recorderState })}>Agregar log de prueba</button>
+        </div>
+      </div>
+      {!debugPanelMinimized ? <pre className="select-text whitespace-pre-wrap break-words">{debugEntries.map((entry) => `${entry.timestamp} ${entry.level.toUpperCase()} ${entry.event}\n${JSON.stringify(entry.details)}\n`).join("\n") || "Sin registros todavía."}</pre> : null}
+    </aside> : null}
+  </>, document.body) : null;
 
-  return <section className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
+  return <><section className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)]">
       <div ref={menuRef} className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
@@ -1497,8 +1561,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
               <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</span><div className="min-w-0 flex-1"><Link href={`/users/${encodeURIComponent(comment.user.username)}`} className="truncate text-sm font-bold text-zinc-100 hover:text-[#86ADE0]">{comment.user.username}</Link><time className="text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[String(comment.id)]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div><div className="aspect-square w-full overflow-hidden rounded-xl bg-black"><video data-video-comment-player="true" src={comment.video_url} controls preload="metadata" playsInline className="h-full w-full object-cover" onPlay={onPlay} /></div></article>) : null}
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
-    {videoDebugEnabled && debugPanelOpen ? <aside className="fixed bottom-[calc(env(safe-area-inset-bottom)+8px)] left-2 right-2 z-[70] max-h-[38dvh] overflow-y-auto rounded-xl border border-amber-300/40 bg-zinc-950/95 p-3 text-left text-[10px] text-zinc-200 shadow-2xl" aria-label="Video comments debug logs"><div className="sticky top-0 mb-2 flex items-center gap-2 bg-zinc-950 pb-2"><strong className="mr-auto text-amber-200">Video debug ({debugEntries.length})</strong><button type="button" className="rounded border border-white/20 px-2 py-1" onClick={copyDebugLogs}>Copiar logs</button><button type="button" className="rounded border border-white/20 px-2 py-1" onClick={() => setDebugEntries([])}>Limpiar</button><button type="button" className="rounded border border-white/20 px-2 py-1" onClick={() => setDebugPanelOpen(false)}>Cerrar</button></div><pre className="select-text whitespace-pre-wrap break-words">{debugEntries.map((entry) => `${entry.timestamp} ${entry.level.toUpperCase()} ${entry.event}\n${JSON.stringify(entry.details)}\n`).join("\n") || "Sin registros todavía."}</pre></aside> : null}
-  </section>;
+  </section>{debugOverlay}</>;
 }
 
 function MovieDetailPageContent() {

@@ -109,14 +109,52 @@ test('object URL cleanup is stable and does not run on preview phase changes', (
 });
 
 test('debug panel is query-enabled, bounded, copyable, and contains no auth data', () => {
-  has(/searchParams\.get\("videoDebug"\) === "1"/);
+  has(/const videoDebugValue = searchParams\.get\("videoDebug"\)/);
+  has(/const videoDebugEnabled = videoDebugValue === "1"/);
+  const activationLine = page.match(/const videoDebugEnabled =[^;]+;/)?.[0] ?? '';
+  assert.doesNotMatch(activationLine, /NODE_ENV|hostname|localhost/);
   has(/\[\.\.\.current\.slice\(-99\), entry\]/);
   has(/navigator\.clipboard\?\.writeText\(text\)/);
   has(/>Copiar logs<\/button>/);
   has(/>Limpiar<\/button>/);
   has(/>Cerrar<\/button>/);
-  const debugPanel = page.slice(page.indexOf('videoDebugEnabled && debugPanelOpen'), page.indexOf('</section>;', page.indexOf('videoDebugEnabled && debugPanelOpen')));
+  const debugPanel = page.slice(page.indexOf('const debugOverlay'), page.indexOf('return <><section'));
   assert.doesNotMatch(debugPanel, /token|authorization|headers/i);
+});
+
+test('debug panel initializes immediately and remains independent of recorder phase', () => {
+  has(/DEBUG_PANEL_INITIALIZED/);
+  has(/pathname,/);
+  has(/videoDebug: videoDebugValue/);
+  has(/phase: "idle"/);
+  has(/const debugOverlay = videoDebugEnabled && active && clientMounted \? createPortal/);
+  const debugOverlay = page.slice(page.indexOf('const debugOverlay'), page.indexOf('return <><section'));
+  for (const phase of ['recording', 'previewRecorded', 'previewSelected', 'error']) assert.doesNotMatch(debugOverlay, new RegExp(`recorderState === "${phase}"`));
+});
+
+test('debug panel has activation badge, build id, high z-index and all controls', () => {
+  has(/VIDEO DEBUG ACTIVO · \{recorderState\}/);
+  has(/Video debug build: \{videoDebugBuild\}/);
+  has(/z-\[101\]/);
+  has(/z-\[100\]/);
+  has(/max-h-\[40dvh\] overflow-y-auto/);
+  has(/Minimizar/);
+  has(/Expandir/);
+  has(/Agregar log de prueba/);
+  has(/MANUAL_DEBUG_TEST/);
+});
+
+test('appendVideoDebugLog safely updates visible state and keeps 100 entries', () => {
+  has(/const appendVideoDebugLog = useCallback<VideoDebugLogger>/);
+  has(/sanitizeVideoDebugDetails\(details\)/);
+  has(/setDebugEntries\(\(current\) => \[\.\.\.current\.slice\(-99\), entry\]\)/);
+});
+
+test('history callback identity cannot clean a newly mounted preview', () => {
+  has(/reloadFirstPageRef\.current = reloadFirstPage/);
+  has(/if \(active\) void reloadFirstPageRef\.current\(\)/);
+  has(/\}, \[active, cleanupRecorder\]\)/);
+  assert.doesNotMatch(page, /\[active, cleanupRecorder, reloadFirstPage\]/);
 });
 
 test('diagnostics include recorder, file, temporary and visible video events', () => {
