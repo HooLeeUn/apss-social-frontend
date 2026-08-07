@@ -53,7 +53,7 @@ test('permission info acceptance is session-only and non audiovisual', () => {
   has(/VIDEO_COMMENT_PERMISSION_SESSION_KEY/);
   has(/sessionStorage\.setItem\(VIDEO_COMMENT_PERMISSION_SESSION_KEY, "1"\)/);
   const sessionWrites = [...page.matchAll(/sessionStorage\.setItem\(([^)]*)\)/g)].map((match) => match[1]);
-  assert.deepEqual(sessionWrites, ['VIDEO_COMMENT_PERMISSION_SESSION_KEY, "1"']);
+  assert.ok(sessionWrites.includes('VIDEO_COMMENT_PERMISSION_SESSION_KEY, "1"'));
 });
 
 test('file input preserves file before clearing and valid selected file becomes previewSelected', () => {
@@ -192,11 +192,64 @@ test('history loading and sentinel only render in idle', () => {
 });
 
 test('history renders video, username profile link, avatar, date, and preserves backend order', () => {
-  has(/comments\.map\(\(comment\) => <article/);
+  has(/comments\.map\(\(comment\) => \{/);
   has(/<Link href=\{`\/users\/\$\{encodeURIComponent\(comment\.user\.username\)\}`\}/);
   has(/<time className="text-xs text-zinc-500">\{new Date\(comment\.created_at\)\.toLocaleDateString\(\)\}<\/time>/);
-  has(/src=\{comment\.video_url\} controls preload="metadata" playsInline/);
+  has(/src=\{comment\.video_url\} preload="metadata" playsInline/);
   assert.doesNotMatch(page, /comments\.sort\(/);
+});
+
+test('delete action is rendered exclusively from backend can_delete', () => {
+  has(/comment\.can_delete === true \? <button/);
+});
+
+test('history autoplay uses visibility rather than scroll direction and maintains one active video', () => {
+  has(/VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0\.55/);
+  has(/threshold: \[0, VIDEO_COMMENT_VISIBILITY_THRESHOLD, 1\]/);
+  has(/pauseOtherHistoryVideos\(id\)/);
+  has(/entry\.intersectionRatio < VIDEO_COMMENT_VISIBILITY_THRESHOLD/);
+  has(/const viewportCenter = window\.innerHeight \/ 2/);
+  has(/ratio > bestRatio/);
+  has(/distance < bestDistance/);
+  assert.doesNotMatch(page, /deltaY|scrollDirection/);
+  has(/video\.pause\(\);\s+video\.currentTime = 0/);
+});
+
+test('session sound preference starts muted, persists manual changes and falls back to muted playback', () => {
+  has(/useState<VideoSoundPreference>\("muted"\)/);
+  has(/VIDEO_COMMENT_SOUND_SESSION_KEY = "qnext-video-sound"/);
+  has(/sessionStorage\.setItem\(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" \? "on" : "off"\)/);
+  has(/video\.muted = soundPreferenceRef\.current !== "sound-on"/);
+  has(/if \(!video\.muted && !manual\)/);
+  has(/video\.muted = true;\s+try \{ await video\.play\(\)/);
+  const playback = page.slice(page.indexOf('const playHistoryVideo'), page.indexOf('const chooseVisibleHistoryVideo'));
+  assert.doesNotMatch(playback, /soundPreferenceRef\.current = "muted"/);
+});
+
+test('manual pause is sticky until exit and re-entry, while restart seeks without forcing play', () => {
+  has(/pausedByUserRef\.current\.add\(id\)/);
+  has(/pausedByUserRef\.current\.delete\(id\)/);
+  has(/pausedByUserRef\.current\.has\(id\)/);
+  has(/video\.currentTime = 0/);
+  const restart = page.slice(page.indexOf('const restartHistoryVideo'), page.indexOf('const playExpandedVideo'));
+  assert.doesNotMatch(restart, /\.play\(/);
+});
+
+test('history uses custom controls and disables download, rate and picture-in-picture', () => {
+  const history = page.slice(page.indexOf('comments.map((comment)'), page.indexOf('loadingMore ?'));
+  assert.doesNotMatch(history, /\scontrols(?:\s|=)/);
+  assert.match(history, /controlsList="nodownload noplaybackrate"/);
+  assert.match(history, /disablePictureInPicture disableRemotePlayback/);
+  assert.match(page, /video\.disablePictureInPicture = true/);
+  for (const key of ['movieDetailVideoPlay', 'movieDetailVideoPause', 'movieDetailVideoSoundOn', 'movieDetailVideoMute', 'movieDetailVideoRestart']) assert.match(history, new RegExp(key));
+  assert.doesNotMatch(history, />Download<|requestPictureInPicture/i);
+});
+
+test('infinite-scroll videos are observed and active deletion clears playback references', () => {
+  has(/\[comments, recorderState, syncPlayerState\]/);
+  has(/historyObserverRef\.current\?\.observe\(video\)/);
+  has(/historyObserverRef\.current\?\.unobserve\(video\)/);
+  has(/if \(activeVideoIdRef\.current === key\) activeVideoIdRef\.current = null/);
 });
 
 test('infinite scroll uses main viewport observer and avoids duplicate loads', () => {
@@ -206,9 +259,50 @@ test('infinite scroll uses main viewport observer and avoids duplicate loads', (
   has(/dedupeVideoComments/);
 });
 
-test('visibilitychange does not clear selected files', () => {
-  assert.doesNotMatch(page, /visibilitychange/);
+test('visibilitychange pauses all players without clearing selected files', () => {
+  has(/document\.addEventListener\("visibilitychange", pauseAllWhenHidden\)/);
+  has(/if \(!document\.hidden\) return/);
+  has(/historyVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
+  has(/expandedVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
   assert.doesNotMatch(page, /document\.visibilityState/);
+});
+
+test('expanded feed opens on the selected video and provides bidirectional scroll snap', () => {
+  has(/setExpandedVideoId\(id\)/);
+  has(/data-expanded-video-card=\{id\}/);
+  has(/scrollIntoView\(\{ block: "start" \}\)/);
+  has(/h-\[100dvh\] snap-y snap-mandatory overflow-y-auto/);
+  has(/h-\[100dvh\] snap-start snap-always/);
+  has(/scrollSnapStop: "always"/);
+  has(/EXPANDED_VIDEO_VISIBILITY_THRESHOLD = 0\.7/);
+  assert.doesNotMatch(page, /requestFullscreen/);
+});
+
+test('expanded feed shares sound, resets switched videos and has custom controls', () => {
+  const expanded = page.slice(page.indexOf('expandedVideoId !== null ?'), page.indexOf('</section>;'));
+  assert.match(expanded, /movieDetailVideoExpand|movieDetailVideoCloseExpanded/);
+  assert.match(expanded, /soundPreferenceRef\.current/);
+  assert.match(expanded, /VIDEO_COMMENT_SOUND_SESSION_KEY/);
+  assert.match(page, /item\.pause\(\);\s+item\.currentTime = 0/);
+  assert.match(expanded, /controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback/);
+  assert.doesNotMatch(expanded, /\scontrols(?:\s|=)|requestPictureInPicture|playbackRate/);
+});
+
+test('expanded feed locks body, respects safe areas, closes and returns to its history card', () => {
+  has(/document\.body\.style\.overflow = "hidden"/);
+  has(/document\.body\.style\.overflow = expandedBodyOverflowRef\.current \?\? ""/);
+  has(/env\(safe-area-inset-top\)/);
+  has(/env\(safe-area-inset-bottom\)/);
+  has(/data-video-comment-card=\{id\}/);
+  has(/scrollIntoView\(\{ block: "center" \}\)/);
+  has(/expandedVideosRef\.current\.forEach\(\(video\) => \{ video\.pause\(\); video\.currentTime = 0; \}\)/);
+});
+
+test('expanded feed reuses comments and pagination state', () => {
+  has(/\{comments\.map\(\(comment\) => \{/);
+  has(/ref=\{expandedSentinelRef\}/);
+  has(/fetchPage\(next, "more"\)/);
+  has(/expandedObserverRef\.current\?\.unobserve\(video\)/);
 });
 
 test('phase-specific errors keep upload error only in upload path', () => {
