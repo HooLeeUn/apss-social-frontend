@@ -203,12 +203,16 @@ test('delete action is rendered exclusively from backend can_delete', () => {
   has(/comment\.can_delete === true \? <button/);
 });
 
-test('history autoplay observes 60 percent visibility and maintains one active video', () => {
-  has(/VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0\.6/);
+test('history autoplay uses visibility rather than scroll direction and maintains one active video', () => {
+  has(/VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0\.55/);
   has(/threshold: \[0, VIDEO_COMMENT_VISIBILITY_THRESHOLD, 1\]/);
   has(/pauseOtherHistoryVideos\(id\)/);
   has(/entry\.intersectionRatio < VIDEO_COMMENT_VISIBILITY_THRESHOLD/);
-  has(/if \(!video\.paused\) video\.pause\(\)/);
+  has(/const viewportCenter = window\.innerHeight \/ 2/);
+  has(/ratio > bestRatio/);
+  has(/distance < bestDistance/);
+  assert.doesNotMatch(page, /deltaY|scrollDirection/);
+  has(/video\.pause\(\);\s+video\.currentTime = 0/);
 });
 
 test('session sound preference starts muted, persists manual changes and falls back to muted playback', () => {
@@ -225,9 +229,9 @@ test('session sound preference starts muted, persists manual changes and falls b
 test('manual pause is sticky until exit and re-entry, while restart seeks without forcing play', () => {
   has(/pausedByUserRef\.current\.add\(id\)/);
   has(/pausedByUserRef\.current\.delete\(id\)/);
-  has(/!pausedByUserRef\.current\.has\(id\)/);
+  has(/pausedByUserRef\.current\.has\(id\)/);
   has(/video\.currentTime = 0/);
-  const restart = page.slice(page.indexOf('const restartHistoryVideo'), page.indexOf('const tryWebKitBlobPreviewFallback'));
+  const restart = page.slice(page.indexOf('const restartHistoryVideo'), page.indexOf('const playExpandedVideo'));
   assert.doesNotMatch(restart, /\.play\(/);
 });
 
@@ -255,9 +259,50 @@ test('infinite scroll uses main viewport observer and avoids duplicate loads', (
   has(/dedupeVideoComments/);
 });
 
-test('visibilitychange does not clear selected files', () => {
-  assert.doesNotMatch(page, /visibilitychange/);
+test('visibilitychange pauses all players without clearing selected files', () => {
+  has(/document\.addEventListener\("visibilitychange", pauseAllWhenHidden\)/);
+  has(/if \(!document\.hidden\) return/);
+  has(/historyVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
+  has(/expandedVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
   assert.doesNotMatch(page, /document\.visibilityState/);
+});
+
+test('expanded feed opens on the selected video and provides bidirectional scroll snap', () => {
+  has(/setExpandedVideoId\(id\)/);
+  has(/data-expanded-video-card=\{id\}/);
+  has(/scrollIntoView\(\{ block: "start" \}\)/);
+  has(/h-\[100dvh\] snap-y snap-mandatory overflow-y-auto/);
+  has(/h-\[100dvh\] snap-start snap-always/);
+  has(/scrollSnapStop: "always"/);
+  has(/EXPANDED_VIDEO_VISIBILITY_THRESHOLD = 0\.7/);
+  assert.doesNotMatch(page, /requestFullscreen/);
+});
+
+test('expanded feed shares sound, resets switched videos and has custom controls', () => {
+  const expanded = page.slice(page.indexOf('expandedVideoId !== null ?'), page.indexOf('</section>;'));
+  assert.match(expanded, /movieDetailVideoExpand|movieDetailVideoCloseExpanded/);
+  assert.match(expanded, /soundPreferenceRef\.current/);
+  assert.match(expanded, /VIDEO_COMMENT_SOUND_SESSION_KEY/);
+  assert.match(page, /item\.pause\(\);\s+item\.currentTime = 0/);
+  assert.match(expanded, /controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback/);
+  assert.doesNotMatch(expanded, /\scontrols(?:\s|=)|requestPictureInPicture|playbackRate/);
+});
+
+test('expanded feed locks body, respects safe areas, closes and returns to its history card', () => {
+  has(/document\.body\.style\.overflow = "hidden"/);
+  has(/document\.body\.style\.overflow = expandedBodyOverflowRef\.current \?\? ""/);
+  has(/env\(safe-area-inset-top\)/);
+  has(/env\(safe-area-inset-bottom\)/);
+  has(/data-video-comment-card=\{id\}/);
+  has(/scrollIntoView\(\{ block: "center" \}\)/);
+  has(/expandedVideosRef\.current\.forEach\(\(video\) => \{ video\.pause\(\); video\.currentTime = 0; \}\)/);
+});
+
+test('expanded feed reuses comments and pagination state', () => {
+  has(/\{comments\.map\(\(comment\) => \{/);
+  has(/ref=\{expandedSentinelRef\}/);
+  has(/fetchPage\(next, "more"\)/);
+  has(/expandedObserverRef\.current\?\.unobserve\(video\)/);
 });
 
 test('phase-specific errors keep upload error only in upload path', () => {
