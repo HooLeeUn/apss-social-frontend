@@ -26,7 +26,8 @@ test('cancel returns directly to idle and stops tracks', () => {
 });
 
 test('MediaRecorder waits for last dataavailable before building Blob', () => {
-  has(/recorder\.ondataavailable = \(event\) => \{\s+if \(event\.data\.size\) chunksRef\.current\.push\(event\.data\)/);
+  has(/recorder\.ondataavailable = \(event\) => \{\s+if \(event\.data\.size > 0\)/);
+  has(/chunksRef\.current\.push\(event\.data\)/);
   has(/recorder\.onstop = \(\) => \{/);
   has(/const chunks = \[\.\.\.chunksRef\.current\]/);
   assert.ok(page.indexOf('const chunks = [...chunksRef.current]') < page.indexOf('const blob = new Blob(chunks'));
@@ -81,10 +82,10 @@ test('visible preview mounts before duration and drives duration/playability', (
   has(/setPreviewDuration\(null\)/);
   has(/changeRecorderState\(source === "recorded" \? "previewRecorded" : "previewSelected"\)/);
   has(/src=\{previewUrl\} controls preload="auto" playsInline/);
-  has(/onLoadedMetadata=\{\(event\) => handlePreviewMediaEvent\("duration"/);
-  has(/onDurationChange=\{\(event\) => handlePreviewMediaEvent\("duration"/);
-  has(/onLoadedData=\{\(event\) => handlePreviewMediaEvent\("playable"/);
-  has(/onCanPlay=\{\(event\) => handlePreviewMediaEvent\("playable"/);
+  has(/onLoadedMetadata=\{\(event\) => \{[\s\S]*?handlePreviewMediaEvent\("duration"/);
+  has(/onDurationChange=\{\(event\) => \{[\s\S]*?handlePreviewMediaEvent\("duration"/);
+  has(/onLoadedData=\{\(event\) => \{[\s\S]*?handlePreviewMediaEvent\("playable"/);
+  has(/onCanPlay=\{\(event\) => \{[\s\S]*?handlePreviewMediaEvent\("playable"/);
 });
 
 test('Infinity is rejected and seekable can resolve duration', () => {
@@ -114,8 +115,40 @@ test('object URL is revoked only by explicit cancel, retake, successful upload, 
   assert.match(upload, /await apiFetch[\s\S]*revokePreview\(\)[\s\S]*setRecorderState\("idle"\)/);
 });
 
-test('temporary video diagnostics and query-controlled panel are fully removed', () => {
-  for (const removed of ['videoDebug', 'VIDEO DEBUG ACTIVO', 'DEBUG_PANEL_INITIALIZED', 'MANUAL_DEBUG_TEST', 'appendVideoDebugLog', 'TEMP_VIDEO_', 'SEND_STATE', 'createPortal']) assert.doesNotMatch(page, new RegExp(removed));
+test('temporary video diagnostics are opt-in and contain no sensitive data', () => {
+  has(/get\("videoDebug"\) === "1"/);
+  has(/videoDebugEnabled \? <aside/);
+  for (const event of ['IOS_ENVIRONMENT','RECORDER_CREATED','DATA_AVAILABLE','RECORDER_STOPPED','RECORDED_BLOB','RECORDED_FILE','PREVIEW_METHOD','PREVIEW_EVENTS','PREVIEW_ERROR']) has(new RegExp(event));
+  assert.doesNotMatch(page, /appendVideoDebugLog\([^\n]*(token|authorization|cookie)/i);
+});
+
+test('iOS MIME order, feature checks, constructor fallback, and real output type are preserved', () => {
+  has(/IOS_VIDEO_COMMENT_MIME_CANDIDATES = \["video\/mp4", "video\/mp4;codecs=avc1\.42E01E,mp4a\.40\.2", "video\/webm;codecs=vp8,opus", "video\/webm"\]/);
+  has(/VIDEO_COMMENT_MIME_CANDIDATES = \["video\/webm;codecs=vp8,opus", "video\/webm;codecs=vp9,opus", "video\/webm", "video\/mp4"\]/);
+  has(/!MediaRecorder\.isTypeSupported\(mimeType\)\) continue/);
+  has(/return \{ recorder: new MediaRecorder\(stream\), requestedMimeType: "" \}/);
+  has(/const realMimeType = recorder\.mimeType/);
+  has(/base === "video\/mp4" \? "mp4" : base === "video\/webm" \? "webm"/);
+});
+
+test('stop is idempotent, keeps chunks through onstop, and rejects empty aggregate', () => {
+  has(/stopRequestedRef = useRef\(false\)/);
+  has(/recorder\?\.state === "recording" && !stopRequestedRef\.current/);
+  has(/stopRequestedRef\.current = true/);
+  has(/const totalSize = chunks\.reduce/);
+  has(/chunks\.length === 0 \|\| totalSize <= 0/);
+});
+
+test('WebKit preview fallback is isolated from Android and object URL remains first', () => {
+  assert.ok(page.indexOf('URL.createObjectURL(file)') < page.indexOf('srcObject = file'));
+  has(/if \(!iosWebKit \|\| !video \|\| !file/);
+  has(/srcObject = file/);
+  has(/previewTimeoutRef\.current = window\.setTimeout/);
+});
+
+test('iOS upload selections accept QuickTime and empty MIME with a valid extension', () => {
+  has(/VIDEO_COMMENT_ALLOWED_EXTENSIONS = \["mp4", "webm", "mov", "m4v"\]/);
+  has(/file\.type && !file\.type\.startsWith\("video\/"\) && !hasVideoLikeExtension/);
 });
 
 test('history callback identity cannot clean a newly mounted preview', () => {
