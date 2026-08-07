@@ -46,6 +46,9 @@ type CommentInputMode = "text-comment" | "video-comment";
 const VIDEO_COMMENT_MAX_SECONDS = 20;
 const VIDEO_COMMENT_MAX_BYTES = 50 * 1024 * 1024;
 const VIDEO_COMMENT_PERMISSION_SESSION_KEY = "qnext_video_comment_permission_info_accepted";
+const VIDEO_COMMENT_SOUND_SESSION_KEY = "qnext-video-sound";
+const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.6;
+type VideoSoundPreference = "muted" | "sound-on";
 const VIDEO_COMMENT_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
 const VIDEO_COMMENT_PREVIEW_SIZE = "min(calc(100vw - 56px), calc(100dvh - 330px))";
 const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm", "video/mp4"];
@@ -969,6 +972,15 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   const videoDebugEnabled = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("videoDebug") === "1";
   const iosWebKit = isIOSWebKitEnvironment();
   const reloadFirstPageRef = useRef<() => Promise<void>>(async () => undefined);
+  const historyVideosRef = useRef(new Map<string, HTMLVideoElement>());
+  const historyObserverRef = useRef<IntersectionObserver | null>(null);
+  const visibilityRef = useRef(new Map<string, number>());
+  const pausedByUserRef = useRef(new Set<string>());
+  const endedRef = useRef(new Set<string>());
+  const activeVideoIdRef = useRef<string | null>(null);
+  const [playerStates, setPlayerStates] = useState<Record<string, { paused: boolean; muted: boolean }>>({});
+  const [soundPreference, setSoundPreference] = useState<VideoSoundPreference>("muted");
+  const soundPreferenceRef = useRef<VideoSoundPreference>("muted");
 
   const appendVideoDebugLog = useCallback((event: string, details: Record<string, unknown>) => {
     if (!videoDebugEnabled) return;
@@ -986,6 +998,119 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   // Diagnostic snapshot must be emitted once per mount.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoDebugEnabled]);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(VIDEO_COMMENT_SOUND_SESSION_KEY);
+      const preference: VideoSoundPreference = stored === "on" ? "sound-on" : "muted";
+      soundPreferenceRef.current = preference;
+      setSoundPreference(preference);
+    } catch {
+      soundPreferenceRef.current = "muted";
+    }
+  }, []);
+
+  const syncPlayerState = useCallback((video: HTMLVideoElement) => {
+    const id = video.dataset.videoCommentId;
+    if (!id) return;
+    setPlayerStates((states) => ({ ...states, [id]: { paused: video.paused, muted: video.muted } }));
+  }, []);
+
+  const pauseOtherHistoryVideos = useCallback((nextId: string) => {
+    historyVideosRef.current.forEach((video, id) => {
+      if (id !== nextId && !video.paused) video.pause();
+    });
+  }, []);
+
+  const playHistoryVideo = useCallback(async (id: string, manual = false) => {
+    const video = historyVideosRef.current.get(id);
+    if (!video) return;
+    pauseOtherHistoryVideos(id);
+    activeVideoIdRef.current = id;
+    if (manual) {
+      pausedByUserRef.current.delete(id);
+      endedRef.current.delete(id);
+    }
+    video.muted = soundPreferenceRef.current !== "sound-on";
+    try {
+      await video.play();
+    } catch {
+      if (!video.muted && !manual) {
+        video.muted = true;
+        try { await video.play(); } catch { /* Autoplay may still be unavailable; scrolling must continue. */ }
+      }
+    }
+    syncPlayerState(video);
+  }, [pauseOtherHistoryVideos, syncPlayerState]);
+
+  const chooseVisibleHistoryVideo = useCallback(() => {
+    const activeId = activeVideoIdRef.current;
+    if (activeId && (visibilityRef.current.get(activeId) ?? 0) >= VIDEO_COMMENT_VISIBILITY_THRESHOLD) return;
+    let candidate: string | null = null;
+    let bestRatio = VIDEO_COMMENT_VISIBILITY_THRESHOLD;
+    visibilityRef.current.forEach((ratio, id) => {
+      if (ratio >= bestRatio && !pausedByUserRef.current.has(id) && !endedRef.current.has(id)) {
+        candidate = id;
+        bestRatio = ratio;
+      }
+    });
+    if (candidate) void playHistoryVideo(candidate);
+  }, [playHistoryVideo]);
+
+  useEffect(() => {
+    if (!active || typeof IntersectionObserver === "undefined") return;
+    const historyVideos = historyVideosRef.current;
+    const visibility = visibilityRef.current;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target as HTMLVideoElement;
+        const id = video.dataset.videoCommentId;
+        if (!id) return;
+        visibilityRef.current.set(id, entry.intersectionRatio);
+        if (entry.intersectionRatio < VIDEO_COMMENT_VISIBILITY_THRESHOLD) {
+          pausedByUserRef.current.delete(id);
+          endedRef.current.delete(id);
+          if (!video.paused) video.pause();
+          if (activeVideoIdRef.current === id) activeVideoIdRef.current = null;
+        }
+      });
+      chooseVisibleHistoryVideo();
+    }, { root: null, threshold: [0, VIDEO_COMMENT_VISIBILITY_THRESHOLD, 1] });
+    historyObserverRef.current = observer;
+    historyVideos.forEach((video) => observer.observe(video));
+    return () => {
+      observer.disconnect();
+      historyObserverRef.current = null;
+      historyVideos.forEach((video) => video.pause());
+      activeVideoIdRef.current = null;
+      visibility.clear();
+    };
+  }, [active, chooseVisibleHistoryVideo]);
+
+  useEffect(() => {
+    const mounted = new Set<string>();
+    document.querySelectorAll<HTMLVideoElement>('[data-video-comment-player="true"]').forEach((video) => {
+      const id = video.dataset.videoCommentId;
+      if (!id) return;
+      mounted.add(id);
+      if (!historyVideosRef.current.has(id)) {
+        video.muted = soundPreferenceRef.current !== "sound-on";
+        video.disablePictureInPicture = true;
+        historyVideosRef.current.set(id, video);
+        historyObserverRef.current?.observe(video);
+        syncPlayerState(video);
+      }
+    });
+    historyVideosRef.current.forEach((video, id) => {
+      if (!mounted.has(id)) {
+        historyObserverRef.current?.unobserve(video);
+        historyVideosRef.current.delete(id);
+        visibilityRef.current.delete(id);
+        pausedByUserRef.current.delete(id);
+        endedRef.current.delete(id);
+      }
+    });
+  }, [comments, recorderState, syncPlayerState]);
 
   const changeRecorderState = useCallback((nextState: VideoRecorderState) => {
     setRecorderState(nextState);
@@ -1330,6 +1455,16 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
 
   const deleteVideo = useCallback(async (id: string | number) => {
     const key = String(id);
+    const video = historyVideosRef.current.get(key);
+    if (video) {
+      video.pause();
+      historyObserverRef.current?.unobserve(video);
+      historyVideosRef.current.delete(key);
+    }
+    visibilityRef.current.delete(key);
+    pausedByUserRef.current.delete(key);
+    endedRef.current.delete(key);
+    if (activeVideoIdRef.current === key) activeVideoIdRef.current = null;
     setDeletingIds((value) => ({ ...value, [key]: true }));
     try {
       await apiFetch(`/video-comments/${encodeURIComponent(key)}/`, { method: "DELETE" });
@@ -1343,9 +1478,34 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
     }
   }, [t]);
 
-  const onPlay = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
-    document.querySelectorAll<HTMLVideoElement>('[data-video-comment-player="true"]').forEach((video) => { if (video !== event.currentTarget) video.pause(); });
-  }, []);
+  const toggleHistoryPlayback = useCallback((id: string) => {
+    const video = historyVideosRef.current.get(id);
+    if (!video) return;
+    if (video.paused) void playHistoryVideo(id, true);
+    else {
+      pausedByUserRef.current.add(id);
+      video.pause();
+    }
+  }, [playHistoryVideo]);
+
+  const toggleHistorySound = useCallback((id: string) => {
+    const video = historyVideosRef.current.get(id);
+    if (!video) return;
+    const preference: VideoSoundPreference = video.muted ? "sound-on" : "muted";
+    video.muted = preference === "muted";
+    soundPreferenceRef.current = preference;
+    setSoundPreference(preference);
+    try { sessionStorage.setItem(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" ? "on" : "off"); } catch { /* Storage can be unavailable in private contexts. */ }
+    syncPlayerState(video);
+  }, [syncPlayerState]);
+
+  const restartHistoryVideo = useCallback((id: string) => {
+    const video = historyVideosRef.current.get(id);
+    if (!video) return;
+    endedRef.current.delete(id);
+    video.currentTime = 0;
+    syncPlayerState(video);
+  }, [syncPlayerState]);
 
   const tryWebKitBlobPreviewFallback = useCallback((): boolean => {
     const video = previewVideoRef.current;
@@ -1419,7 +1579,7 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
   const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording";
 
 
-  return <section className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
+  return <section data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)]">
       <div ref={menuRef} className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
@@ -1450,8 +1610,22 @@ function MobileVideoComments({ movieId, active, t }: { movieId: string; active: 
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
-      {recorderState === "idle" ? comments.map((comment) => <article key={comment.id} className="space-y-2 rounded-2xl border border-white/10 bg-black/25 p-3"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300">{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
-              <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</span><div className="min-w-0 flex-1"><Link href={`/users/${encodeURIComponent(comment.user.username)}`} className="truncate text-sm font-bold text-zinc-100 hover:text-[#86ADE0]">{comment.user.username}</Link><time className="text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[String(comment.id)]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div><div className="aspect-square w-full overflow-hidden rounded-xl bg-black"><video data-video-comment-player="true" src={comment.video_url} controls preload="metadata" playsInline className="h-full w-full object-cover" onPlay={onPlay} /></div></article>) : null}
+      {recorderState === "idle" ? comments.map((comment) => {
+        const id = String(comment.id);
+        const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
+        return <article key={comment.id} className="space-y-2 rounded-2xl border border-white/10 bg-black/25 p-3">
+          <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300">{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
+            <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</span><div className="min-w-0 flex-1"><Link href={`/users/${encodeURIComponent(comment.user.username)}`} className="truncate text-sm font-bold text-zinc-100 hover:text-[#86ADE0]">{comment.user.username}</Link><time className="text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[id]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div>
+          <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-black">
+            <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-cover" onPlay={(event) => { activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(event.currentTarget); }} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
+            <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pb-3 pt-8">
+              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t(state.paused ? "movieDetailVideoPlay" : "movieDetailVideoPause")} onClick={() => toggleHistoryPlayback(id)}>{state.paused ? "▶" : "Ⅱ"}</button>
+              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => toggleHistorySound(id)}>{state.muted ? "🔇" : "🔊"}</button>
+              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-xl text-white" aria-label={t("movieDetailVideoRestart")} onClick={() => restartHistoryVideo(id)}>↺</button>
+            </div>
+          </div>
+        </article>;
+      }) : null}
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
   </section>;

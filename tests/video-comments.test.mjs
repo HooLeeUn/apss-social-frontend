@@ -53,7 +53,7 @@ test('permission info acceptance is session-only and non audiovisual', () => {
   has(/VIDEO_COMMENT_PERMISSION_SESSION_KEY/);
   has(/sessionStorage\.setItem\(VIDEO_COMMENT_PERMISSION_SESSION_KEY, "1"\)/);
   const sessionWrites = [...page.matchAll(/sessionStorage\.setItem\(([^)]*)\)/g)].map((match) => match[1]);
-  assert.deepEqual(sessionWrites, ['VIDEO_COMMENT_PERMISSION_SESSION_KEY, "1"']);
+  assert.ok(sessionWrites.includes('VIDEO_COMMENT_PERMISSION_SESSION_KEY, "1"'));
 });
 
 test('file input preserves file before clearing and valid selected file becomes previewSelected', () => {
@@ -192,11 +192,60 @@ test('history loading and sentinel only render in idle', () => {
 });
 
 test('history renders video, username profile link, avatar, date, and preserves backend order', () => {
-  has(/comments\.map\(\(comment\) => <article/);
+  has(/comments\.map\(\(comment\) => \{/);
   has(/<Link href=\{`\/users\/\$\{encodeURIComponent\(comment\.user\.username\)\}`\}/);
   has(/<time className="text-xs text-zinc-500">\{new Date\(comment\.created_at\)\.toLocaleDateString\(\)\}<\/time>/);
-  has(/src=\{comment\.video_url\} controls preload="metadata" playsInline/);
+  has(/src=\{comment\.video_url\} preload="metadata" playsInline/);
   assert.doesNotMatch(page, /comments\.sort\(/);
+});
+
+test('delete action is rendered exclusively from backend can_delete', () => {
+  has(/comment\.can_delete === true \? <button/);
+});
+
+test('history autoplay observes 60 percent visibility and maintains one active video', () => {
+  has(/VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0\.6/);
+  has(/threshold: \[0, VIDEO_COMMENT_VISIBILITY_THRESHOLD, 1\]/);
+  has(/pauseOtherHistoryVideos\(id\)/);
+  has(/entry\.intersectionRatio < VIDEO_COMMENT_VISIBILITY_THRESHOLD/);
+  has(/if \(!video\.paused\) video\.pause\(\)/);
+});
+
+test('session sound preference starts muted, persists manual changes and falls back to muted playback', () => {
+  has(/useState<VideoSoundPreference>\("muted"\)/);
+  has(/VIDEO_COMMENT_SOUND_SESSION_KEY = "qnext-video-sound"/);
+  has(/sessionStorage\.setItem\(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" \? "on" : "off"\)/);
+  has(/video\.muted = soundPreferenceRef\.current !== "sound-on"/);
+  has(/if \(!video\.muted && !manual\)/);
+  has(/video\.muted = true;\s+try \{ await video\.play\(\)/);
+  const playback = page.slice(page.indexOf('const playHistoryVideo'), page.indexOf('const chooseVisibleHistoryVideo'));
+  assert.doesNotMatch(playback, /soundPreferenceRef\.current = "muted"/);
+});
+
+test('manual pause is sticky until exit and re-entry, while restart seeks without forcing play', () => {
+  has(/pausedByUserRef\.current\.add\(id\)/);
+  has(/pausedByUserRef\.current\.delete\(id\)/);
+  has(/!pausedByUserRef\.current\.has\(id\)/);
+  has(/video\.currentTime = 0/);
+  const restart = page.slice(page.indexOf('const restartHistoryVideo'), page.indexOf('const tryWebKitBlobPreviewFallback'));
+  assert.doesNotMatch(restart, /\.play\(/);
+});
+
+test('history uses custom controls and disables download, rate and picture-in-picture', () => {
+  const history = page.slice(page.indexOf('comments.map((comment)'), page.indexOf('loadingMore ?'));
+  assert.doesNotMatch(history, /\scontrols(?:\s|=)/);
+  assert.match(history, /controlsList="nodownload noplaybackrate"/);
+  assert.match(history, /disablePictureInPicture disableRemotePlayback/);
+  assert.match(page, /video\.disablePictureInPicture = true/);
+  for (const key of ['movieDetailVideoPlay', 'movieDetailVideoPause', 'movieDetailVideoSoundOn', 'movieDetailVideoMute', 'movieDetailVideoRestart']) assert.match(history, new RegExp(key));
+  assert.doesNotMatch(history, />Download<|requestPictureInPicture/i);
+});
+
+test('infinite-scroll videos are observed and active deletion clears playback references', () => {
+  has(/\[comments, recorderState, syncPlayerState\]/);
+  has(/historyObserverRef\.current\?\.observe\(video\)/);
+  has(/historyObserverRef\.current\?\.unobserve\(video\)/);
+  has(/if \(activeVideoIdRef\.current === key\) activeVideoIdRef\.current = null/);
 });
 
 test('infinite scroll uses main viewport observer and avoids duplicate loads', () => {
