@@ -19,6 +19,26 @@ const MAX_AUTO_LOAD_MORE_ATTEMPTS = 12;
 const VISITED_PROFILE_METADATA_LABEL_CLASSNAME = "font-medium text-blue-200/85";
 const VISITED_PROFILE_ACTIVITY_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[15px] md:text-base`;
 const VISITED_PROFILE_RECOMMENDATION_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[13px]`;
+const SWIPE_INTENT_MAX_GAP_MS = 520;
+const SWIPE_INTENT_MIN_DISTANCE_PX = 42;
+const SWIPE_INTENT_EDGE_DISTANCE_PX = 96;
+const SWIPE_INTENT_REQUIRED_GESTURES = 3;
+
+type VerticalDirection = -1 | 1;
+
+type ActivityTouchGesture = {
+  startY: number;
+  previousY: number;
+  startedAt: number;
+  direction: VerticalDirection | null;
+};
+
+type SwipeIntent = {
+  count: number;
+  direction: VerticalDirection | null;
+  endedAt: number;
+  armedDirection: VerticalDirection | null;
+};
 
 function isIOSWebKitEnvironment(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -709,7 +729,8 @@ export default function MyActivityColumn({
   const [recommendationsLoadedFor, setRecommendationsLoadedFor] = useState<string | null>(null);
   const autoLoadAttemptsRef = useRef(0);
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
-  const iosActivityTouchYRef = useRef<number | null>(null);
+  const activityTouchGestureRef = useRef<ActivityTouchGesture | null>(null);
+  const swipeIntentRef = useRef<SwipeIntent>({ count: 0, direction: null, endedAt: 0, armedDirection: null });
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
   const canShowPrivateInbox = isOwnProfile && hidePrivateInbox === false;
@@ -995,36 +1016,71 @@ export default function MyActivityColumn({
 
   const handleActivityTouchStart = useCallback(
     (event: TouchEvent<HTMLDivElement>) => {
-      if (!isIOSWebKitEnvironment() || effectiveActiveTab === "messages") return;
-      iosActivityTouchYRef.current = event.touches[0]?.clientY ?? null;
+      if (effectiveActiveTab === "messages" || !window.matchMedia("(max-width: 767px)").matches) return;
+      const startY = event.touches[0]?.clientY;
+      if (startY === undefined) return;
+      if (event.timeStamp - swipeIntentRef.current.endedAt > SWIPE_INTENT_MAX_GAP_MS) {
+        swipeIntentRef.current = { count: 0, direction: null, endedAt: 0, armedDirection: null };
+      }
+      activityTouchGestureRef.current = {
+        startY,
+        previousY: startY,
+        startedAt: event.timeStamp,
+        direction: null,
+      };
     },
     [effectiveActiveTab],
   );
 
   const handleActivityTouchMove = useCallback(
     (event: TouchEvent<HTMLDivElement>) => {
-      const previousY = iosActivityTouchYRef.current;
+      const gesture = activityTouchGestureRef.current;
       const currentY = event.touches[0]?.clientY;
-      if (previousY === null || currentY === undefined || effectiveActiveTab === "messages") return;
+      if (!gesture || currentY === undefined || effectiveActiveTab === "messages") return;
 
-      iosActivityTouchYRef.current = currentY;
-      const scrollDelta = previousY - currentY;
-      if (scrollDelta <= 0) return;
+      const scrollDelta = gesture.previousY - currentY;
+      gesture.previousY = currentY;
+      if (Math.abs(scrollDelta) < 0.5) return;
+      const direction: VerticalDirection = scrollDelta > 0 ? 1 : -1;
+      gesture.direction = direction;
 
       const scroller = event.currentTarget;
-      const isAtBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
-      if (!isAtBottom) return;
+      const remainingBelow = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+      const distanceToEdge = direction === 1 ? remainingBelow : scroller.scrollTop;
+      const isAtEdge = distanceToEdge <= 1;
+      const rapidExitIsArmed = swipeIntentRef.current.armedDirection === direction && distanceToEdge <= SWIPE_INTENT_EDGE_DISTANCE_PX;
+      const shouldTransfer = rapidExitIsArmed || (isIOSWebKitEnvironment() && isAtEdge);
+      if (!shouldTransfer) return;
 
-      // iOS WebKit can retain an accelerated nested scroller at its lower edge.
-      // Move only the unconsumed upward gesture to the page; the inbox keeps its native chaining.
+      // iOS WebKit can retain the accelerated nested scroller at either edge. Android
+      // uses this path only after repeated same-direction swipes have armed an exit.
       if (event.cancelable) event.preventDefault();
-      window.scrollBy({ top: scrollDelta, behavior: "auto" });
+      const outerScroller = scroller.ownerDocument.scrollingElement;
+      if (outerScroller) outerScroller.scrollTop += scrollDelta;
     },
     [effectiveActiveTab],
   );
 
-  const clearActivityTouch = useCallback(() => {
-    iosActivityTouchYRef.current = null;
+  const finishActivityTouch = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    const gesture = activityTouchGestureRef.current;
+    activityTouchGestureRef.current = null;
+    if (!gesture?.direction) return;
+
+    const distance = Math.abs(gesture.startY - gesture.previousY);
+    const previous = swipeIntentRef.current;
+    const withinWindow = event.timeStamp - previous.endedAt <= SWIPE_INTENT_MAX_GAP_MS;
+    const qualifies = distance >= SWIPE_INTENT_MIN_DISTANCE_PX && event.timeStamp - gesture.startedAt <= SWIPE_INTENT_MAX_GAP_MS;
+    const count = qualifies ? (withinWindow && previous.direction === gesture.direction ? previous.count + 1 : 1) : 0;
+    swipeIntentRef.current = {
+      count,
+      direction: qualifies ? gesture.direction : null,
+      endedAt: event.timeStamp,
+      armedDirection: count >= SWIPE_INTENT_REQUIRED_GESTURES ? gesture.direction : null,
+    };
+  }, []);
+
+  const cancelActivityTouch = useCallback(() => {
+    activityTouchGestureRef.current = null;
   }, []);
 
   return (
@@ -1116,8 +1172,8 @@ export default function MyActivityColumn({
         onScroll={handleScroll}
         onTouchStart={handleActivityTouchStart}
         onTouchMove={handleActivityTouchMove}
-        onTouchEnd={clearActivityTouch}
-        onTouchCancel={clearActivityTouch}
+        onTouchEnd={finishActivityTouch}
+        onTouchCancel={cancelActivityTouch}
       >
         {effectiveActiveTab === "activity" ? (
           <>
