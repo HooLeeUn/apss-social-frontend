@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useInfiniteMyMessages } from "../../hooks/useInfiniteMyMessages";
 import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSocialActivity";
@@ -19,6 +19,11 @@ const MAX_AUTO_LOAD_MORE_ATTEMPTS = 12;
 const VISITED_PROFILE_METADATA_LABEL_CLASSNAME = "font-medium text-blue-200/85";
 const VISITED_PROFILE_ACTIVITY_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[15px] md:text-base`;
 const VISITED_PROFILE_RECOMMENDATION_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[13px]`;
+
+function isIOSWebKitEnvironment(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
 
 function getActivityRelativeDate(item: SocialActivityItem): string {
   return item.activityAt ?? item.updatedAt ?? item.createdAt;
@@ -704,6 +709,7 @@ export default function MyActivityColumn({
   const [recommendationsLoadedFor, setRecommendationsLoadedFor] = useState<string | null>(null);
   const autoLoadAttemptsRef = useRef(0);
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
+  const iosActivityTouchYRef = useRef<number | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
   const canShowPrivateInbox = isOwnProfile && hidePrivateInbox === false;
@@ -987,6 +993,40 @@ export default function MyActivityColumn({
     [effectiveActiveTab, activity, canShowPrivateInbox, isOwnProfile, messages, visitedActivityTab],
   );
 
+  const handleActivityTouchStart = useCallback(
+    (event: TouchEvent<HTMLDivElement>) => {
+      if (!isIOSWebKitEnvironment() || effectiveActiveTab === "messages") return;
+      iosActivityTouchYRef.current = event.touches[0]?.clientY ?? null;
+    },
+    [effectiveActiveTab],
+  );
+
+  const handleActivityTouchMove = useCallback(
+    (event: TouchEvent<HTMLDivElement>) => {
+      const previousY = iosActivityTouchYRef.current;
+      const currentY = event.touches[0]?.clientY;
+      if (previousY === null || currentY === undefined || effectiveActiveTab === "messages") return;
+
+      iosActivityTouchYRef.current = currentY;
+      const scrollDelta = previousY - currentY;
+      if (scrollDelta <= 0) return;
+
+      const scroller = event.currentTarget;
+      const isAtBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+      if (!isAtBottom) return;
+
+      // iOS WebKit can retain an accelerated nested scroller at its lower edge.
+      // Move only the unconsumed upward gesture to the page; the inbox keeps its native chaining.
+      if (event.cancelable) event.preventDefault();
+      window.scrollBy({ top: scrollDelta, behavior: "auto" });
+    },
+    [effectiveActiveTab],
+  );
+
+  const clearActivityTouch = useCallback(() => {
+    iosActivityTouchYRef.current = null;
+  }, []);
+
   return (
     <section className={`my-activity-column w-full min-w-0 max-w-full ${isOwnProfile ? "md:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}>
       {isOwnProfile ? (
@@ -1074,6 +1114,10 @@ export default function MyActivityColumn({
       <div
         className="my-activity-scroll-area activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
         onScroll={handleScroll}
+        onTouchStart={handleActivityTouchStart}
+        onTouchMove={handleActivityTouchMove}
+        onTouchEnd={clearActivityTouch}
+        onTouchCancel={clearActivityTouch}
       >
         {effectiveActiveTab === "activity" ? (
           <>
