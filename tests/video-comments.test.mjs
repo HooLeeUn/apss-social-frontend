@@ -191,10 +191,24 @@ test('history loading and sentinel only render in idle', () => {
   has(/const showEmpty = recorderState === "idle" && !initialLoading && !historyError && comments\.length === 0/);
 });
 
-test('history renders video, username profile link, avatar, date, and preserves backend order', () => {
+test('history sends username and avatar through the existing author navigation rule', () => {
   has(/comments\.map\(\(comment\) => \{/);
-  has(/<Link href=\{`\/users\/\$\{encodeURIComponent\(comment\.user\.username\)\}`\}/);
-  has(/<time className="text-xs text-zinc-500">\{new Date\(comment\.created_at\)\.toLocaleDateString\(\)\}<\/time>/);
+  has(/<MobileVideoComments[^>]+onAuthorClick=\{handleAuthorNavigation\}/);
+  assert.equal((page.match(/aria-label=\{`Ver perfil de \$\{comment\.user\.username\}`\}/g) || []).length, 2);
+  assert.equal((page.match(/onClick=\{\(\) => onAuthorClick\(comment\.user\.username\)\}/g) || []).length, 4);
+  assert.doesNotMatch(page, /<Link href=\{`\/users\/\$\{encodeURIComponent\(comment\.user\.username\)\}`\}/);
+});
+
+test('video author navigation preserves the own-profile rule from movie comments', () => {
+  has(/if \(authenticatedUsername && username === authenticatedUsername\) \{\s+router\.push\("\/profile-feed"\)/);
+  has(/router\.push\(`\/users\/\$\{encodeURIComponent\(username\)\}`\)/);
+});
+
+test('history separates a truncatable username from a non-shrinking date', () => {
+  assert.equal((page.match(/flex min-w-0 flex-1 items-baseline gap-3/g) || []).length, 2);
+  assert.equal((page.match(/min-w-0 truncate text-left text-sm font-bold/g) || []).length, 2);
+  has(/<time className="shrink-0 text-xs text-zinc-500">\{new Date\(comment\.created_at\)\.toLocaleDateString\(\)\}<\/time>/);
+  has(/<time className="shrink-0 text-xs text-zinc-300">\{new Date\(comment\.created_at\)\.toLocaleDateString\(\)\}<\/time>/);
   has(/src=\{comment\.video_url\} preload="metadata" playsInline/);
   assert.doesNotMatch(page, /comments\.sort\(/);
 });
