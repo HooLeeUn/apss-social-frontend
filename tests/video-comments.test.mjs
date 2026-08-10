@@ -332,3 +332,29 @@ test('main translations exist in Spanish and English', () => {
     assert.equal((i18n.match(new RegExp(`${key}:`, 'g')) || []).length, 2, `${key} should be translated twice`);
   }
 });
+
+test('video reaction is first and active by default while directed deep links select text comments', () => {
+  has(/useState<CommentInputMode>\("video-comment"\)/);
+  has(/\(\["video-comment", "text-comment"\] as const\)\.map/);
+  has(/get\("section"\) !== "directed-comments"\) return;\s+setCommentInputMode\("text-comment"\)/);
+  assert.match(i18n, /movieDetailVideoCommentTitle: "Video reacción"/);
+  assert.match(i18n, /movieDetailVideoCommentTitle: "Video Reaction"/);
+});
+
+test('local previews preserve metadata aspect ratio within viewport-derived bounds', () => {
+  has(/function getLocalPreviewDimensions\(aspectRatio/);
+  has(/viewportWidth \* \(selected \? 0\.82 : 0\.78\)/);
+  has(/viewportHeight \* \(selected \? 0\.38 : 0\.42\)/);
+  has(/setPreviewAspectRatio\(video\.videoWidth \/ video\.videoHeight\)/);
+  has(/object-contain/);
+});
+
+test('front-camera recording mirrors pixels into the final stream and retains audio', () => {
+  has(/facingMode: "user"/);
+  has(/isFrontCamera = videoTrack\.getSettings\(\)\.facingMode !== "environment"/);
+  has(/context\.setTransform\(-1, 0, 0, 1, canvas\.width, 0\)/);
+  has(/canvas\.captureStream\(30\)/);
+  has(/new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\), \.\.\.stream\.getAudioTracks\(\)\]\)/);
+  has(/createRecorderWithFallback\(recordingStream, iosWebKit\)/);
+  has(/-scale-x-100 object-cover/);
+});
