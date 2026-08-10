@@ -240,13 +240,11 @@ test('session sound preference starts muted, persists manual changes and falls b
   assert.doesNotMatch(playback, /soundPreferenceRef\.current = "muted"/);
 });
 
-test('manual pause is sticky until exit and re-entry, while restart seeks without forcing play', () => {
+test('manual pause is sticky for the dominant video and clears when dominance changes', () => {
   has(/pausedByUserRef\.current\.add\(id\)/);
   has(/pausedByUserRef\.current\.delete\(id\)/);
-  has(/pausedByUserRef\.current\.has\(id\)/);
-  has(/video\.currentTime = 0/);
-  const restart = page.slice(page.indexOf('const restartHistoryVideo'), page.indexOf('const playExpandedVideo'));
-  assert.doesNotMatch(restart, /\.play\(/);
+  has(/if \(id !== candidate\) pausedByUserRef\.current\.delete\(id\)/);
+  has(/if \(pausedByUserRef\.current\.has\(candidate\)\) return/);
 });
 
 test('history uses custom controls and disables download, rate and picture-in-picture', () => {
@@ -255,7 +253,9 @@ test('history uses custom controls and disables download, rate and picture-in-pi
   assert.match(history, /controlsList="nodownload noplaybackrate"/);
   assert.match(history, /disablePictureInPicture disableRemotePlayback/);
   assert.match(page, /video\.disablePictureInPicture = true/);
-  for (const key of ['movieDetailVideoPlay', 'movieDetailVideoPause', 'movieDetailVideoSoundOn', 'movieDetailVideoMute', 'movieDetailVideoRestart']) assert.match(history, new RegExp(key));
+  for (const key of ['movieDetailVideoSoundOn', 'movieDetailVideoMute', 'movieDetailVideoExpand']) assert.match(history, new RegExp(key));
+  for (const key of ['movieDetailVideoPlay', 'movieDetailVideoPause', 'movieDetailVideoRestart']) assert.doesNotMatch(history, new RegExp(key));
+  assert.match(history, /onClick=\{\(\) => toggleHistoryPlayback\(id\)\}/);
   assert.doesNotMatch(history, />Download<|requestPictureInPicture/i);
 });
 
@@ -264,6 +264,13 @@ test('infinite-scroll videos are observed and active deletion clears playback re
   has(/historyObserverRef\.current\?\.observe\(video\)/);
   has(/historyObserverRef\.current\?\.unobserve\(video\)/);
   has(/if \(activeVideoIdRef\.current === key\) activeVideoIdRef\.current = null/);
+});
+
+test('newly mounted videos are muted before dominant autoplay and stale active ids cannot block play', () => {
+  has(/playsInline muted=\{state\.muted\}/);
+  has(/historyObserverRef\.current\?\.observe\(video\)/);
+  has(/if \(candidateVideo\?\.paused\) void playHistoryVideo\(candidate\)/);
+  assert.doesNotMatch(page, /candidateVideo\?\.paused && activeVideoIdRef\.current !== candidate/);
 });
 
 test('infinite scroll uses main viewport observer and avoids duplicate loads', () => {
@@ -363,8 +370,8 @@ test('front-camera recording mirrors pixels into the final stream and retains au
 
 test('recording preview is larger without changing selected-file preview limits', () => {
   has(/function getRecordingPreviewDimensions\(viewportWidth/);
-  has(/viewportWidth \* 0\.92/);
-  has(/viewportHeight \* 0\.55/);
+  has(/landscape \? 0\.96 : 0\.92/);
+  has(/landscape \? 0\.7 : 0\.55/);
   has(/isRecordingOverlay\s+\? getRecordingPreviewDimensions/);
   has(/: getLocalPreviewDimensions\(previewAspectRatio, recorderState === "previewSelected"/);
 });
@@ -400,7 +407,7 @@ test('each camera frame is composed once from current dimensions on a clean fixe
 test('portrait recording uses a black canvas and skips the blurred background layer', () => {
   has(/context\.fillStyle = "#000"/);
   has(/context\.fillRect\(0, 0, canvas\.width, canvas\.height\)/);
-  has(/if \(sourceWidth >= sourceHeight\) \{\s+context\.filter = "blur\(24px\) brightness\(0\.58\)"/);
+  assert.doesNotMatch(page, /context\.filter = "blur/);
   has(/foregroundDestination\.x, foregroundDestination\.y, foregroundDestination\.width, foregroundDestination\.height/);
 });
 
@@ -412,8 +419,8 @@ test('known local portrait recording expands as its source ratio without native 
 });
 
 test('portrait recording preview uses available height while horizontal keeps its existing sizing', () => {
-  has(/getPortraitViewportDimensions\(recordedSourceAspectRatio, viewportSize\.width, viewportSize\.height, 250\)/);
-  has(/isPortraitRecording \? recordedSourceAspectRatio : previewAspectRatio/);
+  has(/getPortraitViewportDimensions\(liveSourceAspectRatio, viewportSize\.width, viewportSize\.height, 250\)/);
+  has(/isPortraitRecording \? liveSourceAspectRatio : previewAspectRatio/);
   has(/isPortraitRecording \? "calc\(100svh - 250px\)"/);
   has(/isPortraitRecording \? "absolute left-1\/2 h-full w-auto max-w-none -translate-x-1\/2"/);
   has(/: isRecordingOverlay\s+\? getRecordingPreviewDimensions/);
@@ -423,11 +430,21 @@ test('known published portrait videos use source-ratio sizing in history and exp
   has(/qnext-video-source-ratios:/);
   has(/heightReserve = 0/);
   has(/getHistoryPortraitDimensions\(sourceAspectRatio, viewportSize\.width, viewportSize\.height, stickyHeaderHeight\)/);
-  has(/viewportHeight - stickyHeaderHeight - 140/);
-  has(/viewportWidth \* 0\.82/);
+  has(/viewportHeight - stickyHeaderHeight - 116/);
+  has(/viewportWidth \* 0\.86/);
   has(/expandedPortraitDimensions\.width/);
   has(/data-expanded-video-player="true"/);
   has(/snap-y snap-mandatory/);
+});
+
+test('orientation changes update per-frame composition without resizing the fixed canvas', () => {
+  has(/liveSourceDimensionsRef\.current = \{ width: sourceWidth, height: sourceHeight \}/);
+  has(/setLiveSourceAspectRatio\(sourceWidth \/ sourceHeight\)/);
+  has(/initialSourcePortraitRef\.current !== \(sourceWidth < sourceHeight\)/);
+  has(/setMixedOrientationRecording\(true\)/);
+  has(/!mixedOrientationRecording && recordedSourceAspectRatio/);
+  assert.equal((page.match(/canvas\.width = VIDEO_REACTION_OUTPUT_WIDTH/g) || []).length, 1);
+  assert.equal((page.match(/canvas\.height = VIDEO_REACTION_OUTPUT_HEIGHT/g) || []).length, 1);
 });
 
 test('route teardown releases media pipelines while BFCache pagehide only pauses', () => {

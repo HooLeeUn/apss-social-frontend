@@ -13,11 +13,11 @@ test('portrait background covers the 16:9 canvas with a centered crop', () => {
   assert.deepEqual(rect, { x: 0, y: 437.5, width: 720, height: 405 });
 });
 
-test('landscape 16:9 source needs neither crop nor letterboxing', () => {
+test('landscape 16:9 source uses a black base and needs neither crop nor letterboxing', () => {
   const composition = getVideoFrameComposition(1920, 1080, 1280, 720);
   assert.deepEqual(composition.backgroundSource, { x: 0, y: 0, width: 1920, height: 1080 });
   assert.deepEqual(composition.foregroundDestination, { x: 0, y: 0, width: 1280, height: 720 });
-  assert.equal(composition.backgroundMode, 'camera');
+  assert.equal(composition.backgroundMode, 'black');
 });
 
 test('dominant selector switches from 30 percent to 70 percent visibility', () => {
