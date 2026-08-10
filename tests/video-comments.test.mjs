@@ -358,7 +358,7 @@ test('front-camera recording mirrors pixels into the final stream and retains au
   has(/canvas\.captureStream\(30\)/);
   has(/new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\), \.\.\.stream\.getAudioTracks\(\)\]\)/);
   has(/createRecorderWithFallback\(recordingStream, iosWebKit\)/);
-  has(/<canvas ref=\{mirrorCanvasRef\} className="h-full w-full object-contain"/);
+  has(/<canvas ref=\{mirrorCanvasRef\} className=\{isPortraitRecording \?/);
 });
 
 test('recording preview is larger without changing selected-file preview limits', () => {
@@ -409,6 +409,33 @@ test('known local portrait recording expands as its source ratio without native 
   has(/aspectRatio: recordedSourceAspectRatio/);
   has(/absolute left-1\/2 h-full w-auto max-w-none -translate-x-1\/2 object-contain/);
   has(/data-local-preview-player="true"/);
+});
+
+test('portrait recording preview uses available height while horizontal keeps its existing sizing', () => {
+  has(/getPortraitViewportDimensions\(recordedSourceAspectRatio, viewportSize\.width, viewportSize\.height, 250\)/);
+  has(/isPortraitRecording \? recordedSourceAspectRatio : previewAspectRatio/);
+  has(/isPortraitRecording \? "calc\(100svh - 250px\)"/);
+  has(/isPortraitRecording \? "absolute left-1\/2 h-full w-auto max-w-none -translate-x-1\/2"/);
+  has(/: isRecordingOverlay\s+\? getRecordingPreviewDimensions/);
+});
+
+test('known published portrait videos use source-ratio sizing in history and expanded feed', () => {
+  has(/qnext-video-source-ratios:/);
+  has(/heightReserve = 0/);
+  has(/viewportSize\.height \* 0\.28/);
+  has(/expandedPortraitDimensions\.width/);
+  has(/data-expanded-video-player="true"/);
+  has(/snap-y snap-mandatory/);
+});
+
+test('route teardown releases media pipelines while BFCache pagehide only pauses', () => {
+  has(/releaseVideoReactionPipeline/);
+  has(/video\.removeAttribute\("src"\)/);
+  has(/video\.srcObject = null/);
+  has(/video\.load\(\)/);
+  has(/if \(!event\.persisted\) releaseAllVideoReactionPipelines\(\)/);
+  has(/releaseAllVideoReactionPipelines\(\);\s+historyObserverRef\.current\?\.disconnect/);
+  assert.doesNotMatch(page, /navigator\.mediaSession/);
 });
 
 test('front camera minimum zoom is optional and capability-gated', () => {
