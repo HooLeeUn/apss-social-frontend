@@ -109,6 +109,14 @@ function getPortraitViewportDimensions(aspectRatio: number, viewportWidth: numbe
   const width = Math.min(viewportWidth * 0.92, heightLimit * aspectRatio);
   return { width, height: width / aspectRatio };
 }
+function getHistoryPortraitDimensions(aspectRatio: number, viewportWidth: number, viewportHeight: number, stickyHeaderHeight: number): { width: number; height: number } {
+  const safeRatio = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 9 / 16;
+  // The sticky movie card and tabs are not usable feed space. The remaining reserve covers the
+  // section/card padding, author row, controls overlay and a small safe margin below the video.
+  const availableHeight = Math.max(144, viewportHeight - stickyHeaderHeight - 140);
+  const width = Math.min(viewportWidth * 0.82, availableHeight * safeRatio);
+  return { width, height: width / safeRatio };
+}
 type InlineVideoElement = HTMLVideoElement & { webkitDisplayingFullscreen?: boolean; webkitExitFullscreen?: () => void };
 type ZoomCameraTrack = MediaStreamTrack & {
   getSettings: () => MediaTrackSettings & { zoom?: number };
@@ -981,7 +989,7 @@ function CommentUserSearch({
   );
 }
 
-function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorClick }: { movieId: string; active: boolean; forceMobileLayout: boolean; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void }) {
+function MobileVideoComments({ movieId, active, forceMobileLayout, stickyHeaderHeight, t, onAuthorClick }: { movieId: string; active: boolean; forceMobileLayout: boolean; stickyHeaderHeight: number; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void }) {
   const [recorderState, setRecorderState] = useState<VideoRecorderState>("idle");
   const [error, setError] = useState("");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -2006,7 +2014,7 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
         const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
         const sourceAspectRatio = sourceAspectRatios[id] ?? null;
         const portraitDimensions = sourceAspectRatio !== null && sourceAspectRatio < 1
-          ? getPortraitViewportDimensions(sourceAspectRatio, viewportSize.width, viewportSize.height, viewportSize.height * 0.28)
+          ? getHistoryPortraitDimensions(sourceAspectRatio, viewportSize.width, viewportSize.height, stickyHeaderHeight)
           : null;
         return <article key={comment.id} data-video-comment-card={id} className="space-y-2 rounded-2xl border border-white/10 bg-black/25 p-3">
           <div className="flex items-center gap-3"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
@@ -2102,6 +2110,7 @@ function MovieDetailPageContent() {
   const [activeCommentsTab, setActiveCommentsTab] = useState<"public" | "directed">("public");
   const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("video-comment");
   const [forceMobileLayout, setForceMobileLayout] = useState(false);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
   const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
     useState<PendingDirectedNotificationTarget | null>(null);
   const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -2117,6 +2126,16 @@ function MovieDetailPageContent() {
     updatePhoneLayout();
     phoneQuery.addEventListener("change", updatePhoneLayout);
     return () => phoneQuery.removeEventListener("change", updatePhoneLayout);
+  }, []);
+
+  useEffect(() => {
+    const header = stickyHeaderRef.current;
+    if (!header) return;
+    const updateStickyHeaderHeight = () => setStickyHeaderHeight(header.offsetHeight);
+    updateStickyHeaderHeight();
+    const observer = new ResizeObserver(updateStickyHeaderHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
   }, []);
 
 
@@ -3114,7 +3133,7 @@ function MovieDetailPageContent() {
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
         <div ref={videoCommentStartRef}>
-          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment"} forceMobileLayout={forceMobileLayout} t={t} onAuthorClick={handleAuthorNavigation} />
+          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment"} forceMobileLayout={forceMobileLayout} stickyHeaderHeight={stickyHeaderHeight} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div className={forceMobileLayout ? "hidden" : "hidden md:block"}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />

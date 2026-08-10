@@ -422,7 +422,9 @@ test('portrait recording preview uses available height while horizontal keeps it
 test('known published portrait videos use source-ratio sizing in history and expanded feed', () => {
   has(/qnext-video-source-ratios:/);
   has(/heightReserve = 0/);
-  has(/viewportSize\.height \* 0\.28/);
+  has(/getHistoryPortraitDimensions\(sourceAspectRatio, viewportSize\.width, viewportSize\.height, stickyHeaderHeight\)/);
+  has(/viewportHeight - stickyHeaderHeight - 140/);
+  has(/viewportWidth \* 0\.82/);
   has(/expandedPortraitDimensions\.width/);
   has(/data-expanded-video-player="true"/);
   has(/snap-y snap-mandatory/);
@@ -449,7 +451,14 @@ test('front camera minimum zoom is optional and capability-gated', () => {
 test('preview sizing does not react to browser chrome changes while scrolling', () => {
   assert.doesNotMatch(page, /window\.addEventListener\("resize"/);
   has(/matchMedia\("\(orientation: landscape\)"\)/);
-  assert.doesNotMatch(page, /visualViewport|ResizeObserver/);
+  assert.doesNotMatch(page, /visualViewport|IntersectionObserverEntry.*getHistoryPortraitDimensions/);
+});
+
+test('published portrait sizing tracks the real sticky header without changing expanded sizing', () => {
+  has(/setStickyHeaderHeight\(header\.offsetHeight\)/);
+  has(/new ResizeObserver\(updateStickyHeaderHeight\)/);
+  has(/stickyHeaderHeight=\{stickyHeaderHeight\}/);
+  has(/getPortraitViewportDimensions\(sourceAspectRatio, viewportSize\.width, viewportSize\.height, 24\)/);
 });
 
 test('selected preview expands in an app modal instead of native fullscreen', () => {
