@@ -161,10 +161,11 @@ test('history callback identity cannot clean a newly mounted preview', () => {
 test('preview media handling is idempotent and does not register duplicate listeners', () => {
   has(/previewDurationRef\.current === null/);
   has(/!previewPlayableRef\.current/);
-  assert.equal((page.match(/onDurationChange=/g) || []).length, 1);
-  assert.equal((page.match(/onLoadedMetadata=/g) || []).length, 1);
-  assert.equal((page.match(/onLoadedData=/g) || []).length, 1);
-  assert.equal((page.match(/onCanPlay=/g) || []).length, 1);
+  const localPreview = page.slice(page.indexOf('key={previewUrl}'), page.indexOf('recorderState === "preparingRecorder" ? <span'));
+  assert.equal((localPreview.match(/onDurationChange=/g) || []).length, 1);
+  assert.equal((localPreview.match(/onLoadedMetadata=/g) || []).length, 1);
+  assert.equal((localPreview.match(/onLoadedData=/g) || []).length, 1);
+  assert.equal((localPreview.match(/onCanPlay=/g) || []).length, 1);
   assert.doesNotMatch(page, /addEventListener\([^)]*(loadedmetadata|durationchange|loadeddata|canplay)/);
   assert.doesNotMatch(page, /previewVideoRef\.current\.load\(\)/);
 });
@@ -298,7 +299,7 @@ test('expanded feed shares sound, resets switched videos and has custom controls
   assert.match(expanded, /soundPreferenceRef\.current/);
   assert.match(expanded, /VIDEO_COMMENT_SOUND_SESSION_KEY/);
   assert.match(page, /item\.pause\(\);\s+item\.currentTime = 0/);
-  assert.match(expanded, /controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback/);
+  assert.match(expanded, /controlsList="nodownload noplaybackrate nofullscreen" disablePictureInPicture disableRemotePlayback/);
   assert.doesNotMatch(expanded, /\scontrols(?:\s|=)|requestPictureInPicture|playbackRate/);
 });
 
@@ -357,4 +358,29 @@ test('front-camera recording mirrors pixels into the final stream and retains au
   has(/new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\), \.\.\.stream\.getAudioTracks\(\)\]\)/);
   has(/createRecorderWithFallback\(recordingStream, iosWebKit\)/);
   has(/-scale-x-100 object-cover/);
+});
+
+test('recording preview is larger without changing selected-file preview limits', () => {
+  has(/function getRecordingPreviewDimensions\(aspectRatio/);
+  has(/viewportWidth \* 0\.92/);
+  has(/viewportHeight \* 0\.55/);
+  has(/isRecordingOverlay\s+\? getRecordingPreviewDimensions/);
+  has(/: getLocalPreviewDimensions\(previewAspectRatio, recorderState === "previewSelected"/);
+});
+
+test('published history videos use metadata proportions and a centered reduced base size', () => {
+  has(/getHistoryVideoDimensions\(historyAspectRatios\[id\] \?\? 1/);
+  has(/viewportWidth \* 0\.78/);
+  has(/setHistoryAspectRatios\(\(ratios\) => \(\{ \.\.\.ratios, \[id\]: video\.videoWidth \/ video\.videoHeight \}\)\)/);
+  has(/className="h-full w-full object-contain" onLoadedMetadata/);
+});
+
+test('expanded feed stays in the app portrait modal and suppresses native video fullscreen', () => {
+  has(/function keepExpandedVideoInline/);
+  has(/setAttribute\("webkit-playsinline", "true"\)/);
+  has(/document\.fullscreenElement === inlineVideo/);
+  has(/inlineVideo\.webkitDisplayingFullscreen/);
+  has(/controlsList="nodownload noplaybackrate nofullscreen"/);
+  has(/h-\[100dvh\] snap-y snap-mandatory overflow-y-auto/);
+  assert.doesNotMatch(page, /orientation\.(?:lock|unlock)\(/);
 });

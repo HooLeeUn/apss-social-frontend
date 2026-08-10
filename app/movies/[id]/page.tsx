@@ -92,6 +92,27 @@ function getLocalPreviewDimensions(aspectRatio: number, selected: boolean, viewp
   const width = Math.min(widthLimit, heightLimit * safeRatio);
   return { width, height: width / safeRatio };
 }
+function getRecordingPreviewDimensions(aspectRatio: number, viewportWidth: number, viewportHeight: number): { width: number; height: number } {
+  const safeRatio = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1;
+  const widthLimit = viewportWidth * 0.92;
+  const heightLimit = Math.min(viewportHeight * 0.55, Math.max(viewportHeight - 244, 240), 480);
+  const width = Math.min(widthLimit, heightLimit * safeRatio);
+  return { width, height: width / safeRatio };
+}
+function getHistoryVideoDimensions(aspectRatio: number, viewportWidth: number, viewportHeight: number): { width: number; height: number } {
+  const safeRatio = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1;
+  const width = Math.min(viewportWidth * 0.78, viewportHeight * 0.5 * safeRatio);
+  return { width, height: width / safeRatio };
+}
+type InlineVideoElement = HTMLVideoElement & { webkitDisplayingFullscreen?: boolean; webkitExitFullscreen?: () => void };
+function keepExpandedVideoInline(video: HTMLVideoElement): void {
+  const inlineVideo = video as InlineVideoElement;
+  inlineVideo.playsInline = true;
+  inlineVideo.setAttribute("playsinline", "");
+  inlineVideo.setAttribute("webkit-playsinline", "true");
+  if (document.fullscreenElement === inlineVideo) void document.exitFullscreen?.();
+  if (inlineVideo.webkitDisplayingFullscreen) inlineVideo.webkitExitFullscreen?.();
+}
 function hasVideoLikeExtension(fileName: string): boolean {
   const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
   return VIDEO_COMMENT_ALLOWED_EXTENSIONS.includes(extension);
@@ -993,6 +1014,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const endedRef = useRef(new Set<string>());
   const activeVideoIdRef = useRef<string | null>(null);
   const [playerStates, setPlayerStates] = useState<Record<string, { paused: boolean; muted: boolean }>>({});
+  const [historyAspectRatios, setHistoryAspectRatios] = useState<Record<string, number>>({});
   const [soundPreference, setSoundPreference] = useState<VideoSoundPreference>("muted");
   const soundPreferenceRef = useRef<VideoSoundPreference>("muted");
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
@@ -1816,7 +1838,9 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const showEmpty = recorderState === "idle" && !initialLoading && !historyError && comments.length === 0;
 
   const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording";
-  const localPreviewDimensions = getLocalPreviewDimensions(previewAspectRatio, recorderState === "previewSelected", viewportSize.width, viewportSize.height);
+  const localPreviewDimensions = isRecordingOverlay
+    ? getRecordingPreviewDimensions(previewAspectRatio, viewportSize.width, viewportSize.height)
+    : getLocalPreviewDimensions(previewAspectRatio, recorderState === "previewSelected", viewportSize.width, viewportSize.height);
 
 
   return <section data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
@@ -1854,11 +1878,12 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       {recorderState === "idle" ? comments.map((comment) => {
         const id = String(comment.id);
         const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
+        const historyDimensions = getHistoryVideoDimensions(historyAspectRatios[id] ?? 1, viewportSize.width, viewportSize.height);
         return <article key={comment.id} data-video-comment-card={id} className="space-y-2 rounded-2xl border border-white/10 bg-black/25 p-3">
           <div className="flex items-center gap-3"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
             <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[id]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div>
-          <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-black">
-            <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-cover" onPlay={(event) => { activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(event.currentTarget); }} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
+          <div className="relative mx-auto overflow-hidden rounded-xl bg-black" style={{ aspectRatio: historyAspectRatios[id] ?? 1, width: historyDimensions.width, height: historyDimensions.height, maxWidth: "100%" }}>
+            <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onLoadedMetadata={(event) => { const video = event.currentTarget; if (video.videoWidth > 0 && video.videoHeight > 0) setHistoryAspectRatios((ratios) => ({ ...ratios, [id]: video.videoWidth / video.videoHeight })); }} onPlay={(event) => { activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(event.currentTarget); }} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
             <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pb-3 pt-8">
               <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t(state.paused ? "movieDetailVideoPlay" : "movieDetailVideoPause")} onClick={() => toggleHistoryPlayback(id)}>{state.paused ? "▶" : "Ⅱ"}</button>
               <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => toggleHistorySound(id)}>{state.muted ? "🔇" : "🔊"}</button>
@@ -1877,7 +1902,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
           const id = String(comment.id);
           const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
           return <article key={`expanded-${id}`} data-expanded-video-card={id} className="relative h-[100dvh] snap-start snap-always overflow-hidden bg-black" style={{ scrollSnapStop: "always" }}>
-            <video data-expanded-video-player="true" data-expanded-video-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => syncPlayerState(event.currentTarget)} />
+            <video data-expanded-video-player="true" data-expanded-video-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate nofullscreen" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onLoadedMetadata={(event) => keepExpandedVideoInline(event.currentTarget)} onPlay={(event) => { keepExpandedVideoInline(event.currentTarget); syncPlayerState(event.currentTarget); }} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => syncPlayerState(event.currentTarget)} />
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/60 to-transparent px-4 pt-20 text-white" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}>
               <div className="mb-3 flex items-center gap-3"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
                 <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0, 2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-white" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-300">{new Date(comment.created_at).toLocaleDateString()}</time></div></div>
