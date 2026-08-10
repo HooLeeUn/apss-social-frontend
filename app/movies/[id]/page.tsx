@@ -40,7 +40,7 @@ import { getProfilePrivacySettings } from "../../../lib/privacy";
 import { getTopFollowing } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { t as translate } from "../../../lib/i18n";
-import { getVideoFrameComposition } from "../../../lib/video-composition.mjs";
+import { getVideoFrameComposition, selectDominantVideo } from "../../../lib/video-composition.mjs";
 
 type CommentInputMode = "text-comment" | "video-comment";
 
@@ -48,7 +48,9 @@ const VIDEO_COMMENT_MAX_SECONDS = 20;
 const VIDEO_COMMENT_MAX_BYTES = 50 * 1024 * 1024;
 const VIDEO_COMMENT_PERMISSION_SESSION_KEY = "qnext_video_comment_permission_info_accepted";
 const VIDEO_COMMENT_SOUND_SESSION_KEY = "qnext-video-sound";
-const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.55;
+const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.35;
+const VIDEO_COMMENT_VISIBILITY_HYSTERESIS = 0.08;
+const VIDEO_COMMENT_VISIBILITY_THRESHOLDS = [0, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 1];
 const EXPANDED_VIDEO_VISIBILITY_THRESHOLD = 0.7;
 type VideoSoundPreference = "muted" | "sound-on";
 const VIDEO_COMMENT_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
@@ -987,6 +989,7 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
   const [previewAspectRatio, setPreviewAspectRatio] = useState(1);
   const [viewportSize, setViewportSize] = useState({ width: 360, height: 640 });
   const [localPreviewExpanded, setLocalPreviewExpanded] = useState(false);
+  const [recordedSourceAspectRatio, setRecordedSourceAspectRatio] = useState<number | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [comments, setComments] = useState<VideoComment[]>([]);
   const [, setCount] = useState(0);
@@ -1029,6 +1032,7 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
   const pausedByUserRef = useRef(new Set<string>());
   const endedRef = useRef(new Set<string>());
   const activeVideoIdRef = useRef<string | null>(null);
+  const playbackSuspendedRef = useRef(false);
   const [playerStates, setPlayerStates] = useState<Record<string, { paused: boolean; muted: boolean }>>({});
   const [historyAspectRatios, setHistoryAspectRatios] = useState<Record<string, number>>({});
   const [soundPreference, setSoundPreference] = useState<VideoSoundPreference>("muted");
@@ -1103,7 +1107,7 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
   }, []);
 
   const playHistoryVideo = useCallback(async (id: string, manual = false) => {
-    if (expandedOpenRef.current) return;
+    if (expandedOpenRef.current || playbackSuspendedRef.current) return;
     const video = historyVideosRef.current.get(id);
     if (!video) return;
     pauseOtherHistoryVideos(id);
@@ -1125,22 +1129,14 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
   }, [pauseOtherHistoryVideos, syncPlayerState]);
 
   const chooseVisibleHistoryVideo = useCallback(() => {
-    if (expandedOpenRef.current) return;
-    let candidate: string | null = null;
-    let bestRatio = VIDEO_COMMENT_VISIBILITY_THRESHOLD;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    const viewportCenter = window.innerHeight / 2;
+    if (expandedOpenRef.current || playbackSuspendedRef.current) return;
+    const playableRatios = new Map<string, number>();
     visibilityRef.current.forEach((ratio, id) => {
       const video = historyVideosRef.current.get(id);
       if (!video || ratio < VIDEO_COMMENT_VISIBILITY_THRESHOLD || pausedByUserRef.current.has(id) || endedRef.current.has(id)) return;
-      const rect = video.getBoundingClientRect();
-      const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter) / Math.max(1, window.innerHeight);
-      if (ratio > bestRatio || (Math.abs(ratio - bestRatio) <= 0.02 && distance < bestDistance)) {
-        candidate = id;
-        bestRatio = ratio;
-        bestDistance = distance;
-      }
+      playableRatios.set(id, ratio);
     });
+    const candidate = selectDominantVideo(playableRatios, activeVideoIdRef.current, VIDEO_COMMENT_VISIBILITY_THRESHOLD, VIDEO_COMMENT_VISIBILITY_HYSTERESIS);
     historyVideosRef.current.forEach((video, id) => {
       if (id !== candidate && !video.paused) video.pause();
     });
@@ -1173,7 +1169,7 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
         }
       });
       chooseVisibleHistoryVideo();
-    }, { root: null, threshold: [0, VIDEO_COMMENT_VISIBILITY_THRESHOLD, 1] });
+    }, { root: null, threshold: VIDEO_COMMENT_VISIBILITY_THRESHOLDS });
     historyObserverRef.current = observer;
     historyVideos.forEach((video) => observer.observe(video));
     return () => {
@@ -1395,6 +1391,7 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
     const videoTrack = stream.getVideoTracks()[0];
     const initialSettings = videoTrack.getSettings();
     const isFrontCamera = initialSettings.facingMode !== "environment";
+    setRecordedSourceAspectRatio(preview.videoWidth / preview.videoHeight);
     await applyMinimumFrontCameraZoom(videoTrack, isFrontCamera);
     appendVideoDebugLog("CAMERA_CONFIGURATION", {
       width: videoTrack.getSettings().width ?? null,
@@ -1417,13 +1414,17 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
       const sourceHeight = preview.videoHeight;
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = "#000";
+      context.fillRect(0, 0, canvas.width, canvas.height);
       if (sourceWidth > 0 && sourceHeight > 0) {
         const { backgroundSource, foregroundDestination } = getVideoFrameComposition(sourceWidth, sourceHeight, canvas.width, canvas.height);
         context.save();
         context.setTransform(isFrontCamera ? -1 : 1, 0, 0, 1, isFrontCamera ? canvas.width : 0, 0);
-        context.filter = "blur(24px) brightness(0.58)";
-        context.drawImage(preview, backgroundSource.x, backgroundSource.y, backgroundSource.width, backgroundSource.height, 0, 0, canvas.width, canvas.height);
-        context.filter = "none";
+        if (sourceWidth >= sourceHeight) {
+          context.filter = "blur(24px) brightness(0.58)";
+          context.drawImage(preview, backgroundSource.x, backgroundSource.y, backgroundSource.width, backgroundSource.height, 0, 0, canvas.width, canvas.height);
+          context.filter = "none";
+        }
         context.drawImage(preview, 0, 0, sourceWidth, sourceHeight, foregroundDestination.x, foregroundDestination.y, foregroundDestination.width, foregroundDestination.height);
         context.restore();
       }
@@ -1725,8 +1726,9 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
     setExpandedVideoId(null);
     window.setTimeout(() => {
       document.querySelector<HTMLElement>(`[data-video-comment-card="${CSS.escape(currentId ?? "")}"]`)?.scrollIntoView({ block: "center" });
+      window.requestAnimationFrame(chooseVisibleHistoryVideo);
     }, 0);
-  }, [expandedVideoId]);
+  }, [chooseVisibleHistoryVideo, expandedVideoId]);
 
   useEffect(() => {
     if (expandedVideoId === null) return;
@@ -1803,20 +1805,46 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
   }, [expandedVideoId, fetchPage, loadingMore, next]);
 
   useEffect(() => {
-    const pauseAllWhenHidden = () => {
-      if (!document.hidden) return;
-      historyVideosRef.current.forEach((video) => video.pause());
-      expandedVideosRef.current.forEach((video) => video.pause());
+    const historyVideos = historyVideosRef.current;
+    const expandedVideos = expandedVideosRef.current;
+    const historyVisibility = visibilityRef.current;
+    const expandedVisibility = expandedVisibilityRef.current;
+    const pauseAllVideoReactionPlayback = () => {
+      historyVideos.forEach((video) => video.pause());
+      expandedVideos.forEach((video) => video.pause());
+      previewVideoRef.current?.pause();
+      document.querySelectorAll<HTMLVideoElement>('[data-local-preview-player="true"]').forEach((video) => video.pause());
       activeVideoIdRef.current = null;
       expandedActiveVideoIdRef.current = null;
     };
-    document.addEventListener("visibilitychange", pauseAllWhenHidden);
-    window.addEventListener("pagehide", pauseAllWhenHidden);
-    return () => {
-      document.removeEventListener("visibilitychange", pauseAllWhenHidden);
-      window.removeEventListener("pagehide", pauseAllWhenHidden);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        playbackSuspendedRef.current = true;
+        pauseAllVideoReactionPlayback();
+        return;
+      }
+      playbackSuspendedRef.current = false;
+      window.requestAnimationFrame(chooseVisibleHistoryVideo);
     };
-  }, []);
+    const handlePageHide = () => {
+      playbackSuspendedRef.current = true;
+      pauseAllVideoReactionPlayback();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      playbackSuspendedRef.current = true;
+      pauseAllVideoReactionPlayback();
+      historyObserverRef.current?.disconnect();
+      expandedObserverRef.current?.disconnect();
+      historyVideos.clear();
+      expandedVideos.clear();
+      historyVisibility.clear();
+      expandedVisibility.clear();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [chooseVisibleHistoryVideo]);
 
   const tryWebKitBlobPreviewFallback = useCallback((): boolean => {
     const video = previewVideoRef.current;
@@ -1891,6 +1919,9 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
   const localPreviewDimensions = isRecordingOverlay
     ? getRecordingPreviewDimensions(viewportSize.width, viewportSize.height)
     : getLocalPreviewDimensions(previewAspectRatio, recorderState === "previewSelected", viewportSize.width, viewportSize.height);
+  const recordedPortraitExpandedWidth = recordedSourceAspectRatio && recordedSourceAspectRatio < 1
+    ? Math.min(viewportSize.width, viewportSize.height * recordedSourceAspectRatio)
+    : null;
 
 
   return <section data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${forceMobileLayout ? "" : "md:hidden"} ${active ? "block" : "hidden"}`}>
@@ -1920,7 +1951,10 @@ function MobileVideoComments({ movieId, active, forceMobileLayout, t, onAuthorCl
       </div> : null}
       {recorderState === "error" && error ? <div className="w-full rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"><p>{error}</p><button type="button" className="mt-3 rounded-lg border border-red-200/30 px-3 py-1 text-red-100" onClick={() => setRecorderState("menu")}>{t("movieDetailVideoRetry")}</button></div> : null}
     </div>
-    {localPreviewExpanded && previewUrl ? <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpand")}><button type="button" className="fixed right-4 top-[calc(env(safe-area-inset-top)+12px)] z-[112] flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={() => setLocalPreviewExpanded(false)}>×</button><video src={previewUrl} controls controlsList="nofullscreen" preload="metadata" playsInline className="max-h-[100svh] w-full object-contain" onLoadedMetadata={(event) => keepExpandedVideoInline(event.currentTarget)} onPlay={(event) => keepExpandedVideoInline(event.currentTarget)} /></div> : null}
+    {localPreviewExpanded && previewUrl ? <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpand")}>
+      <button type="button" className="fixed right-4 top-[calc(env(safe-area-inset-top)+12px)] z-[112] flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={() => setLocalPreviewExpanded(false)}>×</button>
+      {recorderState === "previewRecorded" && recordedSourceAspectRatio !== null && recordedSourceAspectRatio < 1 && recordedPortraitExpandedWidth !== null ? <div className="relative overflow-hidden bg-black" style={{ aspectRatio: recordedSourceAspectRatio, width: recordedPortraitExpandedWidth, height: recordedPortraitExpandedWidth / recordedSourceAspectRatio }}><video data-local-preview-player="true" src={previewUrl} controls controlsList="nofullscreen" preload="metadata" playsInline className="absolute left-1/2 h-full w-auto max-w-none -translate-x-1/2 object-contain" onLoadedMetadata={(event) => keepExpandedVideoInline(event.currentTarget)} onPlay={(event) => keepExpandedVideoInline(event.currentTarget)} /></div> : <video data-local-preview-player="true" src={previewUrl} controls controlsList="nofullscreen" preload="metadata" playsInline className="max-h-[100svh] w-full object-contain" onLoadedMetadata={(event) => keepExpandedVideoInline(event.currentTarget)} onPlay={(event) => keepExpandedVideoInline(event.currentTarget)} />}
+    </div> : null}
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
     <div className="mt-6 space-y-4">
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}

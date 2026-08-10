@@ -219,13 +219,12 @@ test('delete action is rendered exclusively from backend can_delete', () => {
 });
 
 test('history autoplay uses visibility rather than scroll direction and maintains one active video', () => {
-  has(/VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0\.55/);
-  has(/threshold: \[0, VIDEO_COMMENT_VISIBILITY_THRESHOLD, 1\]/);
+  has(/VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0\.35/);
+  has(/VIDEO_COMMENT_VISIBILITY_HYSTERESIS = 0\.08/);
+  has(/threshold: VIDEO_COMMENT_VISIBILITY_THRESHOLDS/);
   has(/pauseOtherHistoryVideos\(id\)/);
   has(/entry\.intersectionRatio < VIDEO_COMMENT_VISIBILITY_THRESHOLD/);
-  has(/const viewportCenter = window\.innerHeight \/ 2/);
-  has(/ratio > bestRatio/);
-  has(/distance < bestDistance/);
+  has(/selectDominantVideo\(playableRatios, activeVideoIdRef\.current/);
   assert.doesNotMatch(page, /deltaY|scrollDirection/);
   has(/video\.pause\(\);\s+video\.currentTime = 0/);
 });
@@ -275,11 +274,13 @@ test('infinite scroll uses main viewport observer and avoids duplicate loads', (
 });
 
 test('visibilitychange pauses all players without clearing selected files', () => {
-  has(/document\.addEventListener\("visibilitychange", pauseAllWhenHidden\)/);
-  has(/if \(!document\.hidden\) return/);
-  has(/historyVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
-  has(/expandedVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
-  assert.doesNotMatch(page, /document\.visibilityState/);
+  has(/document\.addEventListener\("visibilitychange", handleVisibilityChange\)/);
+  has(/document\.visibilityState !== "visible"/);
+  has(/historyVideos\.forEach\(\(video\) => video\.pause\(\)\)/);
+  has(/expandedVideos\.forEach\(\(video\) => video\.pause\(\)\)/);
+  has(/window\.requestAnimationFrame\(chooseVisibleHistoryVideo\)/);
+  has(/window\.addEventListener\("pagehide", handlePageHide\)/);
+  has(/historyVideos\.clear\(\)/);
 });
 
 test('expanded feed opens on the selected video and provides bidirectional scroll snap', () => {
@@ -394,6 +395,20 @@ test('each camera frame is composed once from current dimensions on a clean fixe
   has(/if \(mirrorFrameRef\.current !== null\) cancelAnimationFrame\(mirrorFrameRef\.current\)/);
   assert.equal((page.match(/canvas\.captureStream\(30\)/g) || []).length, 1);
   assert.equal((page.match(/requestAnimationFrame\(drawVideoReactionFrame\)/g) || []).length, 1);
+});
+
+test('portrait recording uses a black canvas and skips the blurred background layer', () => {
+  has(/context\.fillStyle = "#000"/);
+  has(/context\.fillRect\(0, 0, canvas\.width, canvas\.height\)/);
+  has(/if \(sourceWidth >= sourceHeight\) \{\s+context\.filter = "blur\(24px\) brightness\(0\.58\)"/);
+  has(/foregroundDestination\.x, foregroundDestination\.y, foregroundDestination\.width, foregroundDestination\.height/);
+});
+
+test('known local portrait recording expands as its source ratio without native fullscreen', () => {
+  has(/recordedSourceAspectRatio < 1 && recordedPortraitExpandedWidth !== null/);
+  has(/aspectRatio: recordedSourceAspectRatio/);
+  has(/absolute left-1\/2 h-full w-auto max-w-none -translate-x-1\/2 object-contain/);
+  has(/data-local-preview-player="true"/);
 });
 
 test('front camera minimum zoom is optional and capability-gated', () => {
