@@ -352,12 +352,12 @@ test('local previews preserve metadata aspect ratio within viewport-derived boun
 
 test('front-camera recording mirrors pixels into the final stream and retains audio', () => {
   has(/facingMode: "user"/);
-  has(/isFrontCamera = videoTrack\.getSettings\(\)\.facingMode !== "environment"/);
+  has(/isFrontCamera = initialSettings\.facingMode !== "environment"/);
   has(/context\.setTransform\(isFrontCamera \? -1 : 1, 0, 0, 1, isFrontCamera \? canvas\.width : 0, 0\)/);
   has(/canvas\.captureStream\(30\)/);
   has(/new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\), \.\.\.stream\.getAudioTracks\(\)\]\)/);
   has(/createRecorderWithFallback\(recordingStream, iosWebKit\)/);
-  has(/-scale-x-100 object-cover/);
+  has(/<canvas ref=\{mirrorCanvasRef\} className="h-full w-full object-contain"/);
 });
 
 test('recording preview is larger without changing selected-file preview limits', () => {
@@ -381,15 +381,27 @@ test('new camera recordings request and encode a real 16:9 canvas stream', () =>
   has(/aspectRatio: \{ ideal: VIDEO_REACTION_ASPECT_RATIO \}/);
   has(/canvas\.width = VIDEO_REACTION_OUTPUT_WIDTH/);
   has(/canvas\.height = VIDEO_REACTION_OUTPUT_HEIGHT/);
-  has(/context\.drawImage\(preview, crop\.sx, crop\.sy, crop\.sw, crop\.sh, 0, 0, canvas\.width, canvas\.height\)/);
+  has(/getVideoFrameComposition\(sourceWidth, sourceHeight, canvas\.width, canvas\.height\)/);
 });
 
-test('16:9 normalization uses a centered crop without stretching', () => {
-  has(/function getCenteredCrop\(sourceWidth: number, sourceHeight: number/);
-  has(/const sw = sourceHeight \* targetAspectRatio/);
-  has(/sx: \(sourceWidth - sw\) \/ 2/);
-  has(/const sh = sourceWidth \/ targetAspectRatio/);
-  has(/sy: \(sourceHeight - sh\) \/ 2/);
+test('each camera frame is composed once from current dimensions on a clean fixed canvas', () => {
+  has(/const sourceWidth = preview\.videoWidth/);
+  has(/const sourceHeight = preview\.videoHeight/);
+  has(/context\.setTransform\(1, 0, 0, 1, 0, 0\)/);
+  has(/context\.clearRect\(0, 0, canvas\.width, canvas\.height\)/);
+  has(/context\.save\(\)/);
+  has(/context\.restore\(\)/);
+  has(/if \(mirrorFrameRef\.current !== null\) cancelAnimationFrame\(mirrorFrameRef\.current\)/);
+  assert.equal((page.match(/canvas\.captureStream\(30\)/g) || []).length, 1);
+  assert.equal((page.match(/requestAnimationFrame\(drawVideoReactionFrame\)/g) || []).length, 1);
+});
+
+test('front camera minimum zoom is optional and capability-gated', () => {
+  has(/getCapabilities\?\.\(\)/);
+  has(/currentZoom === undefined \|\| zoom\.min >= currentZoom/);
+  has(/applyConstraints\(\{ advanced: \[\{ zoom: zoom\.min \}/);
+  has(/Zoom is an optional enhancement/);
+  has(/CAMERA_CONFIGURATION/);
 });
 
 test('preview sizing does not react to browser chrome changes while scrolling', () => {
