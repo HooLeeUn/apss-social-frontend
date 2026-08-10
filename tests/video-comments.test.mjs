@@ -81,7 +81,7 @@ test('visible preview mounts before duration and drives duration/playability', (
   has(/setPreviewUrl\(objectUrl\)/);
   has(/setPreviewDuration\(null\)/);
   has(/changeRecorderState\(source === "recorded" \? "previewRecorded" : "previewSelected"\)/);
-  has(/src=\{previewUrl\} controls preload="auto" playsInline/);
+  has(/src=\{previewUrl\} controls controlsList="nofullscreen" preload="auto" playsInline/);
   has(/onLoadedMetadata=\{\(event\) => \{[\s\S]*?handlePreviewMediaEvent\("duration"/);
   has(/onDurationChange=\{\(event\) => \{[\s\S]*?handlePreviewMediaEvent\("duration"/);
   has(/onLoadedData=\{\(event\) => \{[\s\S]*?handlePreviewMediaEvent\("playable"/);
@@ -353,7 +353,7 @@ test('local previews preserve metadata aspect ratio within viewport-derived boun
 test('front-camera recording mirrors pixels into the final stream and retains audio', () => {
   has(/facingMode: "user"/);
   has(/isFrontCamera = videoTrack\.getSettings\(\)\.facingMode !== "environment"/);
-  has(/context\.setTransform\(-1, 0, 0, 1, canvas\.width, 0\)/);
+  has(/context\.setTransform\(isFrontCamera \? -1 : 1, 0, 0, 1, isFrontCamera \? canvas\.width : 0, 0\)/);
   has(/canvas\.captureStream\(30\)/);
   has(/new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\), \.\.\.stream\.getAudioTracks\(\)\]\)/);
   has(/createRecorderWithFallback\(recordingStream, iosWebKit\)/);
@@ -361,7 +361,7 @@ test('front-camera recording mirrors pixels into the final stream and retains au
 });
 
 test('recording preview is larger without changing selected-file preview limits', () => {
-  has(/function getRecordingPreviewDimensions\(aspectRatio/);
+  has(/function getRecordingPreviewDimensions\(viewportWidth/);
   has(/viewportWidth \* 0\.92/);
   has(/viewportHeight \* 0\.55/);
   has(/isRecordingOverlay\s+\? getRecordingPreviewDimensions/);
@@ -369,10 +369,49 @@ test('recording preview is larger without changing selected-file preview limits'
 });
 
 test('published history videos use metadata proportions and a centered reduced base size', () => {
-  has(/getHistoryVideoDimensions\(historyAspectRatios\[id\] \?\? 1/);
-  has(/viewportWidth \* 0\.78/);
+  has(/aspectRatio: historyAspectRatios\[id\] \?\? 1, width: "88%"/);
   has(/setHistoryAspectRatios\(\(ratios\) => \(\{ \.\.\.ratios, \[id\]: video\.videoWidth \/ video\.videoHeight \}\)\)/);
   has(/className="h-full w-full object-contain" onLoadedMetadata/);
+});
+
+test('new camera recordings request and encode a real 16:9 canvas stream', () => {
+  has(/VIDEO_REACTION_ASPECT_RATIO = 16 \/ 9/);
+  has(/VIDEO_REACTION_OUTPUT_WIDTH = 1280/);
+  has(/VIDEO_REACTION_OUTPUT_HEIGHT = 720/);
+  has(/aspectRatio: \{ ideal: VIDEO_REACTION_ASPECT_RATIO \}/);
+  has(/canvas\.width = VIDEO_REACTION_OUTPUT_WIDTH/);
+  has(/canvas\.height = VIDEO_REACTION_OUTPUT_HEIGHT/);
+  has(/context\.drawImage\(preview, crop\.sx, crop\.sy, crop\.sw, crop\.sh, 0, 0, canvas\.width, canvas\.height\)/);
+});
+
+test('16:9 normalization uses a centered crop without stretching', () => {
+  has(/function getCenteredCrop\(sourceWidth: number, sourceHeight: number/);
+  has(/const sw = sourceHeight \* targetAspectRatio/);
+  has(/sx: \(sourceWidth - sw\) \/ 2/);
+  has(/const sh = sourceWidth \/ targetAspectRatio/);
+  has(/sy: \(sourceHeight - sh\) \/ 2/);
+});
+
+test('preview sizing does not react to browser chrome changes while scrolling', () => {
+  assert.doesNotMatch(page, /window\.addEventListener\("resize"/);
+  has(/matchMedia\("\(orientation: landscape\)"\)/);
+  assert.doesNotMatch(page, /visualViewport|ResizeObserver/);
+});
+
+test('selected preview expands in an app modal instead of native fullscreen', () => {
+  has(/localPreviewExpanded && previewUrl/);
+  has(/fixed inset-0 z-\[110\] flex items-center justify-center bg-black/);
+  has(/max-h-\[100svh\] w-full object-contain/);
+  has(/addEventListener\("webkitbeginfullscreen", preventNativeFullscreen\)/);
+  assert.doesNotMatch(page, /requestFullscreen|webkitEnterFullscreen|webkitRequestFullscreen/);
+});
+
+test('coarse phone landscape keeps mobile reaction UI without changing tab state', () => {
+  has(/pointer: coarse\) and \(hover: none\)/);
+  has(/max-height: 700px/);
+  has(/forceMobileLayout=\{forceMobileLayout\}/);
+  has(/useState<CommentInputMode>\("video-comment"\)/);
+  has(/\(\["video-comment", "text-comment"\] as const\)\.map/);
 });
 
 test('expanded feed stays in the app portrait modal and suppresses native video fullscreen', () => {
