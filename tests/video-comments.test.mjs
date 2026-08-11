@@ -177,6 +177,14 @@ test("expanded video swipe navigates without closing fullscreen and remains dist
   assert.doesNotMatch(expandedPlayer, /src\s*=\s*""|\.load\(\)/);
 });
 
+test("expanded sound changes persist through the shared session preference", () => {
+  has(/const applyVideoSoundPreference = useCallback/);
+  has(/soundPreferenceRef\.current = preference/);
+  has(/sessionStorage\.setItem\(VIDEO_COMMENT_SOUND_SESSION_KEY/);
+  has(/applyVideoSoundPreference\(video\.muted \? "sound-on" : "muted", video\)/);
+  has(/video\.muted = soundPreferenceRef\.current !== "sound-on"/);
+});
+
 test("recorded preview reuses the recording size and overlay while saved card dimensions stay frozen", () => {
   has(/isRecordedPreviewOverlay = previewOrigin === "recorded"/);
   has(/recorderState === "recording" \|\| isRecordedPreviewOverlay \? VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT/);
