@@ -47,11 +47,13 @@ const VIDEO_COMMENT_MAX_SECONDS = 20;
 const VIDEO_COMMENT_MAX_BYTES = 50 * 1024 * 1024;
 const VIDEO_COMMENT_PERMISSION_SESSION_KEY = "qnext_video_comment_permission_info_accepted";
 const VIDEO_COMMENT_SOUND_SESSION_KEY = "qnext-video-sound";
-const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.55;
-const EXPANDED_VIDEO_VISIBILITY_THRESHOLD = 0.7;
+const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.15;
+const VIDEO_COMMENT_DOMINANCE_MARGIN = 0.08;
+const VIDEO_REACTION_WIDTH = 720;
+const VIDEO_REACTION_HEIGHT = 1280;
 type VideoSoundPreference = "muted" | "sound-on";
 const VIDEO_COMMENT_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
-const VIDEO_COMMENT_PREVIEW_SIZE = "min(calc(100vw - 56px), calc(100dvh - 330px))";
+const VIDEO_COMMENT_PREVIEW_HEIGHT = "min(calc(100dvh - 230px), calc((100vw - 40px) * 16 / 9))";
 const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm", "video/mp4"];
 const IOS_VIDEO_COMMENT_MIME_CANDIDATES = ["video/mp4", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/webm;codecs=vp8,opus", "video/webm"];
 const VIDEO_COMMENT_DIAGNOSTIC_MIMES = ["video/mp4", "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/webm", "video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus"];
@@ -91,6 +93,17 @@ function hasVideoLikeExtension(fileName: string): boolean {
 function prepareVideoPreview(file: File): string {
   if (file.size <= 0) throw new Error("empty-preview-file");
   return URL.createObjectURL(file);
+}
+type ContainRect = { dx: number; dy: number; dw: number; dh: number };
+function calculateContainRect(sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number): ContainRect {
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const dw = sourceWidth * scale;
+  const dh = sourceHeight * scale;
+  return { dx: (targetWidth - dw) / 2, dy: (targetHeight - dh) / 2, dw, dh };
+}
+function isLandscapeViewport(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(orientation: landscape)").matches ?? window.innerWidth > window.innerHeight;
 }
 function dedupeVideoComments(existing: VideoComment[], incoming: VideoComment[]): VideoComment[] {
   const seen = new Set<string>();
@@ -940,6 +953,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const selectedFileRef = useRef<File | null>(null);
   const [previewDuration, setPreviewDuration] = useState<number | null>(null);
+  const [previewAspectRatio, setPreviewAspectRatio] = useState(9 / 16);
   const [previewError, setPreviewError] = useState("");
   const [comments, setComments] = useState<VideoComment[]>([]);
   const [, setCount] = useState(0);
@@ -950,6 +964,9 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const [deletingIds, setDeletingIds] = useState<Record<string, boolean>>({});
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | number | null>(null);
   const livePreviewRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasFrameRef = useRef<number | null>(null);
+  const recorderOutputStreamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -983,13 +1000,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const [soundPreference, setSoundPreference] = useState<VideoSoundPreference>("muted");
   const soundPreferenceRef = useRef<VideoSoundPreference>("muted");
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
-  const expandedScrollerRef = useRef<HTMLDivElement | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [orientationPaused, setOrientationPaused] = useState(false);
+  const orientationPausedRef = useRef(false);
   const expandedVideosRef = useRef(new Map<string, HTMLVideoElement>());
-  const expandedVisibilityRef = useRef(new Map<string, number>());
-  const expandedObserverRef = useRef<IntersectionObserver | null>(null);
-  const expandedActiveVideoIdRef = useRef<string | null>(null);
   const expandedBodyOverflowRef = useRef<string | null>(null);
-  const expandedSentinelRef = useRef<HTMLDivElement | null>(null);
   const expandedOpenRef = useRef(false);
 
   const appendVideoDebugLog = useCallback((event: string, details: Record<string, unknown>) => {
@@ -1028,7 +1043,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
 
   const pauseOtherHistoryVideos = useCallback((nextId: string) => {
     historyVideosRef.current.forEach((video, id) => {
-      if (id !== nextId && !video.paused) video.pause();
+      if (id === nextId) return;
+      video.pause();
+      video.currentTime = 0;
+      pausedByUserRef.current.delete(id);
+      endedRef.current.delete(id);
     });
   }, []);
 
@@ -1055,33 +1074,34 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   }, [pauseOtherHistoryVideos, syncPlayerState]);
 
   const chooseVisibleHistoryVideo = useCallback(() => {
-    if (expandedOpenRef.current) return;
+    if (expandedOpenRef.current || document.hidden) return;
     let candidate: string | null = null;
     let bestRatio = VIDEO_COMMENT_VISIBILITY_THRESHOLD;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    const viewportCenter = window.innerHeight / 2;
     visibilityRef.current.forEach((ratio, id) => {
-      const video = historyVideosRef.current.get(id);
-      if (!video || ratio < VIDEO_COMMENT_VISIBILITY_THRESHOLD || pausedByUserRef.current.has(id) || endedRef.current.has(id)) return;
-      const rect = video.getBoundingClientRect();
-      const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter) / Math.max(1, window.innerHeight);
-      if (ratio > bestRatio || (Math.abs(ratio - bestRatio) <= 0.02 && distance < bestDistance)) {
+      if (historyVideosRef.current.has(id) && ratio > bestRatio) {
         candidate = id;
         bestRatio = ratio;
-        bestDistance = distance;
       }
     });
+    const currentId = activeVideoIdRef.current;
+    const currentRatio = currentId ? (visibilityRef.current.get(currentId) ?? 0) : 0;
+    if (currentId && currentRatio >= VIDEO_COMMENT_VISIBILITY_THRESHOLD && bestRatio - currentRatio < VIDEO_COMMENT_DOMINANCE_MARGIN) candidate = currentId;
     historyVideosRef.current.forEach((video, id) => {
-      if (id !== candidate && !video.paused) video.pause();
+      if (id === candidate) return;
+      video.pause();
+      video.currentTime = 0;
+      pausedByUserRef.current.delete(id);
+      endedRef.current.delete(id);
+      syncPlayerState(video);
     });
     if (!candidate) {
       activeVideoIdRef.current = null;
       return;
     }
+    activeVideoIdRef.current = candidate;
     const candidateVideo = historyVideosRef.current.get(candidate);
-    if (candidateVideo?.paused && activeVideoIdRef.current !== candidate) void playHistoryVideo(candidate);
-    else activeVideoIdRef.current = candidate;
-  }, [playHistoryVideo]);
+    if (candidateVideo?.paused && !pausedByUserRef.current.has(candidate)) void playHistoryVideo(candidate);
+  }, [playHistoryVideo, syncPlayerState]);
 
   useEffect(() => {
     if (!active || typeof IntersectionObserver === "undefined") return;
@@ -1093,17 +1113,10 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         const id = video.dataset.videoCommentId;
         if (!id) return;
         visibilityRef.current.set(id, entry.intersectionRatio);
-        if (entry.intersectionRatio < VIDEO_COMMENT_VISIBILITY_THRESHOLD) {
-          pausedByUserRef.current.delete(id);
-          endedRef.current.delete(id);
-          video.pause();
-          video.currentTime = 0;
-          syncPlayerState(video);
-          if (activeVideoIdRef.current === id) activeVideoIdRef.current = null;
-        }
+
       });
       chooseVisibleHistoryVideo();
-    }, { root: null, threshold: [0, VIDEO_COMMENT_VISIBILITY_THRESHOLD, 1] });
+    }, { root: null, threshold: [0, 0.15, 0.25, 0.5, 0.75, 1] });
     historyObserverRef.current = observer;
     historyVideos.forEach((video) => observer.observe(video));
     return () => {
@@ -1157,6 +1170,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     selectedFileRef.current = null;
     setPreviewPlayable(false);
     setPreviewDuration(null);
+    setPreviewAspectRatio(9 / 16);
     previewPlayableRef.current = false;
     previewFallbackAttemptedRef.current = false;
     previewDurationRef.current = null;
@@ -1164,9 +1178,15 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   }, []);
 
   const stopTracks = useCallback(() => {
+    if (canvasFrameRef.current !== null) cancelAnimationFrame(canvasFrameRef.current);
+    canvasFrameRef.current = null;
+    recorderOutputStreamRef.current?.getVideoTracks().forEach((track) => track.stop());
+    recorderOutputStreamRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (livePreviewRef.current) livePreviewRef.current.srcObject = null;
+    orientationPausedRef.current = false;
+    setOrientationPaused(false);
   }, []);
 
   const clearTimer = useCallback(() => {
@@ -1178,7 +1198,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     clearTimer();
     stopModeRef.current = options.nextState === "menu" ? "menu" : "idle";
     try {
-      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
     } catch (err) {
       logVideoCommentDevError("Recorder stop during cleanup failed", err);
     }
@@ -1264,7 +1284,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     stopModeRef.current = "previewRecorded";
     clearTimer();
     const recorder = recorderRef.current;
-    if (recorder?.state === "recording" && !stopRequestedRef.current) {
+    if (recorder && recorder.state !== "inactive" && !stopRequestedRef.current) {
       stopRequestedRef.current = true;
       try { recorder.requestData(); } catch (err) { logRecorderPhaseError("recording.requestData", err, recorder.mimeType, recorder, streamRef.current); }
       recorder.stop();
@@ -1317,9 +1337,32 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       preview.onerror = () => { window.clearTimeout(timeout); reject(new Error("preview-metadata-error")); };
     });
     await preview.play().catch((err) => { throw new Error(`preview-play:${err instanceof Error ? err.message : "unknown"}`); });
+    const canvas = canvasRef.current;
+    if (!canvas || typeof canvas.captureStream !== "function") throw new Error("portrait-canvas-unavailable");
+    canvas.width = VIDEO_REACTION_WIDTH;
+    canvas.height = VIDEO_REACTION_HEIGHT;
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("portrait-canvas-context-unavailable");
+    const drawPortraitFrame = () => {
+      context.fillStyle = "#000";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      if (preview.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && preview.videoWidth > 0 && preview.videoHeight > 0) {
+        const { dx, dy, dw, dh } = calculateContainRect(preview.videoWidth, preview.videoHeight, canvas.width, canvas.height);
+        context.save();
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+        context.drawImage(preview, dx, dy, dw, dh);
+        context.restore();
+      }
+      canvasFrameRef.current = requestAnimationFrame(drawPortraitFrame);
+    };
+    drawPortraitFrame();
+    const canvasStream = canvas.captureStream(30);
+    const outputStream = new MediaStream([...canvasStream.getVideoTracks(), ...stream.getAudioTracks()]);
+    recorderOutputStreamRef.current = outputStream;
     const { mimeType } = getRecorderConfiguration(iosWebKit);
     currentMimeTypeRef.current = mimeType;
-    const created = createRecorderWithFallback(stream, iosWebKit);
+    const created = createRecorderWithFallback(outputStream, iosWebKit);
     let recorder = created.recorder;
     appendVideoDebugLog("RECORDER_CREATED", { requestedMimeType: created.requestedMimeType, actualMimeType: recorder.mimeType, state: recorder.state });
     recorderRef.current = recorder;
@@ -1380,7 +1423,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     } catch (err) {
       logRecorderPhaseError("preparingRecorder.start", err, recorder.mimeType || mimeType, recorder, stream);
       if (mimeType) {
-        const fallbackRecorder = new MediaRecorder(stream);
+        const fallbackRecorder = new MediaRecorder(outputStream);
         const onDataAvailable = recorder.ondataavailable;
         const onStop = recorder.onstop;
         recorder = fallbackRecorder;
@@ -1397,11 +1440,41 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     setRecordingSeconds(0);
     setRecorderState("recording");
     timerRef.current = window.setInterval(() => setRecordingSeconds((seconds) => {
+      if (orientationPausedRef.current) return seconds;
       const nextSecond = Math.min(seconds + 1, VIDEO_COMMENT_MAX_SECONDS);
       if (nextSecond >= VIDEO_COMMENT_MAX_SECONDS) window.setTimeout(finishRecording, 0);
       return nextSecond;
     }), 1000);
   }, [appendVideoDebugLog, changeRecorderState, createRecorderWithFallback, finishRecording, iosWebKit, mountPreviewImmediately, stopTracks, t]);
+
+  useEffect(() => {
+    if (recorderState !== "recording") return;
+    const mediaQuery = window.matchMedia("(orientation: landscape)");
+    const syncOrientation = () => {
+      const landscape = mediaQuery.matches || isLandscapeViewport();
+      const recorder = recorderRef.current;
+      if (landscape && !orientationPausedRef.current) {
+        orientationPausedRef.current = true;
+        setOrientationPaused(true);
+        if (recorder?.state === "recording") recorder.pause();
+      } else if (!landscape && orientationPausedRef.current) {
+        orientationPausedRef.current = false;
+        setOrientationPaused(false);
+        if (recorder?.state === "paused") recorder.resume();
+      }
+    };
+    syncOrientation();
+    mediaQuery.addEventListener?.("change", syncOrientation);
+    window.addEventListener("orientationchange", syncOrientation);
+    window.addEventListener("resize", syncOrientation);
+    screen.orientation?.addEventListener?.("change", syncOrientation);
+    return () => {
+      mediaQuery.removeEventListener?.("change", syncOrientation);
+      window.removeEventListener("orientationchange", syncOrientation);
+      window.removeEventListener("resize", syncOrientation);
+      screen.orientation?.removeEventListener?.("change", syncOrientation);
+    };
+  }, [recorderState]);
 
   const continueToNativePermissions = useCallback(async () => {
     setError("");
@@ -1410,8 +1483,16 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError(t("movieDetailVideoUnsupportedBrowser")); setRecorderState("error"); return; }
     try {
       cleanupRecorder({ clearPreview: true, nextState: "idle" });
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: VIDEO_REACTION_WIDTH }, height: { ideal: VIDEO_REACTION_HEIGHT }, aspectRatio: { ideal: 9 / 16 } },
+        audio: true,
+      });
       if (!stream.active || stream.getVideoTracks().length === 0 || stream.getAudioTracks().length === 0) throw new Error("missing-tracks");
+      const cameraTrack = stream.getVideoTracks()[0];
+      const capabilities = cameraTrack.getCapabilities?.() as MediaTrackCapabilities & { zoom?: { min?: number } };
+      if (capabilities?.zoom?.min !== undefined) {
+        await cameraTrack.applyConstraints({ advanced: [{ zoom: capabilities.zoom.min } as MediaTrackConstraintSet] }).catch(() => undefined);
+      }
       streamRef.current = stream;
       pendingStreamRef.current = stream;
       permissionInfoAcceptedRef.current = true;
@@ -1493,14 +1574,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     pausedByUserRef.current.delete(key);
     endedRef.current.delete(key);
     if (activeVideoIdRef.current === key) activeVideoIdRef.current = null;
-    const expandedVideo = expandedVideosRef.current.get(key);
-    if (expandedVideo) {
-      expandedVideo.pause();
-      expandedObserverRef.current?.unobserve(expandedVideo);
-      expandedVideosRef.current.delete(key);
-      expandedVisibilityRef.current.delete(key);
-    }
-    if (expandedActiveVideoIdRef.current === key) expandedActiveVideoIdRef.current = null;
+    expandedVideosRef.current.get(key)?.pause();
+    expandedVideosRef.current.delete(key);
     setDeletingIds((value) => ({ ...value, [key]: true }));
     try {
       await apiFetch(`/video-comments/${encodeURIComponent(key)}/`, { method: "DELETE" });
@@ -1535,63 +1610,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     syncPlayerState(video);
   }, [syncPlayerState]);
 
-  const restartHistoryVideo = useCallback((id: string) => {
-    const video = historyVideosRef.current.get(id);
-    if (!video) return;
-    endedRef.current.delete(id);
-    video.currentTime = 0;
-    syncPlayerState(video);
-  }, [syncPlayerState]);
 
-  const playExpandedVideo = useCallback(async (id: string) => {
-    const video = expandedVideosRef.current.get(id);
-    if (!video) return;
-    historyVideosRef.current.forEach((item) => item.pause());
-    expandedVideosRef.current.forEach((item, itemId) => {
-      if (itemId !== id) {
-        item.pause();
-        item.currentTime = 0;
-      }
-    });
-    expandedActiveVideoIdRef.current = id;
-    video.currentTime = 0;
-    video.muted = soundPreferenceRef.current !== "sound-on";
-    try {
-      await video.play();
-    } catch {
-      if (!video.muted) {
-        video.muted = true;
-        try { await video.play(); } catch { /* Keep the expanded feed usable when autoplay is blocked. */ }
-      }
-    }
-    syncPlayerState(video);
-  }, [syncPlayerState]);
-
-  const chooseVisibleExpandedVideo = useCallback(() => {
-    let candidate: string | null = null;
-    let bestRatio = EXPANDED_VIDEO_VISIBILITY_THRESHOLD;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    const root = expandedScrollerRef.current;
-    const viewportCenter = (root?.clientHeight ?? window.innerHeight) / 2;
-    expandedVisibilityRef.current.forEach((ratio, id) => {
-      const video = expandedVideosRef.current.get(id);
-      if (!video || ratio < EXPANDED_VIDEO_VISIBILITY_THRESHOLD) return;
-      const rect = video.getBoundingClientRect();
-      const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter);
-      if (ratio > bestRatio || (Math.abs(ratio - bestRatio) <= 0.02 && distance < bestDistance)) {
-        candidate = id;
-        bestRatio = ratio;
-        bestDistance = distance;
-      }
-    });
-    expandedVideosRef.current.forEach((video, id) => {
-      if (id !== candidate) {
-        video.pause();
-        video.currentTime = 0;
-      }
-    });
-    if (candidate && expandedActiveVideoIdRef.current !== candidate) void playExpandedVideo(candidate);
-  }, [playExpandedVideo]);
 
   const openExpandedVideo = useCallback((id: string) => {
     expandedOpenRef.current = true;
@@ -1601,9 +1620,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   }, []);
 
   const closeExpandedVideo = useCallback(() => {
-    const currentId = expandedActiveVideoIdRef.current ?? expandedVideoId;
+    const currentId = expandedVideoId;
     expandedVideosRef.current.forEach((video) => { video.pause(); video.currentTime = 0; });
-    expandedActiveVideoIdRef.current = null;
     expandedOpenRef.current = false;
     setExpandedVideoId(null);
     window.setTimeout(() => {
@@ -1622,84 +1640,30 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   }, [expandedVideoId]);
 
   useEffect(() => {
-    if (expandedVideoId === null || !expandedScrollerRef.current) return;
-    const expandedVideos = expandedVideosRef.current;
-    const expandedVisibility = expandedVisibilityRef.current;
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const video = entry.target as HTMLVideoElement;
-        const id = video.dataset.expandedVideoId;
-        if (!id) return;
-        expandedVisibilityRef.current.set(id, entry.intersectionRatio);
-        if (entry.intersectionRatio < EXPANDED_VIDEO_VISIBILITY_THRESHOLD) {
-          video.pause();
-          video.currentTime = 0;
-          if (expandedActiveVideoIdRef.current === id) expandedActiveVideoIdRef.current = null;
-          syncPlayerState(video);
-        }
-      });
-      chooseVisibleExpandedVideo();
-    }, { root: expandedScrollerRef.current, threshold: [0, EXPANDED_VIDEO_VISIBILITY_THRESHOLD, 1] });
-    expandedObserverRef.current = observer;
-    return () => {
-      observer.disconnect();
-      expandedObserverRef.current = null;
-      expandedVideos.forEach((video) => video.pause());
-      expandedVideos.clear();
-      expandedVisibility.clear();
-      expandedActiveVideoIdRef.current = null;
-    };
-  }, [chooseVisibleExpandedVideo, expandedVideoId, syncPlayerState]);
-
-  useEffect(() => {
-    if (expandedVideoId === null) return;
-    const mounted = new Set<string>();
-    document.querySelectorAll<HTMLVideoElement>('[data-expanded-video-player="true"]').forEach((video) => {
-      const id = video.dataset.expandedVideoId;
-      if (!id) return;
-      mounted.add(id);
-      if (expandedVideosRef.current.has(id)) return;
-      video.muted = soundPreferenceRef.current !== "sound-on";
-      video.disablePictureInPicture = true;
-      expandedVideosRef.current.set(id, video);
-      expandedObserverRef.current?.observe(video);
-    });
-    expandedVideosRef.current.forEach((video, id) => {
-      if (!mounted.has(id)) {
-        expandedObserverRef.current?.unobserve(video);
-        expandedVideosRef.current.delete(id);
-        expandedVisibilityRef.current.delete(id);
-      }
-    });
-    window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-expanded-video-card="${CSS.escape(expandedVideoId)}"]`)?.scrollIntoView({ block: "start" });
-    });
-  }, [comments, expandedVideoId]);
-
-  useEffect(() => {
-    if (expandedVideoId === null || !next || loadingMore || !expandedSentinelRef.current) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting) && next && !loadingMore) void fetchPage(next, "more");
-    }, { root: expandedScrollerRef.current, rootMargin: "100% 0px" });
-    observer.observe(expandedSentinelRef.current);
-    return () => observer.disconnect();
-  }, [expandedVideoId, fetchPage, loadingMore, next]);
-
-  useEffect(() => {
-    const pauseAllWhenHidden = () => {
-      if (!document.hidden) return;
+    const pauseAll = () => {
       historyVideosRef.current.forEach((video) => video.pause());
       expandedVideosRef.current.forEach((video) => video.pause());
       activeVideoIdRef.current = null;
-      expandedActiveVideoIdRef.current = null;
+      };
+    const handleVisibility = () => {
+      if (document.hidden) pauseAll();
+      else {
+        historyVideosRef.current.forEach((video, id) => {
+          const rect = video.getBoundingClientRect();
+          const visible = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+          visibilityRef.current.set(id, visible / Math.max(1, rect.height));
+        });
+        chooseVisibleHistoryVideo();
+      }
     };
-    document.addEventListener("visibilitychange", pauseAllWhenHidden);
-    window.addEventListener("pagehide", pauseAllWhenHidden);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pagehide", pauseAll);
     return () => {
-      document.removeEventListener("visibilitychange", pauseAllWhenHidden);
-      window.removeEventListener("pagehide", pauseAllWhenHidden);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pagehide", pauseAll);
+      pauseAll();
     };
-  }, []);
+  }, [chooseVisibleHistoryVideo]);
 
   const tryWebKitBlobPreviewFallback = useCallback((): boolean => {
     const video = previewVideoRef.current;
@@ -1773,7 +1737,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording";
 
 
-  return <section data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
+  return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)]">
       <div ref={menuRef} className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
@@ -1788,13 +1752,16 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       {recorderState === "validatingSelected" ? <div className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 text-center"><p className="text-sm text-zinc-300">{t("movieDetailVideoReadingSelectedFile")}</p></div> : null}
       {recorderState === "requestingPermission" ? <div className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 text-center"><p className="text-sm text-zinc-300">{t("movieDetailVideoRequestingPermission")}</p><button type="button" className="mt-3 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelRequest}>{t("movieDetailVideoCancel")}</button></div> : null}
       {showRecorderShell ? <div className="w-full space-y-3">
-        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-black mx-auto" style={{ width: VIDEO_COMMENT_PREVIEW_SIZE, maxWidth: "100%" }}>
-          {recorderState === "preparingRecorder" || recorderState === "recording" ? <video ref={livePreviewRef} autoPlay muted playsInline className="h-full w-full object-cover" /> : previewUrl ? <video key={previewUrl} ref={previewVideoRef} src={previewUrl} controls preload="auto" playsInline className="h-full w-full object-contain" onLoadedMetadata={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadedmetadata" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onDurationChange={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "durationchange" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onLoadedData={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadeddata" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onCanPlay={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "canplay" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onError={(event) => { const mediaError = event.currentTarget.error; appendVideoDebugLog("PREVIEW_EVENTS", { event: "error" }); appendVideoDebugLog("PREVIEW_ERROR", { code: mediaError?.code ?? null, message: mediaError?.message ?? "" }); logVideoCommentDevError("Video preview playback failed", mediaError); if (!tryWebKitBlobPreviewFallback()) setPreviewError(t("movieDetailVideoPreviewPlaybackError")); }} /> : null}
+        <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
+        <div className="relative mx-auto max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black" style={{ aspectRatio: previewAspectRatio, height: recorderState === "preparingRecorder" || recorderState === "recording" || recorderState === "previewRecorded" ? VIDEO_COMMENT_PREVIEW_HEIGHT : undefined, width: recorderState === "previewSelected" || recorderState === "uploading" ? "100%" : undefined, maxHeight: "calc(100dvh - 230px)" }}>
+          {recorderState === "preparingRecorder" || recorderState === "recording" ? <video ref={livePreviewRef} autoPlay muted playsInline className="h-full w-full -scale-x-100 object-contain" /> : previewUrl ? <video key={previewUrl} ref={previewVideoRef} src={previewUrl} preload="auto" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onClick={(event) => event.currentTarget.paused ? void event.currentTarget.play() : event.currentTarget.pause()} onLoadedMetadata={(event) => { setPreviewAspectRatio(event.currentTarget.videoWidth / Math.max(1, event.currentTarget.videoHeight)); appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadedmetadata" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onDurationChange={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "durationchange" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onLoadedData={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadeddata" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onCanPlay={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "canplay" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onError={(event) => { const mediaError = event.currentTarget.error; appendVideoDebugLog("PREVIEW_EVENTS", { event: "error" }); appendVideoDebugLog("PREVIEW_ERROR", { code: mediaError?.code ?? null, message: mediaError?.message ?? "" }); logVideoCommentDevError("Video preview playback failed", mediaError); if (!tryWebKitBlobPreviewFallback()) setPreviewError(t("movieDetailVideoPreviewPlaybackError")); }} /> : null}
           {recorderState === "preparingRecorder" ? <span className="absolute left-3 top-3 rounded-full bg-zinc-900/80 px-3 py-1 text-xs font-bold text-zinc-100">{t("movieDetailVideoPreparingCamera")}</span> : null}
           {recorderState === "recording" ? <span className="absolute left-3 top-3 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-100">{t("movieDetailVideoRecording")} {formatVideoDuration(recordingSeconds)}</span> : null}
+          {(recorderState === "previewRecorded" || recorderState === "previewSelected") && previewUrl ? <button type="button" className="absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t("movieDetailVideoExpand")} onClick={() => setPreviewExpanded(true)}>⛶</button> : null}
+          {orientationPaused ? <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/85 p-4 text-center"><div className="max-w-sm"><span className="video-reaction-phone mx-auto mb-5 block h-16 w-9 rounded-lg border-2 border-white" aria-hidden="true" /><p className="text-base font-bold leading-relaxed text-white">{t("movieDetailVideoRotatePortrait")}</p></div></div> : null}
           {(recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading") && (!previewPlayable || previewDuration === null) && !previewError ? <span className="absolute inset-x-3 top-3 rounded-xl bg-zinc-950/85 px-3 py-2 text-center text-xs font-bold text-zinc-100">{t("movieDetailVideoPreparingPreview")}</span> : null}
         </div>
-        {recorderState === "recording" ? <div className="relative z-20 flex gap-3 pb-3"><button type="button" className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelToIdle}>{t("movieDetailVideoCancel")}</button><button type="button" className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black" onClick={finishRecording}>{t("movieDetailVideoStop")}</button></div> : null}
+        {recorderState === "recording" && !orientationPaused ? <div className="relative z-20 flex gap-3 pb-3"><button type="button" className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelToIdle}>{t("movieDetailVideoCancel")}</button><button type="button" className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black" onClick={finishRecording}>{t("movieDetailVideoStop")}</button></div> : null}
         {recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading" ? <>{previewError ? <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-center text-xs text-red-200">{previewError}</p> : previewDuration !== null ? <p className="text-center text-xs text-zinc-400">{formatVideoDuration(previewDuration)}</p> : null}<div className="relative z-20 flex gap-3 pb-3"><button type="button" disabled={recorderState === "uploading"} className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100 disabled:opacity-60" onClick={recorderState === "previewRecorded" ? retake : cancelToIdle}>{recorderState === "previewRecorded" ? t("movieDetailVideoRetake") : t("movieDetailVideoCancel")}</button><button type="button" disabled={recorderState === "uploading" || !previewFile || previewFile.size <= 0 || previewDuration === null || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || !previewPlayable || !!previewError} className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black disabled:opacity-60" onClick={sendVideo}>{recorderState === "uploading" ? t("movieDetailVideoUploading") : t("movieDetailVideoSend")}</button></div></> : null}
       </div> : null}
       {recorderState === "error" && error ? <div className="w-full rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"><p>{error}</p><button type="button" className="mt-3 rounded-lg border border-red-200/30 px-3 py-1 text-red-100" onClick={() => setRecorderState("menu")}>{t("movieDetailVideoRetry")}</button></div> : null}
@@ -1810,41 +1777,30 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         return <article key={comment.id} data-video-comment-card={id} className="space-y-2 rounded-2xl border border-white/10 bg-black/25 p-3">
           <div className="flex items-center gap-3"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
             <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[id]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div>
-          <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-black">
-            <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-cover" onPlay={(event) => { activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(event.currentTarget); }} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
-            <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pb-3 pt-8">
-              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t(state.paused ? "movieDetailVideoPlay" : "movieDetailVideoPause")} onClick={() => toggleHistoryPlayback(id)}>{state.paused ? "▶" : "Ⅱ"}</button>
-              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => toggleHistorySound(id)}>{state.muted ? "🔇" : "🔊"}</button>
-              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-xl text-white" aria-label={t("movieDetailVideoRestart")} onClick={() => restartHistoryVideo(id)}>↺</button>
-              <button type="button" className="ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-xl text-white" aria-label={t("movieDetailVideoExpand")} onClick={() => openExpandedVideo(id)}>⛶</button>
+          <div className="relative flex max-h-[calc(100dvh-12rem)] w-full items-center justify-center overflow-hidden rounded-xl bg-black">
+            <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-12rem)] w-full object-contain" onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(event.currentTarget); }} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-3 pb-3 pt-8">
+              <button type="button" className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => toggleHistorySound(id)}>{state.muted ? "🔇" : "🔊"}</button>
+              <button type="button" className="pointer-events-auto ml-auto flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-xl text-white" aria-label={t("movieDetailVideoExpand")} onClick={() => openExpandedVideo(id)}>⛶</button>
             </div>
           </div>
         </article>;
       }) : null}
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
-    {expandedVideoId !== null ? <div className="fixed inset-0 z-[100] bg-black md:hidden" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
-      <button type="button" className="fixed right-4 z-[102] flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" style={{ top: "calc(env(safe-area-inset-top) + 12px)" }} aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
-      <div ref={expandedScrollerRef} className="h-[100dvh] snap-y snap-mandatory overflow-y-auto overscroll-contain bg-black">
-        {comments.map((comment) => {
-          const id = String(comment.id);
-          const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
-          return <article key={`expanded-${id}`} data-expanded-video-card={id} className="relative h-[100dvh] snap-start snap-always overflow-hidden bg-black" style={{ scrollSnapStop: "always" }}>
-            <video data-expanded-video-player="true" data-expanded-video-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => syncPlayerState(event.currentTarget)} />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/60 to-transparent px-4 pt-20 text-white" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}>
-              <div className="mb-3 flex items-center gap-3"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
-                <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0, 2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-white" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-300">{new Date(comment.created_at).toLocaleDateString()}</time></div></div>
-              <div className="flex items-center gap-3">
-                <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl" aria-label={t(state.paused ? "movieDetailVideoPlay" : "movieDetailVideoPause")} onClick={() => { const video = expandedVideosRef.current.get(id); if (!video) return; if (video.paused) void playExpandedVideo(id); else video.pause(); }}>{state.paused ? "▶" : "Ⅱ"}</button>
-                <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => { const video = expandedVideosRef.current.get(id); if (!video) return; const preference: VideoSoundPreference = video.muted ? "sound-on" : "muted"; video.muted = preference === "muted"; soundPreferenceRef.current = preference; setSoundPreference(preference); try { sessionStorage.setItem(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" ? "on" : "off"); } catch {} syncPlayerState(video); }}>{state.muted ? "🔇" : "🔊"}</button>
-                <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl" aria-label={t("movieDetailVideoRestart")} onClick={() => { const video = expandedVideosRef.current.get(id); if (video) video.currentTime = 0; }}>↺</button>
-              </div>
-            </div>
-          </article>;
-        })}
-        <div ref={expandedSentinelRef} aria-hidden="true" className="h-px snap-end" />
-      </div>
-    </div> : null}
+    {previewExpanded && previewUrl ? <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black p-3" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpand")}><button type="button" className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-10 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900/80 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={() => setPreviewExpanded(false)}>×</button><video src={previewUrl} autoPlay playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1.5rem)] max-w-full object-contain" /></div> : null}
+    {expandedVideoId !== null ? (() => {
+      const comment = comments.find((item) => String(item.id) === expandedVideoId);
+      if (!comment) return null;
+      const state = playerStates[expandedVideoId] ?? { paused: true, muted: true };
+      return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
+        <button type="button" className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
+        <div className="relative flex h-full w-full items-center justify-center">
+          <video ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onClick={(event) => event.currentTarget.paused ? void event.currentTarget.play() : event.currentTarget.pause()} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
+          <button type="button" className="absolute bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => { const video = expandedVideosRef.current.get(expandedVideoId); if (!video) return; video.muted = !video.muted; syncPlayerState(video); }}>{state.muted ? "🔇" : "🔊"}</button>
+        </div>
+      </div>;
+    })() : null}
   </section>;
 }
 
@@ -1895,7 +1851,7 @@ function MovieDetailPageContent() {
   const [isPublicSearchOpen, setIsPublicSearchOpen] = useState(false);
   const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
   const [activeCommentsTab, setActiveCommentsTab] = useState<"public" | "directed">("public");
-  const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("text-comment");
+  const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("video-comment");
   const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
     useState<PendingDirectedNotificationTarget | null>(null);
   const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -2391,6 +2347,7 @@ function MovieDetailPageContent() {
     if (processedDirectedTargetRef.current === targetKey) return;
     processedDirectedTargetRef.current = targetKey;
     setActiveCommentsTab("directed");
+    setCommentInputMode("text-comment");
     setPendingDirectedNotificationTarget({ actorId, actorUsername, commentId, conversationKey: null, stage: "find-conversation" });
   }, [movieId, searchParams]);
 
@@ -2875,8 +2832,8 @@ function MovieDetailPageContent() {
             />
           ) : null}
 
-          <div className="flex items-center justify-between gap-4 md:hidden" role="tablist" aria-label={composerTitle}>
-            {(["text-comment", "video-comment"] as const).map((mode) => {
+          <div data-mobile-comment-tabs className="flex items-center justify-between gap-4 md:hidden" role="tablist" aria-label={composerTitle}>
+            {(["video-comment", "text-comment"] as const).map((mode) => {
               const isActiveMode = commentInputMode === mode;
 
               return (
@@ -2895,19 +2852,19 @@ function MovieDetailPageContent() {
           </div>
         </div>
 
-        <div ref={textCommentStartRef} className={`md:hidden ${commentInputMode === "text-comment" ? "block" : "hidden"}`}>
+        <div ref={textCommentStartRef} data-mobile-text-comment data-active={commentInputMode === "text-comment"} className={`md:hidden ${commentInputMode === "text-comment" ? "block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
         <div ref={videoCommentStartRef}>
           <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment"} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
-        <div className="hidden md:block">
+        <div data-desktop-comment-composer className="hidden md:block">
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
         </div>
 
         {reactionError ? <div className={`rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200 ${commentInputMode === "video-comment" ? "hidden md:block" : ""}`}>{reactionError}</div> : null}
 
-        <div className={`relative grid-cols-1 gap-6 ${commentInputMode === "video-comment" ? "hidden md:grid" : "grid"} ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
+        <div data-comment-history data-video-active={commentInputMode === "video-comment"} className={`relative grid-cols-1 gap-6 ${commentInputMode === "video-comment" ? "hidden md:grid" : "grid"} ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
           {shouldRenderDirectedComments ? (
             <>
               <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
