@@ -149,6 +149,7 @@ test("saved cards only render volume and expand controls and tap toggles playbac
 });
 
 test("expanded video swipe navigates without closing fullscreen and remains distinct from tap", () => {
+  const expandedPlayer = page.slice(page.indexOf("{expandedVideoId !== null"), page.indexOf("</main>"));
   has(/VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD = 56/);
   has(/const navigateExpandedVideo = useCallback/);
   has(/const target = comments\[currentIndex \+ direction\]/);
@@ -163,7 +164,10 @@ test("expanded video swipe navigates without closing fullscreen and remains dist
   has(/if \(suppressExpandedTapRef\.current\)/);
   has(/setExpandedVideoId\(String\(target\.id\)\)/);
   has(/adjacentComment\.video_url/);
-  has(/muted playsInline preload="metadata"/);
+  has(/key=\{String\(adjacentComment\.id\)\}/);
+  has(/key=\{expandedVideoId\}/);
+  has(/muted playsInline preload="auto"/);
+  assert.doesNotMatch(expandedPlayer, /src\s*=\s*""|\.load\(\)/);
 });
 
 test("recorded preview reuses the recording size and overlay while saved card dimensions stay frozen", () => {
