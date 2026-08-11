@@ -1076,6 +1076,14 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     setPlayerStates((states) => ({ ...states, [id]: { paused: video.paused, muted: video.muted } }));
   }, []);
 
+  const applyVideoSoundPreference = useCallback((preference: VideoSoundPreference, video: HTMLVideoElement) => {
+    soundPreferenceRef.current = preference;
+    setSoundPreference(preference);
+    try { sessionStorage.setItem(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" ? "on" : "off"); } catch { /* Storage can be unavailable in private contexts. */ }
+    video.muted = preference === "muted";
+    syncPlayerState(video);
+  }, [syncPlayerState]);
+
   const logHistoryPlayerGeometry = useCallback((phase: string, video: HTMLVideoElement) => {
     if (!videoDebugEnabled) return;
     const wrapper = video.parentElement;
@@ -1834,12 +1842,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     const video = historyVideosRef.current.get(id);
     if (!video) return;
     const preference: VideoSoundPreference = video.muted ? "sound-on" : "muted";
-    video.muted = preference === "muted";
-    soundPreferenceRef.current = preference;
-    setSoundPreference(preference);
-    try { sessionStorage.setItem(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" ? "on" : "off"); } catch { /* Storage can be unavailable in private contexts. */ }
-    syncPlayerState(video);
-  }, [syncPlayerState]);
+    applyVideoSoundPreference(preference, video);
+  }, [applyVideoSoundPreference]);
 
 
 
@@ -2109,7 +2113,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
           <div key={expandedVideoId} className="absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(${expandedDragOffset}px)`, transition: swipeTransition }}>
           <video data-expanded-video-id={expandedVideoId} ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY, vertical: null } : null; suppressExpandedTapRef.current = false; setExpandedDragAnimating(false); }} onTouchMove={(event) => { const start = expandedTouchStartRef.current; const touch = event.touches[0]; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (start.vertical === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX) start.vertical = Math.abs(deltaY) > Math.abs(deltaX); if (!start.vertical) return; event.preventDefault(); suppressExpandedTapRef.current = true; const direction = deltaY < 0 ? 1 : -1; const hasTarget = comments[currentIndex + direction] !== undefined; setExpandedDragOffset(hasTarget ? deltaY : deltaY * 0.2); }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch || !start.vertical) { if (expandedDragOffset !== 0) cancelExpandedDrag(); return; } const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; const direction: -1 | 1 = deltaY < 0 ? 1 : -1; if (Math.abs(deltaY) >= VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX) && comments[currentIndex + direction]) finishExpandedDrag(direction); else cancelExpandedDrag(); }} onTouchCancel={() => { expandedTouchStartRef.current = null; if (expandedDragOffset !== 0) cancelExpandedDrag(); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
           </div>
-          <button type="button" className="absolute bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => { const video = expandedVideosRef.current.get(expandedVideoId); if (!video) return; video.muted = !video.muted; syncPlayerState(video); }}>{state.muted ? "🔇" : "🔊"}</button>
+          <button type="button" className="absolute bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => { const video = expandedVideosRef.current.get(expandedVideoId); if (!video) return; applyVideoSoundPreference(video.muted ? "sound-on" : "muted", video); }}>{state.muted ? "🔇" : "🔊"}</button>
         </div>
       </div>;
     })() : null}
