@@ -459,6 +459,27 @@ test('orientation changes update per-frame composition without resizing the fixe
   assert.equal((page.match(/canvas\.height = VIDEO_REACTION_OUTPUT_HEIGHT/g) || []).length, 1);
 });
 
+test('recorded orientation timeline is debounced, finalized and uploaded only for camera recordings', () => {
+  has(/orientationTimelineRef = useRef<OrientationSegment\[\]>/);
+  has(/recordingStartedAtRef\.current = performance\.now\(\)/);
+  has(/now - pending\.since >= 250/);
+  has(/orientationTimelineRef\.current\.push\(\{ start: elapsed, end: elapsed, orientation: frameOrientation \}\)/);
+  has(/finalizeOrientationTimeline\(\)/);
+  has(/previousState === "previewRecorded" && recordedTimeline\.length > 0/);
+  has(/data\.append\("orientation_timeline", JSON\.stringify\(recordedTimeline\)\)/);
+});
+
+test('timeline drives stable history card and expanded geometry without remounting playback', () => {
+  has(/normalizeOrientationTimeline\(comment\.orientation_timeline\)/);
+  has(/timelineHasPortrait/);
+  has(/timelineOrientation === "portrait"/);
+  has(/timelineOrientation === "landscape"/);
+  has(/onTimeUpdate=\{\(event\) => syncPlaybackOrientation/);
+  has(/isExpandedPortraitFrame/);
+  assert.doesNotMatch(page, /onTimeUpdate=.*currentTime\s*=/);
+  has(/snap-y snap-mandatory/);
+});
+
 test('route teardown releases media pipelines while BFCache pagehide only pauses', () => {
   has(/releaseVideoReactionPipeline/);
   has(/video\.removeAttribute\("src"\)/);
@@ -487,7 +508,7 @@ test('published portrait sizing tracks the real sticky header without changing e
   has(/setStickyHeaderHeight\(header\.offsetHeight\)/);
   has(/new ResizeObserver\(updateStickyHeaderHeight\)/);
   has(/stickyHeaderHeight=\{stickyHeaderHeight\}/);
-  has(/getPortraitViewportDimensions\(sourceAspectRatio, viewportSize\.width, viewportSize\.height, 24\)/);
+  has(/getPortraitViewportDimensions\(portraitRatio, viewportSize\.width, viewportSize\.height, 24\)/);
 });
 
 test('selected preview expands in an app modal instead of native fullscreen', () => {
