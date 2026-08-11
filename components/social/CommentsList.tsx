@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { Ref, useEffect, useRef } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { SocialComment } from "../../lib/social";
 import CommentItem from "./CommentItem";
@@ -31,6 +31,7 @@ interface CommentsListProps {
   exposeDirectedCommentIds?: boolean;
   unboundedOnMobile?: boolean;
   desktopDarkScrollbar?: boolean;
+  containerRef?: Ref<HTMLDivElement>;
 }
 
 export default function CommentsList({
@@ -61,6 +62,7 @@ export default function CommentsList({
   exposeDirectedCommentIds = false,
   unboundedOnMobile = false,
   desktopDarkScrollbar = false,
+  containerRef,
 }: CommentsListProps) {
   const { t } = useI18n();
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -134,6 +136,7 @@ export default function CommentsList({
 
   return (
     <div
+      ref={containerRef}
       className={`${desktopDarkScrollbar ? "desktop-dark-scrollbar " : ""}${
         unboundedOnMobile
           ? borderlessContainer

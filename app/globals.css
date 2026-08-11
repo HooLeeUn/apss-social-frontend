@@ -160,6 +160,14 @@ textarea,
   .desktop-dark-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #606060;
   }
+
+  .desktop-video-reaction-card {
+    overflow-anchor: none;
+  }
+
+  .desktop-video-reaction-card video[data-video-comment-player="true"] {
+    max-height: 16rem !important;
+  }
 }
 
 .scrollbar-metallic-blue {

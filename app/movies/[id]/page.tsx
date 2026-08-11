@@ -1369,6 +1369,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   }, [active, cleanupRecorder]);
 
   useEffect(() => {
+    if (!active || !window.matchMedia("(min-width: 768px)").matches) return;
+    historyScrollRef.current?.scrollTo({ top: 0 });
+  }, [active]);
+
+  useEffect(() => {
     if (recorderState !== "menu") return;
     const onDown = (event: PointerEvent) => { if (!menuRef.current?.contains(event.target as Node)) setRecorderState("idle"); };
     document.addEventListener("pointerdown", onDown);
@@ -1499,7 +1504,17 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         context.save();
         context.translate(canvas.width, 0);
         context.scale(-1, 1);
-        context.drawImage(preview, 0, 0, sourceWidth, sourceHeight, dx, dy, dw, dh);
+        if (desktopRecordingRef.current) {
+          const targetAspect = canvas.width / canvas.height;
+          const sourceAspect = sourceWidth / sourceHeight;
+          const cropWidth = sourceAspect > targetAspect ? sourceHeight * targetAspect : sourceWidth;
+          const cropHeight = sourceAspect > targetAspect ? sourceHeight : sourceWidth / targetAspect;
+          const cropX = (sourceWidth - cropWidth) / 2;
+          const cropY = (sourceHeight - cropHeight) / 2;
+          context.drawImage(preview, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+        } else {
+          context.drawImage(preview, 0, 0, sourceWidth, sourceHeight, dx, dy, dw, dh);
+        }
         context.restore();
       }
     };
@@ -2106,15 +2121,15 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       {recorderState === "idle" ? comments.map((comment) => {
         const id = String(comment.id);
         const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
-        return <article key={comment.id} data-video-comment-card={id} className="space-y-1.5 rounded-2xl border border-white/10 bg-black/25 p-2.5">
-          <div className="flex items-center gap-3"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
+        return <article key={comment.id} data-video-comment-card={id} className="desktop-video-reaction-card space-y-1.5 rounded-2xl border border-white/10 bg-black/25 p-2.5 md:mx-auto md:w-full md:max-w-[24rem] md:space-y-1 md:p-2">
+          <div className="flex items-center gap-3 md:mx-auto md:max-w-[22rem] md:gap-2"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300 md:h-8 md:w-8" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
             <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[id]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div>
-          <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black">
-            <div className="relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
+          <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black md:mx-auto md:w-fit md:max-w-full">
+            <div className="group relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
               <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7">
-                <button type="button" className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); toggleHistorySound(id); }}>{state.muted ? "🔇" : "🔊"}</button>
-                <button type="button" className="pointer-events-auto ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t("movieDetailVideoExpand")} onClick={(event) => { event.stopPropagation(); openExpandedVideo(id); }}>⛶</button>
+              <div className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7 transition-opacity duration-150 ${state.paused ? "md:opacity-0" : "md:opacity-0 md:group-hover:opacity-100"}`}>
+                <button type="button" className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); toggleHistorySound(id); }}>{state.muted ? "🔇" : "🔊"}</button>
+                <button type="button" className={`pointer-events-auto ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t("movieDetailVideoExpand")} onClick={(event) => { event.stopPropagation(); openExpandedVideo(id); }}>⛶</button>
               </div>
             </div>
           </div>
@@ -2201,6 +2216,8 @@ function MovieDetailPageContent() {
   const videoCommentStartRef = useRef<HTMLDivElement | null>(null);
   const pendingCommentInputScrollRef = useRef<CommentInputMode | null>(null);
   const directedCommentsSectionRef = useRef<HTMLElement | null>(null);
+  const publicCommentsScrollRef = useRef<HTMLDivElement | null>(null);
+  const directedCommentsScrollRef = useRef<HTMLDivElement | null>(null);
   const processedDirectedTargetRef = useRef<string | null>(null);
 
 
@@ -2242,6 +2259,18 @@ function MovieDetailPageContent() {
 
   const handleCommentInputTabClick = useCallback(
     (mode: CommentInputMode) => {
+      if (window.matchMedia("(min-width: 768px)").matches) {
+        setCommentInputMode(mode);
+        requestAnimationFrame(() => {
+          if (mode === "video-comment") {
+            videoCommentStartRef.current?.querySelector<HTMLElement>("[data-desktop-video-reaction-history]")?.scrollTo({ top: 0 });
+          } else {
+            publicCommentsScrollRef.current?.scrollTo({ top: 0 });
+            directedCommentsScrollRef.current?.scrollTo({ top: 0 });
+          }
+        });
+        return;
+      }
       if (commentInputMode === mode) {
         scrollCommentStartIntoView(mode);
         return;
@@ -3297,6 +3326,7 @@ function MovieDetailPageContent() {
               borderlessContainer
               unboundedOnMobile
               desktopDarkScrollbar
+              containerRef={publicCommentsScrollRef}
             />
           </section>
 
@@ -3329,7 +3359,7 @@ function MovieDetailPageContent() {
                 </p>
               ) : null}
               {!loadingDirected && !directedError ? (
-                <div className="desktop-dark-scrollbar px-1 py-2 lg:max-h-[28rem] lg:overflow-y-auto">
+                <div ref={directedCommentsScrollRef} className="desktop-dark-scrollbar px-1 py-2 lg:max-h-[28rem] lg:overflow-y-auto">
                   <div className="space-y-0">
                     {filteredDirectedConversations.map((conversation) => {
                       const isExpanded = expandedConversationKey === conversation.key;
