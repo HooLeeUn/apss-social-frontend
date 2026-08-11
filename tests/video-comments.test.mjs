@@ -84,9 +84,20 @@ test("landscape pauses recorder and counter, then portrait resumes the same reco
   has(/window\.addEventListener\("orientationchange"/);
   has(/screen\.orientation\?\.addEventListener/);
   has(/recorderState === "recording" && !orientationPaused/);
-  has(/if \(isLandscapeViewport\(\)\) \{/);
+  has(/if \(orientationUnsafeRef\.current \|\| isLandscapeViewport\(\)\) \{/);
   has(/if \(recorderRef\.current\?\.state === "recording"\) recorderRef\.current\.pause\(\)/);
-  assert.ok(page.indexOf("if (isLandscapeViewport())") < page.indexOf("context.drawImage(preview"));
+  assert.ok(page.indexOf("if (orientationUnsafeRef.current || isLandscapeViewport())") < page.indexOf("context.drawImage(preview"));
+});
+
+test("device tilt blocks frames early with hysteresis and keeps landscape fallback", () => {
+  has(/VIDEO_REACTION_TILT_PAUSE_DEGREES = 40/);
+  has(/VIDEO_REACTION_TILT_RESUME_DEGREES = 22/);
+  has(/typeof DeviceOrientationEvent === "undefined"/);
+  has(/window\.addEventListener\("deviceorientation", handleEarlyOrientation/);
+  has(/tilt >= VIDEO_REACTION_TILT_PAUSE_DEGREES/);
+  has(/tilt <= VIDEO_REACTION_TILT_RESUME_DEGREES/);
+  assert.ok(page.indexOf("orientationUnsafeRef.current = true") < page.indexOf('setOrientationPaused(true)'));
+  has(/!tiltUnsafeRef\.current && orientationPausedRef\.current/);
 });
 
 test("orientation overlay is translated, responsive, and animated", () => {
@@ -127,10 +138,26 @@ test("saved cards only render volume and expand controls and tap toggles playbac
   assert.match(card, /controls=\{false\}/);
   assert.match(card, /block h-auto w-auto max-w-full shrink-0 object-contain \[contain:layout_paint\]/);
   assert.match(card, /maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT/);
+  assert.match(card, /onLoadedMetadata=\{\(event\) => lockHistoryPlayerGeometry\(event\.currentTarget\)\}/);
+  has(/wrapper\.style\.width = `\$\{rect\.width\}px`/);
+  has(/wrapper\.style\.height = `\$\{rect\.height\}px`/);
+  has(/HISTORY_PLAYER_GEOMETRY/);
   assert.doesNotMatch(card, /activeVideoIdRef\.current === id[^\n]*(className|style)/);
   assert.doesNotMatch(card, /playerStates\[id\][^\n]*(className|style)/);
   assert.match(page, /VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp\(14rem, 36dvh, 18rem\)"/);
   assert.match(card, /space-y-1\.5[\s\S]*p-2\.5/);
+});
+
+test("expanded video swipe navigates without closing fullscreen and remains distinct from tap", () => {
+  has(/VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD = 56/);
+  has(/const navigateExpandedVideo = useCallback/);
+  has(/const target = comments\[currentIndex \+ direction\]/);
+  has(/video\.pause\(\);\s+video\.currentTime = 0/);
+  has(/navigateExpandedVideo\(deltaY < 0 \? 1 : -1\)/);
+  has(/Math\.abs\(deltaY\) <= Math\.abs\(deltaX\)/);
+  has(/suppressExpandedTapRef\.current = true/);
+  has(/if \(suppressExpandedTapRef\.current\)/);
+  has(/setExpandedVideoId\(String\(target\.id\)\)/);
 });
 
 test("recorded preview reuses the recording size and overlay while saved card dimensions stay frozen", () => {

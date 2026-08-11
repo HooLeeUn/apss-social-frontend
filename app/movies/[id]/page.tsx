@@ -49,6 +49,11 @@ const VIDEO_COMMENT_PERMISSION_SESSION_KEY = "qnext_video_comment_permission_inf
 const VIDEO_COMMENT_SOUND_SESSION_KEY = "qnext-video-sound";
 const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.15;
 const VIDEO_COMMENT_DOMINANCE_MARGIN = 0.08;
+// Pause before the phone reaches landscape and resume only after it is clearly
+// back inside portrait, avoiding rapid pause/resume around the boundary.
+const VIDEO_REACTION_TILT_PAUSE_DEGREES = 40;
+const VIDEO_REACTION_TILT_RESUME_DEGREES = 22;
+const VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD = 56;
 const VIDEO_REACTION_WIDTH = 720;
 const VIDEO_REACTION_HEIGHT = 1280;
 // Keep the physically negotiated camera mode independent from the portrait
@@ -1021,7 +1026,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [orientationPaused, setOrientationPaused] = useState(false);
   const orientationPausedRef = useRef(false);
+  const orientationUnsafeRef = useRef(false);
+  const tiltUnsafeRef = useRef(false);
   const expandedVideosRef = useRef(new Map<string, HTMLVideoElement>());
+  const expandedTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressExpandedTapRef = useRef(false);
   const expandedBodyOverflowRef = useRef<string | null>(null);
   const expandedOpenRef = useRef(false);
 
@@ -1058,6 +1067,38 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     if (!id) return;
     setPlayerStates((states) => ({ ...states, [id]: { paused: video.paused, muted: video.muted } }));
   }, []);
+
+  const logHistoryPlayerGeometry = useCallback((phase: string, video: HTMLVideoElement) => {
+    if (!videoDebugEnabled) return;
+    const wrapper = video.parentElement;
+    const videoRect = video.getBoundingClientRect();
+    const wrapperRect = wrapper?.getBoundingClientRect();
+    const style = getComputedStyle(video);
+    appendVideoDebugLog("HISTORY_PLAYER_GEOMETRY", {
+      phase,
+      id: video.dataset.videoCommentId ?? null,
+      paused: video.paused,
+      video: { x: videoRect.x, y: videoRect.y, width: videoRect.width, height: videoRect.height },
+      wrapper: wrapperRect ? { x: wrapperRect.x, y: wrapperRect.y, width: wrapperRect.width, height: wrapperRect.height } : null,
+      computed: { width: style.width, height: style.height, maxWidth: style.maxWidth, maxHeight: style.maxHeight, objectFit: style.objectFit, objectPosition: style.objectPosition, transform: style.transform, padding: style.padding, margin: style.margin },
+      intrinsic: { width: video.videoWidth, height: video.videoHeight },
+    });
+  }, [appendVideoDebugLog, videoDebugEnabled]);
+
+  const lockHistoryPlayerGeometry = useCallback((video: HTMLVideoElement) => {
+    if (video.dataset.geometryLocked === "true") return;
+    const wrapper = video.parentElement;
+    if (!wrapper) return;
+    const rect = video.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    wrapper.style.width = `${rect.width}px`;
+    wrapper.style.height = `${rect.height}px`;
+    video.style.width = "100%";
+    video.style.height = "100%";
+    video.style.maxHeight = "none";
+    video.dataset.geometryLocked = "true";
+    logHistoryPlayerGeometry("metadata-locked", video);
+  }, [logHistoryPlayerGeometry]);
 
   const pauseOtherHistoryVideos = useCallback((nextId: string) => {
     historyVideosRef.current.forEach((video, id) => {
@@ -1221,6 +1262,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (livePreviewRef.current) livePreviewRef.current.srcObject = null;
+    orientationUnsafeRef.current = false;
+    tiltUnsafeRef.current = false;
     orientationPausedRef.current = false;
     setOrientationPaused(false);
   }, []);
@@ -1390,7 +1433,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     if (!context) throw new Error("portrait-canvas-context-unavailable");
     const drawPortraitFrame = () => {
       canvasFrameRef.current = requestAnimationFrame(drawPortraitFrame);
-      if (isLandscapeViewport()) {
+      if (orientationUnsafeRef.current || isLandscapeViewport()) {
+        orientationUnsafeRef.current = true;
         if (!orientationPausedRef.current) {
           orientationPausedRef.current = true;
           setOrientationPaused(true);
@@ -1527,10 +1571,12 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       const landscape = mediaQuery.matches || isLandscapeViewport();
       const recorder = recorderRef.current;
       if (landscape && !orientationPausedRef.current) {
+        orientationUnsafeRef.current = true;
         orientationPausedRef.current = true;
         setOrientationPaused(true);
         if (recorder?.state === "recording") recorder.pause();
-      } else if (!landscape && orientationPausedRef.current) {
+      } else if (!landscape && !tiltUnsafeRef.current && orientationPausedRef.current) {
+        orientationUnsafeRef.current = false;
         orientationPausedRef.current = false;
         setOrientationPaused(false);
         if (recorder?.state === "paused") recorder.resume();
@@ -1547,6 +1593,32 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       window.removeEventListener("resize", syncOrientation);
       screen.orientation?.removeEventListener?.("change", syncOrientation);
     };
+  }, [recorderState]);
+
+  useEffect(() => {
+    if (recorderState !== "recording" || typeof DeviceOrientationEvent === "undefined") return;
+    const handleEarlyOrientation = (event: DeviceOrientationEvent) => {
+      if (event.gamma === null) return;
+      const tilt = Math.abs(event.gamma);
+      const recorder = recorderRef.current;
+      if (tilt >= VIDEO_REACTION_TILT_PAUSE_DEGREES && !tiltUnsafeRef.current) {
+        // This ref is set before React state so drawPortraitFrame drops the next
+        // frame synchronously, even if rendering the overlay takes longer.
+        tiltUnsafeRef.current = true;
+        orientationUnsafeRef.current = true;
+        orientationPausedRef.current = true;
+        if (recorder?.state === "recording") recorder.pause();
+        setOrientationPaused(true);
+      } else if (tilt <= VIDEO_REACTION_TILT_RESUME_DEGREES && tiltUnsafeRef.current && !isLandscapeViewport()) {
+        tiltUnsafeRef.current = false;
+        orientationUnsafeRef.current = false;
+        orientationPausedRef.current = false;
+        if (recorder?.state === "paused") recorder.resume();
+        setOrientationPaused(false);
+      }
+    };
+    window.addEventListener("deviceorientation", handleEarlyOrientation, { passive: true });
+    return () => window.removeEventListener("deviceorientation", handleEarlyOrientation);
   }, [recorderState]);
 
   const continueToNativePermissions = useCallback(async () => {
@@ -1770,6 +1842,18 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     setExpandedVideoId(id);
   }, []);
 
+  const navigateExpandedVideo = useCallback((direction: -1 | 1) => {
+    if (expandedVideoId === null) return;
+    const currentIndex = comments.findIndex((comment) => String(comment.id) === expandedVideoId);
+    const target = comments[currentIndex + direction];
+    if (currentIndex < 0 || !target) return;
+    expandedVideosRef.current.forEach((video) => {
+      video.pause();
+      video.currentTime = 0;
+    });
+    setExpandedVideoId(String(target.id));
+  }, [comments, expandedVideoId]);
+
   const closeExpandedVideo = useCallback(() => {
     const currentId = expandedVideoId;
     expandedVideosRef.current.forEach((video) => { video.pause(); video.currentTime = 0; });
@@ -1930,7 +2014,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
             <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[id]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div>
           <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black">
             <div className="relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
-              <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(event.currentTarget); }} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
+              <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7">
                 <button type="button" className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => toggleHistorySound(id)}>{state.muted ? "🔇" : "🔊"}</button>
                 <button type="button" className="pointer-events-auto ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white" aria-label={t("movieDetailVideoExpand")} onClick={() => openExpandedVideo(id)}>⛶</button>
@@ -1950,7 +2034,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
         <button type="button" className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
         <div className="relative flex h-full w-full items-center justify-center">
-          <video ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onClick={(event) => event.currentTarget.paused ? void event.currentTarget.play() : event.currentTarget.pause()} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
+          <video ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null; suppressExpandedTapRef.current = false; }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (Math.abs(deltaY) < VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD || Math.abs(deltaY) <= Math.abs(deltaX)) return; suppressExpandedTapRef.current = true; navigateExpandedVideo(deltaY < 0 ? 1 : -1); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
           <button type="button" className="absolute bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => { const video = expandedVideosRef.current.get(expandedVideoId); if (!video) return; video.muted = !video.muted; syncPlayerState(video); }}>{state.muted ? "🔇" : "🔊"}</button>
         </div>
       </div>;
