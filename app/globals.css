@@ -518,3 +518,29 @@ textarea,
     will-change: transform;
   }
 }
+
+@keyframes video-reaction-rotate-phone {
+  0%, 20% { transform: rotate(90deg); }
+  70%, 100% { transform: rotate(0deg); }
+}
+
+.video-reaction-phone {
+  animation: video-reaction-rotate-phone 1.6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-reaction-phone { animation: none; }
+}
+
+/* A touch phone remains in the mobile Detail Movie experience when physically rotated. */
+@media (orientation: landscape) and (pointer: coarse) {
+  [data-mobile-comment-tabs] { display: flex; }
+  [data-mobile-video-reaction][data-active="true"] { display: block; }
+  [data-mobile-video-reaction][data-active="false"] { display: none; }
+  [data-mobile-text-comment][data-active="true"] { display: block; }
+  [data-mobile-text-comment][data-active="false"],
+  [data-desktop-comment-composer],
+  [data-comment-history][data-video-active="true"] { display: none; }
+  [data-comment-history][data-video-active="false"] { display: grid; }
+}
