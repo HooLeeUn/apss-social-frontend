@@ -1042,6 +1042,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const [expandedDragAnimating, setExpandedDragAnimating] = useState(false);
   const expandedBodyOverflowRef = useRef<string | null>(null);
   const expandedOpenRef = useRef(false);
+  const desktopRecordingRef = useRef(false);
 
   const appendVideoDebugLog = useCallback((event: string, details: Record<string, unknown>) => {
     if (!videoDebugEnabled) return;
@@ -1460,14 +1461,16 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     if (!context) throw new Error("portrait-canvas-context-unavailable");
     const drawPortraitFrame = () => {
       canvasFrameRef.current = requestAnimationFrame(drawPortraitFrame);
-      if (orientationUnsafeRef.current || isLandscapeViewport()) {
-        orientationUnsafeRef.current = true;
-        if (!orientationPausedRef.current) {
-          orientationPausedRef.current = true;
-          setOrientationPaused(true);
+      if (!desktopRecordingRef.current) {
+        if (orientationUnsafeRef.current || isLandscapeViewport()) {
+          orientationUnsafeRef.current = true;
+          if (!orientationPausedRef.current) {
+            orientationPausedRef.current = true;
+            setOrientationPaused(true);
+          }
+          if (recorderRef.current?.state === "recording") recorderRef.current.pause();
+          return;
         }
-        if (recorderRef.current?.state === "recording") recorderRef.current.pause();
-        return;
       }
       if (preview.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && preview.videoWidth > 0 && preview.videoHeight > 0) {
         const sourceWidth = preview.videoWidth;
@@ -1593,6 +1596,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
 
   useEffect(() => {
     if (recorderState !== "recording") return;
+    if (desktopRecordingRef.current) return;
     const mediaQuery = window.matchMedia("(orientation: landscape)");
     const syncOrientation = () => {
       const landscape = mediaQuery.matches || isLandscapeViewport();
@@ -1624,6 +1628,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
 
   useEffect(() => {
     if (recorderState !== "recording" || typeof DeviceOrientationEvent === "undefined") return;
+    if (desktopRecordingRef.current) return;
     const handleEarlyOrientation = (event: DeviceOrientationEvent) => {
       if (event.gamma === null) return;
       const tilt = Math.abs(event.gamma);
@@ -1655,12 +1660,20 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError(t("movieDetailVideoUnsupportedBrowser")); setRecorderState("error"); return; }
     try {
       cleanupRecorder({ clearPreview: true, nextState: "idle" });
-      const requestedCameraConstraints: MediaTrackConstraints = {
-        facingMode: { ideal: "user" },
-        width: { ideal: VIDEO_REACTION_SOURCE_WIDTH },
-        height: { ideal: VIDEO_REACTION_SOURCE_HEIGHT },
-        aspectRatio: { ideal: VIDEO_REACTION_SOURCE_ASPECT_RATIO },
-      };
+      const isDesktopRecording = window.matchMedia("(min-width: 768px)").matches;
+      desktopRecordingRef.current = isDesktopRecording;
+      const requestedCameraConstraints: MediaTrackConstraints = isDesktopRecording
+        ? {
+            width: { ideal: VIDEO_REACTION_SOURCE_WIDTH },
+            height: { ideal: VIDEO_REACTION_SOURCE_HEIGHT },
+            aspectRatio: { ideal: VIDEO_REACTION_SOURCE_ASPECT_RATIO },
+          }
+        : {
+            facingMode: { ideal: "user" },
+            width: { ideal: VIDEO_REACTION_SOURCE_WIDTH },
+            height: { ideal: VIDEO_REACTION_SOURCE_HEIGHT },
+            aspectRatio: { ideal: VIDEO_REACTION_SOURCE_ASPECT_RATIO },
+          };
       appendVideoDebugLog("CAMERA_REQUESTED_CONSTRAINTS", { ...requestedCameraConstraints });
       const stream = await navigator.mediaDevices.getUserMedia({
         // Negotiate the proven wide raw front-camera mode independently from the
@@ -1699,8 +1712,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       appendVideoDebugLog("CAMERA_CONSTRAINTS", { ...cameraTrack.getConstraints() });
       let cameraSettings = reportCameraConfiguration("getUserMedia-wide-source");
       const zoomMinimum = capabilities?.zoom?.min;
-      if (cameraSettings.facingMode && cameraSettings.facingMode !== "user") throw new Error("unexpected-non-user-camera");
-      if (zoomMinimum !== undefined) {
+      if (!isDesktopRecording && cameraSettings.facingMode && cameraSettings.facingMode !== "user") throw new Error("unexpected-non-user-camera");
+      if (!isDesktopRecording && zoomMinimum !== undefined) {
         try {
           const finalZoomConstraints: MediaTrackConstraints = {
             width: cameraSettings.width ? { ideal: cameraSettings.width } : undefined,
@@ -1737,7 +1750,9 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         appendVideoDebugLog("CAMERA_DEVICE_INVENTORY", {
           count: videoInputs.length,
           devices: videoInputs.map((device) => ({ deviceIdAvailable: Boolean(device.deviceId), groupIdAvailable: Boolean(device.groupId), labelAvailable: Boolean(device.label) })),
-          selection: "default-user-facing-camera",
+          ...(isDesktopRecording
+            ? { selection: "default-desktop-camera" }
+            : { selection: "default-user-facing-camera" }),
           reason: "WebRTC does not expose a reliable front-camera field-of-view capability.",
         });
       } catch (deviceError) {
@@ -2055,10 +2070,10 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay;
 
 
-  return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active ? "block" : "hidden"}`}>
-    <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:hidden">
+  return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3 md:top-0 md:overflow-y-auto md:py-8" : "rounded-2xl bg-zinc-950/55 p-4"} ${active ? "block" : "hidden"}`}>
+    <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:mx-auto md:max-w-2xl">
       <div ref={menuRef} className="relative flex justify-center">
-        {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
+        {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] md:h-20 md:w-20 md:transition md:hover:border-[#86ADE0] md:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
         {showMenu ? <div className="absolute left-1/2 top-full z-30 mt-3 w-52 -translate-x-1/2 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl">
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoRecord")} onClick={beginRecordingFlow}><span className="h-2.5 w-2.5 rounded-full bg-red-500" />{t("movieDetailVideoRecord")}</button>
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoUpload")} onClick={() => fileInputRef.current?.click()}><span>▣</span>{t("movieDetailVideoUpload")}</button>
@@ -2084,8 +2099,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       {recorderState === "error" && error ? <div className="w-full rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"><p>{error}</p><button type="button" className="mt-3 rounded-lg border border-red-200/30 px-3 py-1 text-red-100" onClick={() => setRecorderState("menu")}>{t("movieDetailVideoRetry")}</button></div> : null}
     </div>
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200 md:hidden" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
-    {deleteConfirmId !== null ? <div className="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 px-4 md:flex"><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950 p-5 text-center shadow-2xl"><p className="text-sm font-semibold text-zinc-100">{t("movieDetailVideoDeleteConfirm")}</p><div className="mt-5 flex gap-3"><button type="button" className="flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={() => setDeleteConfirmId(null)}>{t("movieDetailVideoCancel")}</button><button type="button" className="flex-1 rounded-xl bg-red-400 px-4 py-2 text-sm font-bold text-black" onClick={() => { const id = deleteConfirmId; setDeleteConfirmId(null); void deleteVideo(id); }}>{t("movieDetailVideoDeleteAction")}</button></div></div></div> : null}
-    <div ref={historyScrollRef} data-desktop-video-reaction-history className="mt-5 space-y-3 md:scrollbar-dark md:mx-auto md:mt-0 md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
+    <div ref={historyScrollRef} data-desktop-video-reaction-history className="desktop-dark-scrollbar mt-5 space-y-3 md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
@@ -3208,9 +3222,9 @@ function MovieDetailPageContent() {
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
         </div>
 
-        {reactionError ? <div className={`rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200 ${commentInputMode === "video-comment" ? "hidden md:block" : ""}`}>{reactionError}</div> : null}
+        {commentInputMode === "text-comment" && reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
-        <div data-comment-history data-video-active={commentInputMode === "video-comment"} className={`relative grid-cols-1 gap-6 ${commentInputMode === "video-comment" ? "hidden md:grid" : "grid"} ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
+        {commentInputMode === "text-comment" ? <div data-comment-history className={`relative grid grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
           {shouldRenderDirectedComments ? (
             <>
               <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
@@ -3282,6 +3296,7 @@ function MovieDetailPageContent() {
               actionErrorByCommentId={commentActionErrorById}
               borderlessContainer
               unboundedOnMobile
+              desktopDarkScrollbar
             />
           </section>
 
@@ -3314,7 +3329,7 @@ function MovieDetailPageContent() {
                 </p>
               ) : null}
               {!loadingDirected && !directedError ? (
-                <div className="px-1 py-2 lg:scrollbar-dark lg:max-h-[28rem] lg:overflow-y-auto">
+                <div className="desktop-dark-scrollbar px-1 py-2 lg:max-h-[28rem] lg:overflow-y-auto">
                   <div className="space-y-0">
                     {filteredDirectedConversations.map((conversation) => {
                       const isExpanded = expandedConversationKey === conversation.key;
@@ -3409,7 +3424,7 @@ function MovieDetailPageContent() {
               ) : null}
             </section>
           ) : null}
-        </div>
+        </div> : null}
       </div>
     </main>
   );

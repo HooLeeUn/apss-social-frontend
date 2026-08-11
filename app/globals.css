@@ -135,6 +135,33 @@ textarea,
   background: #3a3a3a;
 }
 
+@media (min-width: 768px) {
+  .desktop-dark-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #4a4a4a #111111;
+  }
+
+  .desktop-dark-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .desktop-dark-scrollbar::-webkit-scrollbar-track {
+    background: #111111;
+    border-radius: 9999px;
+  }
+
+  .desktop-dark-scrollbar::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border: 2px solid #111111;
+    border-radius: 9999px;
+  }
+
+  .desktop-dark-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #606060;
+  }
+}
+
 .scrollbar-metallic-blue {
   scrollbar-width: thin;
   scrollbar-color: #5f8fc8 #0f0f0f;

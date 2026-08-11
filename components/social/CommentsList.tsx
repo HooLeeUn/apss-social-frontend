@@ -30,6 +30,7 @@ interface CommentsListProps {
   borderlessContainer?: boolean;
   exposeDirectedCommentIds?: boolean;
   unboundedOnMobile?: boolean;
+  desktopDarkScrollbar?: boolean;
 }
 
 export default function CommentsList({
@@ -59,6 +60,7 @@ export default function CommentsList({
   borderlessContainer = false,
   exposeDirectedCommentIds = false,
   unboundedOnMobile = false,
+  desktopDarkScrollbar = false,
 }: CommentsListProps) {
   const { t } = useI18n();
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -132,7 +134,7 @@ export default function CommentsList({
 
   return (
     <div
-      className={
+      className={`${desktopDarkScrollbar ? "desktop-dark-scrollbar " : ""}${
         unboundedOnMobile
           ? borderlessContainer
             ? "px-1 py-2 lg:scrollbar-dark lg:max-h-[28rem] lg:overflow-y-auto"
@@ -140,7 +142,7 @@ export default function CommentsList({
           : borderlessContainer
             ? "scrollbar-dark max-h-[28rem] overflow-y-auto px-1 py-2"
             : "scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/15 bg-zinc-950/65 p-4"
-      }
+      }`}
       onScroll={(event) => {
         if (!hasMore || loadingMore || !onLoadMore) return;
         const target = event.currentTarget;
