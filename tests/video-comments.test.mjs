@@ -123,9 +123,12 @@ test("saved cards only render volume and expand controls and tap toggles playbac
   assert.match(card, /movieDetailVideoExpand/);
   assert.doesNotMatch(card, /movieDetailVideoRestart/);
   assert.doesNotMatch(card, /movieDetailVideoPlay/);
-  assert.match(card, /relative inline-flex max-w-full overflow-hidden rounded-xl/);
-  assert.match(card, /h-auto w-auto max-w-full object-contain/);
+  assert.match(card, /relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl \[contain:layout_paint\]/);
+  assert.match(card, /controls=\{false\}/);
+  assert.match(card, /block h-auto w-auto max-w-full shrink-0 object-contain \[contain:layout_paint\]/);
   assert.match(card, /maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT/);
+  assert.doesNotMatch(card, /activeVideoIdRef\.current === id[^\n]*(className|style)/);
+  assert.doesNotMatch(card, /playerStates\[id\][^\n]*(className|style)/);
   assert.match(page, /VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp\(14rem, 36dvh, 18rem\)"/);
   assert.match(card, /space-y-1\.5[\s\S]*p-2\.5/);
 });
