@@ -1855,10 +1855,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     const currentIndex = comments.findIndex((comment) => String(comment.id) === expandedVideoId);
     const target = comments[currentIndex + direction];
     if (currentIndex < 0 || !target) return;
-    expandedVideosRef.current.forEach((video) => {
-      video.pause();
-      video.currentTime = 0;
-    });
+    const currentVideo = expandedVideosRef.current.get(expandedVideoId);
+    if (currentVideo) {
+      currentVideo.pause();
+      currentVideo.currentTime = 0;
+    }
     setExpandedVideoId(String(target.id));
   }, [comments, expandedVideoId]);
 
@@ -1909,6 +1910,34 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     return () => {
       document.body.style.overflow = expandedBodyOverflowRef.current ?? "";
       expandedBodyOverflowRef.current = null;
+    };
+  }, [expandedVideoId]);
+
+  useEffect(() => {
+    if (expandedVideoId === null) return;
+    const video = expandedVideosRef.current.get(expandedVideoId);
+    if (!video) return;
+    let cancelled = false;
+
+    const playActiveExpandedVideo = () => {
+      if (cancelled || expandedVideosRef.current.get(expandedVideoId) !== video) return;
+      video.muted = soundPreferenceRef.current !== "sound-on";
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        void playPromise.catch((error: unknown) => {
+          if (cancelled || expandedVideosRef.current.get(expandedVideoId) !== video) return;
+          if (error instanceof DOMException && (error.name === "AbortError" || error.name === "NotAllowedError")) return;
+          logVideoCommentDevError("Expanded video autoplay failed", error);
+        });
+      }
+    };
+
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) playActiveExpandedVideo();
+    else video.addEventListener("loadeddata", playActiveExpandedVideo, { once: true });
+
+    return () => {
+      cancelled = true;
+      video.removeEventListener("loadeddata", playActiveExpandedVideo);
     };
   }, [expandedVideoId]);
 
@@ -2078,7 +2107,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         <div className="relative h-full w-full overflow-hidden touch-none">
           {adjacentComment ? <div key={String(adjacentComment.id)} className="pointer-events-none absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(calc(${dragDirection > 0 ? "100dvh" : "-100dvh"} + ${expandedDragOffset}px))`, transition: swipeTransition }}><video src={adjacentComment.video_url} muted playsInline preload="auto" controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" /></div> : null}
           <div key={expandedVideoId} className="absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(${expandedDragOffset}px)`, transition: swipeTransition }}>
-          <video ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY, vertical: null } : null; suppressExpandedTapRef.current = false; setExpandedDragAnimating(false); }} onTouchMove={(event) => { const start = expandedTouchStartRef.current; const touch = event.touches[0]; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (start.vertical === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX) start.vertical = Math.abs(deltaY) > Math.abs(deltaX); if (!start.vertical) return; event.preventDefault(); suppressExpandedTapRef.current = true; const direction = deltaY < 0 ? 1 : -1; const hasTarget = comments[currentIndex + direction] !== undefined; setExpandedDragOffset(hasTarget ? deltaY : deltaY * 0.2); }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch || !start.vertical) { if (expandedDragOffset !== 0) cancelExpandedDrag(); return; } const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; const direction: -1 | 1 = deltaY < 0 ? 1 : -1; if (Math.abs(deltaY) >= VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX) && comments[currentIndex + direction]) finishExpandedDrag(direction); else cancelExpandedDrag(); }} onTouchCancel={() => { expandedTouchStartRef.current = null; if (expandedDragOffset !== 0) cancelExpandedDrag(); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
+          <video data-expanded-video-id={expandedVideoId} ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY, vertical: null } : null; suppressExpandedTapRef.current = false; setExpandedDragAnimating(false); }} onTouchMove={(event) => { const start = expandedTouchStartRef.current; const touch = event.touches[0]; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (start.vertical === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX) start.vertical = Math.abs(deltaY) > Math.abs(deltaX); if (!start.vertical) return; event.preventDefault(); suppressExpandedTapRef.current = true; const direction = deltaY < 0 ? 1 : -1; const hasTarget = comments[currentIndex + direction] !== undefined; setExpandedDragOffset(hasTarget ? deltaY : deltaY * 0.2); }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch || !start.vertical) { if (expandedDragOffset !== 0) cancelExpandedDrag(); return; } const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; const direction: -1 | 1 = deltaY < 0 ? 1 : -1; if (Math.abs(deltaY) >= VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX) && comments[currentIndex + direction]) finishExpandedDrag(direction); else cancelExpandedDrag(); }} onTouchCancel={() => { expandedTouchStartRef.current = null; if (expandedDragOffset !== 0) cancelExpandedDrag(); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
           </div>
           <button type="button" className="absolute bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => { const video = expandedVideosRef.current.get(expandedVideoId); if (!video) return; video.muted = !video.muted; syncPlayerState(video); }}>{state.muted ? "🔇" : "🔊"}</button>
         </div>
