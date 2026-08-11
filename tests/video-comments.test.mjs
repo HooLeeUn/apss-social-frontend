@@ -90,8 +90,8 @@ test("landscape pauses recorder and counter, then portrait resumes the same reco
 });
 
 test("device tilt blocks frames early with hysteresis and keeps landscape fallback", () => {
-  has(/VIDEO_REACTION_TILT_PAUSE_DEGREES = 40/);
-  has(/VIDEO_REACTION_TILT_RESUME_DEGREES = 22/);
+  has(/VIDEO_REACTION_TILT_PAUSE_DEGREES = 18/);
+  has(/VIDEO_REACTION_TILT_RESUME_DEGREES = 8/);
   has(/typeof DeviceOrientationEvent === "undefined"/);
   has(/window\.addEventListener\("deviceorientation", handleEarlyOrientation/);
   has(/tilt >= VIDEO_REACTION_TILT_PAUSE_DEGREES/);
@@ -153,11 +153,17 @@ test("expanded video swipe navigates without closing fullscreen and remains dist
   has(/const navigateExpandedVideo = useCallback/);
   has(/const target = comments\[currentIndex \+ direction\]/);
   has(/video\.pause\(\);\s+video\.currentTime = 0/);
-  has(/navigateExpandedVideo\(deltaY < 0 \? 1 : -1\)/);
-  has(/Math\.abs\(deltaY\) <= Math\.abs\(deltaX\)/);
+  has(/VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS = 200/);
+  has(/VIDEO_COMMENT_EXPANDED_SWIPE_EASING = "cubic-bezier\(0\.22, 1, 0\.36, 1\)"/);
+  has(/onTouchMove=/);
+  has(/setExpandedDragOffset\(hasTarget \? deltaY : deltaY \* 0\.2\)/);
+  has(/translateY\(calc\(/);
+  has(/Math\.abs\(deltaY\) > Math\.abs\(deltaX\)/);
   has(/suppressExpandedTapRef\.current = true/);
   has(/if \(suppressExpandedTapRef\.current\)/);
   has(/setExpandedVideoId\(String\(target\.id\)\)/);
+  has(/adjacentComment\.video_url/);
+  has(/muted playsInline preload="metadata"/);
 });
 
 test("recorded preview reuses the recording size and overlay while saved card dimensions stay frozen", () => {

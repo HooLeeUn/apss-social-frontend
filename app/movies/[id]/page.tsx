@@ -51,9 +51,14 @@ const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.15;
 const VIDEO_COMMENT_DOMINANCE_MARGIN = 0.08;
 // Pause before the phone reaches landscape and resume only after it is clearly
 // back inside portrait, avoiding rapid pause/resume around the boundary.
-const VIDEO_REACTION_TILT_PAUSE_DEGREES = 40;
-const VIDEO_REACTION_TILT_RESUME_DEGREES = 22;
+// Preventive physical-tilt hysteresis: stop composing well before landscape,
+// and require a stable near-portrait position before recording resumes.
+const VIDEO_REACTION_TILT_PAUSE_DEGREES = 18;
+const VIDEO_REACTION_TILT_RESUME_DEGREES = 8;
 const VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD = 56;
+const VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX = 8;
+const VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS = 200;
+const VIDEO_COMMENT_EXPANDED_SWIPE_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const VIDEO_REACTION_WIDTH = 720;
 const VIDEO_REACTION_HEIGHT = 1280;
 // Keep the physically negotiated camera mode independent from the portrait
@@ -1029,8 +1034,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const orientationUnsafeRef = useRef(false);
   const tiltUnsafeRef = useRef(false);
   const expandedVideosRef = useRef(new Map<string, HTMLVideoElement>());
-  const expandedTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const expandedTouchStartRef = useRef<{ x: number; y: number; vertical: boolean | null } | null>(null);
   const suppressExpandedTapRef = useRef(false);
+  const expandedSwipeTimerRef = useRef<number | null>(null);
+  const [expandedDragOffset, setExpandedDragOffset] = useState(0);
+  const [expandedDragAnimating, setExpandedDragAnimating] = useState(false);
   const expandedBodyOverflowRef = useRef<string | null>(null);
   const expandedOpenRef = useRef(false);
 
@@ -1854,6 +1862,32 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     setExpandedVideoId(String(target.id));
   }, [comments, expandedVideoId]);
 
+  const resetExpandedDrag = useCallback(() => {
+    setExpandedDragOffset(0);
+    setExpandedDragAnimating(false);
+  }, []);
+
+  const finishExpandedDrag = useCallback((direction: -1 | 1) => {
+    setExpandedDragAnimating(true);
+    setExpandedDragOffset(direction > 0 ? -window.innerHeight : window.innerHeight);
+    if (expandedSwipeTimerRef.current !== null) window.clearTimeout(expandedSwipeTimerRef.current);
+    expandedSwipeTimerRef.current = window.setTimeout(() => {
+      navigateExpandedVideo(direction);
+      resetExpandedDrag();
+      expandedSwipeTimerRef.current = null;
+    }, VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS);
+  }, [navigateExpandedVideo, resetExpandedDrag]);
+
+  const cancelExpandedDrag = useCallback(() => {
+    setExpandedDragAnimating(true);
+    setExpandedDragOffset(0);
+    if (expandedSwipeTimerRef.current !== null) window.clearTimeout(expandedSwipeTimerRef.current);
+    expandedSwipeTimerRef.current = window.setTimeout(() => {
+      setExpandedDragAnimating(false);
+      expandedSwipeTimerRef.current = null;
+    }, VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS);
+  }, []);
+
   const closeExpandedVideo = useCallback(() => {
     const currentId = expandedVideoId;
     expandedVideosRef.current.forEach((video) => { video.pause(); video.currentTime = 0; });
@@ -1863,6 +1897,10 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       document.querySelector<HTMLElement>(`[data-video-comment-card="${CSS.escape(currentId ?? "")}"]`)?.scrollIntoView({ block: "center" });
     }, 0);
   }, [expandedVideoId]);
+
+  useEffect(() => () => {
+    if (expandedSwipeTimerRef.current !== null) window.clearTimeout(expandedSwipeTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (expandedVideoId === null) return;
@@ -2030,11 +2068,18 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     {expandedVideoId !== null ? (() => {
       const comment = comments.find((item) => String(item.id) === expandedVideoId);
       if (!comment) return null;
+      const currentIndex = comments.findIndex((item) => String(item.id) === expandedVideoId);
+      const dragDirection: -1 | 0 | 1 = expandedDragOffset < 0 ? 1 : expandedDragOffset > 0 ? -1 : 0;
+      const adjacentComment = dragDirection === 0 ? null : comments[currentIndex + dragDirection] ?? null;
       const state = playerStates[expandedVideoId] ?? { paused: true, muted: true };
+      const swipeTransition = expandedDragAnimating ? `transform ${VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS}ms ${VIDEO_COMMENT_EXPANDED_SWIPE_EASING}` : "none";
       return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
         <button type="button" className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
-        <div className="relative flex h-full w-full items-center justify-center">
-          <video ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null; suppressExpandedTapRef.current = false; }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (Math.abs(deltaY) < VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD || Math.abs(deltaY) <= Math.abs(deltaX)) return; suppressExpandedTapRef.current = true; navigateExpandedVideo(deltaY < 0 ? 1 : -1); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
+        <div className="relative h-full w-full overflow-hidden touch-none">
+          {adjacentComment ? <div className="pointer-events-none absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(calc(${dragDirection > 0 ? "100dvh" : "-100dvh"} + ${expandedDragOffset}px))`, transition: swipeTransition }}><video src={adjacentComment.video_url} muted playsInline preload="metadata" controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" /></div> : null}
+          <div className="absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(${expandedDragOffset}px)`, transition: swipeTransition }}>
+          <video ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY, vertical: null } : null; suppressExpandedTapRef.current = false; setExpandedDragAnimating(false); }} onTouchMove={(event) => { const start = expandedTouchStartRef.current; const touch = event.touches[0]; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (start.vertical === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX) start.vertical = Math.abs(deltaY) > Math.abs(deltaX); if (!start.vertical) return; event.preventDefault(); suppressExpandedTapRef.current = true; const direction = deltaY < 0 ? 1 : -1; const hasTarget = comments[currentIndex + direction] !== undefined; setExpandedDragOffset(hasTarget ? deltaY : deltaY * 0.2); }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch || !start.vertical) { if (expandedDragOffset !== 0) cancelExpandedDrag(); return; } const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; const direction: -1 | 1 = deltaY < 0 ? 1 : -1; if (Math.abs(deltaY) >= VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX) && comments[currentIndex + direction]) finishExpandedDrag(direction); else cancelExpandedDrag(); }} onTouchCancel={() => { expandedTouchStartRef.current = null; if (expandedDragOffset !== 0) cancelExpandedDrag(); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
+          </div>
           <button type="button" className="absolute bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => { const video = expandedVideosRef.current.get(expandedVideoId); if (!video) return; video.muted = !video.muted; syncPlayerState(video); }}>{state.muted ? "🔇" : "🔊"}</button>
         </div>
       </div>;
