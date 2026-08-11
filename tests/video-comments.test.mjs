@@ -163,6 +163,13 @@ test("expanded video swipe navigates without closing fullscreen and remains dist
   has(/suppressExpandedTapRef\.current = true/);
   has(/if \(suppressExpandedTapRef\.current\)/);
   has(/setExpandedVideoId\(String\(target\.id\)\)/);
+  has(/const currentVideo = expandedVideosRef\.current\.get\(expandedVideoId\)/);
+  has(/expandedVideosRef\.current\.get\(expandedVideoId\) !== video/);
+  has(/video\.readyState >= HTMLMediaElement\.HAVE_CURRENT_DATA/);
+  has(/video\.addEventListener\("loadeddata", playActiveExpandedVideo, \{ once: true \}\)/);
+  has(/const playPromise = video\.play\(\)/);
+  has(/playPromise\.catch/);
+  has(/data-expanded-video-id=\{expandedVideoId\}/);
   has(/adjacentComment\.video_url/);
   has(/key=\{String\(adjacentComment\.id\)\}/);
   has(/key=\{expandedVideoId\}/);
