@@ -113,6 +113,11 @@ function isLandscapeViewport(): boolean {
   if (orientationType?.startsWith("portrait")) return false;
   return window.matchMedia?.("(orientation: landscape)").matches ?? window.innerWidth > window.innerHeight;
 }
+function calculatePlayableIntersectionRatio(rect: DOMRect, viewportHeight: number, stickyBottom: number): number {
+  const visibleTop = Math.max(rect.top, stickyBottom, 0);
+  const visibleBottom = Math.min(rect.bottom, viewportHeight);
+  return Math.max(0, visibleBottom - visibleTop) / Math.max(1, rect.height);
+}
 function dedupeVideoComments(existing: VideoComment[], incoming: VideoComment[]): VideoComment[] {
   const seen = new Set<string>();
   return [...existing, ...incoming].filter((item) => {
@@ -976,6 +981,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const livePreviewRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasFrameRef = useRef<number | null>(null);
+  const compositionLoggedRef = useRef(false);
   const recorderOutputStreamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -1085,6 +1091,10 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
 
   const chooseVisibleHistoryVideo = useCallback(() => {
     if (expandedOpenRef.current || document.hidden) return;
+    const stickyBottom = document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? 0;
+    historyVideosRef.current.forEach((video, id) => {
+      visibilityRef.current.set(id, calculatePlayableIntersectionRatio(video.getBoundingClientRect(), window.innerHeight, stickyBottom));
+    });
     let candidate: string | null = null;
     let bestRatio = VIDEO_COMMENT_VISIBILITY_THRESHOLD;
     visibilityRef.current.forEach((ratio, id) => {
@@ -1121,15 +1131,27 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       entries.forEach((entry) => {
         const video = entry.target as HTMLVideoElement;
         const id = video.dataset.videoCommentId;
-        if (!id) return;
-        visibilityRef.current.set(id, entry.intersectionRatio);
-
+        if (!id || entry.isIntersecting) return;
+        visibilityRef.current.set(id, 0);
       });
       chooseVisibleHistoryVideo();
     }, { root: null, threshold: [0, 0.15, 0.25, 0.5, 0.75, 1] });
     historyObserverRef.current = observer;
     historyVideos.forEach((video) => observer.observe(video));
+    let viewportFrame = 0;
+    const reevaluatePlayableViewport = () => {
+      if (viewportFrame) return;
+      viewportFrame = window.requestAnimationFrame(() => {
+        viewportFrame = 0;
+        chooseVisibleHistoryVideo();
+      });
+    };
+    window.addEventListener("scroll", reevaluatePlayableViewport, { passive: true });
+    window.addEventListener("resize", reevaluatePlayableViewport);
     return () => {
+      window.removeEventListener("scroll", reevaluatePlayableViewport);
+      window.removeEventListener("resize", reevaluatePlayableViewport);
+      if (viewportFrame) window.cancelAnimationFrame(viewportFrame);
       observer.disconnect();
       historyObserverRef.current = null;
       historyVideos.forEach((video) => video.pause());
@@ -1361,6 +1383,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     if (!canvas || typeof canvas.captureStream !== "function") throw new Error("portrait-canvas-unavailable");
     canvas.width = VIDEO_REACTION_WIDTH;
     canvas.height = VIDEO_REACTION_HEIGHT;
+    compositionLoggedRef.current = false;
     const context = canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("portrait-canvas-context-unavailable");
     const drawPortraitFrame = () => {
@@ -1377,6 +1400,16 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         // Portrait negotiation is preferred. This source crop is only the no-stretch fallback
         // when a browser exposes landscape sensor dimensions despite portrait constraints.
         const { sx, sy, sw, sh } = calculateCoverSourceRect(preview.videoWidth, preview.videoHeight, canvas.width, canvas.height);
+        if (!compositionLoggedRef.current) {
+          compositionLoggedRef.current = true;
+          appendVideoDebugLog("CAMERA_COMPOSITION", {
+            sourceWidth: preview.videoWidth,
+            sourceHeight: preview.videoHeight,
+            sourceAspectRatio: preview.videoWidth / preview.videoHeight,
+            retainedWidthRatio: sw / preview.videoWidth,
+            retainedHeightRatio: sh / preview.videoHeight,
+          });
+        }
         context.save();
         context.translate(canvas.width, 0);
         context.scale(-1, 1);
@@ -1543,7 +1576,9 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         zoomMax: capabilities?.zoom?.max ?? null,
         zoomStep: capabilities?.zoom?.step ?? null,
       });
+      appendVideoDebugLog("CAMERA_CONSTRAINTS", { ...cameraTrack.getConstraints() });
       let cameraSettings = reportCameraConfiguration("getUserMedia");
+      const zoomMinimum = capabilities?.zoom?.min;
       const isPortraitSource = (settings: MediaTrackSettings) => Boolean(settings.width && settings.height && settings.height > settings.width);
       if (!isPortraitSource(cameraSettings)) {
         const portraitBackoff: MediaTrackConstraints[] = [
@@ -1556,7 +1591,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         }
         for (const constraints of portraitBackoff) {
           try {
-            await cameraTrack.applyConstraints(constraints);
+            await cameraTrack.applyConstraints(zoomMinimum === undefined ? constraints : { ...constraints, advanced: [{ zoom: zoomMinimum } as MediaTrackConstraintSet] });
             cameraSettings = reportCameraConfiguration("portrait-backoff");
             if (isPortraitSource(cameraSettings)) break;
           } catch (constraintError) {
@@ -1564,7 +1599,6 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
           }
         }
       }
-      const zoomMinimum = capabilities?.zoom?.min;
       if (zoomMinimum !== undefined) {
         try {
           const finalZoomConstraints: MediaTrackConstraints = {
@@ -1872,11 +1906,12 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
           {recorderState === "preparingRecorder" || recorderState === "recording" ? <><canvas ref={canvasRef} className="h-full w-full object-contain" aria-label={t("movieDetailVideoRecording")} /><video ref={livePreviewRef} autoPlay muted playsInline className="hidden" /></> : previewUrl ? <video key={previewUrl} ref={previewVideoRef} src={previewUrl} muted={previewMuted} controls={false} preload="auto" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onClick={(event) => event.currentTarget.paused ? void event.currentTarget.play() : event.currentTarget.pause()} onVolumeChange={(event) => setPreviewMuted(event.currentTarget.muted)} onLoadedMetadata={(event) => { setPreviewAspectRatio(previewOrigin === "recorded" ? 9 / 16 : event.currentTarget.videoWidth / Math.max(1, event.currentTarget.videoHeight)); appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadedmetadata" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onDurationChange={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "durationchange" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onLoadedData={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadeddata" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onCanPlay={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "canplay" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onError={(event) => { const mediaError = event.currentTarget.error; appendVideoDebugLog("PREVIEW_EVENTS", { event: "error" }); appendVideoDebugLog("PREVIEW_ERROR", { code: mediaError?.code ?? null, message: mediaError?.message ?? "" }); logVideoCommentDevError("Video preview playback failed", mediaError); if (!tryWebKitBlobPreviewFallback()) setPreviewError(t("movieDetailVideoPreviewPlaybackError")); }} /> : null}
           {recorderState === "preparingRecorder" ? <span className="absolute left-3 top-3 rounded-full bg-zinc-900/80 px-3 py-1 text-xs font-bold text-zinc-100">{t("movieDetailVideoPreparingCamera")}</span> : null}
           {recorderState === "recording" ? <span className="absolute left-3 top-3 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-100">{t("movieDetailVideoRecording")} {formatVideoDuration(recordingSeconds)}</span> : null}
+          {(recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading") && previewDuration !== null ? <span className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white">{formatVideoDuration(previewDuration)}</span> : null}
           {(recorderState === "previewRecorded" || recorderState === "previewSelected") && previewUrl ? <><button type="button" className="absolute bottom-3 left-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-lg text-white" aria-label={t(previewMuted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => { const video = previewVideoRef.current; if (!video) return; video.muted = !video.muted; setPreviewMuted(video.muted); }}>{previewMuted ? "🔇" : "🔊"}</button><button type="button" className="absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t("movieDetailVideoExpand")} onClick={() => setPreviewExpanded(true)}>⛶</button></> : null}
           {(recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading") && (!previewPlayable || previewDuration === null) && !previewError ? <span className="absolute inset-x-3 top-3 rounded-xl bg-zinc-950/85 px-3 py-2 text-center text-xs font-bold text-zinc-100">{t("movieDetailVideoPreparingPreview")}</span> : null}
         </div>
         {recorderState === "recording" && !orientationPaused ? <div className="relative z-20 flex gap-3 pb-3"><button type="button" className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelToIdle}>{t("movieDetailVideoCancel")}</button><button type="button" className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black" onClick={finishRecording}>{t("movieDetailVideoStop")}</button></div> : null}
-        {recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading" ? <>{previewError ? <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-center text-xs text-red-200">{previewError}</p> : previewDuration !== null ? <p className="text-center text-xs text-zinc-400">{formatVideoDuration(previewDuration)}</p> : null}<div className="relative z-20 flex gap-3 pb-3"><button type="button" disabled={recorderState === "uploading"} className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100 disabled:opacity-60" onClick={recorderState === "previewRecorded" ? retake : cancelToIdle}>{recorderState === "previewRecorded" ? t("movieDetailVideoRetake") : t("movieDetailVideoCancel")}</button><button type="button" disabled={recorderState === "uploading" || !previewFile || previewFile.size <= 0 || previewDuration === null || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || !previewPlayable || !!previewError} className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black disabled:opacity-60" onClick={sendVideo}>{recorderState === "uploading" ? t("movieDetailVideoUploading") : t("movieDetailVideoSend")}</button></div></> : null}
+        {recorderState === "previewRecorded" || recorderState === "previewSelected" || recorderState === "uploading" ? <>{previewError ? <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-center text-xs text-red-200">{previewError}</p> : null}<div className="relative z-20 flex gap-3 pb-3"><button type="button" disabled={recorderState === "uploading"} className="min-h-11 flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100 disabled:opacity-60" onClick={recorderState === "previewRecorded" ? retake : cancelToIdle}>{recorderState === "previewRecorded" ? t("movieDetailVideoRetake") : t("movieDetailVideoCancel")}</button><button type="button" disabled={recorderState === "uploading" || !previewFile || previewFile.size <= 0 || previewDuration === null || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || !previewPlayable || !!previewError} className="min-h-11 flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black disabled:opacity-60" onClick={sendVideo}>{recorderState === "uploading" ? t("movieDetailVideoUploading") : t("movieDetailVideoSend")}</button></div></> : null}
       </div> : null}
       {recorderState === "error" && error ? <div className="w-full rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"><p>{error}</p><button type="button" className="mt-3 rounded-lg border border-red-200/30 px-3 py-1 text-red-100" onClick={() => setRecorderState("menu")}>{t("movieDetailVideoRetry")}</button></div> : null}
     </div>
@@ -2908,7 +2943,7 @@ function MovieDetailPageContent() {
   return (
     <main className="min-h-screen bg-black">
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 md:px-8 md:py-8">
-        <div ref={stickyHeaderRef} className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
+        <div ref={stickyHeaderRef} data-mobile-detail-sticky="true" className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold text-zinc-100">{detailTitle}</h1>
             <Link

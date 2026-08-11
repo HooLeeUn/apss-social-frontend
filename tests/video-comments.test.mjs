@@ -27,10 +27,13 @@ test("camera settings are verified and portrait constraints use a stable backoff
   has(/aspectRatio: settings\.aspectRatio/);
   has(/resizeMode: settings\.resizeMode/);
   has(/portraitBackoff/);
-  has(/cameraTrack\.applyConstraints\(constraints\)/);
+  has(/cameraTrack\.applyConstraints\(zoomMinimum === undefined \? constraints/);
   has(/zoomMin: capabilities\?\.zoom\?\.min/);
   has(/zoomMax: capabilities\?\.zoom\?\.max/);
   has(/CAMERA_DEVICE_INVENTORY/);
+  has(/CAMERA_CONSTRAINTS/);
+  has(/selection: "default-user-facing-camera"/);
+  assert.doesNotMatch(page, /deviceId: \{ exact:/);
 });
 
 test("minimum physical zoom is applied after portrait negotiation and verified with a no-zoom fallback", () => {
@@ -42,7 +45,8 @@ test("minimum physical zoom is applied after portrait negotiation and verified w
   has(/minimum-zoom-retry/);
   has(/Math\.abs\(appliedZoom - zoomMinimum\) < 0\.001/);
   has(/reason: "unsupported"/);
-  assert.ok(page.indexOf("const zoomMinimum") > page.indexOf("for (const constraints of portraitBackoff)"));
+  assert.ok(page.indexOf("const zoomMinimum") < page.indexOf("for (const constraints of portraitBackoff)"));
+  has(/zoomMinimum === undefined \? constraints : \{ \.\.\.constraints, advanced:/);
 });
 
 test("landscape source fallback fills portrait output without contain bars or stretching", () => {
@@ -51,6 +55,8 @@ test("landscape source fallback fills portrait output without contain bars or st
   has(/context\.drawImage\(preview, sx, sy, sw, sh, 0, 0, canvas\.width, canvas\.height\)/);
   assert.doesNotMatch(page, /calculateContainRect/);
   assert.doesNotMatch(page, /context\.fillRect\(0, 0, canvas\.width, canvas\.height\)/);
+  has(/CAMERA_COMPOSITION/);
+  has(/retainedWidthRatio: sw \/ preview\.videoWidth/);
 });
 
 test("front preview and recorded canvas have exactly one matching mirror", () => {
@@ -119,8 +125,27 @@ test("recorded preview reuses the recording size and overlay while saved card di
   has(/recorderState === "recording" \|\| isRecordedPreviewOverlay \? VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT/);
   has(/isRecordingOverlay = recorderState === "preparingRecorder" \|\| recorderState === "recording" \|\| isRecordedPreviewOverlay/);
   assert.doesNotMatch(page, /VIDEO_COMMENT_RECORDED_PREVIEW_HEIGHT/);
+  has(/absolute right-3 top-3[\s\S]*formatVideoDuration\(previewDuration\)/);
+  assert.doesNotMatch(page, /text-center text-xs text-zinc-400[^>]*>\{formatVideoDuration/);
   has(/VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp\(14rem, 36dvh, 18rem\)"/);
   assert.doesNotMatch(page, /intersectionRatio[^\n]*(height|maxHeight|style)/);
+});
+
+test("playable visibility is symmetric above and below the sticky boundary", () => {
+  has(/calculatePlayableIntersectionRatio/);
+  has(/visibleTop = Math\.max\(rect\.top, stickyBottom, 0\)/);
+  has(/visibleBottom = Math\.min\(rect\.bottom, viewportHeight\)/);
+  has(/data-mobile-detail-sticky="true"/);
+  has(/calculatePlayableIntersectionRatio\(video\.getBoundingClientRect\(\), window\.innerHeight, stickyBottom\)/);
+  has(/window\.addEventListener\("scroll", reevaluatePlayableViewport/);
+  has(/window\.requestAnimationFrame\(\(\) =>/);
+  assert.doesNotMatch(page, /scrollDirection|lastScroll|scrollY >|scrollY </);
+});
+
+test("multiple inputs do not open temporary cameras or risk selecting a rear device", () => {
+  has(/enumerateDevices\(\)/);
+  has(/selection: "default-user-facing-camera"/);
+  assert.equal((page.match(/navigator\.mediaDevices\.getUserMedia\(/g) ?? []).length, 1);
 });
 
 test("one observer selects the dominant dynamic video with hysteresis and resets every loser", () => {
