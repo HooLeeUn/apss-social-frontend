@@ -17,16 +17,31 @@ test("camera recording is composed into a real 720x1280 portrait canvas", () => 
   assert.doesNotMatch(page, /orientation_timeline/);
 });
 
-test("contain calculation preserves the complete camera field without source crop", () => {
-  has(/Math\.min\(targetWidth \/ sourceWidth, targetHeight \/ sourceHeight\)/);
-  has(/context\.drawImage\(preview, dx, dy, dw, dh\)/);
-  has(/aspectRatio: \{ ideal: 9 \/ 16 \}/);
+test("camera settings are verified and portrait constraints use a stable backoff", () => {
+  has(/cameraTrack\.getSettings\(\)/);
+  has(/CAMERA_SETTINGS/);
+  has(/CAMERA_CAPABILITIES/);
+  has(/CAMERA_PREVIEW_DIMENSIONS/);
+  has(/width: settings\.width/);
+  has(/height: settings\.height/);
+  has(/aspectRatio: settings\.aspectRatio/);
+  has(/resizeMode: settings\.resizeMode/);
+  has(/portraitBackoff/);
+  has(/cameraTrack\.applyConstraints\(constraints\)/);
   has(/capabilities\?\.zoom\?\.min/);
-  has(/object-contain/);
+});
+
+test("landscape source fallback fills portrait output without contain bars or stretching", () => {
+  has(/calculateCoverSourceRect/);
+  has(/sourceRatio > targetRatio/);
+  has(/context\.drawImage\(preview, sx, sy, sw, sh, 0, 0, canvas\.width, canvas\.height\)/);
+  assert.doesNotMatch(page, /calculateContainRect/);
+  assert.doesNotMatch(page, /context\.fillRect\(0, 0, canvas\.width, canvas\.height\)/);
 });
 
 test("front preview and recorded canvas have exactly one matching mirror", () => {
-  has(/className="h-full w-full -scale-x-100 object-contain"/);
+  has(/<canvas ref={canvasRef} className="h-full w-full object-contain"/);
+  has(/<video ref={livePreviewRef} autoPlay muted playsInline className="hidden"/);
   has(/context\.translate\(canvas\.width, 0\)/);
   has(/context\.scale\(-1, 1\)/);
 });
@@ -39,13 +54,16 @@ test("landscape pauses recorder and counter, then portrait resumes the same reco
   has(/window\.addEventListener\("orientationchange"/);
   has(/screen\.orientation\?\.addEventListener/);
   has(/recorderState === "recording" && !orientationPaused/);
+  has(/if \(isLandscapeViewport\(\)\) \{/);
+  has(/if \(recorderRef\.current\?\.state === "recording"\) recorderRef\.current\.pause\(\)/);
+  assert.ok(page.indexOf("if (isLandscapeViewport())") < page.indexOf("context.drawImage(preview"));
 });
 
 test("orientation overlay is translated, responsive, and animated", () => {
   assert.match(i18n, /Gira tu teléfono a posición vertical para continuar grabando\./);
   assert.match(i18n, /Rotate your phone to portrait to continue recording\./);
   assert.match(css, /@keyframes video-reaction-rotate-phone/);
-  has(/orientationPaused \? <div className="absolute inset-0/);
+  has(/orientationPaused \? <div className="fixed inset-0 z-\[200\] flex h-\[100dvh\] w-\[100dvw\]/);
 });
 
 test("video reaction is first and default while directed deep links select text comments", () => {
@@ -57,12 +75,15 @@ test("video reaction is first and default while directed deep links select text 
   assert.match(i18n, /movieDetailVideoCommentTitle: "Video Reaction"/);
 });
 
-test("preview and saved reactions avoid native controls and expose one custom expand action", () => {
-  assert.doesNotMatch(page, /src=\{previewUrl\} controls(?:\s|>)/);
-  has(/controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback/);
-  has(/setPreviewExpanded\(true\)/);
+test("recorded preview is 9:16 with only custom volume and expand controls", () => {
+  has(/previewOrigin === "recorded" \? 9 \/ 16/);
+  has(/muted={previewMuted} controls={false}/);
+  has(/setPreviewMuted\(video\.muted\)/);
+  has(/bottom-3 left-3[\s\S]*movieDetailVideoSoundOn/);
+  has(/bottom-3 right-3[\s\S]*setPreviewExpanded\(true\)/);
   has(/previewExpanded && previewUrl/);
-  has(/max-h-\[calc\(100dvh-1\.5rem\)\] max-w-full object-contain/);
+  has(/aspect-\[9\/16\] h-\[calc\(100dvh-1\.5rem\)\] w-auto/);
+  assert.doesNotMatch(page, /src={previewUrl}[^>]*controls={true}/);
 });
 
 test("saved cards only render volume and expand controls and tap toggles playback", () => {
@@ -72,7 +93,7 @@ test("saved cards only render volume and expand controls and tap toggles playbac
   assert.match(card, /movieDetailVideoExpand/);
   assert.doesNotMatch(card, /movieDetailVideoRestart/);
   assert.doesNotMatch(card, /movieDetailVideoPlay/);
-  assert.match(card, /object-contain/);
+  assert.match(card, /h-auto max-h-\[calc\(100dvh-12rem\)\] w-auto max-w-full object-contain/);
 });
 
 test("one observer selects the dominant dynamic video with hysteresis and resets every loser", () => {
@@ -94,7 +115,7 @@ test("background and route cleanup pauses all videos before viewport reevaluatio
 });
 
 test("library videos preserve intrinsic aspect ratio through preview, card, and modal", () => {
-  has(/setPreviewAspectRatio\(event\.currentTarget\.videoWidth \/ Math\.max\(1, event\.currentTarget\.videoHeight\)\)/);
+  has(/previewOrigin === "recorded" \? 9 \/ 16 : event\.currentTarget\.videoWidth \/ Math\.max\(1, event\.currentTarget\.videoHeight\)/);
   has(/processSelectedVideo/);
   has(/data\.append\("video", file, file\.name\)/);
   has(/max-w-full object-contain/);
