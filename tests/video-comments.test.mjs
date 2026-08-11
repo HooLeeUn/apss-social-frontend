@@ -10,8 +10,9 @@ const has = (pattern) => assert.match(page, pattern);
 test("camera recording is composed into a real 720x1280 portrait canvas", () => {
   has(/VIDEO_REACTION_WIDTH = 720/);
   has(/VIDEO_REACTION_HEIGHT = 1280/);
-  has(/VIDEO_REACTION_SOURCE_WIDTH = 960/);
-  has(/VIDEO_REACTION_SOURCE_HEIGHT = 1280/);
+  has(/VIDEO_REACTION_SOURCE_WIDTH = 1280/);
+  has(/VIDEO_REACTION_SOURCE_HEIGHT = 720/);
+  has(/VIDEO_REACTION_SOURCE_ASPECT_RATIO = 16 \/ 9/);
   has(/canvas\.width = VIDEO_REACTION_WIDTH/);
   has(/canvas\.height = VIDEO_REACTION_HEIGHT/);
   has(/canvas\.captureStream\(30\)/);
@@ -19,7 +20,7 @@ test("camera recording is composed into a real 720x1280 portrait canvas", () => 
   assert.doesNotMatch(page, /orientation_timeline/);
 });
 
-test("camera settings are verified and portrait constraints use a stable backoff", () => {
+test("camera settings are verified while the historical wide source stays independent from portrait output", () => {
   has(/cameraTrack\.getSettings\(\)/);
   has(/CAMERA_SETTINGS/);
   has(/CAMERA_CAPABILITIES/);
@@ -28,8 +29,10 @@ test("camera settings are verified and portrait constraints use a stable backoff
   has(/height: settings\.height/);
   has(/aspectRatio: settings\.aspectRatio/);
   has(/resizeMode: settings\.resizeMode/);
-  has(/portraitBackoff/);
-  has(/cameraTrack\.applyConstraints\(zoomMinimum === undefined \? constraints/);
+  has(/CAMERA_REQUESTED_CONSTRAINTS/);
+  has(/video: requestedCameraConstraints/);
+  assert.doesNotMatch(page, /portraitBackoff/);
+  assert.doesNotMatch(page, /native-fov-source/);
   has(/zoomMin: capabilities\?\.zoom\?\.min/);
   has(/zoomMax: capabilities\?\.zoom\?\.max/);
   has(/CAMERA_DEVICE_INVENTORY/);
@@ -39,7 +42,7 @@ test("camera settings are verified and portrait constraints use a stable backoff
   assert.doesNotMatch(page, /deviceId: \{ exact:/);
 });
 
-test("minimum physical zoom is applied after portrait negotiation and verified with a no-zoom fallback", () => {
+test("minimum physical zoom is applied after source negotiation and verified with a no-zoom fallback", () => {
   has(/const zoomMinimum = capabilities\?\.zoom\?\.min/);
   has(/const finalZoomConstraints/);
   has(/advanced: \[\{ zoom: zoomMinimum \}/);
@@ -48,12 +51,12 @@ test("minimum physical zoom is applied after portrait negotiation and verified w
   has(/minimum-zoom-retry/);
   has(/Math\.abs\(appliedZoom - zoomMinimum\) < 0\.001/);
   has(/reason: "unsupported"/);
-  assert.ok(page.indexOf("const zoomMinimum") < page.indexOf("for (const constraints of portraitBackoff)"));
-  has(/zoomMinimum === undefined \? constraints : \{ \.\.\.constraints, advanced:/);
+  assert.ok(page.indexOf("const zoomMinimum") < page.indexOf("finalZoomConstraints"));
 });
 
 test("camera composition preserves the complete raw frame with contain", () => {
-  has(/video: \{ facingMode: "user", width: \{ ideal: VIDEO_REACTION_SOURCE_WIDTH \}, height: \{ ideal: VIDEO_REACTION_SOURCE_HEIGHT \} \}/);
+  has(/facingMode: \{ ideal: "user" \}/);
+  has(/aspectRatio: \{ ideal: VIDEO_REACTION_SOURCE_ASPECT_RATIO \}/);
   has(/calculateContainDestinationRect/);
   has(/Math\.min\(targetWidth \/ sourceWidth, targetHeight \/ sourceHeight\)/);
   has(/sourceRect: \{ sx: 0, sy: 0, sw: sourceWidth, sh: sourceHeight \}/);
