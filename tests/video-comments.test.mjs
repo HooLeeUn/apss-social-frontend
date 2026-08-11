@@ -39,6 +39,7 @@ test("minimum physical zoom is applied after portrait negotiation and verified w
   has(/advanced: \[\{ zoom: zoomMinimum \}/);
   has(/cameraTrack\.applyConstraints\(finalZoomConstraints\)/);
   has(/CAMERA_MINIMUM_ZOOM_RESULT/);
+  has(/minimum-zoom-retry/);
   has(/Math\.abs\(appliedZoom - zoomMinimum\) < 0\.001/);
   has(/reason: "unsupported"/);
   assert.ok(page.indexOf("const zoomMinimum") > page.indexOf("for (const constraints of portraitBackoff)"));
@@ -106,15 +107,18 @@ test("saved cards only render volume and expand controls and tap toggles playbac
   assert.match(card, /movieDetailVideoExpand/);
   assert.doesNotMatch(card, /movieDetailVideoRestart/);
   assert.doesNotMatch(card, /movieDetailVideoPlay/);
+  assert.match(card, /relative inline-flex max-w-full overflow-hidden rounded-xl/);
   assert.match(card, /h-auto w-auto max-w-full object-contain/);
   assert.match(card, /maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT/);
   assert.match(page, /VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp\(14rem, 36dvh, 18rem\)"/);
   assert.match(card, /space-y-1\.5[\s\S]*p-2\.5/);
 });
 
-test("recording, recorded preview, and saved card retain a stable responsive size hierarchy", () => {
-  has(/VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min\(calc\(100dvh - 230px\)/);
-  has(/VIDEO_COMMENT_RECORDED_PREVIEW_HEIGHT = "min\(calc\(100dvh - 300px\)/);
+test("recorded preview reuses the recording size and overlay while saved card dimensions stay frozen", () => {
+  has(/isRecordedPreviewOverlay = previewOrigin === "recorded"/);
+  has(/recorderState === "recording" \|\| isRecordedPreviewOverlay \? VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT/);
+  has(/isRecordingOverlay = recorderState === "preparingRecorder" \|\| recorderState === "recording" \|\| isRecordedPreviewOverlay/);
+  assert.doesNotMatch(page, /VIDEO_COMMENT_RECORDED_PREVIEW_HEIGHT/);
   has(/VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp\(14rem, 36dvh, 18rem\)"/);
   assert.doesNotMatch(page, /intersectionRatio[^\n]*(height|maxHeight|style)/);
 });

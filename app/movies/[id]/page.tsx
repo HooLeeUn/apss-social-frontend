@@ -54,7 +54,6 @@ const VIDEO_REACTION_HEIGHT = 1280;
 type VideoSoundPreference = "muted" | "sound-on";
 const VIDEO_COMMENT_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
 const VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min(calc(100dvh - 230px), calc((100vw - 40px) * 16 / 9))";
-const VIDEO_COMMENT_RECORDED_PREVIEW_HEIGHT = "min(calc(100dvh - 300px), calc((100vw - 72px) * 16 / 9))";
 const VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp(14rem, 36dvh, 18rem)";
 const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm", "video/mp4"];
 const IOS_VIDEO_COMMENT_MIME_CANDIDATES = ["video/mp4", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/webm;codecs=vp8,opus", "video/webm"];
@@ -1576,7 +1575,12 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
           };
           await cameraTrack.applyConstraints(finalZoomConstraints);
           cameraSettings = reportCameraConfiguration("final-minimum-zoom");
-          const appliedZoom = (cameraSettings as MediaTrackSettings & { zoom?: number }).zoom;
+          let appliedZoom = (cameraSettings as MediaTrackSettings & { zoom?: number }).zoom;
+          if (appliedZoom === undefined || Math.abs(appliedZoom - zoomMinimum) >= 0.001) {
+            await cameraTrack.applyConstraints({ advanced: [{ zoom: zoomMinimum } as MediaTrackConstraintSet] });
+            cameraSettings = reportCameraConfiguration("minimum-zoom-retry");
+            appliedZoom = (cameraSettings as MediaTrackSettings & { zoom?: number }).zoom;
+          }
           appendVideoDebugLog("CAMERA_MINIMUM_ZOOM_RESULT", {
             requested: zoomMinimum,
             applied: appliedZoom ?? null,
@@ -1845,7 +1849,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const showMenu = recorderState === "menu";
   const showEmpty = recorderState === "idle" && !initialLoading && !historyError && comments.length === 0;
 
-  const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording";
+  const isRecordedPreviewOverlay = previewOrigin === "recorded" && (recorderState === "previewRecorded" || recorderState === "uploading");
+  const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay;
 
 
   return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} md:hidden ${active ? "block" : "hidden"}`}>
@@ -1863,7 +1868,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       {recorderState === "validatingSelected" ? <div className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 text-center"><p className="text-sm text-zinc-300">{t("movieDetailVideoReadingSelectedFile")}</p></div> : null}
       {recorderState === "requestingPermission" ? <div className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 text-center"><p className="text-sm text-zinc-300">{t("movieDetailVideoRequestingPermission")}</p><button type="button" className="mt-3 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelRequest}>{t("movieDetailVideoCancel")}</button></div> : null}
       {showRecorderShell ? <div className={`w-full space-y-3 ${orientationPaused ? "invisible" : "visible"}`}>
-        <div className="relative mx-auto max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black" style={{ aspectRatio: previewAspectRatio, height: recorderState === "preparingRecorder" || recorderState === "recording" ? VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT : previewOrigin === "recorded" ? VIDEO_COMMENT_RECORDED_PREVIEW_HEIGHT : undefined, width: recorderState === "previewSelected" || recorderState === "uploading" ? "100%" : undefined, maxHeight: "calc(100dvh - 230px)" }}>
+        <div className="relative mx-auto max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black" style={{ aspectRatio: previewAspectRatio, height: recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay ? VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT : undefined, width: previewOrigin === "selected" ? "100%" : undefined, maxHeight: "calc(100dvh - 230px)" }}>
           {recorderState === "preparingRecorder" || recorderState === "recording" ? <><canvas ref={canvasRef} className="h-full w-full object-contain" aria-label={t("movieDetailVideoRecording")} /><video ref={livePreviewRef} autoPlay muted playsInline className="hidden" /></> : previewUrl ? <video key={previewUrl} ref={previewVideoRef} src={previewUrl} muted={previewMuted} controls={false} preload="auto" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onClick={(event) => event.currentTarget.paused ? void event.currentTarget.play() : event.currentTarget.pause()} onVolumeChange={(event) => setPreviewMuted(event.currentTarget.muted)} onLoadedMetadata={(event) => { setPreviewAspectRatio(previewOrigin === "recorded" ? 9 / 16 : event.currentTarget.videoWidth / Math.max(1, event.currentTarget.videoHeight)); appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadedmetadata" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onDurationChange={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "durationchange" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onLoadedData={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadeddata" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onCanPlay={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "canplay" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onError={(event) => { const mediaError = event.currentTarget.error; appendVideoDebugLog("PREVIEW_EVENTS", { event: "error" }); appendVideoDebugLog("PREVIEW_ERROR", { code: mediaError?.code ?? null, message: mediaError?.message ?? "" }); logVideoCommentDevError("Video preview playback failed", mediaError); if (!tryWebKitBlobPreviewFallback()) setPreviewError(t("movieDetailVideoPreviewPlaybackError")); }} /> : null}
           {recorderState === "preparingRecorder" ? <span className="absolute left-3 top-3 rounded-full bg-zinc-900/80 px-3 py-1 text-xs font-bold text-zinc-100">{t("movieDetailVideoPreparingCamera")}</span> : null}
           {recorderState === "recording" ? <span className="absolute left-3 top-3 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-100">{t("movieDetailVideoRecording")} {formatVideoDuration(recordingSeconds)}</span> : null}
@@ -1887,7 +1892,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
           <div className="flex items-center gap-3"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
             <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[id]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div>
           <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black">
-            <div className="relative inline-flex max-w-full">
+            <div className="relative inline-flex max-w-full overflow-hidden rounded-xl">
               <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-auto w-auto max-w-full object-contain" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(event.currentTarget); }} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7">
                 <button type="button" className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={() => toggleHistorySound(id)}>{state.muted ? "🔇" : "🔊"}</button>
