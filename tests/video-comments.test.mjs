@@ -260,7 +260,8 @@ test('history uses custom controls and disables download, rate and picture-in-pi
 });
 
 test('infinite-scroll videos are observed and active deletion clears playback references', () => {
-  has(/\[comments, recorderState, syncPlayerState\]/);
+  has(/\[comments, recorderState, registerHistoryVideo\]/);
+  has(/ref=\{\(video\) => \{ if \(video\) registerHistoryVideo\(id, video\); \}\}/);
   has(/historyObserverRef\.current\?\.observe\(video\)/);
   has(/historyObserverRef\.current\?\.unobserve\(video\)/);
   has(/if \(activeVideoIdRef\.current === key\) activeVideoIdRef\.current = null/);
@@ -269,8 +270,10 @@ test('infinite-scroll videos are observed and active deletion clears playback re
 test('newly mounted videos are muted before dominant autoplay and stale active ids cannot block play', () => {
   has(/playsInline muted=\{state\.muted\}/);
   has(/historyObserverRef\.current\?\.observe\(video\)/);
+  has(/video\.muted = true/);
   has(/if \(candidateVideo\?\.paused\) void playHistoryVideo\(candidate\)/);
   assert.doesNotMatch(page, /candidateVideo\?\.paused && activeVideoIdRef\.current !== candidate/);
+  has(/if \(video\.currentTime !== 0\) video\.currentTime = 0/);
 });
 
 test('infinite scroll uses main viewport observer and avoids duplicate loads', () => {
@@ -370,8 +373,9 @@ test('front-camera recording mirrors pixels into the final stream and retains au
 
 test('recording preview is larger without changing selected-file preview limits', () => {
   has(/function getRecordingPreviewDimensions\(viewportWidth/);
-  has(/landscape \? 0\.96 : 0\.92/);
-  has(/landscape \? 0\.7 : 0\.55/);
+  has(/landscape \? 0\.98 : 0\.92/);
+  has(/landscape \? 0\.82 : 0\.55/);
+  has(/isLandscapeRecording \? "mt-auto pt-2"/);
   has(/isRecordingOverlay\s+\? getRecordingPreviewDimensions/);
   has(/: getLocalPreviewDimensions\(previewAspectRatio, recorderState === "previewSelected"/);
 });
@@ -429,12 +433,20 @@ test('portrait recording preview uses available height while horizontal keeps it
 test('known published portrait videos use source-ratio sizing in history and expanded feed', () => {
   has(/qnext-video-source-ratios:/);
   has(/heightReserve = 0/);
-  has(/getHistoryPortraitDimensions\(sourceAspectRatio, viewportSize\.width, viewportSize\.height, stickyHeaderHeight\)/);
-  has(/viewportHeight - stickyHeaderHeight - 116/);
-  has(/viewportWidth \* 0\.86/);
+  has(/getHistoryPortraitDimensions\(portraitCardAspectRatio, viewportSize\.width, viewportSize\.height, stickyHeaderHeight\)/);
+  has(/viewportHeight - stickyHeaderHeight - 92/);
+  has(/viewportWidth \* 0\.9/);
   has(/expandedPortraitDimensions\.width/);
   has(/data-expanded-video-player="true"/);
   has(/snap-y snap-mandatory/);
+});
+
+test('portrait metadata keeps mixed local cards stable with compact in-video controls', () => {
+  has(/qnext-video-portrait-cards:/);
+  has(/sourceWidth < sourceHeight && portraitSourceAspectRatioRef\.current === null/);
+  has(/portraitCardAspectRatios\[id\] \?\? sourceAspectRatio/);
+  has(/absolute inset-0 flex items-end/);
+  has(/h-9 w-9 items-center/);
 });
 
 test('orientation changes update per-frame composition without resizing the fixed canvas', () => {
