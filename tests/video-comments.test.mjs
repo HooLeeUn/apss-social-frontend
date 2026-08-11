@@ -10,6 +10,8 @@ const has = (pattern) => assert.match(page, pattern);
 test("camera recording is composed into a real 720x1280 portrait canvas", () => {
   has(/VIDEO_REACTION_WIDTH = 720/);
   has(/VIDEO_REACTION_HEIGHT = 1280/);
+  has(/VIDEO_REACTION_SOURCE_WIDTH = 960/);
+  has(/VIDEO_REACTION_SOURCE_HEIGHT = 1280/);
   has(/canvas\.width = VIDEO_REACTION_WIDTH/);
   has(/canvas\.height = VIDEO_REACTION_HEIGHT/);
   has(/canvas\.captureStream\(30\)/);
@@ -33,6 +35,7 @@ test("camera settings are verified and portrait constraints use a stable backoff
   has(/CAMERA_DEVICE_INVENTORY/);
   has(/CAMERA_CONSTRAINTS/);
   has(/selection: "default-user-facing-camera"/);
+  has(/unexpected-non-user-camera/);
   assert.doesNotMatch(page, /deviceId: \{ exact:/);
 });
 
@@ -49,14 +52,18 @@ test("minimum physical zoom is applied after portrait negotiation and verified w
   has(/zoomMinimum === undefined \? constraints : \{ \.\.\.constraints, advanced:/);
 });
 
-test("landscape source fallback fills portrait output without contain bars or stretching", () => {
+test("camera requests an uncropped native portrait source before composing final 9:16", () => {
+  has(/video: \{ facingMode: "user", width: \{ ideal: VIDEO_REACTION_SOURCE_WIDTH \}, height: \{ ideal: VIDEO_REACTION_SOURCE_HEIGHT \} \}/);
+  assert.doesNotMatch(page, /getUserMedia\(\{[\s\S]{0,300}aspectRatio: \{ ideal: 9 \/ 16 \}/);
+  has(/resizeMode: "none"/);
+  has(/aspectRatio: \{ ideal: 3 \/ 4 \}/);
+  has(/native-fov-source/);
+  assert.doesNotMatch(page, /resizeMode: "crop-and-scale"/);
   has(/calculateCoverSourceRect/);
-  has(/sourceRatio > targetRatio/);
   has(/context\.drawImage\(preview, sx, sy, sw, sh, 0, 0, canvas\.width, canvas\.height\)/);
-  assert.doesNotMatch(page, /calculateContainRect/);
-  assert.doesNotMatch(page, /context\.fillRect\(0, 0, canvas\.width, canvas\.height\)/);
   has(/CAMERA_COMPOSITION/);
   has(/retainedWidthRatio: sw \/ preview\.videoWidth/);
+  assert.doesNotMatch(page, /context\.fillRect\(0, 0, canvas\.width, canvas\.height\)/);
 });
 
 test("front preview and recorded canvas have exactly one matching mirror", () => {

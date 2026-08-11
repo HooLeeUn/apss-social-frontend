@@ -51,6 +51,8 @@ const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.15;
 const VIDEO_COMMENT_DOMINANCE_MARGIN = 0.08;
 const VIDEO_REACTION_WIDTH = 720;
 const VIDEO_REACTION_HEIGHT = 1280;
+const VIDEO_REACTION_SOURCE_WIDTH = 960;
+const VIDEO_REACTION_SOURCE_HEIGHT = 1280;
 type VideoSoundPreference = "muted" | "sound-on";
 const VIDEO_COMMENT_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
 const VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min(calc(100dvh - 230px), calc((100vw - 40px) * 16 / 9))";
@@ -1545,7 +1547,9 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     try {
       cleanupRecorder({ clearPreview: true, nextState: "idle" });
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: VIDEO_REACTION_WIDTH }, height: { ideal: VIDEO_REACTION_HEIGHT }, aspectRatio: { ideal: 9 / 16 } },
+        // Ask for a native portrait sensor frame first. Requesting 9:16 here can make
+        // the user agent crop the camera before QNext can measure or preserve its FOV.
+        video: { facingMode: "user", width: { ideal: VIDEO_REACTION_SOURCE_WIDTH }, height: { ideal: VIDEO_REACTION_SOURCE_HEIGHT } },
         audio: true,
       });
       if (!stream.active || stream.getVideoTracks().length === 0 || stream.getAudioTracks().length === 0) throw new Error("missing-tracks");
@@ -1579,16 +1583,28 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       appendVideoDebugLog("CAMERA_CONSTRAINTS", { ...cameraTrack.getConstraints() });
       let cameraSettings = reportCameraConfiguration("getUserMedia");
       const zoomMinimum = capabilities?.zoom?.min;
+      if (cameraSettings.facingMode && cameraSettings.facingMode !== "user") throw new Error("unexpected-non-user-camera");
+      if (capabilities?.resizeMode?.includes("none")) {
+        try {
+          await cameraTrack.applyConstraints({
+            width: { ideal: VIDEO_REACTION_SOURCE_WIDTH },
+            height: { ideal: VIDEO_REACTION_SOURCE_HEIGHT },
+            aspectRatio: { ideal: 3 / 4 },
+            resizeMode: "none",
+            advanced: zoomMinimum === undefined ? undefined : [{ zoom: zoomMinimum } as MediaTrackConstraintSet],
+          } as MediaTrackConstraints);
+          cameraSettings = reportCameraConfiguration("native-fov-source");
+        } catch (nativeSourceError) {
+          appendVideoDebugLog("CAMERA_CONSTRAINT_REJECTED", { phase: "native-fov-source", message: nativeSourceError instanceof Error ? nativeSourceError.message : String(nativeSourceError) });
+        }
+      }
       const isPortraitSource = (settings: MediaTrackSettings) => Boolean(settings.width && settings.height && settings.height > settings.width);
       if (!isPortraitSource(cameraSettings)) {
         const portraitBackoff: MediaTrackConstraints[] = [
-          { width: { ideal: 1080 }, height: { ideal: 1920 }, aspectRatio: { ideal: 9 / 16 } },
+          { width: { ideal: 960 }, height: { ideal: 1280 }, aspectRatio: { ideal: 3 / 4 } },
+          { width: { ideal: 720 }, height: { ideal: 1080 }, aspectRatio: { ideal: 2 / 3 } },
           { width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 } },
-          { width: { ideal: 480 }, height: { ideal: 854 }, aspectRatio: { ideal: 9 / 16 } },
         ];
-        if (capabilities?.resizeMode?.includes("crop-and-scale")) {
-          portraitBackoff.push({ width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 }, resizeMode: "crop-and-scale" } as MediaTrackConstraints);
-        }
         for (const constraints of portraitBackoff) {
           try {
             await cameraTrack.applyConstraints(zoomMinimum === undefined ? constraints : { ...constraints, advanced: [{ zoom: zoomMinimum } as MediaTrackConstraintSet] });
