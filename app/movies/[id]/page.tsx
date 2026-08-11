@@ -97,16 +97,12 @@ function prepareVideoPreview(file: File): string {
   if (file.size <= 0) throw new Error("empty-preview-file");
   return URL.createObjectURL(file);
 }
-type CoverSourceRect = { sx: number; sy: number; sw: number; sh: number };
-function calculateCoverSourceRect(sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number): CoverSourceRect {
-  const sourceRatio = sourceWidth / sourceHeight;
-  const targetRatio = targetWidth / targetHeight;
-  if (sourceRatio > targetRatio) {
-    const sw = sourceHeight * targetRatio;
-    return { sx: (sourceWidth - sw) / 2, sy: 0, sw, sh: sourceHeight };
-  }
-  const sh = sourceWidth / targetRatio;
-  return { sx: 0, sy: (sourceHeight - sh) / 2, sw: sourceWidth, sh };
+type ContainDestinationRect = { dx: number; dy: number; dw: number; dh: number };
+function calculateContainDestinationRect(sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number): ContainDestinationRect {
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const dw = sourceWidth * scale;
+  const dh = sourceHeight * scale;
+  return { dx: (targetWidth - dw) / 2, dy: (targetHeight - dh) / 2, dw, dh };
 }
 function isLandscapeViewport(): boolean {
   if (typeof window === "undefined") return false;
@@ -1399,23 +1395,33 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         return;
       }
       if (preview.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && preview.videoWidth > 0 && preview.videoHeight > 0) {
-        // Portrait negotiation is preferred. This source crop is only the no-stretch fallback
-        // when a browser exposes landscape sensor dimensions despite portrait constraints.
-        const { sx, sy, sw, sh } = calculateCoverSourceRect(preview.videoWidth, preview.videoHeight, canvas.width, canvas.height);
+        const sourceWidth = preview.videoWidth;
+        const sourceHeight = preview.videoHeight;
+        const { dx, dy, dw, dh } = calculateContainDestinationRect(sourceWidth, sourceHeight, canvas.width, canvas.height);
+        context.fillStyle = "#000";
+        context.fillRect(0, 0, canvas.width, canvas.height);
         if (!compositionLoggedRef.current) {
           compositionLoggedRef.current = true;
+          const sourceRatio = sourceWidth / sourceHeight;
+          const targetRatio = canvas.width / canvas.height;
+          const previousSw = sourceRatio > targetRatio ? sourceHeight * targetRatio : sourceWidth;
+          const previousSh = sourceRatio > targetRatio ? sourceHeight : sourceWidth / targetRatio;
           appendVideoDebugLog("CAMERA_COMPOSITION", {
-            sourceWidth: preview.videoWidth,
-            sourceHeight: preview.videoHeight,
-            sourceAspectRatio: preview.videoWidth / preview.videoHeight,
-            retainedWidthRatio: sw / preview.videoWidth,
-            retainedHeightRatio: sh / preview.videoHeight,
+            mode: "contain-full-raw",
+            sourceWidth,
+            sourceHeight,
+            sourceAspectRatio: sourceRatio,
+            previousCover: { sx: (sourceWidth - previousSw) / 2, sy: (sourceHeight - previousSh) / 2, sw: previousSw, sh: previousSh, retainedWidthRatio: previousSw / sourceWidth, retainedHeightRatio: previousSh / sourceHeight },
+            sourceRect: { sx: 0, sy: 0, sw: sourceWidth, sh: sourceHeight },
+            destinationRect: { dx, dy, dw, dh },
+            retainedWidthRatio: 1,
+            retainedHeightRatio: 1,
           });
         }
         context.save();
         context.translate(canvas.width, 0);
         context.scale(-1, 1);
-        context.drawImage(preview, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+        context.drawImage(preview, 0, 0, sourceWidth, sourceHeight, dx, dy, dw, dh);
         context.restore();
       }
     };

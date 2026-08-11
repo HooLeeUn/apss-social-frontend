@@ -52,18 +52,18 @@ test("minimum physical zoom is applied after portrait negotiation and verified w
   has(/zoomMinimum === undefined \? constraints : \{ \.\.\.constraints, advanced:/);
 });
 
-test("camera requests an uncropped native portrait source before composing final 9:16", () => {
+test("camera composition preserves the complete raw frame with contain", () => {
   has(/video: \{ facingMode: "user", width: \{ ideal: VIDEO_REACTION_SOURCE_WIDTH \}, height: \{ ideal: VIDEO_REACTION_SOURCE_HEIGHT \} \}/);
-  assert.doesNotMatch(page, /getUserMedia\(\{[\s\S]{0,300}aspectRatio: \{ ideal: 9 \/ 16 \}/);
-  has(/resizeMode: "none"/);
-  has(/aspectRatio: \{ ideal: 3 \/ 4 \}/);
-  has(/native-fov-source/);
-  assert.doesNotMatch(page, /resizeMode: "crop-and-scale"/);
-  has(/calculateCoverSourceRect/);
-  has(/context\.drawImage\(preview, sx, sy, sw, sh, 0, 0, canvas\.width, canvas\.height\)/);
-  has(/CAMERA_COMPOSITION/);
-  has(/retainedWidthRatio: sw \/ preview\.videoWidth/);
-  assert.doesNotMatch(page, /context\.fillRect\(0, 0, canvas\.width, canvas\.height\)/);
+  has(/calculateContainDestinationRect/);
+  has(/Math\.min\(targetWidth \/ sourceWidth, targetHeight \/ sourceHeight\)/);
+  has(/sourceRect: \{ sx: 0, sy: 0, sw: sourceWidth, sh: sourceHeight \}/);
+  has(/destinationRect: \{ dx, dy, dw, dh \}/);
+  has(/retainedWidthRatio: 1/);
+  has(/retainedHeightRatio: 1/);
+  has(/context\.drawImage\(preview, 0, 0, sourceWidth, sourceHeight, dx, dy, dw, dh\)/);
+  has(/context\.fillRect\(0, 0, canvas\.width, canvas\.height\)/);
+  assert.doesNotMatch(page, /calculateCoverSourceRect/);
+  assert.doesNotMatch(page, /context\.drawImage\(preview, sx, sy, sw, sh/);
 });
 
 test("front preview and recorded canvas have exactly one matching mirror", () => {
