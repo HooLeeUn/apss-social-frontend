@@ -133,7 +133,7 @@ test('iOS MIME order, feature checks, constructor fallback, and real output type
 
 test('stop is idempotent, keeps chunks through onstop, and rejects empty aggregate', () => {
   has(/stopRequestedRef = useRef\(false\)/);
-  has(/recorder\?\.state === "recording" && !stopRequestedRef\.current/);
+  has(/\(recorder\?\.state === "recording" \|\| recorder\?\.state === "paused"\) && !stopRequestedRef\.current/);
   has(/stopRequestedRef\.current = true/);
   has(/const totalSize = chunks\.reduce/);
   has(/chunks\.length === 0 \|\| totalSize <= 0/);
@@ -340,7 +340,7 @@ test('phase-specific errors keep upload error only in upload path', () => {
 });
 
 test('main translations exist in Spanish and English', () => {
-  for (const key of ['movieDetailVideoRecordedCreateError','movieDetailVideoReadingSelectedFile','movieDetailVideoCameraAccessError','movieDetailVideoRecorderStartError','movieDetailVideoCameraPreviewError']) {
+  for (const key of ['movieDetailVideoRecordedCreateError','movieDetailVideoReadingSelectedFile','movieDetailVideoCameraAccessError','movieDetailVideoRecorderStartError','movieDetailVideoCameraPreviewError','movieDetailVideoRecordingPaused','movieDetailVideoRotatePortrait']) {
     assert.equal((i18n.match(new RegExp(`${key}:`, 'g')) || []).length, 2, `${key} should be translated twice`);
   }
 });
@@ -368,16 +368,15 @@ test('front-camera recording mirrors pixels into the final stream and retains au
   has(/canvas\.captureStream\(30\)/);
   has(/new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\), \.\.\.stream\.getAudioTracks\(\)\]\)/);
   has(/createRecorderWithFallback\(recordingStream, iosWebKit\)/);
-  has(/<canvas ref=\{mirrorCanvasRef\} className=\{isPortraitRecording \?/);
+  has(/<canvas ref=\{mirrorCanvasRef\} className="h-full w-full object-contain"/);
 });
 
-test('recording preview is larger without changing selected-file preview limits', () => {
-  has(/function getRecordingPreviewDimensions\(viewportWidth/);
-  has(/landscape \? 0\.98 : 0\.92/);
-  has(/landscape \? 0\.82 : 0\.55/);
-  has(/isLandscapeRecording \? "mt-auto pt-2"/);
-  has(/isRecordingOverlay\s+\? getRecordingPreviewDimensions/);
+test('camera recording uses a stable portrait preview without changing selected-file limits', () => {
+  has(/isRecordingOverlay\s+\? getPortraitViewportDimensions\(VIDEO_REACTION_ASPECT_RATIO, viewportSize\.width, viewportSize\.height, 250\)/);
+  has(/aspectRatio: isRecordingOverlay \? VIDEO_REACTION_ASPECT_RATIO : previewAspectRatio/);
+  has(/maxHeight: isRecordingOverlay \? "calc\(100svh - 250px\)"/);
   has(/: getLocalPreviewDimensions\(previewAspectRatio, recorderState === "previewSelected"/);
+  assert.doesNotMatch(page, /getRecordingPreviewDimensions/);
 });
 
 test('published history videos use metadata proportions and a centered reduced base size', () => {
@@ -386,10 +385,10 @@ test('published history videos use metadata proportions and a centered reduced b
   has(/className="h-full w-full object-contain" onLoadedMetadata/);
 });
 
-test('new camera recordings request and encode a real 16:9 canvas stream', () => {
-  has(/VIDEO_REACTION_ASPECT_RATIO = 16 \/ 9/);
-  has(/VIDEO_REACTION_OUTPUT_WIDTH = 1280/);
-  has(/VIDEO_REACTION_OUTPUT_HEIGHT = 720/);
+test('new camera recordings request and encode a real 9:16 canvas stream', () => {
+  has(/VIDEO_REACTION_ASPECT_RATIO = 9 \/ 16/);
+  has(/VIDEO_REACTION_OUTPUT_WIDTH = 720/);
+  has(/VIDEO_REACTION_OUTPUT_HEIGHT = 1280/);
   has(/aspectRatio: \{ ideal: VIDEO_REACTION_ASPECT_RATIO \}/);
   has(/canvas\.width = VIDEO_REACTION_OUTPUT_WIDTH/);
   has(/canvas\.height = VIDEO_REACTION_OUTPUT_HEIGHT/);
@@ -405,7 +404,7 @@ test('each camera frame is composed once from current dimensions on a clean fixe
   has(/context\.restore\(\)/);
   has(/if \(mirrorFrameRef\.current !== null\) cancelAnimationFrame\(mirrorFrameRef\.current\)/);
   assert.equal((page.match(/canvas\.captureStream\(30\)/g) || []).length, 1);
-  assert.equal((page.match(/requestAnimationFrame\(drawVideoReactionFrame\)/g) || []).length, 1);
+  assert.equal((page.match(/requestAnimationFrame\(drawVideoReactionFrame\)/g) || []).length, 2);
 });
 
 test('portrait recording uses a black canvas and skips the blurred background layer', () => {
@@ -422,12 +421,10 @@ test('known local portrait recording expands as its source ratio without native 
   has(/data-local-preview-player="true"/);
 });
 
-test('portrait recording preview uses available height while horizontal keeps its existing sizing', () => {
-  has(/getPortraitViewportDimensions\(liveSourceAspectRatio, viewportSize\.width, viewportSize\.height, 250\)/);
-  has(/isPortraitRecording \? liveSourceAspectRatio : previewAspectRatio/);
-  has(/isPortraitRecording \? "calc\(100svh - 250px\)"/);
-  has(/isPortraitRecording \? "absolute left-1\/2 h-full w-auto max-w-none -translate-x-1\/2"/);
-  has(/: isRecordingOverlay\s+\? getRecordingPreviewDimensions/);
+test('camera preview always uses the portrait reaction geometry', () => {
+  has(/getPortraitViewportDimensions\(VIDEO_REACTION_ASPECT_RATIO, viewportSize\.width, viewportSize\.height, 250\)/);
+  has(/style=\{\{ aspectRatio: isRecordingOverlay \? VIDEO_REACTION_ASPECT_RATIO : previewAspectRatio/);
+  has(/<canvas ref=\{mirrorCanvasRef\} className="h-full w-full object-contain"/);
 });
 
 test('known published portrait videos use source-ratio sizing in history and expanded feed', () => {
@@ -441,43 +438,48 @@ test('known published portrait videos use source-ratio sizing in history and exp
   has(/snap-y snap-mandatory/);
 });
 
-test('portrait metadata keeps mixed local cards stable with compact in-video controls', () => {
-  has(/qnext-video-portrait-cards:/);
-  has(/sourceWidth < sourceHeight && portraitSourceAspectRatioRef\.current === null/);
-  has(/portraitCardAspectRatios\[id\] \?\? sourceAspectRatio/);
+test('camera portrait metadata keeps stable cards with compact in-video controls', () => {
+  has(/qnext-video-source-ratios:/);
+  has(/const portraitCardAspectRatio = sourceAspectRatio \?\? \(physicalAspectRatio !== null && physicalAspectRatio < 1 \? physicalAspectRatio : null\)/);
   has(/absolute inset-0 flex items-end/);
   has(/h-9 w-9 items-center/);
 });
 
-test('orientation changes update per-frame composition without resizing the fixed canvas', () => {
-  has(/liveSourceDimensionsRef\.current = \{ width: sourceWidth, height: sourceHeight \}/);
-  has(/setLiveSourceAspectRatio\(sourceWidth \/ sourceHeight\)/);
-  has(/initialSourcePortraitRef\.current !== \(sourceWidth < sourceHeight\)/);
-  has(/setMixedOrientationRecording\(true\)/);
-  has(/!mixedOrientationRecording && recordedSourceAspectRatio/);
+test('landscape pauses one portrait recording and portrait resumes it', () => {
+  has(/window\.matchMedia\("\(orientation: landscape\)"\)\.matches/);
+  has(/if \(deviceLandscape && recorder\.state === "recording"\)/);
+  has(/recorder\.pause\(\)/);
+  has(/pauseRecordingClock\(\)/);
+  has(/if \(!deviceLandscape && recorder\.state === "paused" && recordingPausedForOrientationRef\.current\)/);
+  has(/recorder\.resume\(\)/);
+  has(/resumeRecordingClock\(\)/);
+  has(/movieDetailVideoRotatePortrait/);
+  has(/recordingPausedForOrientation \? t\("movieDetailVideoRecordingPaused"\)/);
+  has(/if \(recordingPausedForOrientationRef\.current\) \{\s+mirrorFrameRef\.current = requestAnimationFrame\(drawVideoReactionFrame\);\s+return;/);
   assert.equal((page.match(/canvas\.width = VIDEO_REACTION_OUTPUT_WIDTH/g) || []).length, 1);
   assert.equal((page.match(/canvas\.height = VIDEO_REACTION_OUTPUT_HEIGHT/g) || []).length, 1);
 });
 
-test('recorded orientation timeline is debounced, finalized and uploaded only for camera recordings', () => {
-  has(/orientationTimelineRef = useRef<OrientationSegment\[\]>/);
-  has(/recordingStartedAtRef\.current = performance\.now\(\)/);
-  has(/now - pending\.since >= 250/);
-  has(/orientationTimelineRef\.current\.push\(\{ start: elapsed, end: elapsed, orientation: frameOrientation \}\)/);
-  has(/finalizeOrientationTimeline\(\)/);
-  has(/previousState === "previewRecorded" && recordedTimeline\.length > 0/);
-  has(/data\.append\("orientation_timeline", JSON\.stringify\(recordedTimeline\)\)/);
+test('recording counter excludes orientation pause time and retains the same recorder', () => {
+  has(/recordedElapsedMsRef\.current \+= performance\.now\(\) - startedAt/);
+  has(/activeRecordingStartedAtRef\.current = null/);
+  has(/setRecordingSeconds\(Math\.floor\(recordedElapsedMsRef\.current \/ 1000\)\)/);
+  has(/recordedElapsedMsRef\.current \+ \(activeStartedAt === null \? 0 : performance\.now\(\) - activeStartedAt\)/);
+  assert.equal((page.match(/recorder\.start\(1000\)/g) || []).length, 1);
 });
 
-test('timeline drives stable history card and expanded geometry without remounting playback', () => {
-  has(/normalizeOrientationTimeline\(comment\.orientation_timeline\)/);
-  has(/timelineHasPortrait/);
-  has(/timelineOrientation === "portrait"/);
-  has(/timelineOrientation === "landscape"/);
-  has(/onTimeUpdate=\{\(event\) => syncPlaybackOrientation/);
-  has(/isExpandedPortraitFrame/);
-  assert.doesNotMatch(page, /onTimeUpdate=.*currentTime\s*=/);
+test('camera segment tracking is removed while historical files keep physical-ratio fallback', () => {
+  assert.doesNotMatch(page, /OrientationSegment|mixedOrientationRecording|playbackOrientations/);
+  has(/const shouldCropLegacyPortraitCanvas = sourceAspectRatio !== null && sourceAspectRatio < 1 && \(physicalAspectRatio \?\? 1\) > 1/);
+  has(/aspectRatio: historyAspectRatios\[id\] \?\? 1, width: "88%"/);
   has(/snap-y snap-mandatory/);
+});
+
+test('library uploads retain metadata-derived aspect ratio and do not receive camera portrait metadata', () => {
+  has(/setPreviewAspectRatio\(video\.videoWidth \/ video\.videoHeight\)/);
+  has(/previousState === "previewRecorded" && recordedSourceAspectRatio/);
+  assert.doesNotMatch(page, /previousState === "previewSelected" && recordedSourceAspectRatio/);
+  has(/className="h-full w-full object-contain"/);
 });
 
 test('route teardown releases media pipelines while BFCache pagehide only pauses', () => {
@@ -508,7 +510,7 @@ test('published portrait sizing tracks the real sticky header without changing e
   has(/setStickyHeaderHeight\(header\.offsetHeight\)/);
   has(/new ResizeObserver\(updateStickyHeaderHeight\)/);
   has(/stickyHeaderHeight=\{stickyHeaderHeight\}/);
-  has(/getPortraitViewportDimensions\(portraitRatio, viewportSize\.width, viewportSize\.height, 24\)/);
+  has(/getPortraitViewportDimensions\(portraitAspectRatio, viewportSize\.width, viewportSize\.height, 24\)/);
 });
 
 test('selected preview expands in an app modal instead of native fullscreen', () => {
