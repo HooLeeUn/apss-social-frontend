@@ -53,8 +53,9 @@ const VIDEO_COMMENT_DOMINANCE_MARGIN = 0.08;
 // back inside portrait, avoiding rapid pause/resume around the boundary.
 // Preventive physical-tilt hysteresis: stop composing well before landscape,
 // and require a stable near-portrait position before recording resumes.
-const VIDEO_REACTION_TILT_PAUSE_DEGREES = 60;
-const VIDEO_REACTION_TILT_RESUME_DEGREES = 30;
+const VIDEO_REACTION_TILT_PAUSE_DEGREES = 65;
+const VIDEO_REACTION_TILT_RESUME_DEGREES = 35;
+const VIDEO_REACTION_TILT_CONFIRMATION_SAMPLES = 2;
 const VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD = 56;
 const VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX = 8;
 const VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS = 200;
@@ -1642,13 +1643,18 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   }, [recorderState]);
 
   useEffect(() => {
-    if (recorderState !== "recording" || typeof DeviceOrientationEvent === "undefined") return;
+    if (recorderState !== "recording" || typeof DeviceMotionEvent === "undefined") return;
     if (desktopRecordingRef.current) return;
-    const handleEarlyOrientation = (event: DeviceOrientationEvent) => {
-      if (event.gamma === null) return;
-      const tilt = Math.abs(event.gamma);
+    let unsafeSamples = 0;
+    let safeSamples = 0;
+    const handleEarlyMotion = (event: DeviceMotionEvent) => {
+      const gravity = event.accelerationIncludingGravity;
+      if (gravity?.x === null || gravity?.x === undefined || gravity.y === null || gravity.y === undefined || gravity.z === null || gravity.z === undefined) return;
+      const lateralRoll = Math.abs(Math.atan2(gravity.x, Math.sqrt(gravity.y * gravity.y + gravity.z * gravity.z)) * 180 / Math.PI);
+      unsafeSamples = lateralRoll >= VIDEO_REACTION_TILT_PAUSE_DEGREES ? unsafeSamples + 1 : 0;
+      safeSamples = lateralRoll <= VIDEO_REACTION_TILT_RESUME_DEGREES ? safeSamples + 1 : 0;
       const recorder = recorderRef.current;
-      if (tilt >= VIDEO_REACTION_TILT_PAUSE_DEGREES && !tiltUnsafeRef.current) {
+      if (unsafeSamples >= VIDEO_REACTION_TILT_CONFIRMATION_SAMPLES && !tiltUnsafeRef.current) {
         // This ref is set before React state so drawPortraitFrame drops the next
         // frame synchronously, even if rendering the overlay takes longer.
         tiltUnsafeRef.current = true;
@@ -1656,7 +1662,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         orientationPausedRef.current = true;
         if (recorder?.state === "recording") recorder.pause();
         setOrientationPaused(true);
-      } else if (tilt <= VIDEO_REACTION_TILT_RESUME_DEGREES && tiltUnsafeRef.current && !isLandscapeViewport()) {
+      } else if (safeSamples >= VIDEO_REACTION_TILT_CONFIRMATION_SAMPLES && tiltUnsafeRef.current && !isLandscapeViewport()) {
         tiltUnsafeRef.current = false;
         orientationUnsafeRef.current = false;
         orientationPausedRef.current = false;
@@ -1664,8 +1670,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         setOrientationPaused(false);
       }
     };
-    window.addEventListener("deviceorientation", handleEarlyOrientation, { passive: true });
-    return () => window.removeEventListener("deviceorientation", handleEarlyOrientation);
+    window.addEventListener("devicemotion", handleEarlyMotion, { passive: true });
+    return () => window.removeEventListener("devicemotion", handleEarlyMotion);
   }, [recorderState]);
 
   const continueToNativePermissions = useCallback(async () => {
@@ -1677,6 +1683,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       cleanupRecorder({ clearPreview: true, nextState: "idle" });
       const isDesktopRecording = window.matchMedia("(min-width: 768px)").matches;
       desktopRecordingRef.current = isDesktopRecording;
+      const requestMotionPermission = (DeviceMotionEvent as typeof DeviceMotionEvent & { requestPermission?: () => Promise<PermissionState> }).requestPermission;
+      if (!isDesktopRecording && requestMotionPermission) await requestMotionPermission.call(DeviceMotionEvent).catch(() => "denied" as PermissionState);
       const requestedCameraConstraints: MediaTrackConstraints = isDesktopRecording
         ? {
             width: { ideal: VIDEO_REACTION_SOURCE_WIDTH },
