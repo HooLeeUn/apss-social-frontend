@@ -89,13 +89,18 @@ test("landscape pauses recorder and counter, then portrait resumes the same reco
   assert.ok(page.indexOf("if (orientationUnsafeRef.current || isLandscapeViewport())") < page.indexOf("context.drawImage(preview"));
 });
 
-test("device tilt blocks frames early with hysteresis and keeps landscape fallback", () => {
-  has(/VIDEO_REACTION_TILT_PAUSE_DEGREES = 18/);
-  has(/VIDEO_REACTION_TILT_RESUME_DEGREES = 8/);
-  has(/typeof DeviceOrientationEvent === "undefined"/);
-  has(/window\.addEventListener\("deviceorientation", handleEarlyOrientation/);
-  has(/tilt >= VIDEO_REACTION_TILT_PAUSE_DEGREES/);
-  has(/tilt <= VIDEO_REACTION_TILT_RESUME_DEGREES/);
+test("gravity roll blocks frames early with hysteresis and keeps landscape fallback", () => {
+  has(/VIDEO_REACTION_TILT_PAUSE_DEGREES = 65/);
+  has(/VIDEO_REACTION_TILT_RESUME_DEGREES = 35/);
+  has(/VIDEO_REACTION_TILT_CONFIRMATION_SAMPLES = 2/);
+  has(/typeof DeviceMotionEvent === "undefined"/);
+  has(/window\.addEventListener\("devicemotion", handleEarlyMotion/);
+  has(/!isDesktopRecording && requestMotionPermission/);
+  has(/const gravity = event\.accelerationIncludingGravity/);
+  has(/Math\.atan2\(gravity\.x, Math\.sqrt\(gravity\.y \* gravity\.y \+ gravity\.z \* gravity\.z\)\)/);
+  assert.doesNotMatch(page, /event\.(?:alpha|beta|gamma)/);
+  has(/lateralRoll >= VIDEO_REACTION_TILT_PAUSE_DEGREES/);
+  has(/lateralRoll <= VIDEO_REACTION_TILT_RESUME_DEGREES/);
   assert.ok(page.indexOf("orientationUnsafeRef.current = true") < page.indexOf('setOrientationPaused(true)'));
   has(/!tiltUnsafeRef\.current && orientationPausedRef\.current/);
 });
