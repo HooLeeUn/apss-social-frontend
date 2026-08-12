@@ -53,8 +53,8 @@ const VIDEO_COMMENT_DOMINANCE_MARGIN = 0.08;
 // back inside portrait, avoiding rapid pause/resume around the boundary.
 // Preventive physical-tilt hysteresis: stop composing well before landscape,
 // and require a stable near-portrait position before recording resumes.
-const VIDEO_REACTION_TILT_PAUSE_DEGREES = 50;
-const VIDEO_REACTION_TILT_RESUME_DEGREES = 25;
+const VIDEO_REACTION_TILT_PAUSE_DEGREES = 60;
+const VIDEO_REACTION_TILT_RESUME_DEGREES = 30;
 const VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD = 56;
 const VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX = 8;
 const VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS = 200;
