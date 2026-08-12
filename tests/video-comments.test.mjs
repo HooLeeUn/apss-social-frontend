@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const page = readFileSync(new URL("../app/movies/[id]/page.tsx", import.meta.url), "utf8");
 const i18n = readFileSync(new URL("../lib/i18n.ts", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+const trailerModal = readFileSync(new URL("../components/TrailerModal.tsx", import.meta.url), "utf8");
 const has = (pattern) => assert.match(page, pattern);
 
 test("camera recording is composed into a real 720x1280 portrait canvas", () => {
@@ -248,4 +249,21 @@ test("touch landscape keeps the mobile Detail Movie layout", () => {
   assert.match(css, /@media \(orientation: landscape\) and \(pointer: coarse\)/);
   has(/data-mobile-video-reaction/);
   has(/data-mobile-comment-tabs/);
+});
+
+test("trailer overlay exposes the existing reaction list without duplicating players", () => {
+  assert.match(css, /body\.detail-trailer-active \[data-desktop-video-reaction-history\]/);
+  assert.match(css, /overscroll-behavior: contain/);
+  assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.detail-trailer-active \.trailer-modal-card/);
+  assert.match(css, /@media \(min-width: 768px\)[\s\S]*transform: translateX\(-13rem\)/);
+  assert.equal((page.match(/comments\.map\(\(comment\)/g) ?? []).length, 1);
+});
+
+test("trailer and reactions coordinate audio and fullscreen through player refs", () => {
+  assert.match(trailerModal, /playerRef\.current\?\.mute\(\)/);
+  assert.match(trailerModal, /qnext:reaction-fullscreen-enter/);
+  assert.match(trailerModal, /qnext:trailer-fullscreen-enter/);
+  has(/qnext:reaction-audio-active/);
+  has(/qnext:trailer-audio-active/);
+  has(/historyVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
 });

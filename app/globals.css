@@ -564,6 +564,53 @@ textarea,
   transform-origin: center;
 }
 
+/* Detail Movie keeps its existing players mounted while the trailer is open.
+   Only the reaction history is lifted above the blurred modal backdrop. */
+body.detail-trailer-active [data-desktop-video-reaction-history] {
+  position: fixed;
+  z-index: 1001;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(134, 173, 224, 0.35);
+  border-radius: 1rem;
+  padding: 0.75rem;
+}
+
+@media (max-width: 767px) {
+  .detail-trailer-active .trailer-modal-overlay {
+    align-items: flex-start;
+    padding-top: max(3.25rem, calc(env(safe-area-inset-top) + 2.25rem));
+  }
+
+  .detail-trailer-active .trailer-modal-card {
+    transform: translateY(-0.75rem);
+  }
+
+  body.detail-trailer-active [data-desktop-video-reaction-history] {
+    inset: auto 0.75rem max(0.75rem, env(safe-area-inset-bottom)) 0.75rem;
+    max-height: 42dvh;
+    margin: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .detail-trailer-active .trailer-modal-card {
+    transform: translateX(-13rem);
+  }
+
+  body.detail-trailer-active [data-desktop-video-reaction-history] {
+    top: 50%;
+    left: calc(50% + 13rem);
+    width: min(24rem, calc(50vw - 1.5rem));
+    height: min(32rem, calc(100dvh - 3rem));
+    max-height: min(32rem, calc(100dvh - 3rem));
+    margin: 0;
+    transform: translateY(-50%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .video-reaction-phone { animation: none; }
 }

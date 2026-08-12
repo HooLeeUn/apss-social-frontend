@@ -36,6 +36,9 @@ interface TrailerModalProps {
 export default function TrailerModal({ open, trailerUrl, watchUrl, loading, error = false, unavailable = false, externalOnly = false, onClose, currentLanguage, posterUrl = null }: TrailerModalProps) {
   const isMobile = useIsMobileTrailerModal(open);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const playerRef = useRef<YouTubePlayer | null>(null);
+  const wasFullscreenRef = useRef(false);
+  const trailerMutedRef = useRef(true);
   const [embedErrorUrl, setEmbedErrorUrl] = useState<string | null>(null);
   const [iframeReadyUrl, setIframeReadyUrl] = useState<string | null>(null);
   const [cachedExternalOnlyUrl, setCachedExternalOnlyUrl] = useState<string | null>(null);
@@ -60,7 +63,8 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
       if (cancelled || !window.YT?.Player || !iframe.isConnected) return;
       new window.YT.Player(iframe, {
         events: {
-          onReady: () => {
+          onReady: (event) => {
+            playerRef.current = event.target;
             if (!cancelled) setIframeReadyUrl(trailerUrl);
           },
           onError: handleEmbedError,
@@ -87,6 +91,7 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
 
     return () => {
       cancelled = true;
+      playerRef.current = null;
     };
   }, [shouldAttemptIframe, trailerUrl, watchUrl]);
 
@@ -107,6 +112,55 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const isDetailTrailer = Boolean(document.querySelector("[data-desktop-video-reaction-history]"));
+    const previousOverflow = document.body.style.overflow;
+    if (isDetailTrailer) {
+      document.body.classList.add("detail-trailer-active");
+      document.body.style.overflow = "hidden";
+    }
+
+    const muteTrailer = () => playerRef.current?.mute();
+    const handleReactionFullscreen = () => {
+      playerRef.current?.pauseVideo();
+      onClose();
+    };
+    const handleFullscreenChange = () => {
+      const trailerFullscreen = document.fullscreenElement === iframeRef.current || Boolean(iframeRef.current && document.fullscreenElement?.contains(iframeRef.current));
+      if (trailerFullscreen) {
+        wasFullscreenRef.current = true;
+        window.dispatchEvent(new Event("qnext:trailer-fullscreen-enter"));
+      } else if (wasFullscreenRef.current) {
+        wasFullscreenRef.current = false;
+        onClose();
+      }
+    };
+    const audioPoll = window.setInterval(() => {
+      const player = playerRef.current;
+      if (!player) return;
+      const muted = player.isMuted();
+      if (trailerMutedRef.current && !muted) window.dispatchEvent(new Event("qnext:trailer-audio-active"));
+      trailerMutedRef.current = muted;
+    }, 400);
+
+    window.addEventListener("qnext:reaction-audio-active", muteTrailer);
+    window.addEventListener("qnext:reaction-fullscreen-enter", handleReactionFullscreen);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      window.clearInterval(audioPoll);
+      window.removeEventListener("qnext:reaction-audio-active", muteTrailer);
+      window.removeEventListener("qnext:reaction-fullscreen-enter", handleReactionFullscreen);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      if (isDetailTrailer) {
+        document.body.classList.remove("detail-trailer-active");
+        document.body.style.overflow = previousOverflow;
+      }
+      wasFullscreenRef.current = false;
+      trailerMutedRef.current = true;
+    };
+  }, [onClose, open]);
+
   if (!open || typeof document === "undefined") return null;
 
   const isYouTubeFallback = Boolean((externalOnly || embedError || cachedExternalOnly) && watchUrl);
@@ -125,9 +179,9 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
           : null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/78 px-3 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="trailer-modal-title" onMouseDown={onClose}>
+    <div className="trailer-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/78 px-3 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="trailer-modal-title" onMouseDown={onClose}>
       <div
-        className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-[#86ADE0]/35 bg-gradient-to-b from-zinc-950 to-black shadow-[0_24px_80px_rgba(47,155,255,0.22)]"
+        className="trailer-modal-card relative w-full max-w-3xl overflow-hidden rounded-2xl border border-[#86ADE0]/35 bg-gradient-to-b from-zinc-950 to-black shadow-[0_24px_80px_rgba(47,155,255,0.22)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5">

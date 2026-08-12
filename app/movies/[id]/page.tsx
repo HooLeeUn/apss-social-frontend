@@ -1084,6 +1084,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     setSoundPreference(preference);
     try { sessionStorage.setItem(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" ? "on" : "off"); } catch { /* Storage can be unavailable in private contexts. */ }
     video.muted = preference === "muted";
+    if (preference === "sound-on") window.dispatchEvent(new Event("qnext:reaction-audio-active"));
     syncPlayerState(video);
   }, [syncPlayerState]);
 
@@ -1140,6 +1141,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       endedRef.current.delete(id);
     }
     video.muted = soundPreferenceRef.current !== "sound-on";
+    if (!video.muted) window.dispatchEvent(new Event("qnext:reaction-audio-active"));
     try {
       await video.play();
     } catch {
@@ -1230,6 +1232,31 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       visibility.clear();
     };
   }, [active, chooseVisibleHistoryVideo, syncPlayerState]);
+
+  useEffect(() => {
+    const muteReactions = () => {
+      soundPreferenceRef.current = "muted";
+      setSoundPreference("muted");
+      historyVideosRef.current.forEach((video) => {
+        video.muted = true;
+        syncPlayerState(video);
+      });
+      expandedVideosRef.current.forEach((video) => {
+        video.muted = true;
+        syncPlayerState(video);
+      });
+    };
+    const pauseReactions = () => {
+      historyVideosRef.current.forEach((video) => video.pause());
+      expandedVideosRef.current.forEach((video) => video.pause());
+    };
+    window.addEventListener("qnext:trailer-audio-active", muteReactions);
+    window.addEventListener("qnext:trailer-fullscreen-enter", pauseReactions);
+    return () => {
+      window.removeEventListener("qnext:trailer-audio-active", muteReactions);
+      window.removeEventListener("qnext:trailer-fullscreen-enter", pauseReactions);
+    };
+  }, [syncPlayerState]);
 
   useEffect(() => {
     const mounted = new Set<string>();
@@ -1897,6 +1924,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
 
 
   const openExpandedVideo = useCallback((id: string) => {
+    window.dispatchEvent(new Event("qnext:reaction-fullscreen-enter"));
     expandedOpenRef.current = true;
     historyVideosRef.current.forEach((video) => { video.pause(); video.currentTime = 0; });
     activeVideoIdRef.current = null;
