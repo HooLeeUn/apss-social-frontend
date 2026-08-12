@@ -90,8 +90,8 @@ test("landscape pauses recorder and counter, then portrait resumes the same reco
 });
 
 test("device tilt blocks frames early with hysteresis and keeps landscape fallback", () => {
-  has(/VIDEO_REACTION_TILT_PAUSE_DEGREES = 18/);
-  has(/VIDEO_REACTION_TILT_RESUME_DEGREES = 8/);
+  has(/VIDEO_REACTION_TILT_PAUSE_DEGREES = 28/);
+  has(/VIDEO_REACTION_TILT_RESUME_DEGREES = 12/);
   has(/typeof DeviceOrientationEvent === "undefined"/);
   has(/window\.addEventListener\("deviceorientation", handleEarlyOrientation/);
   has(/tilt >= VIDEO_REACTION_TILT_PAUSE_DEGREES/);
