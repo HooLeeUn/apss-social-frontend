@@ -323,3 +323,21 @@ test("companion overlay centers empty reactions and pins directed conversations 
   assert.match(css, /data-trailer-directed-comments\][\s\S]*justify-content: start/);
   assert.match(css, /trailer-companion-navigation[\s\S]*justify-content: space-between/);
 });
+
+test("normal desktop reactions use a fixed-control horizontal carousel", () => {
+  has(/canScrollHistoryLeft/);
+  has(/canScrollHistoryRight/);
+  has(/container\.scrollLeft > tolerance/);
+  has(/container\.scrollLeft \+ container\.clientWidth < container\.scrollWidth - tolerance/);
+  has(/container\.scrollBy\(\{ left: direction \* \(\(firstCard\?\.offsetWidth \?\? 384\) \+ gap\), behavior: "smooth" \}\)/);
+  has(/desktopCarousel && rootRect/);
+  assert.match(css, /body:not\(\.detail-trailer-active\) \[data-desktop-video-reaction-history\][\s\S]*overflow-x: auto;[\s\S]*overflow-y: hidden/);
+  assert.match(css, /body:not\(\.detail-trailer-active\) \[data-video-reaction-rec\][\s\S]*left: 0/);
+  assert.match(css, /data-can-scroll-right="true"[\s\S]*linear-gradient/);
+});
+
+test("trailer companion preserves the vertical list with an opaque frozen header", () => {
+  assert.match(css, /body\.detail-trailer-active \[data-history-carousel-viewport\][\s\S]*display: contents/);
+  assert.match(css, /body\.detail-trailer-active \[data-history-carousel-arrow\][\s\S]*display: none/);
+  assert.match(css, /body\.detail-trailer-active \[data-trailer-companion-controls\][\s\S]*background: #09090b/);
+});
