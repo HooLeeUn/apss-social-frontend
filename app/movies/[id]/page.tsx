@@ -1931,11 +1931,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
 
 
   const openExpandedVideo = useCallback((id: string) => {
-    window.dispatchEvent(new Event("qnext:reaction-fullscreen-enter"));
     expandedOpenRef.current = true;
     historyVideosRef.current.forEach((video) => { video.pause(); video.currentTime = 0; });
     activeVideoIdRef.current = null;
     setExpandedVideoId(id);
+    window.requestAnimationFrame(() => window.dispatchEvent(new Event("qnext:reaction-fullscreen-enter")));
   }, []);
 
   const navigateExpandedVideo = useCallback((direction: -1 | 1) => {
@@ -2128,7 +2128,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay;
 
 
-  return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3 md:top-0 md:overflow-y-auto md:py-8" : "rounded-2xl bg-zinc-950/55 p-4"} ${active ? "block" : "hidden"}`}>
+  return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3 md:top-0 md:overflow-y-auto md:py-8" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:mx-auto md:max-w-2xl">
       <div ref={menuRef} className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] md:h-20 md:w-20 md:transition md:hover:border-[#86ADE0] md:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
@@ -2190,7 +2190,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       const adjacentComment = dragDirection === 0 ? null : comments[currentIndex + dragDirection] ?? null;
       const state = playerStates[expandedVideoId] ?? { paused: true, muted: true };
       const swipeTransition = expandedDragAnimating ? `transform ${VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS}ms ${VIDEO_COMMENT_EXPANDED_SWIPE_EASING}` : "none";
-      return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
+      return <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
         <button type="button" className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
         <div className="relative h-full w-full overflow-hidden touch-none">
           {adjacentComment ? <div key={String(adjacentComment.id)} className="pointer-events-none absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(calc(${dragDirection > 0 ? "100dvh" : "-100dvh"} + ${expandedDragOffset}px))`, transition: swipeTransition }}><video src={adjacentComment.video_url} muted playsInline preload="auto" controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" /></div> : null}
@@ -3304,7 +3304,8 @@ function MovieDetailPageContent() {
           <span className="trailer-companion-mobile-title text-sm font-semibold text-[#c7dcf6]">{trailerCompanionView === "reaction" ? t("movieDetailVideoCommentTitle") : trailerCompanionView === "public-comments" ? t("movieDetailPublicComments") : t("movieDetailDirectedComments")}</span>
           {trailerCompanionView !== "directed-comments" ? <button type="button" aria-label="Vista siguiente" onClick={() => changeTrailerCompanionView(trailerCompanionView === "reaction" ? "public-comments" : "directed-comments")}>→</button> : <span />}
         </div>
-        {trailerCompanionView === "reaction" ? <h2 className="trailer-companion-desktop-reaction-title hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailVideoCommentTitle")}</h2> : null}
+        {trailerCompanionView === "reaction" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--reaction hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailVideoCommentTitle")}</h2> : null}
+        {trailerCompanionView === "directed-comments" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--directed hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2> : null}
       </div>
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 md:px-8 md:py-8">
         <div ref={stickyHeaderRef} data-mobile-detail-sticky="true" className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
@@ -3446,11 +3447,12 @@ function MovieDetailPageContent() {
                 onSelect={setSelectedPublicFilterUser}
               />
             </div>
+            <div data-trailer-public-comments-list data-empty={publicComments.length === 0} className="contents">
             <CommentsList
               comments={filteredPublicComments}
               loading={loadingPublic}
               error={publicError}
-              emptyMessage={t("movieDetailNoPublicComments")}
+              emptyMessage={publicComments.length === 0 ? t("movieDetailTrailerCompanionEmpty") : t("movieDetailNoPublicComments")}
               onReact={handleReact}
               onAuthorClick={handleAuthorNavigation}
               singleContainer
@@ -3473,6 +3475,7 @@ function MovieDetailPageContent() {
               desktopDarkScrollbar
               containerRef={publicCommentsScrollRef}
             />
+            </div>
           </section>
 
           {shouldRenderDirectedComments ? (
@@ -3499,8 +3502,8 @@ function MovieDetailPageContent() {
                 <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
               ) : null}
               {!loadingDirected && !directedError && filteredDirectedConversations.length === 0 ? (
-                <p className="p-4 text-sm text-zinc-400">
-                  {selectedDirectedFilterUser ? t("movieDetailNoDirectedCommentsWithUser") : t("movieDetailNoDirectedComments")}
+                <p data-trailer-directed-empty={directedConversations.length === 0} className="p-4 text-sm text-zinc-400">
+                  {directedConversations.length === 0 ? t("movieDetailTrailerCompanionEmpty") : selectedDirectedFilterUser ? t("movieDetailNoDirectedCommentsWithUser") : t("movieDetailNoDirectedComments")}
                 </p>
               ) : null}
               {!loadingDirected && !directedError ? (

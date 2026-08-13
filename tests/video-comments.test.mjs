@@ -290,8 +290,19 @@ test("mobile trailer companion follows the horizontal gesture and settles smooth
 });
 
 test("desktop trailer companion uses unified headings, separators, and scoped dark scrollbars", () => {
-  assert.match(css, /trailer-companion-desktop-reaction-title/);
+  assert.match(css, /trailer-companion-desktop-title--reaction/);
   assert.match(css, /desktop-video-reaction-card \+ \.desktop-video-reaction-card/);
   assert.match(css, /scrollbar-color: #3f4a5a #09090b/);
   assert.match(css, /data-trailer-public-comments\]::-webkit-scrollbar-thumb/);
+});
+
+test("reaction expanded view mounts before the trailer closes and survives companion deactivation", () => {
+  has(/setExpandedVideoId\(id\);\s+window\.requestAnimationFrame\(\(\) => window\.dispatchEvent\(new Event\("qnext:reaction-fullscreen-enter"\)\)\)/);
+  has(/active \|\| expandedVideoId !== null \? "block" : "hidden"/);
+  has(/fixed inset-0 z-\[1100\]/);
+});
+
+test("trailer companion has production-level empty states without replacing filtered-empty copy", () => {
+  has(/publicComments\.length === 0 \? t\("movieDetailTrailerCompanionEmpty"\) : t\("movieDetailNoPublicComments"\)/);
+  has(/directedConversations\.length === 0 \? t\("movieDetailTrailerCompanionEmpty"\)/);
 });

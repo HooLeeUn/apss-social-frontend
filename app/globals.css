@@ -688,7 +688,33 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   }
 
   body.detail-trailer-active [data-trailer-companion-controls] {
-    inset: auto 1.5rem calc(42dvh + max(0.75rem, env(safe-area-inset-bottom)) + 0.15rem) 1.5rem;
+    inset: auto 1.5rem calc(42dvh + max(0.75rem, env(safe-area-inset-bottom)) - 0.35rem) 1.5rem;
+  }
+
+  .detail-trailer-active .trailer-modal-content {
+    row-gap: 0.75rem;
+  }
+
+  .detail-trailer-active .trailer-youtube-link {
+    transform: translateY(-0.25rem);
+    margin-bottom: -0.25rem;
+  }
+
+  body.detail-trailer-active [data-trailer-public-comments],
+  body.detail-trailer-active [data-trailer-directed-comments] {
+    align-content: start;
+  }
+
+  body.detail-trailer-active [data-trailer-public-comments-list][data-empty="true"] > div,
+  body.detail-trailer-active [data-trailer-directed-empty="true"] {
+    display: flex;
+    min-height: 12rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    text-align: center;
+    color: rgb(161 161 170 / 0.8);
   }
 
   body.detail-trailer-active.trailer-companion-dragging [data-desktop-video-reaction-history],
@@ -744,7 +770,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     height: min(32rem, calc(100dvh - 3rem));
     max-height: min(32rem, calc(100dvh - 3rem));
     margin: 0;
-    padding-top: 5.25rem;
+    padding-top: 4.25rem;
     transform: translateY(-50%);
   }
 
@@ -765,14 +791,35 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     width: min(22.5rem, calc(50vw - 3rem));
   }
 
+  body.detail-trailer-active [data-trailer-companion-controls] .trailer-companion-navigation {
+    width: 100%;
+  }
+
   .trailer-companion-mobile-title {
     display: none;
   }
 
-  .trailer-companion-desktop-reaction-title {
+  .trailer-companion-desktop-title {
     display: block;
-    margin-top: 0.5rem;
+    position: absolute;
+    top: 0.55rem;
     text-align: left;
+  }
+
+  .trailer-companion-desktop-title--reaction {
+    left: 0;
+  }
+
+  .trailer-companion-desktop-title--directed {
+    left: 3.4rem;
+  }
+
+  body.detail-trailer-active [data-trailer-directed-comments] {
+    padding-top: 3.75rem;
+  }
+
+  body.detail-trailer-active [data-trailer-directed-comments] > div:first-child > h2 {
+    display: none;
   }
 
   body.detail-trailer-active [data-desktop-video-reaction-history] .desktop-video-reaction-card {

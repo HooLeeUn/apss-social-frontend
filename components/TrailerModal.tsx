@@ -212,7 +212,7 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
             ×
           </button>
         </div>
-        <div className="space-y-4 p-4 sm:p-5">
+        <div className="trailer-modal-content space-y-4 p-4 sm:p-5">
           {shouldAttemptIframe ? (
             <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black">
               {showIframePlaceholder ? (
@@ -277,7 +277,7 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
               target="_blank"
               rel="noopener noreferrer"
               onClick={onClose}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#86ADE0]/40 bg-[#1f4f7a]/70 px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(47,155,255,0.18)] transition hover:bg-[#2f73ad]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0] sm:w-auto"
+              className="trailer-youtube-link inline-flex min-h-11 w-fit items-center justify-center rounded-xl border border-[#86ADE0]/40 bg-[#1f4f7a]/70 px-5 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(47,155,255,0.18)] transition hover:bg-[#2f73ad]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]"
             >
               {t(currentLanguage, "trailerWatchOnYoutube")}
             </a>
