@@ -3231,11 +3231,11 @@ function MovieDetailPageContent() {
     };
   }, [changeTrailerCompanionView, commentInputMode]);
 
-  const handleCompanionTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+  const handleCompanionTouchStart = (event: React.TouchEvent<HTMLElement>) => {
     const touch = event.touches[0];
     companionTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
   };
-  const handleCompanionTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+  const handleCompanionTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
     const start = companionTouchStartRef.current;
     const touch = event.changedTouches[0];
     companionTouchStartRef.current = null;
