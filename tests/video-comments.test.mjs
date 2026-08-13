@@ -273,10 +273,25 @@ test("trailer companion navigates the three existing views without circular swip
   has(/type TrailerCompanionView = "reaction" \| "public-comments" \| "directed-comments"/);
   has(/TRAILER_COMPANION_SWIPE_THRESHOLD_PX = 56/);
   has(/TRAILER_COMPANION_HORIZONTAL_DOMINANCE = 1\.25/);
-  has(/Math\.abs\(deltaX\) <= Math\.abs\(deltaY\) \* TRAILER_COMPANION_HORIZONTAL_DOMINANCE/);
+  has(/Math\.abs\(deltaX\) > Math\.abs\(deltaY\) \* TRAILER_COMPANION_HORIZONTAL_DOMINANCE/);
   has(/nextIndex >= 0 && nextIndex < views\.length/);
   has(/commentInputMode === "video-comment" \? "reaction" : "public-comments"/);
   has(/data-trailer-public-comments/);
   has(/data-trailer-directed-comments/);
   assert.doesNotMatch(page, /filteredPublicComments\.sort|filteredDirectedConversations\.sort/);
+});
+
+test("mobile trailer companion follows the horizontal gesture and settles smoothly", () => {
+  has(/handleCompanionTouchMove = \(event: React\.TouchEvent<HTMLElement>\)/);
+  has(/--trailer-companion-drag-x/);
+  has(/TRAILER_COMPANION_SWIPE_TRANSITION_MS = 260/);
+  assert.match(css, /trailer-companion-settling[\s\S]*transition: transform 260ms ease-out/);
+  assert.match(css, /translateX\(calc\(100% \+ var\(--trailer-companion-drag-x, 0px\)\)\)/);
+});
+
+test("desktop trailer companion uses unified headings, separators, and scoped dark scrollbars", () => {
+  assert.match(css, /trailer-companion-desktop-reaction-title/);
+  assert.match(css, /desktop-video-reaction-card \+ \.desktop-video-reaction-card/);
+  assert.match(css, /scrollbar-color: #3f4a5a #09090b/);
+  assert.match(css, /data-trailer-public-comments\]::-webkit-scrollbar-thumb/);
 });

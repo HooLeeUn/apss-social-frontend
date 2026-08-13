@@ -45,6 +45,7 @@ type CommentInputMode = "text-comment" | "video-comment";
 type TrailerCompanionView = "reaction" | "public-comments" | "directed-comments";
 const TRAILER_COMPANION_SWIPE_THRESHOLD_PX = 56;
 const TRAILER_COMPANION_HORIZONTAL_DOMINANCE = 1.25;
+const TRAILER_COMPANION_SWIPE_TRANSITION_MS = 260;
 
 const VIDEO_COMMENT_MAX_SECONDS = 20;
 const VIDEO_COMMENT_MAX_BYTES = 50 * 1024 * 1024;
@@ -2253,6 +2254,8 @@ function MovieDetailPageContent() {
   const [trailerCompanionView, setTrailerCompanionView] = useState<TrailerCompanionView>("reaction");
   const [trailerCompanionOpen, setTrailerCompanionOpen] = useState(false);
   const companionTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const companionTouchAxisRef = useRef<"horizontal" | "vertical" | null>(null);
+  const companionTransitionTimerRef = useRef<number | null>(null);
   const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("video-comment");
   const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
     useState<PendingDirectedNotificationTarget | null>(null);
@@ -3222,7 +3225,13 @@ function MovieDetailPageContent() {
       setTrailerCompanionOpen(true);
       changeTrailerCompanionView(commentInputMode === "video-comment" ? "reaction" : "public-comments");
     };
-    const closeCompanion = () => setTrailerCompanionOpen(false);
+    const closeCompanion = () => {
+      setTrailerCompanionOpen(false);
+      if (companionTransitionTimerRef.current !== null) window.clearTimeout(companionTransitionTimerRef.current);
+      companionTransitionTimerRef.current = null;
+      document.body.classList.remove("trailer-companion-dragging", "trailer-companion-settling");
+      document.body.style.removeProperty("--trailer-companion-drag-x");
+    };
     window.addEventListener("qnext:detail-trailer-open", initializeCompanion);
     window.addEventListener("qnext:detail-trailer-close", closeCompanion);
     return () => {
@@ -3234,32 +3243,68 @@ function MovieDetailPageContent() {
   const handleCompanionTouchStart = (event: React.TouchEvent<HTMLElement>) => {
     const touch = event.touches[0];
     companionTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    companionTouchAxisRef.current = null;
+    document.body.classList.remove("trailer-companion-settling");
+  };
+  const handleCompanionTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    const start = companionTouchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch || window.matchMedia("(min-width: 768px)").matches) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (companionTouchAxisRef.current === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 8) {
+      companionTouchAxisRef.current = Math.abs(deltaX) > Math.abs(deltaY) * TRAILER_COMPANION_HORIZONTAL_DOMINANCE ? "horizontal" : "vertical";
+    }
+    if (companionTouchAxisRef.current !== "horizontal") return;
+    const views: TrailerCompanionView[] = ["reaction", "public-comments", "directed-comments"];
+    const currentIndex = views.indexOf(trailerCompanionView);
+    const atBoundary = (currentIndex === 0 && deltaX > 0) || (currentIndex === views.length - 1 && deltaX < 0);
+    const offset = atBoundary ? deltaX * 0.18 : deltaX;
+    document.body.classList.add("trailer-companion-dragging");
+    document.body.style.setProperty("--trailer-companion-drag-x", `${offset}px`);
   };
   const handleCompanionTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
     const start = companionTouchStartRef.current;
     const touch = event.changedTouches[0];
     companionTouchStartRef.current = null;
+    const horizontal = companionTouchAxisRef.current === "horizontal";
+    companionTouchAxisRef.current = null;
     if (!start || !touch) return;
     const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    if (Math.abs(deltaX) < TRAILER_COMPANION_SWIPE_THRESHOLD_PX || Math.abs(deltaX) <= Math.abs(deltaY) * TRAILER_COMPANION_HORIZONTAL_DOMINANCE) return;
+    if (!horizontal) {
+      document.body.classList.remove("trailer-companion-dragging", "trailer-companion-settling");
+      document.body.style.removeProperty("--trailer-companion-drag-x");
+      return;
+    }
     const views: TrailerCompanionView[] = ["reaction", "public-comments", "directed-comments"];
     const currentIndex = views.indexOf(trailerCompanionView);
     const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
-    if (nextIndex >= 0 && nextIndex < views.length) changeTrailerCompanionView(views[nextIndex]);
+    const shouldNavigate = horizontal && Math.abs(deltaX) >= TRAILER_COMPANION_SWIPE_THRESHOLD_PX && nextIndex >= 0 && nextIndex < views.length;
+    document.body.classList.remove("trailer-companion-dragging");
+    document.body.classList.add("trailer-companion-settling");
+    const panelWidth = Math.max(1, window.innerWidth - 24);
+    document.body.style.setProperty("--trailer-companion-drag-x", shouldNavigate ? `${deltaX < 0 ? -panelWidth : panelWidth}px` : "0px");
+    if (companionTransitionTimerRef.current !== null) window.clearTimeout(companionTransitionTimerRef.current);
+    companionTransitionTimerRef.current = window.setTimeout(() => {
+      if (shouldNavigate) changeTrailerCompanionView(views[nextIndex]);
+      document.body.classList.remove("trailer-companion-settling");
+      document.body.style.removeProperty("--trailer-companion-drag-x");
+      companionTransitionTimerRef.current = null;
+    }, TRAILER_COMPANION_SWIPE_TRANSITION_MS);
   };
 
   return (
-    <main className="min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
+    <main className="min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
       <div
         data-trailer-companion-controls
         className="hidden"
       >
         <div className="trailer-companion-navigation">
           {trailerCompanionView !== "reaction" ? <button type="button" aria-label="Vista anterior" onClick={() => changeTrailerCompanionView(trailerCompanionView === "directed-comments" ? "public-comments" : "reaction")}>←</button> : <span />}
-          <span className="text-sm font-semibold text-[#c7dcf6]">{trailerCompanionView === "reaction" ? t("movieDetailVideoCommentTitle") : trailerCompanionView === "public-comments" ? t("movieDetailPublicComments") : t("movieDetailDirectedComments")}</span>
+          <span className="trailer-companion-mobile-title text-sm font-semibold text-[#c7dcf6]">{trailerCompanionView === "reaction" ? t("movieDetailVideoCommentTitle") : trailerCompanionView === "public-comments" ? t("movieDetailPublicComments") : t("movieDetailDirectedComments")}</span>
           {trailerCompanionView !== "directed-comments" ? <button type="button" aria-label="Vista siguiente" onClick={() => changeTrailerCompanionView(trailerCompanionView === "reaction" ? "public-comments" : "directed-comments")}>→</button> : <span />}
         </div>
+        {trailerCompanionView === "reaction" ? <h2 className="trailer-companion-desktop-reaction-title hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailVideoCommentTitle")}</h2> : null}
       </div>
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 md:px-8 md:py-8">
         <div ref={stickyHeaderRef} data-mobile-detail-sticky="true" className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
