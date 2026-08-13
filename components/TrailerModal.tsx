@@ -168,10 +168,10 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
       window.removeEventListener("qnext:reaction-fullscreen-enter", handleReactionFullscreen);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       if (isDetailTrailer) {
-        window.dispatchEvent(new Event("qnext:detail-trailer-close"));
         document.body.classList.remove("detail-trailer-active");
         delete document.body.dataset.trailerCompanionView;
         document.body.style.overflow = previousOverflow;
+        window.dispatchEvent(new Event("qnext:detail-trailer-close"));
       }
       wasFullscreenRef.current = false;
       trailerMutedRef.current = true;

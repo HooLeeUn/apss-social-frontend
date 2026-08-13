@@ -1045,7 +1045,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const expandedSwipeTimerRef = useRef<number | null>(null);
   const [expandedDragOffset, setExpandedDragOffset] = useState(0);
   const [expandedDragAnimating, setExpandedDragAnimating] = useState(false);
-  const expandedBodyOverflowRef = useRef<string | null>(null);
+  const expandedScrollLockRef = useRef<{ bodyOverflow: string; rootOverflow: string; bodyPosition: string; bodyTop: string } | null>(null);
   const expandedOpenRef = useRef(false);
   const desktopRecordingRef = useRef(false);
 
@@ -1993,11 +1993,44 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
 
   useEffect(() => {
     if (expandedVideoId === null) return;
-    expandedBodyOverflowRef.current = document.body.style.overflow;
+    expandedScrollLockRef.current = {
+      bodyOverflow: document.body.style.overflow,
+      rootOverflow: document.documentElement.style.overflow,
+      bodyPosition: document.body.style.position,
+      bodyTop: document.body.style.top,
+    };
     document.body.style.overflow = "hidden";
+
+    const syncRestoredTrailerScroll = () => {
+      if (!expandedScrollLockRef.current) return;
+      expandedScrollLockRef.current = {
+        bodyOverflow: document.body.style.overflow,
+        rootOverflow: document.documentElement.style.overflow,
+        bodyPosition: document.body.style.position,
+        bodyTop: document.body.style.top,
+      };
+      document.body.style.overflow = "hidden";
+    };
+    const restoreScroll = () => {
+      const previous = expandedScrollLockRef.current;
+      if (!previous) return;
+      document.body.style.overflow = previous.bodyOverflow;
+      document.documentElement.style.overflow = previous.rootOverflow;
+      document.body.style.position = previous.bodyPosition;
+      document.body.style.top = previous.bodyTop;
+      document.body.classList.remove("detail-trailer-active", "trailer-companion-dragging", "trailer-companion-settling");
+      delete document.body.dataset.trailerCompanionView;
+      expandedScrollLockRef.current = null;
+    };
+
+    window.addEventListener("qnext:detail-trailer-close", syncRestoredTrailerScroll);
+    window.addEventListener("pagehide", restoreScroll);
+    window.addEventListener("beforeunload", restoreScroll);
     return () => {
-      document.body.style.overflow = expandedBodyOverflowRef.current ?? "";
-      expandedBodyOverflowRef.current = null;
+      window.removeEventListener("qnext:detail-trailer-close", syncRestoredTrailerScroll);
+      window.removeEventListener("pagehide", restoreScroll);
+      window.removeEventListener("beforeunload", restoreScroll);
+      restoreScroll();
     };
   }, [expandedVideoId]);
 

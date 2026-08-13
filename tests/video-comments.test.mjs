@@ -306,3 +306,20 @@ test("trailer companion has production-level empty states without replacing filt
   has(/publicComments\.length === 0 \? t\("movieDetailTrailerCompanionEmpty"\) : t\("movieDetailNoPublicComments"\)/);
   has(/directedConversations\.length === 0 \? t\("movieDetailTrailerCompanionEmpty"\)/);
 });
+
+test("expanded reaction scroll lock follows trailer cleanup and restores every global scroll value", () => {
+  has(/expandedScrollLockRef = useRef<\{ bodyOverflow: string; rootOverflow: string; bodyPosition: string; bodyTop: string \} \| null>/);
+  has(/window\.addEventListener\("qnext:detail-trailer-close", syncRestoredTrailerScroll\)/);
+  has(/window\.addEventListener\("pagehide", restoreScroll\)/);
+  has(/window\.addEventListener\("beforeunload", restoreScroll\)/);
+  has(/document\.documentElement\.style\.overflow = previous\.rootOverflow/);
+  has(/document\.body\.style\.position = previous\.bodyPosition/);
+  has(/document\.body\.style\.top = previous\.bodyTop/);
+  has(/document\.body\.classList\.remove\("detail-trailer-active", "trailer-companion-dragging", "trailer-companion-settling"\)/);
+});
+
+test("companion overlay centers empty reactions and pins directed conversations to the top", () => {
+  assert.match(css, /data-desktop-video-reaction-history\] > p\.text-zinc-500[\s\S]*min-height: 12rem/);
+  assert.match(css, /data-trailer-directed-comments\][\s\S]*justify-content: start/);
+  assert.match(css, /trailer-companion-navigation[\s\S]*justify-content: space-between/);
+});
