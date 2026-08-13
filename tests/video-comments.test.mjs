@@ -367,3 +367,15 @@ test("desktop companion header fully occludes reactions and public title sits be
   assert.match(css, /trailer-companion-desktop-title--public[\s\S]*left: 50%[\s\S]*white-space: nowrap/);
   assert.match(css, /desktop-video-reaction-card[\s\S]*width: fit-content;[\s\S]*flex: 0 0 auto/);
 });
+
+test("desktop carousel advances through the visible queue and public comments use one scroll surface", () => {
+  has(/DESKTOP_CAROUSEL_QUEUE_VISIBILITY_THRESHOLD = 0\.5/);
+  has(/visibleWidth \/ Math\.max\(1, rect\.width\)/);
+  has(/\.filter\(\(\{ ratio \}\) => ratio >= DESKTOP_CAROUSEL_QUEUE_VISIBILITY_THRESHOLD\)/);
+  has(/\.sort\(\(a, b\) => a\.left - b\.left\)/);
+  has(/visibleIds\[visibleIds\.indexOf\(endedId\) \+ 1\]/);
+  has(/playNextVisibleHistoryVideo\(id\)/);
+  has(/carouselScrollTimerRef\.current = window\.setTimeout/);
+  assert.match(css, /trailer-companion-desktop-title--public[\s\S]*font-size: 1\.2rem/);
+  assert.match(css, /data-trailer-public-comments-list[\s\S]*max-height: none;[\s\S]*overflow-y: visible/);
+});

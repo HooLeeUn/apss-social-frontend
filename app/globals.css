@@ -963,13 +963,18 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     left: 50%;
     max-width: calc(100% - 7rem);
     transform: translateX(-50%);
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     line-height: 2.75rem;
     white-space: nowrap;
   }
 
   body.detail-trailer-active [data-trailer-public-comments] {
     padding-top: 5rem;
+  }
+
+  body.detail-trailer-active [data-trailer-public-comments-list] > div {
+    max-height: none;
+    overflow-y: visible;
   }
 
   body.detail-trailer-active [data-trailer-directed-comments] {

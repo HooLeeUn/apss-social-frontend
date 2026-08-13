@@ -53,6 +53,7 @@ const VIDEO_COMMENT_PERMISSION_SESSION_KEY = "qnext_video_comment_permission_inf
 const VIDEO_COMMENT_SOUND_SESSION_KEY = "qnext-video-sound";
 const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.15;
 const VIDEO_COMMENT_DOMINANCE_MARGIN = 0.08;
+const DESKTOP_CAROUSEL_QUEUE_VISIBILITY_THRESHOLD = 0.5;
 // Pause before the phone reaches landscape and resume only after it is clearly
 // back inside portrait, avoiding rapid pause/resume around the boundary.
 // Preventive physical-tilt hysteresis: stop composing well before landscape,
@@ -1051,6 +1052,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const expandedScrollLockRef = useRef<{ bodyOverflow: string; rootOverflow: string; bodyPosition: string; bodyTop: string } | null>(null);
   const expandedOpenRef = useRef(false);
   const desktopRecordingRef = useRef(false);
+  const carouselScrollTimerRef = useRef<number | null>(null);
+  const carouselScrollingRef = useRef(false);
 
   const appendVideoDebugLog = useCallback((event: string, details: Record<string, unknown>) => {
     if (!videoDebugEnabled) return;
@@ -1160,11 +1163,55 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     syncPlayerState(video);
   }, [pauseOtherHistoryVideos, syncPlayerState]);
 
+  const getVisibleDesktopHistoryIds = useCallback(() => {
+    const container = historyScrollRef.current;
+    if (!container || !window.matchMedia("(min-width: 768px)").matches || document.body.classList.contains("detail-trailer-active")) return [];
+    const rootRect = container.getBoundingClientRect();
+    return Array.from(historyVideosRef.current.entries())
+      .map(([id, video]) => {
+        const rect = video.getBoundingClientRect();
+        const visibleWidth = Math.max(0, Math.min(rect.right, rootRect.right) - Math.max(rect.left, rootRect.left));
+        return { id, left: rect.left, ratio: visibleWidth / Math.max(1, rect.width) };
+      })
+      .filter(({ ratio }) => ratio >= DESKTOP_CAROUSEL_QUEUE_VISIBILITY_THRESHOLD)
+      .sort((a, b) => a.left - b.left)
+      .map(({ id }) => id);
+  }, []);
+
+  const playNextVisibleHistoryVideo = useCallback((endedId: string) => {
+    const visibleIds = getVisibleDesktopHistoryIds();
+    const nextId = visibleIds[visibleIds.indexOf(endedId) + 1];
+    if (!nextId) {
+      activeVideoIdRef.current = null;
+      return;
+    }
+    endedRef.current.delete(nextId);
+    void playHistoryVideo(nextId);
+  }, [getVisibleDesktopHistoryIds, playHistoryVideo]);
+
   const chooseVisibleHistoryVideo = useCallback(() => {
     if (expandedOpenRef.current || document.hidden) return;
     const desktopScrollRoot = window.matchMedia("(min-width: 768px)").matches ? historyScrollRef.current : null;
     const rootRect = desktopScrollRoot?.getBoundingClientRect();
     const desktopCarousel = Boolean(desktopScrollRoot && !document.body.classList.contains("detail-trailer-active"));
+    if (desktopCarousel) {
+      if (carouselScrollingRef.current) return;
+      const candidate = getVisibleDesktopHistoryIds()[0] ?? null;
+      historyVideosRef.current.forEach((video, id) => {
+        if (id === candidate) return;
+        video.pause();
+        video.currentTime = 0;
+        pausedByUserRef.current.delete(id);
+        endedRef.current.delete(id);
+        syncPlayerState(video);
+      });
+      activeVideoIdRef.current = candidate;
+      if (candidate) {
+        const video = historyVideosRef.current.get(candidate);
+        if (video?.paused && !pausedByUserRef.current.has(candidate)) void playHistoryVideo(candidate);
+      }
+      return;
+    }
     const stickyBottom = desktopScrollRoot ? rootRect?.top ?? 0 : document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? 0;
     const playableBottom = rootRect?.bottom ?? window.innerHeight;
     historyVideosRef.current.forEach((video, id) => {
@@ -1202,7 +1249,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     activeVideoIdRef.current = candidate;
     const candidateVideo = historyVideosRef.current.get(candidate);
     if (candidateVideo?.paused && !pausedByUserRef.current.has(candidate)) void playHistoryVideo(candidate);
-  }, [playHistoryVideo, syncPlayerState]);
+  }, [getVisibleDesktopHistoryIds, playHistoryVideo, syncPlayerState]);
 
   const updateHistoryCarouselState = useCallback(() => {
     const container = historyScrollRef.current;
@@ -1225,14 +1272,28 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     if (!container) return;
     const sync = () => {
       updateHistoryCarouselState();
-      chooseVisibleHistoryVideo();
+      if (!window.matchMedia("(min-width: 768px)").matches || document.body.classList.contains("detail-trailer-active")) {
+        chooseVisibleHistoryVideo();
+        return;
+      }
+      carouselScrollingRef.current = true;
+      if (carouselScrollTimerRef.current !== null) window.clearTimeout(carouselScrollTimerRef.current);
+      carouselScrollTimerRef.current = window.setTimeout(() => {
+        carouselScrollingRef.current = false;
+        carouselScrollTimerRef.current = null;
+        chooseVisibleHistoryVideo();
+      }, 120);
     };
-    sync();
+    updateHistoryCarouselState();
+    chooseVisibleHistoryVideo();
     container.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", sync);
     return () => {
       container.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
+      if (carouselScrollTimerRef.current !== null) window.clearTimeout(carouselScrollTimerRef.current);
+      carouselScrollTimerRef.current = null;
+      carouselScrollingRef.current = false;
     };
   }, [comments, chooseVisibleHistoryVideo, updateHistoryCarouselState]);
 
@@ -2268,7 +2329,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
             <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3 md:flex-col md:items-start md:gap-0"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <div data-video-delete-menu className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 hover:bg-white/10" disabled={!!deletingIds[id]} aria-label={t("movieDetailVideoDelete")} onClick={() => setDeleteMenuId((current) => current === id ? null : id)}>⋮</button>{deleteMenuId === id ? <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuId(null); setDeleteConfirmId(comment.id); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}</div>
           <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black md:mx-auto md:w-fit md:max-w-full">
             <div className="group relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
-              <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
+              <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); if (window.matchMedia("(min-width: 768px)").matches && !document.body.classList.contains("detail-trailer-active")) playNextVisibleHistoryVideo(id); }} />
               <div className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7 transition-opacity duration-150 ${state.paused ? "md:opacity-0" : "md:opacity-0 md:group-hover:opacity-100"}`}>
                 <button type="button" className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); toggleHistorySound(id); }}>{state.muted ? "🔇" : "🔊"}</button>
                 <button type="button" className={`pointer-events-auto ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t("movieDetailVideoExpand")} onClick={(event) => { event.stopPropagation(); openExpandedVideo(id); }}>⛶</button>
