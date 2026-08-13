@@ -781,7 +781,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
 
   body:not(.detail-trailer-active) [data-video-reaction-rec] {
     position: absolute;
-    top: 11.75rem;
+    top: 8.75rem;
     left: 0;
     z-index: 3;
   }
@@ -796,7 +796,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     display: flex;
     max-width: none;
     max-height: none;
-    column-gap: 0.5rem;
+    column-gap: 0.25rem;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 0 0 0.65rem;
@@ -841,7 +841,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   }
 
   body:not(.detail-trailer-active) [data-history-carousel-arrow="left"] {
-    top: 17.25rem;
+    top: 14.1rem;
     left: 1.1rem;
   }
 
@@ -852,6 +852,14 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   body:not(.detail-trailer-active) [data-history-carousel-arrow]:disabled {
     cursor: not-allowed;
     color: rgb(113 113 122 / 0.55);
+  }
+
+  body:not(.detail-trailer-active) [data-rec-options-menu] {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin: 0;
+    transform: translate(-50%, -50%);
   }
 
   body:not(.detail-trailer-active) [data-history-carousel-viewport]:has([data-can-scroll-left="true"])::before,
@@ -946,7 +954,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   }
 
   .trailer-companion-desktop-title--directed {
-    left: 3.4rem;
+    left: 4.25rem;
   }
 
   body.detail-trailer-active[data-trailer-companion-view="public-comments"] [data-trailer-public-comments] > div:first-child > h2 {
@@ -958,11 +966,12 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     margin-inline: auto;
     font-size: 1.05rem;
     line-height: 2.75rem;
+    white-space: nowrap;
     background: #09090b;
   }
 
   body.detail-trailer-active [data-trailer-directed-comments] {
-    padding-top: 3.75rem;
+    padding-top: 5rem;
   }
 
   body.detail-trailer-active [data-trailer-directed-comments] > div:first-child > h2 {

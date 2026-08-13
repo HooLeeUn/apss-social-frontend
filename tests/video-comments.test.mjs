@@ -354,7 +354,9 @@ test("reaction cards are borderless and owner delete uses a dismissible overflow
   has(/>⋮<\/button>/);
   has(/setDeleteMenuId\(null\); setDeleteConfirmId\(comment\.id\)/);
   has(/document\.addEventListener\("pointerdown", closeMenu\)/);
-  has(/historyScrollRef\.current\?\.addEventListener\("scroll", closeMenu/);
+  has(/const historyScroller = historyScrollRef\.current/);
+  has(/historyScroller\?\.addEventListener\("scroll", closeMenu/);
+  has(/event\.target\.closest\("\[data-video-delete-menu\]"\)/);
   assert.doesNotMatch(page, /desktop-video-reaction-card[^"\n]*border border-white/);
 });
 
