@@ -5,9 +5,16 @@ declare global {
     YT?: {
       Player: new (
         element: HTMLIFrameElement,
-        options: { events?: { onReady?: () => void; onError?: () => void } },
-      ) => unknown;
+        options: { events?: { onReady?: (event: { target: YouTubePlayer }) => void; onError?: () => void } },
+      ) => YouTubePlayer;
     };
     onYouTubeIframeAPIReady?: () => void;
+  }
+
+  interface YouTubePlayer {
+    isMuted(): boolean;
+    mute(): void;
+    unMute(): void;
+    pauseVideo(): void;
   }
 }

@@ -42,6 +42,10 @@ import { SocialUser } from "../../../lib/profile-feed/types";
 import { t as translate } from "../../../lib/i18n";
 
 type CommentInputMode = "text-comment" | "video-comment";
+type TrailerCompanionView = "reaction" | "public-comments" | "directed-comments";
+const TRAILER_COMPANION_SWIPE_THRESHOLD_PX = 56;
+const TRAILER_COMPANION_HORIZONTAL_DOMINANCE = 1.25;
+const TRAILER_COMPANION_SWIPE_TRANSITION_MS = 260;
 
 const VIDEO_COMMENT_MAX_SECONDS = 20;
 const VIDEO_COMMENT_MAX_BYTES = 50 * 1024 * 1024;
@@ -49,6 +53,7 @@ const VIDEO_COMMENT_PERMISSION_SESSION_KEY = "qnext_video_comment_permission_inf
 const VIDEO_COMMENT_SOUND_SESSION_KEY = "qnext-video-sound";
 const VIDEO_COMMENT_VISIBILITY_THRESHOLD = 0.15;
 const VIDEO_COMMENT_DOMINANCE_MARGIN = 0.08;
+const DESKTOP_CAROUSEL_QUEUE_VISIBILITY_THRESHOLD = 0.5;
 // Pause before the phone reaches landscape and resume only after it is clearly
 // back inside portrait, avoiding rapid pause/resume around the boundary.
 // Preventive physical-tilt hysteresis: stop composing well before landscape,
@@ -991,6 +996,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const [historyError, setHistoryError] = useState("");
   const [deletingIds, setDeletingIds] = useState<Record<string, boolean>>({});
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | number | null>(null);
+  const [deleteMenuId, setDeleteMenuId] = useState<string | null>(null);
   const livePreviewRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasFrameRef = useRef<number | null>(null);
@@ -1000,6 +1006,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const menuRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const historyScrollRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
+  const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const pendingStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -1041,9 +1049,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const expandedSwipeTimerRef = useRef<number | null>(null);
   const [expandedDragOffset, setExpandedDragOffset] = useState(0);
   const [expandedDragAnimating, setExpandedDragAnimating] = useState(false);
-  const expandedBodyOverflowRef = useRef<string | null>(null);
+  const expandedScrollLockRef = useRef<{ bodyOverflow: string; rootOverflow: string; bodyPosition: string; bodyTop: string } | null>(null);
   const expandedOpenRef = useRef(false);
   const desktopRecordingRef = useRef(false);
+  const carouselScrollTimerRef = useRef<number | null>(null);
+  const carouselScrollingRef = useRef(false);
 
   const appendVideoDebugLog = useCallback((event: string, details: Record<string, unknown>) => {
     if (!videoDebugEnabled) return;
@@ -1084,6 +1094,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     setSoundPreference(preference);
     try { sessionStorage.setItem(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" ? "on" : "off"); } catch { /* Storage can be unavailable in private contexts. */ }
     video.muted = preference === "muted";
+    window.dispatchEvent(new CustomEvent("qnext:reaction-muted-change", { detail: { muted: preference === "muted" } }));
     syncPlayerState(video);
   }, [syncPlayerState]);
 
@@ -1140,6 +1151,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       endedRef.current.delete(id);
     }
     video.muted = soundPreferenceRef.current !== "sound-on";
+    if (!video.muted) window.dispatchEvent(new CustomEvent("qnext:reaction-muted-change", { detail: { muted: false } }));
     try {
       await video.play();
     } catch {
@@ -1151,15 +1163,63 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     syncPlayerState(video);
   }, [pauseOtherHistoryVideos, syncPlayerState]);
 
+  const getVisibleDesktopHistoryIds = useCallback(() => {
+    const container = historyScrollRef.current;
+    if (!container || !window.matchMedia("(min-width: 768px)").matches || document.body.classList.contains("detail-trailer-active")) return [];
+    const rootRect = container.getBoundingClientRect();
+    return Array.from(historyVideosRef.current.entries())
+      .map(([id, video]) => {
+        const rect = video.getBoundingClientRect();
+        const visibleWidth = Math.max(0, Math.min(rect.right, rootRect.right) - Math.max(rect.left, rootRect.left));
+        return { id, left: rect.left, ratio: visibleWidth / Math.max(1, rect.width) };
+      })
+      .filter(({ ratio }) => ratio >= DESKTOP_CAROUSEL_QUEUE_VISIBILITY_THRESHOLD)
+      .sort((a, b) => a.left - b.left)
+      .map(({ id }) => id);
+  }, []);
+
+  const playNextVisibleHistoryVideo = useCallback((endedId: string) => {
+    const visibleIds = getVisibleDesktopHistoryIds();
+    const nextId = visibleIds[visibleIds.indexOf(endedId) + 1];
+    if (!nextId) {
+      activeVideoIdRef.current = null;
+      return;
+    }
+    endedRef.current.delete(nextId);
+    void playHistoryVideo(nextId);
+  }, [getVisibleDesktopHistoryIds, playHistoryVideo]);
+
   const chooseVisibleHistoryVideo = useCallback(() => {
     if (expandedOpenRef.current || document.hidden) return;
     const desktopScrollRoot = window.matchMedia("(min-width: 768px)").matches ? historyScrollRef.current : null;
     const rootRect = desktopScrollRoot?.getBoundingClientRect();
+    const desktopCarousel = Boolean(desktopScrollRoot && !document.body.classList.contains("detail-trailer-active"));
+    if (desktopCarousel) {
+      if (carouselScrollingRef.current) return;
+      const candidate = getVisibleDesktopHistoryIds()[0] ?? null;
+      historyVideosRef.current.forEach((video, id) => {
+        if (id === candidate) return;
+        video.pause();
+        video.currentTime = 0;
+        pausedByUserRef.current.delete(id);
+        endedRef.current.delete(id);
+        syncPlayerState(video);
+      });
+      activeVideoIdRef.current = candidate;
+      if (candidate) {
+        const video = historyVideosRef.current.get(candidate);
+        if (video?.paused && !pausedByUserRef.current.has(candidate)) void playHistoryVideo(candidate);
+      }
+      return;
+    }
     const stickyBottom = desktopScrollRoot ? rootRect?.top ?? 0 : document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? 0;
     const playableBottom = rootRect?.bottom ?? window.innerHeight;
     historyVideosRef.current.forEach((video, id) => {
-      const ratio = desktopScrollRoot
-        ? calculatePlayableIntersectionRatio(video.getBoundingClientRect(), playableBottom, stickyBottom)
+      const videoRect = video.getBoundingClientRect();
+      const ratio = desktopCarousel && rootRect
+        ? Math.max(0, Math.min(videoRect.right, rootRect.right) - Math.max(videoRect.left, rootRect.left)) / Math.max(1, videoRect.width)
+        : desktopScrollRoot
+          ? calculatePlayableIntersectionRatio(videoRect, playableBottom, stickyBottom)
         : calculatePlayableIntersectionRatio(video.getBoundingClientRect(), window.innerHeight, stickyBottom);
       visibilityRef.current.set(id, ratio);
     });
@@ -1189,7 +1249,78 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     activeVideoIdRef.current = candidate;
     const candidateVideo = historyVideosRef.current.get(candidate);
     if (candidateVideo?.paused && !pausedByUserRef.current.has(candidate)) void playHistoryVideo(candidate);
-  }, [playHistoryVideo, syncPlayerState]);
+  }, [getVisibleDesktopHistoryIds, playHistoryVideo, syncPlayerState]);
+
+  const updateHistoryCarouselState = useCallback(() => {
+    const container = historyScrollRef.current;
+    if (!container || !window.matchMedia("(min-width: 768px)").matches || document.body.classList.contains("detail-trailer-active")) return;
+    const tolerance = 2;
+    setCanScrollHistoryLeft(container.scrollLeft > tolerance);
+    setCanScrollHistoryRight(container.scrollLeft + container.clientWidth < container.scrollWidth - tolerance);
+  }, []);
+
+  const scrollHistoryCarousel = useCallback((direction: -1 | 1) => {
+    const container = historyScrollRef.current;
+    if (!container) return;
+    const firstCard = container.querySelector<HTMLElement>("[data-video-comment-card]");
+    const gap = Number.parseFloat(getComputedStyle(container).columnGap || getComputedStyle(container).gap) || 12;
+    container.scrollBy({ left: direction * ((firstCard?.offsetWidth ?? 384) + gap), behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    const container = historyScrollRef.current;
+    if (!container) return;
+    const sync = () => {
+      updateHistoryCarouselState();
+      if (!window.matchMedia("(min-width: 768px)").matches || document.body.classList.contains("detail-trailer-active")) {
+        chooseVisibleHistoryVideo();
+        return;
+      }
+      carouselScrollingRef.current = true;
+      if (carouselScrollTimerRef.current !== null) window.clearTimeout(carouselScrollTimerRef.current);
+      carouselScrollTimerRef.current = window.setTimeout(() => {
+        carouselScrollingRef.current = false;
+        carouselScrollTimerRef.current = null;
+        chooseVisibleHistoryVideo();
+      }, 120);
+    };
+    updateHistoryCarouselState();
+    chooseVisibleHistoryVideo();
+    container.addEventListener("scroll", sync, { passive: true });
+    window.addEventListener("resize", sync);
+    return () => {
+      container.removeEventListener("scroll", sync);
+      window.removeEventListener("resize", sync);
+      if (carouselScrollTimerRef.current !== null) window.clearTimeout(carouselScrollTimerRef.current);
+      carouselScrollTimerRef.current = null;
+      carouselScrollingRef.current = false;
+    };
+  }, [comments, chooseVisibleHistoryVideo, updateHistoryCarouselState]);
+
+  useEffect(() => {
+    if (recorderState !== "idle") {
+      setCanScrollHistoryLeft(false);
+      setCanScrollHistoryRight(false);
+      return;
+    }
+    const frame = window.requestAnimationFrame(updateHistoryCarouselState);
+    return () => window.cancelAnimationFrame(frame);
+  }, [recorderState, updateHistoryCarouselState]);
+
+  useEffect(() => {
+    if (deleteMenuId === null) return;
+    const closeMenu = (event?: Event) => {
+      if (event?.target instanceof Element && event.target.closest("[data-video-delete-menu]")) return;
+      setDeleteMenuId(null);
+    };
+    const historyScroller = historyScrollRef.current;
+    document.addEventListener("pointerdown", closeMenu);
+    historyScroller?.addEventListener("scroll", closeMenu, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+      historyScroller?.removeEventListener("scroll", closeMenu);
+    };
+  }, [deleteMenuId]);
 
   useEffect(() => {
     if (!active || typeof IntersectionObserver === "undefined") return;
@@ -1230,6 +1361,34 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       visibility.clear();
     };
   }, [active, chooseVisibleHistoryVideo, syncPlayerState]);
+
+  useEffect(() => {
+    const setReactionAudio = (event: Event) => {
+      if (document.body.dataset.trailerCompanionView !== "reaction") return;
+      const trailerMuted = (event as CustomEvent<{ muted: boolean }>).detail.muted;
+      const preference: VideoSoundPreference = trailerMuted ? "sound-on" : "muted";
+      soundPreferenceRef.current = preference;
+      setSoundPreference(preference);
+      historyVideosRef.current.forEach((video) => {
+        video.muted = !trailerMuted;
+        syncPlayerState(video);
+      });
+      expandedVideosRef.current.forEach((video) => {
+        video.muted = !trailerMuted;
+        syncPlayerState(video);
+      });
+    };
+    const pauseReactions = () => {
+      historyVideosRef.current.forEach((video) => video.pause());
+      expandedVideosRef.current.forEach((video) => video.pause());
+    };
+    window.addEventListener("qnext:trailer-muted-change", setReactionAudio);
+    window.addEventListener("qnext:trailer-fullscreen-enter", pauseReactions);
+    return () => {
+      window.removeEventListener("qnext:trailer-muted-change", setReactionAudio);
+      window.removeEventListener("qnext:trailer-fullscreen-enter", pauseReactions);
+    };
+  }, [syncPlayerState]);
 
   useEffect(() => {
     const mounted = new Set<string>();
@@ -1901,6 +2060,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     historyVideosRef.current.forEach((video) => { video.pause(); video.currentTime = 0; });
     activeVideoIdRef.current = null;
     setExpandedVideoId(id);
+    window.requestAnimationFrame(() => window.dispatchEvent(new Event("qnext:reaction-fullscreen-enter")));
   }, []);
 
   const navigateExpandedVideo = useCallback((direction: -1 | 1) => {
@@ -1958,11 +2118,44 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
 
   useEffect(() => {
     if (expandedVideoId === null) return;
-    expandedBodyOverflowRef.current = document.body.style.overflow;
+    expandedScrollLockRef.current = {
+      bodyOverflow: document.body.style.overflow,
+      rootOverflow: document.documentElement.style.overflow,
+      bodyPosition: document.body.style.position,
+      bodyTop: document.body.style.top,
+    };
     document.body.style.overflow = "hidden";
+
+    const syncRestoredTrailerScroll = () => {
+      if (!expandedScrollLockRef.current) return;
+      expandedScrollLockRef.current = {
+        bodyOverflow: document.body.style.overflow,
+        rootOverflow: document.documentElement.style.overflow,
+        bodyPosition: document.body.style.position,
+        bodyTop: document.body.style.top,
+      };
+      document.body.style.overflow = "hidden";
+    };
+    const restoreScroll = () => {
+      const previous = expandedScrollLockRef.current;
+      if (!previous) return;
+      document.body.style.overflow = previous.bodyOverflow;
+      document.documentElement.style.overflow = previous.rootOverflow;
+      document.body.style.position = previous.bodyPosition;
+      document.body.style.top = previous.bodyTop;
+      document.body.classList.remove("detail-trailer-active", "trailer-companion-dragging", "trailer-companion-settling");
+      delete document.body.dataset.trailerCompanionView;
+      expandedScrollLockRef.current = null;
+    };
+
+    window.addEventListener("qnext:detail-trailer-close", syncRestoredTrailerScroll);
+    window.addEventListener("pagehide", restoreScroll);
+    window.addEventListener("beforeunload", restoreScroll);
     return () => {
-      document.body.style.overflow = expandedBodyOverflowRef.current ?? "";
-      expandedBodyOverflowRef.current = null;
+      window.removeEventListener("qnext:detail-trailer-close", syncRestoredTrailerScroll);
+      window.removeEventListener("pagehide", restoreScroll);
+      window.removeEventListener("beforeunload", restoreScroll);
+      restoreScroll();
     };
   }, [expandedVideoId]);
 
@@ -2093,11 +2286,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay;
 
 
-  return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3 md:top-0 md:overflow-y-auto md:py-8" : "rounded-2xl bg-zinc-950/55 p-4"} ${active ? "block" : "hidden"}`}>
+  return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3 md:top-0 md:overflow-y-auto md:py-8" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:mx-auto md:max-w-2xl">
-      <div ref={menuRef} className="relative flex justify-center">
+      <div ref={menuRef} data-video-reaction-rec className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] md:h-20 md:w-20 md:transition md:hover:border-[#86ADE0] md:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
-        {showMenu ? <div className="absolute left-1/2 top-full z-30 mt-3 w-52 -translate-x-1/2 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl">
+        {showMenu ? <div data-rec-options-menu className="absolute left-1/2 top-full z-30 mt-3 w-52 -translate-x-1/2 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl">
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoRecord")} onClick={beginRecordingFlow}><span className="h-2.5 w-2.5 rounded-full bg-red-500" />{t("movieDetailVideoRecord")}</button>
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoUpload")} onClick={() => fileInputRef.current?.click()}><span>▣</span>{t("movieDetailVideoUpload")}</button>
         </div> : null}
@@ -2122,19 +2315,21 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       {recorderState === "error" && error ? <div className="w-full rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"><p>{error}</p><button type="button" className="mt-3 rounded-lg border border-red-200/30 px-3 py-1 text-red-100" onClick={() => setRecorderState("menu")}>{t("movieDetailVideoRetry")}</button></div> : null}
     </div>
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200 md:hidden" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
-    <div ref={historyScrollRef} data-desktop-video-reaction-history className="desktop-dark-scrollbar mt-5 space-y-3 md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
+    <button type="button" data-history-carousel-arrow="left" disabled={recorderState !== "idle" || !canScrollHistoryLeft} className="hidden" aria-label="Anterior" onClick={() => scrollHistoryCarousel(-1)}>←</button>
+    <div data-history-carousel-viewport className="relative">
+    <div ref={historyScrollRef} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
       {recorderState === "idle" ? comments.map((comment) => {
         const id = String(comment.id);
         const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
-        return <article key={comment.id} data-video-comment-card={id} className="desktop-video-reaction-card space-y-1.5 rounded-2xl border border-white/10 bg-black/25 p-2.5 md:mx-auto md:w-full md:max-w-[24rem] md:space-y-1 md:p-2">
-          <div className="flex items-center gap-3 md:mx-auto md:max-w-[22rem] md:gap-2"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300 md:h-8 md:w-8" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
-            <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <button type="button" className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 disabled:opacity-60" disabled={!!deletingIds[id]} onClick={() => setDeleteConfirmId(comment.id)}>{t("movieDetailVideoDelete")}</button> : null}</div>
+        return <article key={comment.id} data-video-comment-card={id} className="desktop-video-reaction-card space-y-1.5 bg-transparent p-2.5 md:space-y-1 md:p-2">
+          <div className="relative mx-auto flex max-w-full items-center gap-3 md:w-full md:gap-2"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300 md:h-8 md:w-8" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
+            <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3 md:flex-col md:items-start md:gap-0"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <div data-video-delete-menu className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 hover:bg-white/10" disabled={!!deletingIds[id]} aria-label={t("movieDetailVideoDelete")} onClick={() => setDeleteMenuId((current) => current === id ? null : id)}>⋮</button>{deleteMenuId === id ? <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuId(null); setDeleteConfirmId(comment.id); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}</div>
           <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black md:mx-auto md:w-fit md:max-w-full">
             <div className="group relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
-              <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); }} />
+              <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); if (window.matchMedia("(min-width: 768px)").matches && !document.body.classList.contains("detail-trailer-active")) playNextVisibleHistoryVideo(id); }} />
               <div className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7 transition-opacity duration-150 ${state.paused ? "md:opacity-0" : "md:opacity-0 md:group-hover:opacity-100"}`}>
                 <button type="button" className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); toggleHistorySound(id); }}>{state.muted ? "🔇" : "🔊"}</button>
                 <button type="button" className={`pointer-events-auto ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t("movieDetailVideoExpand")} onClick={(event) => { event.stopPropagation(); openExpandedVideo(id); }}>⛶</button>
@@ -2145,6 +2340,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       }) : null}
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
+    </div>
+    <button type="button" data-history-carousel-arrow="right" disabled={recorderState !== "idle" || !canScrollHistoryRight} className="hidden" aria-label="Siguiente" onClick={() => scrollHistoryCarousel(1)}>→</button>
     {orientationPaused ? <div className="fixed inset-0 z-[200] flex h-[100dvh] w-[100dvw] items-center justify-center bg-black px-6 py-[max(1.5rem,env(safe-area-inset-top))] text-center" role="alert" aria-live="assertive"><div className="w-full max-w-lg"><span className="video-reaction-phone mx-auto mb-6 block h-20 w-11 rounded-xl border-2 border-white" aria-hidden="true" /><p className="text-lg font-bold leading-relaxed text-white sm:text-xl">{t("movieDetailVideoRotatePortrait")}</p></div></div> : null}
     {previewExpanded && previewUrl ? <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black p-3" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpand")}><button type="button" className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-10 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900/80 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={() => setPreviewExpanded(false)}>×</button><video src={previewUrl} autoPlay muted playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className={`${previewOrigin === "recorded" ? "aspect-[9/16] h-[calc(100dvh-1.5rem)] w-auto" : "max-h-[calc(100dvh-1.5rem)] max-w-full"} object-contain`} /></div> : null}
     {expandedVideoId !== null ? (() => {
@@ -2155,7 +2352,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       const adjacentComment = dragDirection === 0 ? null : comments[currentIndex + dragDirection] ?? null;
       const state = playerStates[expandedVideoId] ?? { paused: true, muted: true };
       const swipeTransition = expandedDragAnimating ? `transform ${VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS}ms ${VIDEO_COMMENT_EXPANDED_SWIPE_EASING}` : "none";
-      return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
+      return <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
         <button type="button" className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
         <div className="relative h-full w-full overflow-hidden touch-none">
           {adjacentComment ? <div key={String(adjacentComment.id)} className="pointer-events-none absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(calc(${dragDirection > 0 ? "100dvh" : "-100dvh"} + ${expandedDragOffset}px))`, transition: swipeTransition }}><video src={adjacentComment.video_url} muted playsInline preload="auto" controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" /></div> : null}
@@ -2216,6 +2413,11 @@ function MovieDetailPageContent() {
   const [isPublicSearchOpen, setIsPublicSearchOpen] = useState(false);
   const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
   const [activeCommentsTab, setActiveCommentsTab] = useState<"public" | "directed">("public");
+  const [trailerCompanionView, setTrailerCompanionView] = useState<TrailerCompanionView>("reaction");
+  const [trailerCompanionOpen, setTrailerCompanionOpen] = useState(false);
+  const companionTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const companionTouchAxisRef = useRef<"horizontal" | "vertical" | null>(null);
+  const companionTransitionTimerRef = useRef<number | null>(null);
   const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("video-comment");
   const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
     useState<PendingDirectedNotificationTarget | null>(null);
@@ -3167,8 +3369,107 @@ function MovieDetailPageContent() {
   const composerPlaceholder = isSeriesDetail ? t("movieDetailSeriesCommentPlaceholder") : t("movieDetailCommentPlaceholder");
   const composerTitle = isSeriesDetail ? t("movieDetailSeriesCommentTitle") : t("movieDetailCommentTitle");
 
+  const changeTrailerCompanionView = useCallback((next: TrailerCompanionView) => {
+    setTrailerCompanionView(next);
+    document.body.dataset.trailerCompanionView = next;
+    if (next !== "reaction") {
+      document.querySelectorAll<HTMLVideoElement>('[data-video-comment-player="true"]').forEach((video) => {
+        video.pause();
+        video.muted = true;
+      });
+    } else {
+      window.dispatchEvent(new Event("qnext:companion-reaction-enter"));
+    }
+  }, []);
+
+  useEffect(() => {
+    const initializeCompanion = () => {
+      setTrailerCompanionOpen(true);
+      changeTrailerCompanionView(commentInputMode === "video-comment" ? "reaction" : "public-comments");
+    };
+    const closeCompanion = () => {
+      setTrailerCompanionOpen(false);
+      if (companionTransitionTimerRef.current !== null) window.clearTimeout(companionTransitionTimerRef.current);
+      companionTransitionTimerRef.current = null;
+      document.body.classList.remove("trailer-companion-dragging", "trailer-companion-settling");
+      document.body.style.removeProperty("--trailer-companion-drag-x");
+    };
+    window.addEventListener("qnext:detail-trailer-open", initializeCompanion);
+    window.addEventListener("qnext:detail-trailer-close", closeCompanion);
+    return () => {
+      window.removeEventListener("qnext:detail-trailer-open", initializeCompanion);
+      window.removeEventListener("qnext:detail-trailer-close", closeCompanion);
+    };
+  }, [changeTrailerCompanionView, commentInputMode]);
+
+  const handleCompanionTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+    companionTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    companionTouchAxisRef.current = null;
+    document.body.classList.remove("trailer-companion-settling");
+  };
+  const handleCompanionTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    const start = companionTouchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch || window.matchMedia("(min-width: 768px)").matches) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (companionTouchAxisRef.current === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 8) {
+      companionTouchAxisRef.current = Math.abs(deltaX) > Math.abs(deltaY) * TRAILER_COMPANION_HORIZONTAL_DOMINANCE ? "horizontal" : "vertical";
+    }
+    if (companionTouchAxisRef.current !== "horizontal") return;
+    const views: TrailerCompanionView[] = ["reaction", "public-comments", "directed-comments"];
+    const currentIndex = views.indexOf(trailerCompanionView);
+    const atBoundary = (currentIndex === 0 && deltaX > 0) || (currentIndex === views.length - 1 && deltaX < 0);
+    const offset = atBoundary ? deltaX * 0.18 : deltaX;
+    document.body.classList.add("trailer-companion-dragging");
+    document.body.style.setProperty("--trailer-companion-drag-x", `${offset}px`);
+  };
+  const handleCompanionTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
+    const start = companionTouchStartRef.current;
+    const touch = event.changedTouches[0];
+    companionTouchStartRef.current = null;
+    const horizontal = companionTouchAxisRef.current === "horizontal";
+    companionTouchAxisRef.current = null;
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    if (!horizontal) {
+      document.body.classList.remove("trailer-companion-dragging", "trailer-companion-settling");
+      document.body.style.removeProperty("--trailer-companion-drag-x");
+      return;
+    }
+    const views: TrailerCompanionView[] = ["reaction", "public-comments", "directed-comments"];
+    const currentIndex = views.indexOf(trailerCompanionView);
+    const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
+    const shouldNavigate = horizontal && Math.abs(deltaX) >= TRAILER_COMPANION_SWIPE_THRESHOLD_PX && nextIndex >= 0 && nextIndex < views.length;
+    document.body.classList.remove("trailer-companion-dragging");
+    document.body.classList.add("trailer-companion-settling");
+    const panelWidth = Math.max(1, window.innerWidth - 24);
+    document.body.style.setProperty("--trailer-companion-drag-x", shouldNavigate ? `${deltaX < 0 ? -panelWidth : panelWidth}px` : "0px");
+    if (companionTransitionTimerRef.current !== null) window.clearTimeout(companionTransitionTimerRef.current);
+    companionTransitionTimerRef.current = window.setTimeout(() => {
+      if (shouldNavigate) changeTrailerCompanionView(views[nextIndex]);
+      document.body.classList.remove("trailer-companion-settling");
+      document.body.style.removeProperty("--trailer-companion-drag-x");
+      companionTransitionTimerRef.current = null;
+    }, TRAILER_COMPANION_SWIPE_TRANSITION_MS);
+  };
+
   return (
-    <main className="min-h-screen bg-black">
+    <main className="min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
+      <div
+        data-trailer-companion-controls
+        className="hidden"
+      >
+        <div className="trailer-companion-navigation">
+          {trailerCompanionView !== "reaction" ? <button type="button" aria-label="Vista anterior" onClick={() => changeTrailerCompanionView(trailerCompanionView === "directed-comments" ? "public-comments" : "reaction")}>←</button> : <span />}
+          <span className="trailer-companion-mobile-title text-sm font-semibold text-[#c7dcf6]">{trailerCompanionView === "reaction" ? t("movieDetailVideoCommentTitle") : trailerCompanionView === "public-comments" ? t("movieDetailPublicComments") : t("movieDetailDirectedComments")}</span>
+          {trailerCompanionView === "public-comments" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--public hidden font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2> : null}
+          {trailerCompanionView !== "directed-comments" ? <button type="button" aria-label="Vista siguiente" onClick={() => changeTrailerCompanionView(trailerCompanionView === "reaction" ? "public-comments" : "directed-comments")}>→</button> : <span />}
+        </div>
+        {trailerCompanionView === "reaction" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--reaction hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailVideoCommentTitle")}</h2> : null}
+        {trailerCompanionView === "directed-comments" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--directed hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2> : null}
+      </div>
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 md:px-8 md:py-8">
         <div ref={stickyHeaderRef} data-mobile-detail-sticky="true" className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
           <div className="flex items-center justify-between gap-3">
@@ -3253,7 +3554,7 @@ function MovieDetailPageContent() {
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
         <div ref={videoCommentStartRef}>
-          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment"} t={t} onAuthorClick={handleAuthorNavigation} />
+          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${commentInputMode === "text-comment" ? "hidden md:block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
@@ -3261,7 +3562,7 @@ function MovieDetailPageContent() {
 
         {commentInputMode === "text-comment" && reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
-        {commentInputMode === "text-comment" ? <div data-comment-history className={`relative grid grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
+        <div data-comment-history className={`${commentInputMode === "text-comment" ? "grid" : "hidden"} relative grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
           {shouldRenderDirectedComments ? (
             <>
               <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
@@ -3291,9 +3592,9 @@ function MovieDetailPageContent() {
               </div>
             </>
           ) : null}
-          <section className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
+          <section data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden lg:block" : ""}`}>{t("movieDetailPublicComments")}</h2>
+              {!trailerCompanionOpen ? <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden lg:block" : ""}`}>{t("movieDetailPublicComments")}</h2> : null}
               <CommentUserSearch
                 users={publicFilterUsers}
                 query={publicSearchQuery}
@@ -3309,11 +3610,12 @@ function MovieDetailPageContent() {
                 onSelect={setSelectedPublicFilterUser}
               />
             </div>
+            <div data-trailer-public-comments-list data-empty={publicComments.length === 0} className="contents">
             <CommentsList
               comments={filteredPublicComments}
               loading={loadingPublic}
               error={publicError}
-              emptyMessage={t("movieDetailNoPublicComments")}
+              emptyMessage={publicComments.length === 0 ? t("movieDetailTrailerCompanionEmpty") : t("movieDetailNoPublicComments")}
               onReact={handleReact}
               onAuthorClick={handleAuthorNavigation}
               singleContainer
@@ -3336,10 +3638,11 @@ function MovieDetailPageContent() {
               desktopDarkScrollbar
               containerRef={publicCommentsScrollRef}
             />
+            </div>
           </section>
 
           {shouldRenderDirectedComments ? (
-            <section ref={directedCommentsSectionRef} className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
+            <section data-trailer-directed-comments ref={directedCommentsSectionRef} className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="hidden text-xl font-bold text-[#86ADE0] lg:block">{t("movieDetailDirectedComments")}</h2>
                 <CommentUserSearch
@@ -3362,8 +3665,8 @@ function MovieDetailPageContent() {
                 <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{directedError}</div>
               ) : null}
               {!loadingDirected && !directedError && filteredDirectedConversations.length === 0 ? (
-                <p className="p-4 text-sm text-zinc-400">
-                  {selectedDirectedFilterUser ? t("movieDetailNoDirectedCommentsWithUser") : t("movieDetailNoDirectedComments")}
+                <p data-trailer-directed-empty={directedConversations.length === 0} className="p-4 text-sm text-zinc-400">
+                  {directedConversations.length === 0 ? t("movieDetailTrailerCompanionEmpty") : selectedDirectedFilterUser ? t("movieDetailNoDirectedCommentsWithUser") : t("movieDetailNoDirectedComments")}
                 </p>
               ) : null}
               {!loadingDirected && !directedError ? (
@@ -3462,7 +3765,7 @@ function MovieDetailPageContent() {
               ) : null}
             </section>
           ) : null}
-        </div> : null}
+        </div>
       </div>
     </main>
   );

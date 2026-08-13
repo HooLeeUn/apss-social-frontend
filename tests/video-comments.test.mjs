@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const page = readFileSync(new URL("../app/movies/[id]/page.tsx", import.meta.url), "utf8");
 const i18n = readFileSync(new URL("../lib/i18n.ts", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+const trailerModal = readFileSync(new URL("../components/TrailerModal.tsx", import.meta.url), "utf8");
 const has = (pattern) => assert.match(page, pattern);
 
 test("camera recording is composed into a real 720x1280 portrait canvas", () => {
@@ -248,4 +249,133 @@ test("touch landscape keeps the mobile Detail Movie layout", () => {
   assert.match(css, /@media \(orientation: landscape\) and \(pointer: coarse\)/);
   has(/data-mobile-video-reaction/);
   has(/data-mobile-comment-tabs/);
+});
+
+test("trailer overlay exposes the existing reaction list without duplicating players", () => {
+  assert.match(css, /body\.detail-trailer-active \[data-desktop-video-reaction-history\]/);
+  assert.match(css, /overscroll-behavior: contain/);
+  assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.detail-trailer-active \.trailer-modal-card/);
+  assert.match(css, /@media \(min-width: 768px\)[\s\S]*transform: translateX\(-13rem\)/);
+  assert.equal((page.match(/comments\.map\(\(comment\)/g) ?? []).length, 1);
+});
+
+test("trailer and reactions coordinate audio and fullscreen through player refs", () => {
+  assert.match(trailerModal, /playerRef\.current\?\.mute\(\)/);
+  assert.match(trailerModal, /playerRef\.current\?\.unMute\(\)/);
+  assert.match(trailerModal, /qnext:reaction-fullscreen-enter/);
+  assert.match(trailerModal, /qnext:trailer-fullscreen-enter/);
+  has(/qnext:reaction-muted-change/);
+  has(/qnext:trailer-muted-change/);
+  has(/historyVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
+});
+
+test("trailer companion navigates the three existing views without circular swipes", () => {
+  has(/type TrailerCompanionView = "reaction" \| "public-comments" \| "directed-comments"/);
+  has(/TRAILER_COMPANION_SWIPE_THRESHOLD_PX = 56/);
+  has(/TRAILER_COMPANION_HORIZONTAL_DOMINANCE = 1\.25/);
+  has(/Math\.abs\(deltaX\) > Math\.abs\(deltaY\) \* TRAILER_COMPANION_HORIZONTAL_DOMINANCE/);
+  has(/nextIndex >= 0 && nextIndex < views\.length/);
+  has(/commentInputMode === "video-comment" \? "reaction" : "public-comments"/);
+  has(/data-trailer-public-comments/);
+  has(/data-trailer-directed-comments/);
+  assert.doesNotMatch(page, /filteredPublicComments\.sort|filteredDirectedConversations\.sort/);
+});
+
+test("mobile trailer companion follows the horizontal gesture and settles smoothly", () => {
+  has(/handleCompanionTouchMove = \(event: React\.TouchEvent<HTMLElement>\)/);
+  has(/--trailer-companion-drag-x/);
+  has(/TRAILER_COMPANION_SWIPE_TRANSITION_MS = 260/);
+  assert.match(css, /trailer-companion-settling[\s\S]*transition: transform 260ms ease-out/);
+  assert.match(css, /translateX\(calc\(100% \+ var\(--trailer-companion-drag-x, 0px\)\)\)/);
+});
+
+test("desktop trailer companion uses unified headings, separators, and scoped dark scrollbars", () => {
+  assert.match(css, /trailer-companion-desktop-title--reaction/);
+  assert.match(css, /desktop-video-reaction-card \+ \.desktop-video-reaction-card/);
+  assert.match(css, /scrollbar-color: #3f4a5a #09090b/);
+  assert.match(css, /data-trailer-public-comments\]::-webkit-scrollbar-thumb/);
+});
+
+test("reaction expanded view mounts before the trailer closes and survives companion deactivation", () => {
+  has(/setExpandedVideoId\(id\);\s+window\.requestAnimationFrame\(\(\) => window\.dispatchEvent\(new Event\("qnext:reaction-fullscreen-enter"\)\)\)/);
+  has(/active \|\| expandedVideoId !== null \? "block" : "hidden"/);
+  has(/fixed inset-0 z-\[1100\]/);
+});
+
+test("trailer companion has production-level empty states without replacing filtered-empty copy", () => {
+  has(/publicComments\.length === 0 \? t\("movieDetailTrailerCompanionEmpty"\) : t\("movieDetailNoPublicComments"\)/);
+  has(/directedConversations\.length === 0 \? t\("movieDetailTrailerCompanionEmpty"\)/);
+});
+
+test("expanded reaction scroll lock follows trailer cleanup and restores every global scroll value", () => {
+  has(/expandedScrollLockRef = useRef<\{ bodyOverflow: string; rootOverflow: string; bodyPosition: string; bodyTop: string \} \| null>/);
+  has(/window\.addEventListener\("qnext:detail-trailer-close", syncRestoredTrailerScroll\)/);
+  has(/window\.addEventListener\("pagehide", restoreScroll\)/);
+  has(/window\.addEventListener\("beforeunload", restoreScroll\)/);
+  has(/document\.documentElement\.style\.overflow = previous\.rootOverflow/);
+  has(/document\.body\.style\.position = previous\.bodyPosition/);
+  has(/document\.body\.style\.top = previous\.bodyTop/);
+  has(/document\.body\.classList\.remove\("detail-trailer-active", "trailer-companion-dragging", "trailer-companion-settling"\)/);
+});
+
+test("companion overlay centers empty reactions and pins directed conversations to the top", () => {
+  assert.match(css, /data-desktop-video-reaction-history\] > p\.text-zinc-500[\s\S]*min-height: 12rem/);
+  assert.match(css, /data-trailer-directed-comments\][\s\S]*justify-content: start/);
+  assert.match(css, /trailer-companion-navigation[\s\S]*justify-content: space-between/);
+});
+
+test("normal desktop reactions use a fixed-control horizontal carousel", () => {
+  has(/canScrollHistoryLeft/);
+  has(/canScrollHistoryRight/);
+  has(/container\.scrollLeft > tolerance/);
+  has(/container\.scrollLeft \+ container\.clientWidth < container\.scrollWidth - tolerance/);
+  has(/container\.scrollBy\(\{ left: direction \* \(\(firstCard\?\.offsetWidth \?\? 384\) \+ gap\), behavior: "smooth" \}\)/);
+  has(/desktopCarousel && rootRect/);
+  assert.match(css, /body:not\(\.detail-trailer-active\) \[data-desktop-video-reaction-history\][\s\S]*overflow-x: auto;[\s\S]*overflow-y: hidden/);
+  assert.match(css, /body:not\(\.detail-trailer-active\) \[data-video-reaction-rec\][\s\S]*left: 0/);
+  assert.match(css, /data-can-scroll-right="true"[\s\S]*linear-gradient/);
+});
+
+test("trailer companion preserves the vertical list with an opaque frozen header", () => {
+  assert.match(css, /body\.detail-trailer-active \[data-history-carousel-viewport\][\s\S]*display: contents/);
+  assert.match(css, /body\.detail-trailer-active \[data-history-carousel-arrow\][\s\S]*display: none/);
+  assert.match(css, /body\.detail-trailer-active \[data-trailer-companion-controls\][\s\S]*background: #09090b/);
+});
+
+test("recorder flow disables and then remeasures carousel arrows without resetting scroll", () => {
+  has(/recorderState !== "idle" \|\| !canScrollHistoryLeft/);
+  has(/recorderState !== "idle" \|\| !canScrollHistoryRight/);
+  has(/const frame = window\.requestAnimationFrame\(updateHistoryCarouselState\)/);
+  assert.doesNotMatch(page, /historyScrollRef\.current\?\.scrollTo\(\{ left:/);
+});
+
+test("reaction cards are borderless and owner delete uses a dismissible overflow menu", () => {
+  has(/setDeleteMenuId/);
+  has(/>⋮<\/button>/);
+  has(/setDeleteMenuId\(null\); setDeleteConfirmId\(comment\.id\)/);
+  has(/document\.addEventListener\("pointerdown", closeMenu\)/);
+  has(/const historyScroller = historyScrollRef\.current/);
+  has(/historyScroller\?\.addEventListener\("scroll", closeMenu/);
+  has(/event\.target\.closest\("\[data-video-delete-menu\]"\)/);
+  assert.doesNotMatch(page, /desktop-video-reaction-card[^"\n]*border border-white/);
+});
+
+test("desktop companion header fully occludes reactions and public title sits between arrows", () => {
+  assert.match(css, /data-trailer-companion-controls[\s\S]*min-height: 4\.25rem[\s\S]*background: #09090b[\s\S]*box-shadow/);
+  has(/trailer-companion-desktop-title--public/);
+  has(/!trailerCompanionOpen \? <h2/);
+  assert.match(css, /trailer-companion-desktop-title--public[\s\S]*left: 50%[\s\S]*white-space: nowrap/);
+  assert.match(css, /desktop-video-reaction-card[\s\S]*width: fit-content;[\s\S]*flex: 0 0 auto/);
+});
+
+test("desktop carousel advances through the visible queue and public comments use one scroll surface", () => {
+  has(/DESKTOP_CAROUSEL_QUEUE_VISIBILITY_THRESHOLD = 0\.5/);
+  has(/visibleWidth \/ Math\.max\(1, rect\.width\)/);
+  has(/\.filter\(\(\{ ratio \}\) => ratio >= DESKTOP_CAROUSEL_QUEUE_VISIBILITY_THRESHOLD\)/);
+  has(/\.sort\(\(a, b\) => a\.left - b\.left\)/);
+  has(/visibleIds\[visibleIds\.indexOf\(endedId\) \+ 1\]/);
+  has(/playNextVisibleHistoryVideo\(id\)/);
+  has(/carouselScrollTimerRef\.current = window\.setTimeout/);
+  assert.match(css, /trailer-companion-desktop-title--public[\s\S]*font-size: 1\.2rem/);
+  assert.match(css, /data-trailer-public-comments-list[\s\S]*max-height: none;[\s\S]*overflow-y: visible/);
 });
