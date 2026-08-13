@@ -341,3 +341,24 @@ test("trailer companion preserves the vertical list with an opaque frozen header
   assert.match(css, /body\.detail-trailer-active \[data-history-carousel-arrow\][\s\S]*display: none/);
   assert.match(css, /body\.detail-trailer-active \[data-trailer-companion-controls\][\s\S]*background: #09090b/);
 });
+
+test("recorder flow disables and then remeasures carousel arrows without resetting scroll", () => {
+  has(/recorderState !== "idle" \|\| !canScrollHistoryLeft/);
+  has(/recorderState !== "idle" \|\| !canScrollHistoryRight/);
+  has(/const frame = window\.requestAnimationFrame\(updateHistoryCarouselState\)/);
+  assert.doesNotMatch(page, /historyScrollRef\.current\?\.scrollTo\(\{ left:/);
+});
+
+test("reaction cards are borderless and owner delete uses a dismissible overflow menu", () => {
+  has(/setDeleteMenuId/);
+  has(/>⋮<\/button>/);
+  has(/setDeleteMenuId\(null\); setDeleteConfirmId\(comment\.id\)/);
+  has(/document\.addEventListener\("pointerdown", closeMenu\)/);
+  has(/historyScrollRef\.current\?\.addEventListener\("scroll", closeMenu/);
+  assert.doesNotMatch(page, /desktop-video-reaction-card[^"\n]*border border-white/);
+});
+
+test("desktop companion header fully occludes reactions and public title sits between arrows", () => {
+  assert.match(css, /data-trailer-companion-controls[\s\S]*min-height: 4\.25rem[\s\S]*background: #09090b[\s\S]*box-shadow/);
+  assert.match(css, /data-trailer-companion-view="public-comments"[\s\S]*margin-inline: auto/);
+});

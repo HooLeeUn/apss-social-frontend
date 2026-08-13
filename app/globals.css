@@ -781,7 +781,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
 
   body:not(.detail-trailer-active) [data-video-reaction-rec] {
     position: absolute;
-    top: 13rem;
+    top: 11.75rem;
     left: 0;
     z-index: 3;
   }
@@ -796,7 +796,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     display: flex;
     max-width: none;
     max-height: none;
-    column-gap: 0.75rem;
+    column-gap: 0.5rem;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 0 0 0.65rem;
@@ -841,7 +841,8 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   }
 
   body:not(.detail-trailer-active) [data-history-carousel-arrow="left"] {
-    left: 5rem;
+    top: 17.25rem;
+    left: 1.1rem;
   }
 
   body:not(.detail-trailer-active) [data-history-carousel-arrow="right"] {
@@ -885,7 +886,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     height: min(32rem, calc(100dvh - 3rem));
     max-height: min(32rem, calc(100dvh - 3rem));
     margin: 0;
-    padding-top: 4.25rem;
+    padding-top: 4.75rem;
     transform: translateY(-50%);
   }
 
@@ -901,11 +902,13 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   }
 
   body.detail-trailer-active [data-trailer-companion-controls] {
-    top: calc(50% - min(16rem, calc((100dvh - 3rem) / 2)) + 0.5rem);
-    left: calc(50% + 13.75rem);
-    width: min(22.5rem, calc(50vw - 3rem));
-    padding-bottom: 0.5rem;
+    top: calc(50% - min(16rem, calc((100dvh - 3rem) / 2)));
+    left: calc(50% + 13rem);
+    width: min(24rem, calc(50vw - 1.5rem));
+    min-height: 4.25rem;
+    padding: 0.5rem 0.75rem;
     background: #09090b;
+    box-shadow: 0 1rem 1rem #09090b;
   }
 
   body.detail-trailer-active [data-trailer-companion-controls] .trailer-companion-navigation {
@@ -938,12 +941,24 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   }
 
   .trailer-companion-desktop-title--reaction {
-    left: 0;
+    left: 0.75rem;
     max-width: calc(100% - 3.5rem);
   }
 
   .trailer-companion-desktop-title--directed {
     left: 3.4rem;
+  }
+
+  body.detail-trailer-active[data-trailer-companion-view="public-comments"] [data-trailer-public-comments] > div:first-child > h2 {
+    position: sticky;
+    top: -3.25rem;
+    z-index: 1004;
+    display: block;
+    width: fit-content;
+    margin-inline: auto;
+    font-size: 1.05rem;
+    line-height: 2.75rem;
+    background: #09090b;
   }
 
   body.detail-trailer-active [data-trailer-directed-comments] {
