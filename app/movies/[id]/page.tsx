@@ -2263,8 +2263,8 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       {recorderState === "idle" ? comments.map((comment) => {
         const id = String(comment.id);
         const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
-        return <article key={comment.id} data-video-comment-card={id} className="desktop-video-reaction-card space-y-1.5 bg-transparent p-2.5 md:mx-auto md:w-full md:max-w-[24rem] md:space-y-1 md:p-2">
-          <div className="relative mx-auto flex max-w-full items-center gap-3 md:w-[22rem] md:gap-2"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300 md:h-8 md:w-8" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
+        return <article key={comment.id} data-video-comment-card={id} className="desktop-video-reaction-card space-y-1.5 bg-transparent p-2.5 md:space-y-1 md:p-2">
+          <div className="relative mx-auto flex max-w-full items-center gap-3 md:w-full md:gap-2"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300 md:h-8 md:w-8" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
             <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3 md:flex-col md:items-start md:gap-0"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <div data-video-delete-menu className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 hover:bg-white/10" disabled={!!deletingIds[id]} aria-label={t("movieDetailVideoDelete")} onClick={() => setDeleteMenuId((current) => current === id ? null : id)}>⋮</button>{deleteMenuId === id ? <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuId(null); setDeleteConfirmId(comment.id); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}</div>
           <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black md:mx-auto md:w-fit md:max-w-full">
             <div className="group relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
@@ -3403,6 +3403,7 @@ function MovieDetailPageContent() {
         <div className="trailer-companion-navigation">
           {trailerCompanionView !== "reaction" ? <button type="button" aria-label="Vista anterior" onClick={() => changeTrailerCompanionView(trailerCompanionView === "directed-comments" ? "public-comments" : "reaction")}>←</button> : <span />}
           <span className="trailer-companion-mobile-title text-sm font-semibold text-[#c7dcf6]">{trailerCompanionView === "reaction" ? t("movieDetailVideoCommentTitle") : trailerCompanionView === "public-comments" ? t("movieDetailPublicComments") : t("movieDetailDirectedComments")}</span>
+          {trailerCompanionView === "public-comments" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--public hidden font-bold text-[#86ADE0]">{t("movieDetailPublicComments")}</h2> : null}
           {trailerCompanionView !== "directed-comments" ? <button type="button" aria-label="Vista siguiente" onClick={() => changeTrailerCompanionView(trailerCompanionView === "reaction" ? "public-comments" : "directed-comments")}>→</button> : <span />}
         </div>
         {trailerCompanionView === "reaction" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--reaction hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailVideoCommentTitle")}</h2> : null}
@@ -3532,7 +3533,7 @@ function MovieDetailPageContent() {
           ) : null}
           <section data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden lg:block" : ""}`}>{t("movieDetailPublicComments")}</h2>
+              {!trailerCompanionOpen ? <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden lg:block" : ""}`}>{t("movieDetailPublicComments")}</h2> : null}
               <CommentUserSearch
                 users={publicFilterUsers}
                 query={publicSearchQuery}

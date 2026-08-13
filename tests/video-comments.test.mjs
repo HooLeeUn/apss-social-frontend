@@ -362,5 +362,8 @@ test("reaction cards are borderless and owner delete uses a dismissible overflow
 
 test("desktop companion header fully occludes reactions and public title sits between arrows", () => {
   assert.match(css, /data-trailer-companion-controls[\s\S]*min-height: 4\.25rem[\s\S]*background: #09090b[\s\S]*box-shadow/);
-  assert.match(css, /data-trailer-companion-view="public-comments"[\s\S]*margin-inline: auto/);
+  has(/trailer-companion-desktop-title--public/);
+  has(/!trailerCompanionOpen \? <h2/);
+  assert.match(css, /trailer-companion-desktop-title--public[\s\S]*left: 50%[\s\S]*white-space: nowrap/);
+  assert.match(css, /desktop-video-reaction-card[\s\S]*width: fit-content;[\s\S]*flex: 0 0 auto/);
 });
