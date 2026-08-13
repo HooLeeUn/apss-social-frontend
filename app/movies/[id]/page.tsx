@@ -82,8 +82,22 @@ const IOS_VIDEO_COMMENT_MIME_CANDIDATES = ["video/mp4", "video/mp4;codecs=avc1.4
 const VIDEO_COMMENT_DIAGNOSTIC_MIMES = ["video/mp4", "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/webm", "video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus"];
 type VideoRecorderState = "idle" | "menu" | "permissionInfo" | "requestingPermission" | "preparingRecorder" | "recording" | "validatingSelected" | "previewRecorded" | "previewSelected" | "uploading" | "error";
 interface VideoCommentUser { id: string | number; username: string; avatar: string | null; }
-interface VideoComment { id: string | number; user: VideoCommentUser; video_url: string; duration_seconds: number | null; mime_type: string | null; file_size: number | null; created_at: string; updated_at: string; can_delete: boolean; }
+type VideoCommentReaction = "like" | "dislike";
+interface VideoComment { id: string | number; user: VideoCommentUser; video_url: string; duration_seconds: number | null; mime_type: string | null; file_size: number | null; created_at: string; updated_at: string; can_delete: boolean; likes_count: number; dislikes_count: number; my_reaction: VideoCommentReaction | null; }
 interface VideoCommentsPage { count: number; next: string | null; previous: string | null; results: VideoComment[]; }
+interface VideoCommentReactionResponse { video_comment_id: string | number; my_reaction: VideoCommentReaction | null; likes_count: number; dislikes_count: number; }
+
+function VideoCommentReactionButtons({ comment, disabled, expanded = false, className = "", t, onReact }: { comment: VideoComment; disabled: boolean; expanded?: boolean; className?: string; t: (key: Parameters<typeof translate>[1]) => string; onReact: (id: string | number, reaction: VideoCommentReaction) => void }) {
+  return <div className={`flex items-center gap-1 ${className}`}>
+    {(["like", "dislike"] as const).map((reaction) => {
+      const selected = comment.my_reaction === reaction;
+      const label = t(reaction === "like" ? "movieDetailLike" : "movieDetailDislike");
+      return <button key={reaction} type="button" disabled={disabled} aria-label={label} aria-pressed={selected} title={label} className={`rounded-full font-semibold leading-none transition disabled:opacity-50 ${expanded ? "min-h-9 px-2 py-1.5 text-sm [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]" : "px-1.5 py-1 text-[11px]"} ${selected ? reaction === "like" ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200" : expanded ? "bg-transparent text-white hover:bg-white/10" : "bg-black/20 text-zinc-200 hover:bg-black/40"}`} onClick={(event) => { event.stopPropagation(); onReact(comment.id, reaction); }}>
+        <span aria-hidden="true">{reaction === "like" ? "👍" : "👎"}</span> {reaction === "like" ? comment.likes_count ?? 0 : comment.dislikes_count ?? 0}
+      </button>;
+    })}
+  </div>;
+}
 function isIOSWebKitEnvironment(): boolean {
   if (typeof navigator === "undefined") return false;
   return /Apple Computer/.test(navigator.vendor) && navigator.maxTouchPoints > 1;
@@ -989,12 +1003,15 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   const [previewMuted, setPreviewMuted] = useState(true);
   const [previewError, setPreviewError] = useState("");
   const [comments, setComments] = useState<VideoComment[]>([]);
+  const commentIds = useMemo(() => comments.map((comment) => String(comment.id)).join(","), [comments]);
   const [, setCount] = useState(0);
   const [next, setNext] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [deletingIds, setDeletingIds] = useState<Record<string, boolean>>({});
+  const [reactingIds, setReactingIds] = useState<Record<string, boolean>>({});
+  const reactingIdsRef = useRef(new Set<string>());
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | number | null>(null);
   const [deleteMenuId, setDeleteMenuId] = useState<string | null>(null);
   const livePreviewRef = useRef<HTMLVideoElement | null>(null);
@@ -1295,7 +1312,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       carouselScrollTimerRef.current = null;
       carouselScrollingRef.current = false;
     };
-  }, [comments, chooseVisibleHistoryVideo, updateHistoryCarouselState]);
+  }, [commentIds, chooseVisibleHistoryVideo, updateHistoryCarouselState]);
 
   useEffect(() => {
     if (recorderState !== "idle") {
@@ -1413,7 +1430,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         endedRef.current.delete(id);
       }
     });
-  }, [comments, recorderState, syncPlayerState]);
+  }, [commentIds, recorderState, syncPlayerState]);
 
   const changeRecorderState = useCallback((nextState: VideoRecorderState) => {
     setRecorderState(nextState);
@@ -2036,6 +2053,24 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     }
   }, [t]);
 
+  const reactToVideo = useCallback(async (id: string | number, reaction: VideoCommentReaction) => {
+    const key = String(id);
+    if (reactingIdsRef.current.has(key)) return;
+    reactingIdsRef.current.add(key);
+    setReactingIds((value) => ({ ...value, [key]: true }));
+    setHistoryError("");
+    try {
+      const result = await apiFetch(`/video-comments/${encodeURIComponent(key)}/reaction/`, { method: "PUT", body: JSON.stringify({ reaction }) }) as VideoCommentReactionResponse;
+      setComments((items) => items.map((item) => String(item.id) === String(result.video_comment_id) ? { ...item, my_reaction: result.my_reaction, likes_count: result.likes_count, dislikes_count: result.dislikes_count } : item));
+    } catch (err) {
+      logVideoCommentDevError("Video reaction failed", err);
+      setHistoryError(t("movieDetailVideoReactionError"));
+    } finally {
+      reactingIdsRef.current.delete(key);
+      setReactingIds((value) => ({ ...value, [key]: false }));
+    }
+  }, [t]);
+
   const toggleHistoryPlayback = useCallback((id: string) => {
     const video = historyVideosRef.current.get(id);
     if (!video) return;
@@ -2044,6 +2079,15 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       pausedByUserRef.current.add(id);
       video.pause();
     }
+  }, [playHistoryVideo]);
+
+  const selectHistoryVideoForReaction = useCallback((id: string) => {
+    if (!window.matchMedia("(min-width: 768px)").matches || expandedOpenRef.current) return;
+    const video = historyVideosRef.current.get(id);
+    if (!video) return;
+    activeVideoIdRef.current = id;
+    if (!video.paused) return;
+    void playHistoryVideo(id, true);
   }, [playHistoryVideo]);
 
   const toggleHistorySound = useCallback((id: string) => {
@@ -2111,6 +2155,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       document.querySelector<HTMLElement>(`[data-video-comment-card="${CSS.escape(currentId ?? "")}"]`)?.scrollIntoView({ block: "center" });
     }, 0);
   }, [expandedVideoId]);
+
+  const navigateFromExpandedVideoToAuthor = useCallback((username: string) => {
+    closeExpandedVideo();
+    window.requestAnimationFrame(() => onAuthorClick(username));
+  }, [closeExpandedVideo, onAuthorClick]);
 
   useEffect(() => () => {
     if (expandedSwipeTimerRef.current !== null) window.clearTimeout(expandedSwipeTimerRef.current);
@@ -2326,10 +2375,11 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
         const state = playerStates[id] ?? { paused: true, muted: soundPreference !== "sound-on" };
         return <article key={comment.id} data-video-comment-card={id} className="desktop-video-reaction-card space-y-1.5 bg-transparent p-2.5 md:space-y-1 md:p-2">
           <div className="relative mx-auto flex max-w-full items-center gap-3 md:w-full md:gap-2"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300 md:h-8 md:w-8" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
-            <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3 md:flex-col md:items-start md:gap-0"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div>{comment.can_delete === true ? <div data-video-delete-menu className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 hover:bg-white/10" disabled={!!deletingIds[id]} aria-label={t("movieDetailVideoDelete")} onClick={() => setDeleteMenuId((current) => current === id ? null : id)}>⋮</button>{deleteMenuId === id ? <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuId(null); setDeleteConfirmId(comment.id); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}</div>
+            <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3 md:flex-col md:items-start md:gap-0"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div><VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[id]} t={t} onReact={(commentId, reaction) => void reactToVideo(commentId, reaction)} className="shrink-0 md:hidden" />{comment.can_delete === true ? <div data-video-delete-menu className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 hover:bg-white/10" disabled={!!deletingIds[id]} aria-label={t("movieDetailVideoDelete")} onClick={() => setDeleteMenuId((current) => current === id ? null : id)}>⋮</button>{deleteMenuId === id ? <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuId(null); setDeleteConfirmId(comment.id); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}</div>
           <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black md:mx-auto md:w-fit md:max-w-full">
             <div className="group relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
               <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); if (window.matchMedia("(min-width: 768px)").matches && !document.body.classList.contains("detail-trailer-active")) playNextVisibleHistoryVideo(id); }} />
+              <VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[id]} t={t} onReact={(commentId, reaction) => { selectHistoryVideoForReaction(String(commentId)); void reactToVideo(commentId, reaction); }} className="pointer-events-none absolute left-2 top-2 z-10 hidden opacity-0 md:flex md:group-hover:pointer-events-auto md:group-hover:opacity-100" />
               <div className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7 transition-opacity duration-150 ${state.paused ? "md:opacity-0" : "md:opacity-0 md:group-hover:opacity-100"}`}>
                 <button type="button" className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); toggleHistorySound(id); }}>{state.muted ? "🔇" : "🔊"}</button>
                 <button type="button" className={`pointer-events-auto ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t("movieDetailVideoExpand")} onClick={(event) => { event.stopPropagation(); openExpandedVideo(id); }}>⛶</button>
@@ -2353,13 +2403,22 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       const state = playerStates[expandedVideoId] ?? { paused: true, muted: true };
       const swipeTransition = expandedDragAnimating ? `transform ${VIDEO_COMMENT_EXPANDED_SWIPE_TRANSITION_MS}ms ${VIDEO_COMMENT_EXPANDED_SWIPE_EASING}` : "none";
       return <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label={t("movieDetailVideoExpandedFeed")}>
-        <button type="button" className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
         <div className="relative h-full w-full overflow-hidden touch-none">
           {adjacentComment ? <div key={String(adjacentComment.id)} className="pointer-events-none absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(calc(${dragDirection > 0 ? "100dvh" : "-100dvh"} + ${expandedDragOffset}px))`, transition: swipeTransition }}><video src={adjacentComment.video_url} muted playsInline preload="auto" controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" /></div> : null}
           <div key={expandedVideoId} className="absolute inset-0 flex items-center justify-center" style={{ transform: `translateY(${expandedDragOffset}px)`, transition: swipeTransition }}>
-          <video data-expanded-video-id={expandedVideoId} ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY, vertical: null } : null; suppressExpandedTapRef.current = false; setExpandedDragAnimating(false); }} onTouchMove={(event) => { const start = expandedTouchStartRef.current; const touch = event.touches[0]; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (start.vertical === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX) start.vertical = Math.abs(deltaY) > Math.abs(deltaX); if (!start.vertical) return; event.preventDefault(); suppressExpandedTapRef.current = true; const direction = deltaY < 0 ? 1 : -1; const hasTarget = comments[currentIndex + direction] !== undefined; setExpandedDragOffset(hasTarget ? deltaY : deltaY * 0.2); }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch || !start.vertical) { if (expandedDragOffset !== 0) cancelExpandedDrag(); return; } const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; const direction: -1 | 1 = deltaY < 0 ? 1 : -1; if (Math.abs(deltaY) >= VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX) && comments[currentIndex + direction]) finishExpandedDrag(direction); else cancelExpandedDrag(); }} onTouchCancel={() => { expandedTouchStartRef.current = null; if (expandedDragOffset !== 0) cancelExpandedDrag(); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
+            <div className="relative flex max-h-[calc(100dvh-1rem)] max-w-full items-center">
+              <button type="button" disabled={currentIndex <= 0} aria-label="Anterior" className="absolute right-full z-30 mr-3 hidden h-11 w-11 items-center justify-center rounded-full border border-[#86ADE0] bg-zinc-950/80 text-xl text-[#86ADE0] shadow-lg disabled:border-zinc-600 disabled:text-zinc-600 md:flex" onClick={(event) => { event.stopPropagation(); navigateExpandedVideo(-1); }}>←</button>
+              <div className="relative inline-flex max-h-[calc(100dvh-1rem)] max-w-full overflow-hidden">
+              <video data-expanded-video-id={expandedVideoId} ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY, vertical: null } : null; suppressExpandedTapRef.current = false; setExpandedDragAnimating(false); }} onTouchMove={(event) => { const start = expandedTouchStartRef.current; const touch = event.touches[0]; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (start.vertical === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX) start.vertical = Math.abs(deltaY) > Math.abs(deltaX); if (!start.vertical) return; event.preventDefault(); suppressExpandedTapRef.current = true; const direction = deltaY < 0 ? 1 : -1; const hasTarget = comments[currentIndex + direction] !== undefined; setExpandedDragOffset(hasTarget ? deltaY : deltaY * 0.2); }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch || !start.vertical) { if (expandedDragOffset !== 0) cancelExpandedDrag(); return; } const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; const direction: -1 | 1 = deltaY < 0 ? 1 : -1; if (Math.abs(deltaY) >= VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX) && comments[currentIndex + direction]) finishExpandedDrag(direction); else cancelExpandedDrag(); }} onTouchCancel={() => { expandedTouchStartRef.current = null; if (expandedDragOffset !== 0) cancelExpandedDrag(); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
+              <VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[expandedVideoId]} expanded t={t} onReact={(commentId, reaction) => void reactToVideo(commentId, reaction)} className="absolute left-3 top-3 z-20 bg-transparent" />
+              <button type="button" className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
+              <button type="button" className="absolute bottom-4 left-3 z-20 flex min-w-0 items-center gap-2 rounded-full bg-black/25 pr-2 text-sm font-semibold text-white" aria-label={`Ver perfil de ${comment.user.username}`} onClick={(event) => { event.stopPropagation(); navigateFromExpandedVideoToAuthor(comment.user.username); }}><span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-[10px]">{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
+                <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0, 2).toUpperCase()}</span><span className="max-w-36 truncate">{comment.user.username}</span></button>
+              <button type="button" className="absolute bottom-4 right-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); const video = expandedVideosRef.current.get(expandedVideoId); if (!video) return; applyVideoSoundPreference(video.muted ? "sound-on" : "muted", video); }}>{state.muted ? "🔇" : "🔊"}</button>
+              </div>
+              <button type="button" disabled={currentIndex < 0 || currentIndex >= comments.length - 1} aria-label="Siguiente" className="absolute left-full z-30 ml-3 hidden h-11 w-11 items-center justify-center rounded-full border border-[#86ADE0] bg-zinc-950/80 text-xl text-[#86ADE0] shadow-lg disabled:border-zinc-600 disabled:text-zinc-600 md:flex" onClick={(event) => { event.stopPropagation(); navigateExpandedVideo(1); }}>→</button>
+            </div>
           </div>
-          <button type="button" className="absolute bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-xl text-white" aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); const video = expandedVideosRef.current.get(expandedVideoId); if (!video) return; applyVideoSoundPreference(video.muted ? "sound-on" : "muted", video); }}>{state.muted ? "🔇" : "🔊"}</button>
         </div>
       </div>;
     })() : null}
