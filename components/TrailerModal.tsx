@@ -121,10 +121,20 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
       document.body.style.overflow = "hidden";
     }
 
-    const muteTrailer = () => playerRef.current?.mute();
+    const setTrailerAudio = (event: Event) => {
+      if (document.body.dataset.trailerCompanionView !== "reaction") return;
+      const reactionMuted = (event as CustomEvent<{ muted: boolean }>).detail.muted;
+      if (reactionMuted) playerRef.current?.unMute();
+      else playerRef.current?.mute();
+    };
     const handleReactionFullscreen = () => {
       playerRef.current?.pauseVideo();
       onClose();
+    };
+    const syncReactionAudio = () => {
+      const muted = playerRef.current?.isMuted() ?? true;
+      trailerMutedRef.current = muted;
+      window.dispatchEvent(new CustomEvent("qnext:trailer-muted-change", { detail: { muted } }));
     };
     const handleFullscreenChange = () => {
       const trailerFullscreen = document.fullscreenElement === iframeRef.current || Boolean(iframeRef.current && document.fullscreenElement?.contains(iframeRef.current));
@@ -140,20 +150,27 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
       const player = playerRef.current;
       if (!player) return;
       const muted = player.isMuted();
-      if (trailerMutedRef.current && !muted) window.dispatchEvent(new Event("qnext:trailer-audio-active"));
+      if (trailerMutedRef.current !== muted && document.body.dataset.trailerCompanionView === "reaction") {
+        window.dispatchEvent(new CustomEvent("qnext:trailer-muted-change", { detail: { muted } }));
+      }
       trailerMutedRef.current = muted;
     }, 400);
 
-    window.addEventListener("qnext:reaction-audio-active", muteTrailer);
+    window.addEventListener("qnext:reaction-muted-change", setTrailerAudio);
+    window.addEventListener("qnext:companion-reaction-enter", syncReactionAudio);
     window.addEventListener("qnext:reaction-fullscreen-enter", handleReactionFullscreen);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
+    if (isDetailTrailer) window.dispatchEvent(new Event("qnext:detail-trailer-open"));
     return () => {
       window.clearInterval(audioPoll);
-      window.removeEventListener("qnext:reaction-audio-active", muteTrailer);
+      window.removeEventListener("qnext:reaction-muted-change", setTrailerAudio);
+      window.removeEventListener("qnext:companion-reaction-enter", syncReactionAudio);
       window.removeEventListener("qnext:reaction-fullscreen-enter", handleReactionFullscreen);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       if (isDetailTrailer) {
+        window.dispatchEvent(new Event("qnext:detail-trailer-close"));
         document.body.classList.remove("detail-trailer-active");
+        delete document.body.dataset.trailerCompanionView;
         document.body.style.overflow = previousOverflow;
       }
       wasFullscreenRef.current = false;

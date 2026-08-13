@@ -261,9 +261,22 @@ test("trailer overlay exposes the existing reaction list without duplicating pla
 
 test("trailer and reactions coordinate audio and fullscreen through player refs", () => {
   assert.match(trailerModal, /playerRef\.current\?\.mute\(\)/);
+  assert.match(trailerModal, /playerRef\.current\?\.unMute\(\)/);
   assert.match(trailerModal, /qnext:reaction-fullscreen-enter/);
   assert.match(trailerModal, /qnext:trailer-fullscreen-enter/);
-  has(/qnext:reaction-audio-active/);
-  has(/qnext:trailer-audio-active/);
+  has(/qnext:reaction-muted-change/);
+  has(/qnext:trailer-muted-change/);
   has(/historyVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
+});
+
+test("trailer companion navigates the three existing views without circular swipes", () => {
+  has(/type TrailerCompanionView = "reaction" \| "public-comments" \| "directed-comments"/);
+  has(/TRAILER_COMPANION_SWIPE_THRESHOLD_PX = 56/);
+  has(/TRAILER_COMPANION_HORIZONTAL_DOMINANCE = 1\.25/);
+  has(/Math\.abs\(deltaX\) <= Math\.abs\(deltaY\) \* TRAILER_COMPANION_HORIZONTAL_DOMINANCE/);
+  has(/nextIndex >= 0 && nextIndex < views\.length/);
+  has(/commentInputMode === "video-comment" \? "reaction" : "public-comments"/);
+  has(/data-trailer-public-comments/);
+  has(/data-trailer-directed-comments/);
+  assert.doesNotMatch(page, /filteredPublicComments\.sort|filteredDirectedConversations\.sort/);
 });

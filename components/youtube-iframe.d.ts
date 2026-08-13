@@ -14,6 +14,7 @@ declare global {
   interface YouTubePlayer {
     isMuted(): boolean;
     mute(): void;
+    unMute(): void;
     pauseVideo(): void;
   }
 }

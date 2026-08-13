@@ -42,6 +42,9 @@ import { SocialUser } from "../../../lib/profile-feed/types";
 import { t as translate } from "../../../lib/i18n";
 
 type CommentInputMode = "text-comment" | "video-comment";
+type TrailerCompanionView = "reaction" | "public-comments" | "directed-comments";
+const TRAILER_COMPANION_SWIPE_THRESHOLD_PX = 56;
+const TRAILER_COMPANION_HORIZONTAL_DOMINANCE = 1.25;
 
 const VIDEO_COMMENT_MAX_SECONDS = 20;
 const VIDEO_COMMENT_MAX_BYTES = 50 * 1024 * 1024;
@@ -1084,7 +1087,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
     setSoundPreference(preference);
     try { sessionStorage.setItem(VIDEO_COMMENT_SOUND_SESSION_KEY, preference === "sound-on" ? "on" : "off"); } catch { /* Storage can be unavailable in private contexts. */ }
     video.muted = preference === "muted";
-    if (preference === "sound-on") window.dispatchEvent(new Event("qnext:reaction-audio-active"));
+    window.dispatchEvent(new CustomEvent("qnext:reaction-muted-change", { detail: { muted: preference === "muted" } }));
     syncPlayerState(video);
   }, [syncPlayerState]);
 
@@ -1141,7 +1144,7 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       endedRef.current.delete(id);
     }
     video.muted = soundPreferenceRef.current !== "sound-on";
-    if (!video.muted) window.dispatchEvent(new Event("qnext:reaction-audio-active"));
+    if (!video.muted) window.dispatchEvent(new CustomEvent("qnext:reaction-muted-change", { detail: { muted: false } }));
     try {
       await video.play();
     } catch {
@@ -1234,15 +1237,18 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
   }, [active, chooseVisibleHistoryVideo, syncPlayerState]);
 
   useEffect(() => {
-    const muteReactions = () => {
-      soundPreferenceRef.current = "muted";
-      setSoundPreference("muted");
+    const setReactionAudio = (event: Event) => {
+      if (document.body.dataset.trailerCompanionView !== "reaction") return;
+      const trailerMuted = (event as CustomEvent<{ muted: boolean }>).detail.muted;
+      const preference: VideoSoundPreference = trailerMuted ? "sound-on" : "muted";
+      soundPreferenceRef.current = preference;
+      setSoundPreference(preference);
       historyVideosRef.current.forEach((video) => {
-        video.muted = true;
+        video.muted = !trailerMuted;
         syncPlayerState(video);
       });
       expandedVideosRef.current.forEach((video) => {
-        video.muted = true;
+        video.muted = !trailerMuted;
         syncPlayerState(video);
       });
     };
@@ -1250,10 +1256,10 @@ function MobileVideoComments({ movieId, active, t, onAuthorClick }: { movieId: s
       historyVideosRef.current.forEach((video) => video.pause());
       expandedVideosRef.current.forEach((video) => video.pause());
     };
-    window.addEventListener("qnext:trailer-audio-active", muteReactions);
+    window.addEventListener("qnext:trailer-muted-change", setReactionAudio);
     window.addEventListener("qnext:trailer-fullscreen-enter", pauseReactions);
     return () => {
-      window.removeEventListener("qnext:trailer-audio-active", muteReactions);
+      window.removeEventListener("qnext:trailer-muted-change", setReactionAudio);
       window.removeEventListener("qnext:trailer-fullscreen-enter", pauseReactions);
     };
   }, [syncPlayerState]);
@@ -2244,6 +2250,9 @@ function MovieDetailPageContent() {
   const [isPublicSearchOpen, setIsPublicSearchOpen] = useState(false);
   const [isDirectedSearchOpen, setIsDirectedSearchOpen] = useState(false);
   const [activeCommentsTab, setActiveCommentsTab] = useState<"public" | "directed">("public");
+  const [trailerCompanionView, setTrailerCompanionView] = useState<TrailerCompanionView>("reaction");
+  const [trailerCompanionOpen, setTrailerCompanionOpen] = useState(false);
+  const companionTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("video-comment");
   const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
     useState<PendingDirectedNotificationTarget | null>(null);
@@ -3195,8 +3204,63 @@ function MovieDetailPageContent() {
   const composerPlaceholder = isSeriesDetail ? t("movieDetailSeriesCommentPlaceholder") : t("movieDetailCommentPlaceholder");
   const composerTitle = isSeriesDetail ? t("movieDetailSeriesCommentTitle") : t("movieDetailCommentTitle");
 
+  const changeTrailerCompanionView = useCallback((next: TrailerCompanionView) => {
+    setTrailerCompanionView(next);
+    document.body.dataset.trailerCompanionView = next;
+    if (next !== "reaction") {
+      document.querySelectorAll<HTMLVideoElement>('[data-video-comment-player="true"]').forEach((video) => {
+        video.pause();
+        video.muted = true;
+      });
+    } else {
+      window.dispatchEvent(new Event("qnext:companion-reaction-enter"));
+    }
+  }, []);
+
+  useEffect(() => {
+    const initializeCompanion = () => {
+      setTrailerCompanionOpen(true);
+      changeTrailerCompanionView(commentInputMode === "video-comment" ? "reaction" : "public-comments");
+    };
+    const closeCompanion = () => setTrailerCompanionOpen(false);
+    window.addEventListener("qnext:detail-trailer-open", initializeCompanion);
+    window.addEventListener("qnext:detail-trailer-close", closeCompanion);
+    return () => {
+      window.removeEventListener("qnext:detail-trailer-open", initializeCompanion);
+      window.removeEventListener("qnext:detail-trailer-close", closeCompanion);
+    };
+  }, [changeTrailerCompanionView, commentInputMode]);
+
+  const handleCompanionTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    companionTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+  const handleCompanionTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = companionTouchStartRef.current;
+    const touch = event.changedTouches[0];
+    companionTouchStartRef.current = null;
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < TRAILER_COMPANION_SWIPE_THRESHOLD_PX || Math.abs(deltaX) <= Math.abs(deltaY) * TRAILER_COMPANION_HORIZONTAL_DOMINANCE) return;
+    const views: TrailerCompanionView[] = ["reaction", "public-comments", "directed-comments"];
+    const currentIndex = views.indexOf(trailerCompanionView);
+    const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex >= 0 && nextIndex < views.length) changeTrailerCompanionView(views[nextIndex]);
+  };
+
   return (
-    <main className="min-h-screen bg-black">
+    <main className="min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
+      <div
+        data-trailer-companion-controls
+        className="hidden"
+      >
+        <div className="trailer-companion-navigation">
+          {trailerCompanionView !== "reaction" ? <button type="button" aria-label="Vista anterior" onClick={() => changeTrailerCompanionView(trailerCompanionView === "directed-comments" ? "public-comments" : "reaction")}>←</button> : <span />}
+          <span className="text-sm font-semibold text-[#c7dcf6]">{trailerCompanionView === "reaction" ? t("movieDetailVideoCommentTitle") : trailerCompanionView === "public-comments" ? t("movieDetailPublicComments") : t("movieDetailDirectedComments")}</span>
+          {trailerCompanionView !== "directed-comments" ? <button type="button" aria-label="Vista siguiente" onClick={() => changeTrailerCompanionView(trailerCompanionView === "reaction" ? "public-comments" : "directed-comments")}>→</button> : <span />}
+        </div>
+      </div>
       <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 md:px-8 md:py-8">
         <div ref={stickyHeaderRef} data-mobile-detail-sticky="true" className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:z-auto md:mx-0 md:bg-transparent md:p-0">
           <div className="flex items-center justify-between gap-3">
@@ -3281,7 +3345,7 @@ function MovieDetailPageContent() {
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
         <div ref={videoCommentStartRef}>
-          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment"} t={t} onAuthorClick={handleAuthorNavigation} />
+          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${commentInputMode === "text-comment" ? "hidden md:block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
@@ -3289,7 +3353,7 @@ function MovieDetailPageContent() {
 
         {commentInputMode === "text-comment" && reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
-        {commentInputMode === "text-comment" ? <div data-comment-history className={`relative grid grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
+        <div data-comment-history className={`${commentInputMode === "text-comment" ? "grid" : "hidden"} relative grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
           {shouldRenderDirectedComments ? (
             <>
               <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />
@@ -3319,7 +3383,7 @@ function MovieDetailPageContent() {
               </div>
             </>
           ) : null}
-          <section className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
+          <section data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden lg:block" : ""}`}>{t("movieDetailPublicComments")}</h2>
               <CommentUserSearch
@@ -3367,7 +3431,7 @@ function MovieDetailPageContent() {
           </section>
 
           {shouldRenderDirectedComments ? (
-            <section ref={directedCommentsSectionRef} className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
+            <section data-trailer-directed-comments ref={directedCommentsSectionRef} className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="hidden text-xl font-bold text-[#86ADE0] lg:block">{t("movieDetailDirectedComments")}</h2>
                 <CommentUserSearch
@@ -3490,7 +3554,7 @@ function MovieDetailPageContent() {
               ) : null}
             </section>
           ) : null}
-        </div> : null}
+        </div>
       </div>
     </main>
   );
