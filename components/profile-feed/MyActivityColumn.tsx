@@ -319,31 +319,15 @@ type VideoCommentReactionData = {
   my_reaction?: ActivityVideoReaction | null;
 };
 
-type VideoCommentsReactionPage = {
-  next?: string | null;
-  results?: VideoCommentReactionData[];
-};
-
-function normalizeVideoCommentsEndpoint(next: string | null | undefined): string | null {
-  if (!next) return null;
-  if (!next.startsWith("http")) return next;
-  try {
-    const url = new URL(next);
-    return `${url.pathname}${url.search}`.replace(/^\/api/, "") || null;
-  } catch {
-    return null;
-  }
-}
-
 async function fetchVideoCommentReactionData(movieId: string | number, commentId: string): Promise<VideoCommentReactionData | null> {
-  let endpoint: string | null = `/movies/${encodeURIComponent(String(movieId))}/video-comments/`;
-  while (endpoint) {
-    const page = await apiFetch(endpoint) as VideoCommentsReactionPage;
-    const match = page.results?.find((comment) => String(comment.id) === commentId);
-    if (match) return match;
-    endpoint = normalizeVideoCommentsEndpoint(page.next);
-  }
-  return null;
+  const page = await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/video-comments/`) as { results?: VideoCommentReactionData[] };
+  const expectedId = Number(commentId);
+  return page.results?.find((comment) => {
+    const candidateId = Number(comment.id);
+    return Number.isFinite(expectedId) && Number.isFinite(candidateId)
+      ? candidateId === expectedId
+      : String(comment.id) === String(commentId);
+  }) ?? null;
 }
 
 function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Required<Pick<ActivityVideoState, "likesCount" | "dislikesCount">> & Pick<ActivityVideoState, "myReaction">; disabled: boolean; onReact: (reaction: ActivityVideoReaction) => void }) {
@@ -354,6 +338,13 @@ function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Requi
         <span aria-hidden="true">{reaction === "like" ? "👍" : "👎"}</span> {reaction === "like" ? data.likesCount : data.dislikesCount}
       </button>;
     })}
+  </div>;
+}
+
+function ActivityVideoReactionLoading() {
+  return <div className="flex min-h-9 items-center gap-3 px-2 py-1.5 text-sm font-semibold leading-none text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]" aria-label="Loading reactions">
+    <span aria-hidden="true">👍 …</span>
+    <span aria-hidden="true">👎 …</span>
   </div>;
 }
 
@@ -371,7 +362,6 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
   useEffect(() => {
     if (!video.commentId || video.movieId === undefined || (video.likesCount !== undefined && video.dislikesCount !== undefined)) return;
     let active = true;
-    setReactionLoading(true);
     void fetchVideoCommentReactionData(video.movieId, video.commentId)
       .then((data) => {
         if (!active || !data || typeof data.likes_count !== "number" || typeof data.dislikes_count !== "number") return;
@@ -420,9 +410,11 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
         <button type="button" onClick={onClose} aria-label={locale === "en" ? "Close video" : "Cerrar video"} className="absolute -right-1 -top-11 rounded-full border border-white/20 bg-zinc-900/90 px-3 py-1.5 text-lg text-white hover:bg-zinc-800">×</button>
         <div className="relative mx-auto w-fit max-w-full">
           <video ref={videoRef} src={video.url} controls autoPlay playsInline className="block max-h-[82vh] max-w-full rounded-xl bg-black object-contain shadow-2xl" />
-          {reactionData ? <div className="absolute left-3 top-3 z-20 bg-transparent">
-            <ActivityVideoReactionButtons data={reactionData} disabled={reactionLoading || !video.commentId} onReact={reactToVideo} />
-          </div> : null}
+          <div className="absolute left-3 top-3 z-20 bg-transparent">
+            {reactionData
+              ? <ActivityVideoReactionButtons data={reactionData} disabled={reactionLoading || !video.commentId} onReact={reactToVideo} />
+              : <ActivityVideoReactionLoading />}
+          </div>
         </div>
       </div>
     </div>
