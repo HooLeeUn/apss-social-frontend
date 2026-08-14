@@ -1,5 +1,5 @@
 import { ApiError, apiFetch } from "../api";
-import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle } from "../movies";
+import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle, resolveMovieSecondaryTitle } from "../movies";
 import { favoriteMoviesMock } from "./mocks";
 import {
   FavoriteMovie,
