@@ -49,12 +49,23 @@ function getActivityRelativeDate(item: SocialActivityItem): string {
   return item.activityAt ?? item.updatedAt ?? item.createdAt;
 }
 
-function getActivitySortTimestamp(item: SocialActivityItem): number {
-  const sortDate = item.activityAt ?? item.updatedAt ?? item.createdAt;
-  return new Date(sortDate).getTime();
-}
-
 function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean, locale: Locale): string {
+  const activityType = normalizeActivityType(item);
+  if (activityType === "video_reaction_created") {
+    return locale === "en" ? "You uploaded a video for:" : "Subiste un video para:";
+  }
+  if (activityType === "video_reaction_received") {
+    const actor = item.reactionActorUsername || item.user.username;
+    return item.reactionValue === "dislike"
+      ? locale === "en" ? `${actor} disliked your video` : `A ${actor} no le gustó tu video`
+      : locale === "en" ? `${actor} liked your video` : `A ${actor} le gustó tu video`;
+  }
+  if (activityType === "video_reaction_given") {
+    const owner = item.videoOwnerUsername || item.likedCommentAuthorUsername || (locale === "en" ? "another user" : "otro usuario");
+    return item.reactionValue === "dislike"
+      ? locale === "en" ? `You disliked ${owner}'s video` : `No te gustó el video de ${owner}`
+      : locale === "en" ? `You liked ${owner}'s video` : `Te gustó el video de ${owner}`;
+  }
   const safeMovieTitle = item.movieTitle || (locale === "en" ? "title" : "título");
   const ratedVerb = isOwnProfile ? (locale === "en" ? "You rated" : "Calificaste") : (locale === "en" ? "Rated" : "Calificó");
   const commentedVerb = isOwnProfile ? (locale === "en" ? "Commented on" : "Comentaste") : (locale === "en" ? "Commented" : "Comentó");
@@ -71,7 +82,7 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean, local
         ? locale === "en" ? `You sent a private message about ${safeMovieTitle}${directedTarget}` : `Enviaste un mensaje privado sobre ${safeMovieTitle}${directedTarget}`
         : locale === "en" ? `Sent a private message about ${safeMovieTitle}${directedTarget}` : `Envió un mensaje privado sobre ${safeMovieTitle}${directedTarget}`;
     }
-    return `${commentedVerb} ${safeMovieTitle}`;
+    return isOwnProfile ? (locale === "en" ? "You commented:" : "Comentaste:") : `${commentedVerb} ${safeMovieTitle}`;
   }
 
   const reactionActor = item.reactionActorUsername || item.user.username || (locale === "en" ? "another user" : "otro usuario");
@@ -101,6 +112,7 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean, local
 }
 
 function getActivityDetail(item: SocialActivityItem, locale: Locale): string | null {
+  if (normalizeActivityType(item).startsWith("video_reaction_")) return null;
   if (item.interactionType === "rating") {
     return null;
   }
@@ -125,8 +137,8 @@ function joinMetadataParts(parts: ReactNode[]): ReactNode {
 }
 
 function formatMetadata(movieType?: string, movieGenre?: string, movieYear?: number | null, locale: Locale = "es", translateForVisitedProfile = false): ReactNode {
-  const typeValue = translateForVisitedProfile ? translateVisitedProfileMovieType(locale, movieType) : movieType;
-  const genreValue = translateForVisitedProfile ? translateVisibleGenre(locale, movieGenre) : movieGenre;
+  const typeValue = translateVisitedProfileMovieType(locale, movieType)?.toLocaleLowerCase();
+  const genreValue = translateVisibleGenre(locale, movieGenre);
   const typeLabel = locale === "en" ? "Type:" : "Tipo:";
   const genreLabel = locale === "en" ? "Genre:" : "Género:";
 
@@ -284,6 +296,41 @@ function ThumbsDownIcon({ className = "" }: { className?: string }) {
   );
 }
 
+function PlayIcon({ className = "" }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9" /><path fill="currentColor" stroke="none" d="m10 8 6 4-6 4Z" /></svg>;
+}
+
+function ActivityVideoModal({ video, onClose }: { video: { url: string; commentId?: string }; onClose: () => void }) {
+  const { locale } = useI18n();
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      if (element) {
+        element.pause();
+        element.muted = true;
+        element.removeAttribute("src");
+        element.load();
+      }
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={locale === "en" ? "Video reaction" : "Video reacción"} onClick={onClose}>
+      <div className="relative w-full max-w-2xl" onClick={(event) => event.stopPropagation()} data-video-comment-id={video.commentId}>
+        <button type="button" onClick={onClose} aria-label={locale === "en" ? "Close video" : "Cerrar video"} className="absolute -right-1 -top-11 rounded-full border border-white/20 bg-zinc-900/90 px-3 py-1.5 text-lg text-white hover:bg-zinc-800">×</button>
+        <video ref={videoRef} src={video.url} controls autoPlay playsInline className="max-h-[82vh] w-full rounded-xl bg-black object-contain shadow-2xl" />
+      </div>
+    </div>
+  );
+}
+
 function isUserProfileVisitable(profileAccess?: string | null, canViewFullProfile?: boolean | null): boolean {
   const normalizedProfileAccess = profileAccess?.trim().toLocaleLowerCase();
   const hasLimitedAccess =
@@ -300,6 +347,7 @@ function isPublicOwnActivityItem(item: SocialActivityItem, myUsername?: string |
   if (item.isDirectedComment) return false;
 
   const activityType = normalizeActivityType(item);
+  if (activityType === "video_reaction_created" || activityType === "video_reaction_received" || activityType === "video_reaction_given") return true;
   if (
     activityType === "public_comment_reaction" ||
     activityType === "public_comment_like" ||
@@ -369,6 +417,7 @@ function ActivityRow({
   viewedUsername,
   myUsername,
   authorCanVisitByUsername,
+  onOpenVideo,
 }: {
   item: SocialActivityItem;
   isOwnProfile: boolean;
@@ -376,6 +425,7 @@ function ActivityRow({
   viewedUsername?: string;
   myUsername?: string | null;
   authorCanVisitByUsername?: Record<string, boolean>;
+  onOpenVideo?: (video: { url: string; commentId?: string }) => void;
 }) {
   const { locale, t } = useI18n();
   const hasMovieId = item.movieId !== undefined && item.movieId !== null && String(item.movieId).trim() !== "";
@@ -400,8 +450,12 @@ function ActivityRow({
           : locale === "en" ? `${viewedUsername || "this user"} disliked the comment from` : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`
         : locale === "en" ? `${viewedUsername || "this user"} reacted to the comment from` : `A ${viewedUsername || "este usuario"} reaccionó al comentario de`;
   const ownActivityIconClassName = "h-5 w-5 shrink-0";
+  const isVideoCreated = normalizeActivityType(item) === "video_reaction_created";
+  const localizedTitle = resolveMovieTitles(locale, item.movieTitleSpanish, item.movieTitleEnglish, item.movieTitle).primary;
   const ownActivityIcon =
-    item.interactionType === "comment" ? (
+    isVideoCreated && item.videoUrl ? (
+      <button type="button" aria-label={locale === "en" ? `Play video for ${localizedTitle}` : `Reproducir video de ${localizedTitle}`} onClick={() => onOpenVideo?.({ url: item.videoUrl!, commentId: item.videoCommentId })} className="rounded-full text-blue-300/90 transition hover:text-blue-100"><PlayIcon className={ownActivityIconClassName} /></button>
+    ) : item.interactionType === "comment" ? (
       <CommentBubbleIcon className={`${ownActivityIconClassName} text-blue-300/90`} />
     ) : item.interactionType === "rating" ? (
       <StarIcon className={`${ownActivityIconClassName} text-amber-300/90`} />
@@ -425,7 +479,7 @@ function ActivityRow({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.moviePosterUrl}
-            alt={`Poster de ${item.movieTitle}`}
+            alt={`Poster de ${localizedTitle}`}
             className="h-full w-full object-cover"
             loading="lazy"
             decoding="async"
@@ -451,14 +505,14 @@ function ActivityRow({
             isVisitedProfile ? "text-base leading-snug md:text-lg" : "truncate text-sm"
           }`}
         >
-          {item.movieTitle}
+          {localizedTitle}
         </Link>
         ) : (
           <p className={`mt-1 block font-semibold text-zinc-100 ${isVisitedProfile ? "text-base leading-snug md:text-lg" : "truncate text-sm"}`}>
-            {item.movieTitle || t("profileFeedUnknownTitle")}
+            {localizedTitle || t("profileFeedUnknownTitle")}
           </p>
         )}
-        {item.movieSecondaryTitle ? (
+        {!isOwnProfile && item.movieSecondaryTitle ? (
           <p className={`mt-0.5 text-blue-200/75 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
             {movieHref ? (
               <Link
@@ -716,6 +770,8 @@ export default function MyActivityColumn({
   const initialResolvedActiveTab =
     isOwnProfile && hidePrivateInbox !== false && initialActiveTab === "messages" ? "activity" : initialActiveTab;
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
+  const [activeVideo, setActiveVideo] = useState<{ url: string; commentId?: string } | null>(null);
+  const closeActiveVideo = useCallback(() => setActiveVideo(null), []);
 
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
     "recommendations",
@@ -797,8 +853,7 @@ export default function MyActivityColumn({
 
   const ownActivityItems = useMemo(() => {
     return activity.items
-      .filter((item) => isPublicOwnActivityItem(item, myUsername))
-      .sort((left, right) => getActivitySortTimestamp(right) - getActivitySortTimestamp(left));
+      .filter((item) => isPublicOwnActivityItem(item, myUsername));
   }, [activity.items, myUsername]);
 
   const ownRatedItems = useMemo(() => {
@@ -1258,6 +1313,7 @@ export default function MyActivityColumn({
                     viewedUsername={normalizedViewedUsername}
                     myUsername={myUsername}
                     authorCanVisitByUsername={authorCanVisitByUsername}
+                    onOpenVideo={setActiveVideo}
                   />
                 ))
               : null}
@@ -1334,6 +1390,7 @@ export default function MyActivityColumn({
                     viewedUsername={normalizedViewedUsername}
                     myUsername={myUsername}
                     authorCanVisitByUsername={authorCanVisitByUsername}
+                    onOpenVideo={setActiveVideo}
                   />
                 ))
               : null}
@@ -1342,6 +1399,7 @@ export default function MyActivityColumn({
           </>
         )}
       </div>
+      {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} /> : null}
     </section>
   );
 }
