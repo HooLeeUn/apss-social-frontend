@@ -319,15 +319,36 @@ type VideoCommentReactionData = {
   my_reaction?: ActivityVideoReaction | null;
 };
 
+function getVideoCommentsFromResponse(response: unknown): VideoCommentReactionData[] {
+  if (Array.isArray(response)) return response as VideoCommentReactionData[];
+  if (!response || typeof response !== "object") return [];
+  const root = response as { results?: unknown; data?: unknown };
+  if (Array.isArray(root.results)) return root.results as VideoCommentReactionData[];
+  if (root.data && typeof root.data === "object" && Array.isArray((root.data as { results?: unknown }).results)) {
+    return (root.data as { results: VideoCommentReactionData[] }).results;
+  }
+  return [];
+}
+
 async function fetchVideoCommentReactionData(movieId: string | number, commentId: string): Promise<VideoCommentReactionData | null> {
-  const page = await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/video-comments/`) as { results?: VideoCommentReactionData[] };
+  const response = await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/video-comments/`);
   const expectedId = Number(commentId);
-  return page.results?.find((comment) => {
+  return getVideoCommentsFromResponse(response).find((comment) => {
     const candidateId = Number(comment.id);
     return Number.isFinite(expectedId) && Number.isFinite(candidateId)
       ? candidateId === expectedId
       : String(comment.id) === String(commentId);
   }) ?? null;
+}
+
+function normalizeVideoCommentReactionData(data: VideoCommentReactionData): { likesCount: number; dislikesCount: number; myReaction: ActivityVideoReaction | null } {
+  const likesCount = Number(data.likes_count ?? 0);
+  const dislikesCount = Number(data.dislikes_count ?? 0);
+  return {
+    likesCount: Number.isFinite(likesCount) ? likesCount : 0,
+    dislikesCount: Number.isFinite(dislikesCount) ? dislikesCount : 0,
+    myReaction: data.my_reaction === "like" || data.my_reaction === "dislike" ? data.my_reaction : null,
+  };
 }
 
 function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Required<Pick<ActivityVideoState, "likesCount" | "dislikesCount">> & Pick<ActivityVideoState, "myReaction">; disabled: boolean; onReact: (reaction: ActivityVideoReaction) => void }) {
@@ -348,6 +369,13 @@ function ActivityVideoReactionLoading() {
   </div>;
 }
 
+function ActivityVideoReactionUnavailable() {
+  return <div className="flex min-h-9 items-center gap-3 px-2 py-1.5 text-sm font-semibold leading-none text-white/70 [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]" aria-label="Reactions unavailable">
+    <span aria-hidden="true">👍 —</span>
+    <span aria-hidden="true">👎 —</span>
+  </div>;
+}
+
 function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onClose: () => void }) {
   const { locale } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -364,8 +392,8 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
     let active = true;
     void fetchVideoCommentReactionData(video.movieId, video.commentId)
       .then((data) => {
-        if (!active || !data || typeof data.likes_count !== "number" || typeof data.dislikes_count !== "number") return;
-        setReactionData({ likesCount: data.likes_count, dislikesCount: data.dislikes_count, myReaction: data.my_reaction ?? null });
+        if (!active || !data) return;
+        setReactionData(normalizeVideoCommentReactionData(data));
       })
       .catch(() => undefined)
       .finally(() => { if (active) setReactionLoading(false); });
@@ -375,16 +403,14 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
   const reactToVideo = useCallback((reaction: ActivityVideoReaction) => {
     if (!video.commentId || reactingRef.current) return;
     reactingRef.current = true;
-    setReactionLoading(true);
     void apiFetch(`/video-comments/${encodeURIComponent(video.commentId)}/reaction/`, { method: "PUT", body: JSON.stringify({ reaction }) })
       .then((result) => {
         if (!result || typeof result !== "object") return;
         const data = result as VideoCommentReactionData;
-        if (typeof data.likes_count !== "number" || typeof data.dislikes_count !== "number") return;
-        setReactionData({ likesCount: data.likes_count, dislikesCount: data.dislikes_count, myReaction: data.my_reaction ?? null });
+        setReactionData(normalizeVideoCommentReactionData(data));
       })
       .catch(() => undefined)
-      .finally(() => { reactingRef.current = false; setReactionLoading(false); });
+      .finally(() => { reactingRef.current = false; });
   }, [video.commentId]);
 
   useEffect(() => {
@@ -413,7 +439,7 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
           <div className="absolute left-3 top-3 z-20 bg-transparent">
             {reactionData
               ? <ActivityVideoReactionButtons data={reactionData} disabled={reactionLoading || !video.commentId} onReact={reactToVideo} />
-              : <ActivityVideoReactionLoading />}
+              : reactionLoading ? <ActivityVideoReactionLoading /> : <ActivityVideoReactionUnavailable />}
           </div>
         </div>
       </div>
