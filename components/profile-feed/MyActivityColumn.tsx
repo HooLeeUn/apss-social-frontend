@@ -305,41 +305,17 @@ type ActivityVideoReaction = "like" | "dislike";
 type ActivityVideoState = {
   url: string;
   commentId?: string;
-  movieId?: string | number;
   likesCount?: number;
   dislikesCount?: number;
   myReaction?: ActivityVideoReaction | null;
 };
 
 type VideoCommentReactionData = {
-  id?: string | number;
   video_comment_id?: string | number;
   likes_count?: number;
   dislikes_count?: number;
   my_reaction?: ActivityVideoReaction | null;
 };
-
-function getVideoCommentsFromResponse(response: unknown): VideoCommentReactionData[] {
-  if (Array.isArray(response)) return response as VideoCommentReactionData[];
-  if (!response || typeof response !== "object") return [];
-  const root = response as { results?: unknown; data?: unknown };
-  if (Array.isArray(root.results)) return root.results as VideoCommentReactionData[];
-  if (root.data && typeof root.data === "object" && Array.isArray((root.data as { results?: unknown }).results)) {
-    return (root.data as { results: VideoCommentReactionData[] }).results;
-  }
-  return [];
-}
-
-async function fetchVideoCommentReactionData(movieId: string | number, commentId: string): Promise<VideoCommentReactionData | null> {
-  const response = await apiFetch(`/movies/${encodeURIComponent(String(movieId))}/video-comments/`);
-  const expectedId = Number(commentId);
-  return getVideoCommentsFromResponse(response).find((comment) => {
-    const candidateId = Number(comment.id);
-    return Number.isFinite(expectedId) && Number.isFinite(candidateId)
-      ? candidateId === expectedId
-      : String(comment.id) === String(commentId);
-  }) ?? null;
-}
 
 function normalizeVideoCommentReactionData(data: VideoCommentReactionData): { likesCount: number; dislikesCount: number; myReaction: ActivityVideoReaction | null } {
   const likesCount = Number(data.likes_count ?? 0);
@@ -362,43 +338,15 @@ function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Requi
   </div>;
 }
 
-function ActivityVideoReactionLoading() {
-  return <div className="flex min-h-9 items-center gap-3 px-2 py-1.5 text-sm font-semibold leading-none text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]" aria-label="Loading reactions">
-    <span aria-hidden="true">👍 …</span>
-    <span aria-hidden="true">👎 …</span>
-  </div>;
-}
-
-function ActivityVideoReactionUnavailable() {
-  return <div className="flex min-h-9 items-center gap-3 px-2 py-1.5 text-sm font-semibold leading-none text-white/70 [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]" aria-label="Reactions unavailable">
-    <span aria-hidden="true">👍 —</span>
-    <span aria-hidden="true">👎 —</span>
-  </div>;
-}
-
 function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onClose: () => void }) {
   const { locale } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [reactionData, setReactionData] = useState<{ likesCount: number; dislikesCount: number; myReaction: ActivityVideoReaction | null } | null>(
-    video.likesCount !== undefined && video.dislikesCount !== undefined
-      ? { likesCount: video.likesCount, dislikesCount: video.dislikesCount, myReaction: video.myReaction ?? null }
-      : null,
-  );
-  const [reactionLoading, setReactionLoading] = useState(video.likesCount === undefined || video.dislikesCount === undefined);
+  const [reactionData, setReactionData] = useState({
+    likesCount: video.likesCount ?? 0,
+    dislikesCount: video.dislikesCount ?? 0,
+    myReaction: video.myReaction ?? null,
+  });
   const reactingRef = useRef(false);
-
-  useEffect(() => {
-    if (!video.commentId || video.movieId === undefined || (video.likesCount !== undefined && video.dislikesCount !== undefined)) return;
-    let active = true;
-    void fetchVideoCommentReactionData(video.movieId, video.commentId)
-      .then((data) => {
-        if (!active || !data) return;
-        setReactionData(normalizeVideoCommentReactionData(data));
-      })
-      .catch(() => undefined)
-      .finally(() => { if (active) setReactionLoading(false); });
-    return () => { active = false; };
-  }, [video.commentId, video.dislikesCount, video.likesCount, video.movieId]);
 
   const reactToVideo = useCallback((reaction: ActivityVideoReaction) => {
     if (!video.commentId || reactingRef.current) return;
@@ -437,9 +385,7 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
         <div className="relative mx-auto w-fit max-w-full">
           <video ref={videoRef} src={video.url} controls autoPlay playsInline className="block max-h-[82vh] max-w-full rounded-xl bg-black object-contain shadow-2xl" />
           <div className="absolute left-3 top-3 z-20 bg-transparent">
-            {reactionData
-              ? <ActivityVideoReactionButtons data={reactionData} disabled={reactionLoading || !video.commentId} onReact={reactToVideo} />
-              : reactionLoading ? <ActivityVideoReactionLoading /> : <ActivityVideoReactionUnavailable />}
+            <ActivityVideoReactionButtons data={reactionData} disabled={!video.commentId} onReact={reactToVideo} />
           </div>
         </div>
       </div>
@@ -570,7 +516,7 @@ function ActivityRow({
   const localizedTitle = resolveMovieTitles(locale, item.movieTitleSpanish, item.movieTitleEnglish, item.movieTitle).primary;
   const ownActivityIcon =
     isVideoCreated && item.videoUrl ? (
-      <button type="button" aria-label={locale === "en" ? `Play video for ${localizedTitle}` : `Reproducir video de ${localizedTitle}`} onClick={() => onOpenVideo?.({ url: item.videoUrl!, commentId: item.videoCommentId, movieId: item.movieId, likesCount: item.videoLikesCount, dislikesCount: item.videoDislikesCount, myReaction: item.videoMyReaction })} className="rounded-full text-blue-300/90 transition hover:text-blue-100"><PlayIcon className={ownActivityIconClassName} /></button>
+      <button type="button" aria-label={locale === "en" ? `Play video for ${localizedTitle}` : `Reproducir video de ${localizedTitle}`} onClick={() => onOpenVideo?.({ url: item.videoUrl!, commentId: item.videoCommentId, likesCount: item.videoLikesCount, dislikesCount: item.videoDislikesCount, myReaction: item.videoMyReaction })} className="rounded-full text-blue-300/90 transition hover:text-blue-100"><PlayIcon className={ownActivityIconClassName} /></button>
     ) : item.interactionType === "comment" ? (
       <CommentBubbleIcon className={`${ownActivityIconClassName} text-blue-300/90`} />
     ) : item.interactionType === "rating" ? (
