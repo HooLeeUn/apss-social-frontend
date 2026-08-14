@@ -150,6 +150,9 @@ export interface SocialActivityItem {
   videoCommentId?: string;
   videoUrl?: string;
   videoOwnerUsername?: string;
+  videoLikesCount?: number;
+  videoDislikesCount?: number;
+  videoMyReaction?: "like" | "dislike" | null;
 }
 
 export interface PaginatedSocialActivity {
@@ -252,6 +255,9 @@ export interface VideoReactionActivityPayload {
   video_url?: string;
   reaction?: "like" | "dislike";
   video_owner?: { id?: number | string; username?: string } | string;
+  likes_count?: number;
+  dislikes_count?: number;
+  my_reaction?: "like" | "dislike" | null;
 }
 
 export type ProfileFeedActivityPayload =

@@ -492,6 +492,10 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
       ? payload.video_owner
       : pickFirst(videoOwner?.username, payload.video_owner_username, payload.video_author_username, payload.target_username),
   );
+  const videoLikesCount = toNumberOrNull(pickFirst(payload.likes_count, activityRecord.likes_count));
+  const videoDislikesCount = toNumberOrNull(pickFirst(payload.dislikes_count, activityRecord.dislikes_count));
+  const videoMyReactionValue = safeTrim(pickFirst(payload.my_reaction, activityRecord.my_reaction))?.toLocaleLowerCase();
+  const videoMyReaction = videoMyReactionValue === "like" || videoMyReactionValue === "dislike" ? videoMyReactionValue : null;
   const reactionActor = toRecord(payload.actor);
   const reactionActorUsername = toStringOrNull(pickFirst(reactionActor?.username, actor.username));
   const reactionId = toStringOrNull(pickFirst(payload.reaction_id, payload.reactionId, payload.active_reaction_id, payload.current_reaction_id));
@@ -592,6 +596,9 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     videoCommentId: toStringOrNull(pickFirst(payload.video_comment_id, payload.videoCommentId)) ?? undefined,
     videoUrl: toStringOrNull(pickFirst(payload.video_url, payload.videoUrl)) ?? undefined,
     videoOwnerUsername: videoOwnerUsername ?? undefined,
+    videoLikesCount: videoLikesCount ?? undefined,
+    videoDislikesCount: videoDislikesCount ?? undefined,
+    videoMyReaction,
   };
 }
 

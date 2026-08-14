@@ -12,6 +12,7 @@ import { useI18n } from "../../hooks/useI18n";
 import { formatProfileFeedRelativeDate, Locale, resolveMovieTitles, translateVisibleGenre, translateVisitedProfileMovieType } from "../../lib/i18n";
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 import EmptyStatePanel from "./EmptyStatePanel";
+import { apiFetch } from "../../lib/api";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
@@ -300,9 +301,69 @@ function PlayIcon({ className = "" }: { className?: string }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="12" r="9" /><path fill="currentColor" stroke="none" d="m10 8 6 4-6 4Z" /></svg>;
 }
 
-function ActivityVideoModal({ video, onClose }: { video: { url: string; commentId?: string }; onClose: () => void }) {
+type ActivityVideoReaction = "like" | "dislike";
+type ActivityVideoState = {
+  url: string;
+  commentId?: string;
+  likesCount?: number;
+  dislikesCount?: number;
+  myReaction?: ActivityVideoReaction | null;
+};
+
+type VideoCommentReactionData = {
+  id?: string | number;
+  video_comment_id?: string | number;
+  likes_count?: number;
+  dislikes_count?: number;
+  my_reaction?: ActivityVideoReaction | null;
+};
+
+function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Required<Pick<ActivityVideoState, "likesCount" | "dislikesCount">> & Pick<ActivityVideoState, "myReaction">; disabled: boolean; onReact: (reaction: ActivityVideoReaction) => void }) {
+  return <div className="flex items-center gap-1">
+    {(["like", "dislike"] as const).map((reaction) => {
+      const selected = data.myReaction === reaction;
+      return <button key={reaction} type="button" disabled={disabled} aria-label={reaction === "like" ? "Like" : "Dislike"} aria-pressed={selected} className={`min-h-9 rounded-full px-2 py-1.5 text-sm font-semibold leading-none transition [text-shadow:0_1px_3px_rgb(0_0_0/0.9)] disabled:opacity-50 ${selected ? reaction === "like" ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200" : "bg-transparent text-white hover:bg-white/10"}`} onClick={(event) => { event.stopPropagation(); onReact(reaction); }}>
+        <span aria-hidden="true">{reaction === "like" ? "👍" : "👎"}</span> {reaction === "like" ? data.likesCount : data.dislikesCount}
+      </button>;
+    })}
+  </div>;
+}
+
+function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onClose: () => void }) {
   const { locale } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [reactionData, setReactionData] = useState({ likesCount: video.likesCount ?? 0, dislikesCount: video.dislikesCount ?? 0, myReaction: video.myReaction ?? null });
+  const [reactionLoading, setReactionLoading] = useState(video.likesCount === undefined || video.dislikesCount === undefined);
+  const reactingRef = useRef(false);
+
+  useEffect(() => {
+    if (!video.commentId || (video.likesCount !== undefined && video.dislikesCount !== undefined)) return;
+    let active = true;
+    setReactionLoading(true);
+    void apiFetch(`/video-comments/${encodeURIComponent(video.commentId)}/`)
+      .then((result) => {
+        if (!active || !result || typeof result !== "object") return;
+        const data = result as VideoCommentReactionData;
+        setReactionData({ likesCount: data.likes_count ?? 0, dislikesCount: data.dislikes_count ?? 0, myReaction: data.my_reaction ?? null });
+      })
+      .catch(() => undefined)
+      .finally(() => { if (active) setReactionLoading(false); });
+    return () => { active = false; };
+  }, [video.commentId, video.dislikesCount, video.likesCount]);
+
+  const reactToVideo = useCallback((reaction: ActivityVideoReaction) => {
+    if (!video.commentId || reactingRef.current) return;
+    reactingRef.current = true;
+    setReactionLoading(true);
+    void apiFetch(`/video-comments/${encodeURIComponent(video.commentId)}/reaction/`, { method: "PUT", body: JSON.stringify({ reaction }) })
+      .then((result) => {
+        if (!result || typeof result !== "object") return;
+        const data = result as VideoCommentReactionData;
+        setReactionData({ likesCount: data.likes_count ?? 0, dislikesCount: data.dislikes_count ?? 0, myReaction: data.my_reaction ?? null });
+      })
+      .catch(() => undefined)
+      .finally(() => { reactingRef.current = false; setReactionLoading(false); });
+  }, [video.commentId]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -326,6 +387,9 @@ function ActivityVideoModal({ video, onClose }: { video: { url: string; commentI
       <div className="relative w-full max-w-2xl" onClick={(event) => event.stopPropagation()} data-video-comment-id={video.commentId}>
         <button type="button" onClick={onClose} aria-label={locale === "en" ? "Close video" : "Cerrar video"} className="absolute -right-1 -top-11 rounded-full border border-white/20 bg-zinc-900/90 px-3 py-1.5 text-lg text-white hover:bg-zinc-800">×</button>
         <video ref={videoRef} src={video.url} controls autoPlay playsInline className="max-h-[82vh] w-full rounded-xl bg-black object-contain shadow-2xl" />
+        <div className="absolute left-3 top-3 z-20 bg-transparent">
+          <ActivityVideoReactionButtons data={reactionData} disabled={reactionLoading || !video.commentId} onReact={reactToVideo} />
+        </div>
       </div>
     </div>
   );
@@ -425,7 +489,7 @@ function ActivityRow({
   viewedUsername?: string;
   myUsername?: string | null;
   authorCanVisitByUsername?: Record<string, boolean>;
-  onOpenVideo?: (video: { url: string; commentId?: string }) => void;
+  onOpenVideo?: (video: ActivityVideoState) => void;
 }) {
   const { locale, t } = useI18n();
   const hasMovieId = item.movieId !== undefined && item.movieId !== null && String(item.movieId).trim() !== "";
@@ -454,7 +518,7 @@ function ActivityRow({
   const localizedTitle = resolveMovieTitles(locale, item.movieTitleSpanish, item.movieTitleEnglish, item.movieTitle).primary;
   const ownActivityIcon =
     isVideoCreated && item.videoUrl ? (
-      <button type="button" aria-label={locale === "en" ? `Play video for ${localizedTitle}` : `Reproducir video de ${localizedTitle}`} onClick={() => onOpenVideo?.({ url: item.videoUrl!, commentId: item.videoCommentId })} className="rounded-full text-blue-300/90 transition hover:text-blue-100"><PlayIcon className={ownActivityIconClassName} /></button>
+      <button type="button" aria-label={locale === "en" ? `Play video for ${localizedTitle}` : `Reproducir video de ${localizedTitle}`} onClick={() => onOpenVideo?.({ url: item.videoUrl!, commentId: item.videoCommentId, likesCount: item.videoLikesCount, dislikesCount: item.videoDislikesCount, myReaction: item.videoMyReaction })} className="rounded-full text-blue-300/90 transition hover:text-blue-100"><PlayIcon className={ownActivityIconClassName} /></button>
     ) : item.interactionType === "comment" ? (
       <CommentBubbleIcon className={`${ownActivityIconClassName} text-blue-300/90`} />
     ) : item.interactionType === "rating" ? (
@@ -770,7 +834,7 @@ export default function MyActivityColumn({
   const initialResolvedActiveTab =
     isOwnProfile && hidePrivateInbox !== false && initialActiveTab === "messages" ? "activity" : initialActiveTab;
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
-  const [activeVideo, setActiveVideo] = useState<{ url: string; commentId?: string } | null>(null);
+  const [activeVideo, setActiveVideo] = useState<ActivityVideoState | null>(null);
   const closeActiveVideo = useCallback(() => setActiveVideo(null), []);
 
   const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
