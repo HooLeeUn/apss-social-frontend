@@ -116,6 +116,8 @@ export interface SocialActivityItem {
   user: SocialUser;
   userDisplayName?: string | null;
   movieTitle: string;
+  movieTitleSpanish?: string | null;
+  movieTitleEnglish?: string | null;
   movieSecondaryTitle?: string | null;
   movieYear: number | null;
   movieId: number | string;
@@ -145,6 +147,12 @@ export interface SocialActivityItem {
   scope?: NotificationTargetTab;
   reactionScope?: "public" | "private";
   reactionValue?: "like" | "dislike";
+  videoCommentId?: string;
+  videoUrl?: string;
+  videoOwnerUsername?: string;
+  videoLikesCount?: number;
+  videoDislikesCount?: number;
+  videoMyReaction?: "like" | "dislike" | null;
 }
 
 export interface PaginatedSocialActivity {
@@ -242,10 +250,21 @@ export interface PublicCommentLikeActivityPayload {
   };
 }
 
+export interface VideoReactionActivityPayload {
+  video_comment_id?: number | string;
+  video_url?: string;
+  reaction?: "like" | "dislike";
+  video_owner?: { id?: number | string; username?: string } | string;
+  likes_count?: number;
+  dislikes_count?: number;
+  my_reaction?: "like" | "dislike" | null;
+}
+
 export type ProfileFeedActivityPayload =
   | RatingActivityPayload
   | PublicCommentActivityPayload
   | PublicCommentLikeActivityPayload
+  | VideoReactionActivityPayload
   | null;
 
 export interface ProfileFeedActivityResponseItem {

@@ -411,57 +411,6 @@ function getDisplayMovieTitle(movie: ProfileFeedActivityResponseItem["movie"]): 
   return resolveMovieDisplayTitle(movie);
 }
 
-function getDisplayMovieSecondaryTitle(movie: ProfileFeedActivityResponseItem["movie"]): string | null {
-  const displayTitle = getDisplayMovieTitle(movie);
-  return resolveMovieSecondaryTitle(displayTitle, movie);
-}
-
-function toTimestamp(value: string): number {
-  const parsed = new Date(value).getTime();
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function compareByCreatedAtDesc(left: SocialActivityItem, right: SocialActivityItem): number {
-  return toTimestamp(right.createdAt) - toTimestamp(left.createdAt);
-}
-
-function pickMostRelevantReaction(current: SocialActivityItem, candidate: SocialActivityItem): SocialActivityItem {
-  if (!current.reactionId && candidate.reactionId) return candidate;
-  if (current.reactionId && !candidate.reactionId) return current;
-
-  const currentTimestamp = toTimestamp(current.createdAt);
-  const candidateTimestamp = toTimestamp(candidate.createdAt);
-  if (currentTimestamp !== candidateTimestamp) {
-    return candidateTimestamp > currentTimestamp ? candidate : current;
-  }
-
-  return String(candidate.id) > String(current.id) ? candidate : current;
-}
-
-function dedupeReactionItems(items: SocialActivityItem[]): SocialActivityItem[] {
-  const dedupedByCommentAndActor = new Map<string, SocialActivityItem>();
-  const passthrough: SocialActivityItem[] = [];
-
-  for (const item of items) {
-    const isReaction = item.interactionType === "like" || item.interactionType === "dislike";
-    if (!isReaction || !item.commentId || !item.actorId) {
-      passthrough.push(item);
-      continue;
-    }
-
-    const dedupeKey = `${item.commentId}::${item.actorId}`;
-    const current = dedupedByCommentAndActor.get(dedupeKey);
-    if (!current) {
-      dedupedByCommentAndActor.set(dedupeKey, item);
-      continue;
-    }
-
-    dedupedByCommentAndActor.set(dedupeKey, pickMostRelevantReaction(current, item));
-  }
-
-  return [...passthrough, ...dedupedByCommentAndActor.values()].sort(compareByCreatedAtDesc);
-}
-
 function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityItem {
   const activityRecord = item as unknown as Record<string, unknown>;
   const actor = toRecord(item.actor) ?? {};
@@ -480,6 +429,10 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     normalizedActivityType === "public_comment_reaction" ||
     normalizedActivityType === "public_comment_like" ||
     normalizedActivityType === "public_comment_dislike";
+  const isVideoCreatedType = normalizedActivityType === "video_reaction_created";
+  const isVideoGivenType = normalizedActivityType === "video_reaction_given";
+  const isVideoReceivedType = normalizedActivityType === "video_reaction_received";
+  const isVideoReactionType = isVideoGivenType || isVideoReceivedType;
   const isPrivateType =
     normalizedActivityType === "private_message" ||
     normalizedActivityType === "directed_comment" ||
@@ -493,7 +446,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     isPrivateType || hasPrivatePayloadCommentType || isTrueValue(payload.is_directed);
   const isReactionType =
     isPublicReactionType ||
-    normalizedActivityType.includes("reaction") ||
+    isVideoReactionType ||
     normalizedActivityType.includes("comment_like") ||
     normalizedActivityType.includes("comment_dislike");
   const normalizedReactionValue = safeTrim(
@@ -533,13 +486,23 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   );
   const likedCommentAuthor = toRecord(pickFirst(payload.comment_author, activityRecord.comment_author));
   const likedCommentAuthorUsername = toStringOrNull(likedCommentAuthor?.username);
+  const videoOwner = toRecord(pickFirst(payload.video_owner, payload.video_author, payload.owner, payload.target_user));
+  const videoOwnerUsername = toStringOrNull(
+    typeof payload.video_owner === "string"
+      ? payload.video_owner
+      : pickFirst(videoOwner?.username, payload.video_owner_username, payload.video_author_username, payload.target_username),
+  );
+  const videoLikesCount = toNumberOrNull(pickFirst(payload.likes_count, activityRecord.likes_count));
+  const videoDislikesCount = toNumberOrNull(pickFirst(payload.dislikes_count, activityRecord.dislikes_count));
+  const videoMyReactionValue = safeTrim(pickFirst(payload.my_reaction, activityRecord.my_reaction))?.toLocaleLowerCase();
+  const videoMyReaction = videoMyReactionValue === "like" || videoMyReactionValue === "dislike" ? videoMyReactionValue : null;
   const reactionActor = toRecord(payload.actor);
   const reactionActorUsername = toStringOrNull(pickFirst(reactionActor?.username, actor.username));
   const reactionId = toStringOrNull(pickFirst(payload.reaction_id, payload.reactionId, payload.active_reaction_id, payload.current_reaction_id));
-  const isGivenReaction = isTrueValue(
+  const isGivenReaction = isVideoGivenType || isTrueValue(
     pickFirst(payload.is_given_reaction, payload.isGivenReaction, activityRecord.is_given_reaction, activityRecord.isGivenReaction),
   );
-  const isReceivedReaction = isTrueValue(
+  const isReceivedReaction = isVideoReceivedType || isTrueValue(
     pickFirst(
       payload.is_received_reaction,
       payload.isReceivedReaction,
@@ -563,6 +526,8 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
       ? "rating"
       : isPublicCommentType || normalizedActivityType === "directed_comment" || normalizedActivityType === "private_message"
         ? "comment"
+        : isVideoCreatedType
+          ? "comment"
         : isReactionType
           ? reactionValue === "like"
             ? "like"
@@ -590,7 +555,9 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     },
     userDisplayName: toStringOrNull(actor.display_name),
     movieTitle: getDisplayMovieTitle(movie as unknown as ProfileFeedActivityResponseItem["movie"]) || "Título desconocido",
-    movieSecondaryTitle: getDisplayMovieSecondaryTitle(movie as unknown as ProfileFeedActivityResponseItem["movie"]),
+    movieTitleSpanish: toStringOrNull(movie.title_spanish),
+    movieTitleEnglish: toStringOrNull(movie.title_english),
+    movieSecondaryTitle: null,
     movieYear: toNumberOrNull(movie.release_year),
     movieId: pickFirst(movie.id, `movie-${item.id}`) as number | string,
     moviePosterUrl: (pickFirst(movie.image, movie.poster, movie.poster_url, movie.image_url) as string | null) ?? null,
@@ -626,6 +593,12 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
             : "public"
         : undefined,
     reactionValue: interactionType === "like" || interactionType === "dislike" ? interactionType : undefined,
+    videoCommentId: toStringOrNull(pickFirst(payload.video_comment_id, payload.videoCommentId)) ?? undefined,
+    videoUrl: toStringOrNull(pickFirst(payload.video_url, payload.videoUrl)) ?? undefined,
+    videoOwnerUsername: videoOwnerUsername ?? undefined,
+    videoLikesCount: videoLikesCount ?? undefined,
+    videoDislikesCount: videoDislikesCount ?? undefined,
+    videoMyReaction,
   };
 }
 
@@ -657,7 +630,8 @@ function parseSocialActivity(payload: unknown): PaginatedSocialActivity {
     .map((item) => toActivityItem(item as unknown as ProfileFeedActivityResponseItem));
 
   return {
-    items: dedupeReactionItems(mapped),
+    // The activity endpoint is authoritative for chronology; retain its exact order.
+    items: mapped,
     next: typeof root?.next === "string" ? root.next : null,
   };
 }
@@ -973,7 +947,7 @@ function filterUsernameScopedActivity(items: SocialActivityItem[], username: str
 }
 
 function buildActivityScopeEndpoint(scope: SocialActivityScope): string {
-  if (scope === "me") return PROFILE_FEED_ACTIVITY_ENDPOINT;
+  if (scope === "me") return `${PROFILE_FEED_ACTIVITY_ENDPOINT}?scope=me`;
 
   const username = parseUserScope(scope);
   if (username) {
