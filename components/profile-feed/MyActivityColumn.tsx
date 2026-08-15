@@ -377,7 +377,10 @@ async function resolveCanonicalVideoReaction(movieId: string, videoCommentId: st
     if (match) {
       const likesCount = Number(match.likes_count);
       const dislikesCount = Number(match.dislikes_count);
-      if (!Number.isFinite(likesCount) || !Number.isFinite(dislikesCount)) return null;
+      if (!Number.isFinite(likesCount) || !Number.isFinite(dislikesCount)) {
+        console.warn("Canonical activity video reaction has invalid counts.", { movieId, videoCommentId });
+        return null;
+      }
       return {
         likesCount,
         dislikesCount,
@@ -386,6 +389,7 @@ async function resolveCanonicalVideoReaction(movieId: string, videoCommentId: st
     }
     endpoint = normalizeCanonicalVideoReactionNext(page.next);
   }
+  console.warn("Canonical activity video reaction was not found.", { movieId, videoCommentId });
   return null;
 }
 
@@ -1033,6 +1037,7 @@ export default function MyActivityColumn({
       const canonicalReaction = video.commentId
         ? await resolveCanonicalVideoReaction(movieId, video.commentId)
         : null;
+      if (!video.commentId) console.warn("Activity video has no video_comment_id; using activity reaction fallback.", { movieId });
       setActiveVideo(canonicalReaction ? { ...video, ...canonicalReaction } : video);
     } catch (error) {
       console.warn("Could not resolve canonical activity video reaction.", { movieId, videoCommentId: video.commentId, error });
