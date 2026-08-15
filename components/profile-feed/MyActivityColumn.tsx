@@ -334,7 +334,7 @@ type ActivityVideoState = {
   dislikesCount?: number;
   myReaction?: ActivityVideoReaction | null;
 };
-type ActivityVideoOpenRequest = { movieId: string; video: ActivityVideoState };
+type ActivityVideoOpenRequest = { movieId: string; activityType?: string; video: ActivityVideoState };
 type CanonicalVideoReaction = { likesCount: number; dislikesCount: number; myReaction: ActivityVideoReaction | null };
 type CanonicalVideoReactionPage = {
   next?: string | null;
@@ -372,9 +372,18 @@ function normalizeCanonicalVideoReactionNext(next: string | null | undefined): s
 async function resolveCanonicalVideoReaction(movieId: string, videoCommentId: string): Promise<CanonicalVideoReaction | null> {
   let endpoint: string | null = `/movies/${encodeURIComponent(movieId)}/video-comments/`;
   while (endpoint) {
+    console.log("CANONICAL REQUEST", { endpoint, movieId, videoCommentId });
     const page = await apiFetch(endpoint) as CanonicalVideoReactionPage;
+    console.log("CANONICAL PAGE", { endpoint, next: page.next, ids: page.results?.map((video) => video.id) });
     const match = page.results?.find((video) => String(video.id) === videoCommentId);
     if (match) {
+      console.log("CANONICAL MATCH", {
+        requestedVideoCommentId: videoCommentId,
+        canonicalId: match.id,
+        likes_count: match.likes_count,
+        dislikes_count: match.dislikes_count,
+        my_reaction: match.my_reaction,
+      });
       const likesCount = Number(match.likes_count);
       const dislikesCount = Number(match.dislikes_count);
       if (!Number.isFinite(likesCount) || !Number.isFinite(dislikesCount)) {
@@ -389,7 +398,7 @@ async function resolveCanonicalVideoReaction(movieId: string, videoCommentId: st
     }
     endpoint = normalizeCanonicalVideoReactionNext(page.next);
   }
-  console.warn("Canonical activity video reaction was not found.", { movieId, videoCommentId });
+  console.error("CANONICAL VIDEO NOT FOUND", { movieId, videoCommentId });
   return null;
 }
 
@@ -643,7 +652,7 @@ function ActivityRow({
   } satisfies ActivityVideoState : null;
   const openSelectedVideo = (event: ReactMouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    if (selectedVideo && hasMovieId) onOpenVideo?.({ movieId: String(item.movieId), video: selectedVideo });
+    if (selectedVideo && hasMovieId) onOpenVideo?.({ movieId: String(item.movieId), activityType: item.activityType, video: selectedVideo });
   };
   const ownActivityIcon =
     isSummary ? (
@@ -1030,19 +1039,51 @@ export default function MyActivityColumn({
   const messages = useInfiniteMyMessages(messagesEnabled);
   const reloadMessages = messages.reload;
 
-  const openActivityVideo = useCallback(async ({ movieId, video }: ActivityVideoOpenRequest) => {
+  const openActivityVideo = useCallback(async ({ movieId, activityType, video }: ActivityVideoOpenRequest) => {
     if (resolvingVideoReactionRef.current) return;
     resolvingVideoReactionRef.current = true;
+    console.group("[QNext ActivityVideo DEBUG]");
+    console.log("OPEN REQUEST", {
+      activityType,
+      movieId,
+      videoCommentId: video.commentId,
+      activityVideoUrl: video.url,
+      activityLikesCount: video.likesCount,
+      activityDislikesCount: video.dislikesCount,
+      activityMyReaction: video.myReaction,
+    });
     try {
       const canonicalReaction = video.commentId
         ? await resolveCanonicalVideoReaction(movieId, video.commentId)
         : null;
       if (!video.commentId) console.warn("Activity video has no video_comment_id; using activity reaction fallback.", { movieId });
+      if (canonicalReaction) {
+        console.log("FINAL MODAL VIDEO — CANONICAL", {
+          videoCommentId: video.commentId,
+          likesCount: canonicalReaction.likesCount,
+          dislikesCount: canonicalReaction.dislikesCount,
+          myReaction: canonicalReaction.myReaction,
+        });
+      } else {
+        console.warn("FINAL MODAL VIDEO — FALLBACK", {
+          videoCommentId: video.commentId,
+          likesCount: video.likesCount,
+          dislikesCount: video.dislikesCount,
+          myReaction: video.myReaction,
+        });
+      }
       setActiveVideo(canonicalReaction ? { ...video, ...canonicalReaction } : video);
     } catch (error) {
-      console.warn("Could not resolve canonical activity video reaction.", { movieId, videoCommentId: video.commentId, error });
+      console.error("CANONICAL FETCH FAILED", { movieId, videoCommentId: video.commentId, error });
+      console.warn("FINAL MODAL VIDEO — FALLBACK", {
+        videoCommentId: video.commentId,
+        likesCount: video.likesCount,
+        dislikesCount: video.dislikesCount,
+        myReaction: video.myReaction,
+      });
       setActiveVideo(video);
     } finally {
+      console.groupEnd();
       resolvingVideoReactionRef.current = false;
     }
   }, []);
