@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useInfiniteMyMessages } from "../../hooks/useInfiniteMyMessages";
 import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSocialActivity";
 import { getMyProfile, getUserMovieRecommendationsByUsername, getUserProfileByUsername, markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
@@ -135,6 +135,7 @@ function getActivityTitle(item: SocialActivityItem, isOwnProfile: boolean, local
 }
 
 function getActivityDetail(item: SocialActivityItem, locale: Locale): string | null {
+  if (normalizeActivityType(item) === "comment_reactions_received_summary") return item.commentText ?? null;
   if (isReactionSummary(item)) return null;
   if (normalizeActivityType(item).startsWith("video_reaction_")) return null;
   if (item.interactionType === "rating") {
@@ -586,17 +587,40 @@ function ActivityRow({
           : locale === "en" ? `${viewedUsername || "this user"} disliked the comment from` : `A ${viewedUsername || "este usuario"} no le gustó el comentario de`
         : locale === "en" ? `${viewedUsername || "this user"} reacted to the comment from` : `A ${viewedUsername || "este usuario"} reaccionó al comentario de`;
   const ownActivityIconClassName = "h-5 w-5 shrink-0";
-  const isVideoCreated = normalizeActivityType(item) === "video_reaction_created";
+  const activityType = normalizeActivityType(item);
+  const isVideoCreated = activityType === "video_reaction_created";
+  const isVideoSummary = activityType === "video_reactions_received_summary";
+  const isVideoGiven = activityType === "video_reaction_given";
   const isSummary = isReactionSummary(item);
   const localizedTitle = resolveMovieTitles(locale, item.movieTitleSpanish, item.movieTitleEnglish, item.movieTitle).primary;
+  const selectedVideo = item.videoUrl ? {
+    url: item.videoUrl,
+    commentId: item.videoCommentId,
+    likesCount: isVideoSummary ? item.likesCount : item.videoLikesCount,
+    dislikesCount: isVideoSummary ? item.dislikesCount : item.videoDislikesCount,
+    myReaction: item.videoMyReaction ?? (isVideoGiven ? item.reactionValue : null),
+  } satisfies ActivityVideoState : null;
+  const openSelectedVideo = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (selectedVideo) onOpenVideo?.(selectedVideo);
+  };
   const ownActivityIcon =
     isSummary ? (
       <div className="flex items-center gap-1" aria-label={locale === "en" ? "Likes and dislikes received" : "Me gusta y no me gusta recibidos"}>
-        <ThumbsUpIcon className={`${ownActivityIconClassName} ${(item.likesCount ?? 0) > 0 ? "text-emerald-300/90" : "text-zinc-600"}`} />
-        <ThumbsDownIcon className={`${ownActivityIconClassName} ${(item.dislikesCount ?? 0) > 0 ? "text-rose-300/90" : "text-zinc-600"}`} />
+        {isVideoSummary && selectedVideo ? <>
+          <button type="button" onClick={openSelectedVideo} aria-label={locale === "en" ? `Play liked video for ${localizedTitle}` : `Reproducir video con me gusta de ${localizedTitle}`} className={`cursor-pointer transition ${(item.likesCount ?? 0) > 0 ? "text-emerald-300/90 hover:text-emerald-200" : "text-zinc-600 hover:text-zinc-400"}`}><ThumbsUpIcon className={ownActivityIconClassName} /></button>
+          <button type="button" onClick={openSelectedVideo} aria-label={locale === "en" ? `Play disliked video for ${localizedTitle}` : `Reproducir video con no me gusta de ${localizedTitle}`} className={`cursor-pointer transition ${(item.dislikesCount ?? 0) > 0 ? "text-rose-300/90 hover:text-rose-200" : "text-zinc-600 hover:text-zinc-400"}`}><ThumbsDownIcon className={ownActivityIconClassName} /></button>
+        </> : <>
+          <ThumbsUpIcon className={`${ownActivityIconClassName} ${(item.likesCount ?? 0) > 0 ? "text-emerald-300/90" : "text-zinc-600"}`} />
+          <ThumbsDownIcon className={`${ownActivityIconClassName} ${(item.dislikesCount ?? 0) > 0 ? "text-rose-300/90" : "text-zinc-600"}`} />
+        </>}
       </div>
-    ) : isVideoCreated && item.videoUrl ? (
-      <button type="button" aria-label={locale === "en" ? `Play video for ${localizedTitle}` : `Reproducir video de ${localizedTitle}`} onClick={() => onOpenVideo?.({ url: item.videoUrl!, commentId: item.videoCommentId, likesCount: item.videoLikesCount, dislikesCount: item.videoDislikesCount, myReaction: item.videoMyReaction })} className="rounded-full text-blue-300/90 transition hover:text-blue-100"><PlayIcon className={ownActivityIconClassName} /></button>
+    ) : isVideoCreated && selectedVideo ? (
+      <button type="button" aria-label={locale === "en" ? `Play video for ${localizedTitle}` : `Reproducir video de ${localizedTitle}`} onClick={openSelectedVideo} className="rounded-full text-blue-300/90 transition hover:text-blue-100"><PlayIcon className={ownActivityIconClassName} /></button>
+    ) : isVideoGiven && selectedVideo ? (
+      <button type="button" aria-label={locale === "en" ? `Play reacted video for ${localizedTitle}` : `Reproducir video reaccionado de ${localizedTitle}`} onClick={openSelectedVideo} className={`cursor-pointer transition ${item.reactionValue === "dislike" ? "text-rose-300/90 hover:text-rose-200" : "text-emerald-300/90 hover:text-emerald-200"}`}>
+        {item.reactionValue === "dislike" ? <ThumbsDownIcon className={ownActivityIconClassName} /> : <ThumbsUpIcon className={ownActivityIconClassName} />}
+      </button>
     ) : item.interactionType === "comment" ? (
       <CommentBubbleIcon className={`${ownActivityIconClassName} text-blue-300/90`} />
     ) : item.interactionType === "rating" ? (
@@ -638,7 +662,7 @@ function ActivityRow({
         {isOwnProfile ? <div className="absolute right-0 top-3">{ownActivityIcon}</div> : null}
         {isOwnProfile ? (
           <p className="text-xs font-medium text-blue-200/85">
-            {getActivityTitle(item, isOwnProfile, locale)}{isSummary ? <> <button type="button" onClick={() => onOpenReactionSummary?.(item)} className="font-semibold underline decoration-blue-300/60 underline-offset-2 transition hover:text-blue-100">{locale === "en" ? "See more" : "Ver más"}</button></> : null}
+            {getActivityTitle(item, isOwnProfile, locale)}{isSummary ? <> <button type="button" onClick={(event) => { event.stopPropagation(); onOpenReactionSummary?.(item); }} className="font-semibold underline decoration-blue-300/60 underline-offset-2 transition hover:text-blue-100">{locale === "en" ? "See more" : "Ver más"}</button></> : null}
           </p>
         ) : null}
         {movieHref ? (
