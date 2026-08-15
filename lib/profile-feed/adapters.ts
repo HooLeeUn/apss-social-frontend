@@ -610,7 +610,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
             : "public"
         : undefined,
     reactionValue: interactionType === "like" || interactionType === "dislike" ? interactionType : undefined,
-    videoCommentId: toStringOrNull(pickFirst(payload.video_comment_id, payload.videoCommentId)) ?? undefined,
+    videoCommentId: normalizeOptionalId(pickFirst(payload.video_comment_id, payload.videoCommentId)) ?? undefined,
     videoUrl: toStringOrNull(pickFirst(payload.video_url, payload.videoUrl)) ?? undefined,
     videoOwnerUsername: videoOwnerUsername ?? undefined,
     videoLikesCount: videoLikesCount ?? undefined,
