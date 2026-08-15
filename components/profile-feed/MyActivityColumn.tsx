@@ -335,12 +335,13 @@ type ActivityVideoState = {
   likesCount?: number;
   dislikesCount?: number;
   myReaction?: ActivityVideoReaction | null;
+  canDelete?: boolean;
 };
 type ActivityVideoOpenRequest = { movieId: string; activityType?: string; video: ActivityVideoState };
-type CanonicalVideoReaction = { likesCount: number; dislikesCount: number; myReaction: ActivityVideoReaction | null };
+type CanonicalVideoReaction = { likesCount: number; dislikesCount: number; myReaction: ActivityVideoReaction | null; canDelete: boolean };
 type CanonicalVideoReactionPage = {
   next?: string | null;
-  results?: Array<{ id: string | number; likes_count: number; dislikes_count: number; my_reaction: ActivityVideoReaction | null }>;
+  results?: Array<{ id: string | number; likes_count: number; dislikes_count: number; my_reaction: ActivityVideoReaction | null; can_delete: boolean }>;
 };
 
 type VideoCommentReactionData = {
@@ -396,6 +397,7 @@ async function resolveCanonicalVideoReaction(movieId: string, videoCommentId: st
         likesCount,
         dislikesCount,
         myReaction: match.my_reaction === "like" || match.my_reaction === "dislike" ? match.my_reaction : null,
+        canDelete: match.can_delete === true,
       };
     }
     endpoint = normalizeCanonicalVideoReactionNext(page.next);
@@ -415,8 +417,8 @@ function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Requi
   </div>;
 }
 
-function ActivityVideoModal({ video, onClose, onReactionUpdated }: { video: ActivityVideoState; onClose: () => void; onReactionUpdated?: (video: ActivityVideoState, reaction: ReturnType<typeof normalizeVideoCommentReactionData>) => void }) {
-  const { locale } = useI18n();
+function ActivityVideoModal({ video, onClose, onReactionUpdated, onDeleted }: { video: ActivityVideoState; onClose: () => void; onReactionUpdated?: (video: ActivityVideoState, reaction: ReturnType<typeof normalizeVideoCommentReactionData>) => void; onDeleted: (commentId: string) => void }) {
+  const { locale, t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [reactionData, setReactionData] = useState({
     likesCount: video.likesCount ?? 0,
@@ -424,6 +426,9 @@ function ActivityVideoModal({ video, onClose, onReactionUpdated }: { video: Acti
     myReaction: video.myReaction ?? null,
   });
   const reactingRef = useRef(false);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const reactToVideo = useCallback((reaction: ActivityVideoReaction) => {
     if (!video.commentId || reactingRef.current) return;
@@ -439,6 +444,15 @@ function ActivityVideoModal({ video, onClose, onReactionUpdated }: { video: Acti
       .catch(() => undefined)
       .finally(() => { reactingRef.current = false; });
   }, [onReactionUpdated, video]);
+
+  const deleteVideo = useCallback(() => {
+    if (!video.commentId || !video.canDelete || deleting) return;
+    setDeleting(true);
+    void apiFetch(`/video-comments/${encodeURIComponent(video.commentId)}/`, { method: "DELETE" })
+      .then(() => onDeleted(video.commentId!))
+      .catch(() => undefined)
+      .finally(() => setDeleting(false));
+  }, [deleting, onDeleted, video.canDelete, video.commentId]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -462,12 +476,14 @@ function ActivityVideoModal({ video, onClose, onReactionUpdated }: { video: Acti
       <div className="relative w-full max-w-2xl" onClick={(event) => event.stopPropagation()} data-video-comment-id={video.commentId}>
         <button type="button" onClick={onClose} aria-label={locale === "en" ? "Close video" : "Cerrar video"} className="absolute -right-1 -top-11 rounded-full border border-white/20 bg-zinc-900/90 px-3 py-1.5 text-lg text-white hover:bg-zinc-800">×</button>
         <div className="relative mx-auto w-fit max-w-full">
-          <video ref={videoRef} src={video.url} controls autoPlay playsInline className="block max-h-[82vh] max-w-full rounded-xl bg-black object-contain shadow-2xl" />
+          <video ref={videoRef} src={video.url} controls controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback autoPlay playsInline className="block max-h-[82vh] max-w-full rounded-xl bg-black object-contain shadow-2xl" />
           <div className="absolute left-3 top-3 z-20 bg-transparent">
             <ActivityVideoReactionButtons data={reactionData} disabled={!video.commentId} onReact={reactToVideo} />
           </div>
+          {video.canDelete ? <div className="absolute right-3 top-3 z-20"><button type="button" disabled={deleting} aria-label={t("movieDetailVideoDelete")} className="flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-xl text-zinc-200 hover:bg-black/90 disabled:opacity-50" onClick={(event) => { event.stopPropagation(); setDeleteMenuOpen((current) => !current); }}>⋮</button>{deleteMenuOpen ? <div className="absolute right-0 top-full mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuOpen(false); setDeleteConfirmOpen(true); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}
         </div>
       </div>
+      {deleteConfirmOpen ? <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4" onClick={(event) => event.stopPropagation()}><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950 p-5 text-center shadow-2xl"><p className="text-sm font-semibold text-zinc-100">{t("movieDetailVideoDeleteConfirm")}</p><div className="mt-5 flex gap-3"><button type="button" className="flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={() => setDeleteConfirmOpen(false)}>{t("movieDetailVideoCancel")}</button><button type="button" disabled={deleting} className="flex-1 rounded-xl bg-red-400 px-4 py-2 text-sm font-bold text-black disabled:opacity-50" onClick={() => { setDeleteConfirmOpen(false); deleteVideo(); }}>{t("movieDetailVideoDeleteAction")}</button></div></div></div> : null}
     </div>
   );
 }
@@ -996,6 +1012,7 @@ export default function MyActivityColumn({
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
   const [activeVideo, setActiveVideo] = useState<ActivityVideoState | null>(null);
   const closeActiveVideo = useCallback(() => setActiveVideo(null), []);
+  const [deletedVideoCommentIds, setDeletedVideoCommentIds] = useState<Set<string>>(() => new Set());
   const resolvingVideoReactionRef = useRef(false);
   const [activityVideoReactionOverrides, setActivityVideoReactionOverrides] = useState<Map<string, ActivityVideoReaction | null>>(() => new Map());
   const [activeReactionSummary, setActiveReactionSummary] = useState<ReactionSummaryState | null>(null);
@@ -1104,6 +1121,11 @@ export default function MyActivityColumn({
     });
   }, []);
 
+  const removeDeletedActivityVideo = useCallback((commentId: string) => {
+    setDeletedVideoCommentIds((current) => new Set(current).add(commentId));
+    setActiveVideo(null);
+  }, []);
+
   const filteredMessages = useMemo(() => {
     const normalizedQuery = senderQuery.trim().toLocaleLowerCase();
     if (!normalizedQuery) return messages.items;
@@ -1139,6 +1161,7 @@ export default function MyActivityColumn({
 
   const ownActivityItems = useMemo(() => {
     return activity.items
+      .filter((item) => !item.videoCommentId || !deletedVideoCommentIds.has(String(item.videoCommentId)))
       .filter((item) => activityVideoReactionOverrides.get(item.id) !== null)
       .filter((item) => isPublicOwnActivityItem(item, myUsername))
       .map((item) => {
@@ -1146,7 +1169,7 @@ export default function MyActivityColumn({
         if (reaction !== "like" && reaction !== "dislike") return item;
         return { ...item, interactionType: reaction, reactionValue: reaction, videoMyReaction: reaction };
       });
-  }, [activity.items, activityVideoReactionOverrides, myUsername]);
+  }, [activity.items, activityVideoReactionOverrides, deletedVideoCommentIds, myUsername]);
 
   const ownRatedItems = useMemo(() => {
     return activity.items
@@ -1692,7 +1715,7 @@ export default function MyActivityColumn({
           </>
         )}
       </div>
-      {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} onReactionUpdated={syncGivenVideoReaction} /> : null}
+      {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} onReactionUpdated={syncGivenVideoReaction} onDeleted={removeDeletedActivityVideo} /> : null}
       {activeReactionSummary ? <ReactionSummaryModal summary={activeReactionSummary} myUsername={myUsername} onClose={closeReactionSummary} /> : null}
     </section>
   );
