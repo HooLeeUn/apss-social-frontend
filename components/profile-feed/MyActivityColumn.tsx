@@ -327,29 +327,91 @@ function PlayIcon({ className = "" }: { className?: string }) {
 
 type ActivityVideoReaction = "like" | "dislike";
 type ReactionSummaryState = Pick<SocialActivityItem, "likesCount" | "dislikesCount" | "usersWhoLiked" | "usersWhoDisliked">;
+type ActivityVideoRequest = {
+  movieId: string;
+  commentId: string;
+};
 type ActivityVideoState = {
+  movieId: string;
   url: string;
-  commentId?: string;
-  likesCount?: number;
-  dislikesCount?: number;
-  myReaction?: ActivityVideoReaction | null;
+  commentId: string;
+  likesCount: number;
+  dislikesCount: number;
+  myReaction: ActivityVideoReaction | null;
+  canDelete: boolean;
+};
+
+type ActivityVideoCommentApiItem = {
+  id: string | number;
+  video_url: string;
+  likes_count: number;
+  dislikes_count: number;
+  my_reaction: ActivityVideoReaction | null;
+  can_delete: boolean;
+};
+
+type ActivityVideoCommentsPage = {
+  next?: string | null;
+  results?: ActivityVideoCommentApiItem[];
 };
 
 type VideoCommentReactionData = {
-  video_comment_id?: string | number;
-  likes_count?: number;
-  dislikes_count?: number;
-  my_reaction?: ActivityVideoReaction | null;
+  video_comment_id: string | number;
+  likes_count: number;
+  dislikes_count: number;
+  my_reaction: ActivityVideoReaction | null;
 };
 
 function normalizeVideoCommentReactionData(data: VideoCommentReactionData): { likesCount: number; dislikesCount: number; myReaction: ActivityVideoReaction | null } {
-  const likesCount = Number(data.likes_count ?? 0);
-  const dislikesCount = Number(data.dislikes_count ?? 0);
+  const likesCount = Number(data.likes_count);
+  const dislikesCount = Number(data.dislikes_count);
+  if (!Number.isFinite(likesCount) || !Number.isFinite(dislikesCount)) {
+    throw new Error("Video reaction response is missing counts.");
+  }
   return {
-    likesCount: Number.isFinite(likesCount) ? likesCount : 0,
-    dislikesCount: Number.isFinite(dislikesCount) ? dislikesCount : 0,
+    likesCount,
+    dislikesCount,
     myReaction: data.my_reaction === "like" || data.my_reaction === "dislike" ? data.my_reaction : null,
   };
+}
+
+function normalizeVideoCommentsNext(next: string | null | undefined): string | null {
+  if (!next) return null;
+  try {
+    const url = new URL(next, window.location.origin);
+    const apiIndex = url.pathname.indexOf("/api/");
+    return `${apiIndex >= 0 ? url.pathname.slice(apiIndex + 4) : url.pathname}${url.search}`;
+  } catch {
+    return next.startsWith("/api/") ? next.slice(4) : next;
+  }
+}
+
+async function resolveVideoCommentForActivity(request: ActivityVideoRequest): Promise<ActivityVideoState | null> {
+  let endpoint: string | null = `/movies/${encodeURIComponent(request.movieId)}/video-comments/`;
+  while (endpoint) {
+    const payload = await apiFetch(endpoint) as ActivityVideoCommentsPage;
+    const match = payload.results?.find((video) => String(video.id) === request.commentId);
+    if (match) {
+      const likesCount = Number(match.likes_count);
+      const dislikesCount = Number(match.dislikes_count);
+      if (!match.video_url || !Number.isFinite(likesCount) || !Number.isFinite(dislikesCount)) {
+        console.warn("Profile Feed video comment is missing interactive fields.", { movieId: request.movieId, videoCommentId: request.commentId });
+        return null;
+      }
+      return {
+        movieId: request.movieId,
+        commentId: String(match.id),
+        url: match.video_url,
+        likesCount,
+        dislikesCount,
+        myReaction: match.my_reaction === "like" || match.my_reaction === "dislike" ? match.my_reaction : null,
+        canDelete: match.can_delete === true,
+      };
+    }
+    endpoint = normalizeVideoCommentsNext(payload.next);
+  }
+  console.warn("Profile Feed video comment was not found.", { movieId: request.movieId, videoCommentId: request.commentId });
+  return null;
 }
 
 function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Required<Pick<ActivityVideoState, "likesCount" | "dislikesCount">> & Pick<ActivityVideoState, "myReaction">; disabled: boolean; onReact: (reaction: ActivityVideoReaction) => void }) {
@@ -363,8 +425,8 @@ function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Requi
   </div>;
 }
 
-function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onClose: () => void }) {
-  const { locale } = useI18n();
+function ActivityVideoModal({ video, onClose, onUpdated, onDeleted }: { video: ActivityVideoState; onClose: () => void; onUpdated: (video: ActivityVideoState) => void; onDeleted: (video: ActivityVideoState) => void }) {
+  const { locale, t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [reactionData, setReactionData] = useState({
     likesCount: video.likesCount ?? 0,
@@ -372,28 +434,51 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
     myReaction: video.myReaction ?? null,
   });
   const reactingRef = useRef(false);
+  const [reacting, setReacting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const reactToVideo = useCallback((reaction: ActivityVideoReaction) => {
     if (!video.commentId || reactingRef.current) return;
     reactingRef.current = true;
-    void apiFetch(`/video-comments/${encodeURIComponent(video.commentId)}/reaction/`, { method: "PUT", body: JSON.stringify({ reaction }) })
+    setReacting(true);
+    setActionError("");
+    const method = reactionData.myReaction === reaction ? "DELETE" : "PUT";
+    const options: RequestInit = method === "DELETE" ? { method } : { method, body: JSON.stringify({ reaction }) };
+    void apiFetch(`/video-comments/${encodeURIComponent(video.commentId)}/reaction/`, options)
       .then((result) => {
         if (!result || typeof result !== "object") return;
         const data = result as VideoCommentReactionData;
-        setReactionData(normalizeVideoCommentReactionData(data));
+        const normalized = normalizeVideoCommentReactionData(data);
+        setReactionData(normalized);
+        onUpdated({ ...video, ...normalized });
       })
-      .catch(() => undefined)
-      .finally(() => { reactingRef.current = false; });
-  }, [video.commentId]);
+      .catch(() => setActionError(locale === "en" ? "The reaction could not be updated." : "No se pudo actualizar la reacción."))
+      .finally(() => { reactingRef.current = false; setReacting(false); });
+  }, [locale, onUpdated, reactionData.myReaction, video]);
+
+  const deleteVideo = useCallback(() => {
+    if (!video.canDelete || deleting) return;
+    setDeleting(true);
+    setActionError("");
+    void apiFetch(`/video-comments/${encodeURIComponent(video.commentId)}/`, { method: "DELETE" })
+      .then(() => onDeleted(video))
+      .catch(() => setActionError(t("movieDetailVideoDeleteError")))
+      .finally(() => setDeleting(false));
+  }, [deleting, onDeleted, t, video]);
 
   useEffect(() => {
     const element = videoRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => {
       window.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousOverflow;
       if (element) {
         element.pause();
         element.muted = true;
@@ -410,10 +495,13 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
         <div className="relative mx-auto w-fit max-w-full">
           <video ref={videoRef} src={video.url} controls autoPlay playsInline className="block max-h-[82vh] max-w-full rounded-xl bg-black object-contain shadow-2xl" />
           <div className="absolute left-3 top-3 z-20 bg-transparent">
-            <ActivityVideoReactionButtons data={reactionData} disabled={!video.commentId} onReact={reactToVideo} />
+            <ActivityVideoReactionButtons data={reactionData} disabled={reacting || deleting} onReact={reactToVideo} />
           </div>
+          {video.canDelete ? <button type="button" disabled={deleting} aria-label={t("movieDetailVideoDelete")} className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-xl text-zinc-200 hover:bg-black/90 disabled:opacity-50" onClick={(event) => { event.stopPropagation(); setDeleteConfirmOpen(true); }}>⋮</button> : null}
         </div>
+        {actionError ? <p className="mt-2 text-center text-xs text-red-200">{actionError}</p> : null}
       </div>
+      {deleteConfirmOpen ? <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4" onClick={(event) => event.stopPropagation()}><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950 p-5 text-center shadow-2xl"><p className="text-sm font-semibold text-zinc-100">{t("movieDetailVideoDeleteConfirm")}</p><div className="mt-5 flex gap-3"><button type="button" className="flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={() => setDeleteConfirmOpen(false)}>{t("movieDetailVideoCancel")}</button><button type="button" className="flex-1 rounded-xl bg-red-400 px-4 py-2 text-sm font-bold text-black" onClick={() => { setDeleteConfirmOpen(false); deleteVideo(); }}>{t("movieDetailVideoDeleteAction")}</button></div></div></div> : null}
     </div>
   );
 }
@@ -561,7 +649,7 @@ function ActivityRow({
   viewedUsername?: string;
   myUsername?: string | null;
   authorCanVisitByUsername?: Record<string, boolean>;
-  onOpenVideo?: (video: ActivityVideoState) => void;
+  onOpenVideo?: (video: ActivityVideoRequest) => void;
   onOpenReactionSummary?: (summary: ReactionSummaryState) => void;
 }) {
   const { locale, t } = useI18n();
@@ -593,13 +681,10 @@ function ActivityRow({
   const isVideoGiven = activityType === "video_reaction_given";
   const isSummary = isReactionSummary(item);
   const localizedTitle = resolveMovieTitles(locale, item.movieTitleSpanish, item.movieTitleEnglish, item.movieTitle).primary;
-  const selectedVideo = item.videoUrl ? {
-    url: item.videoUrl,
+  const selectedVideo = item.videoCommentId && hasMovieId ? {
+    movieId: String(item.movieId),
     commentId: item.videoCommentId,
-    likesCount: isVideoSummary ? item.likesCount : item.videoLikesCount,
-    dislikesCount: isVideoSummary ? item.dislikesCount : item.videoDislikesCount,
-    myReaction: item.videoMyReaction ?? (isVideoGiven ? item.reactionValue : null),
-  } satisfies ActivityVideoState : null;
+  } satisfies ActivityVideoRequest : null;
   const openSelectedVideo = (event: ReactMouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (selectedVideo) onOpenVideo?.(selectedVideo);
@@ -940,6 +1025,8 @@ export default function MyActivityColumn({
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
   const [activeVideo, setActiveVideo] = useState<ActivityVideoState | null>(null);
   const closeActiveVideo = useCallback(() => setActiveVideo(null), []);
+  const resolvingVideoRef = useRef<string | null>(null);
+  const [videoOpenError, setVideoOpenError] = useState("");
   const [activeReactionSummary, setActiveReactionSummary] = useState<ReactionSummaryState | null>(null);
   const closeReactionSummary = useCallback(() => setActiveReactionSummary(null), []);
 
@@ -987,6 +1074,35 @@ export default function MyActivityColumn({
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
   const messages = useInfiniteMyMessages(messagesEnabled);
   const reloadMessages = messages.reload;
+
+  const openActivityVideo = useCallback(async (request: ActivityVideoRequest) => {
+    const cacheKey = `${request.movieId}:${request.commentId}`;
+    if (resolvingVideoRef.current === cacheKey) return;
+    setVideoOpenError("");
+    resolvingVideoRef.current = cacheKey;
+    try {
+      const resolved = await resolveVideoCommentForActivity(request);
+      if (!resolved) {
+        setVideoOpenError(locale === "en" ? "This video reaction is no longer available." : "Este Video Reaction ya no está disponible.");
+        return;
+      }
+      setActiveVideo(resolved);
+    } catch (error) {
+      console.warn("Profile Feed video comment could not be loaded.", { ...request, error });
+      setVideoOpenError(locale === "en" ? "The video reaction could not be loaded." : "No se pudo cargar el Video Reaction.");
+    } finally {
+      if (resolvingVideoRef.current === cacheKey) resolvingVideoRef.current = null;
+    }
+  }, [locale]);
+
+  const updateActiveVideo = useCallback((video: ActivityVideoState) => {
+    setActiveVideo(video);
+  }, []);
+
+  const deleteActiveVideo = useCallback(() => {
+    setActiveVideo(null);
+    void activity.reload();
+  }, [activity]);
 
   const filteredMessages = useMemo(() => {
     const normalizedQuery = senderQuery.trim().toLocaleLowerCase();
@@ -1406,6 +1522,8 @@ export default function MyActivityColumn({
               <p className="text-sm text-zinc-500">No se pudo resolver el usuario para cargar actividad.</p>
             ) : null}
 
+            {videoOpenError ? <p className="mb-2 rounded-xl border border-red-300/20 bg-red-950/20 px-3 py-2 text-xs text-red-100">{videoOpenError}</p> : null}
+
             {activity.loading ? <MyActivitySkeleton /> : null}
 
             {!activity.loading && activity.error ? (
@@ -1483,7 +1601,7 @@ export default function MyActivityColumn({
                     viewedUsername={normalizedViewedUsername}
                     myUsername={myUsername}
                     authorCanVisitByUsername={authorCanVisitByUsername}
-                    onOpenVideo={setActiveVideo}
+                    onOpenVideo={(request) => { void openActivityVideo(request); }}
                     onOpenReactionSummary={setActiveReactionSummary}
                   />
                 ))
@@ -1561,7 +1679,7 @@ export default function MyActivityColumn({
                     viewedUsername={normalizedViewedUsername}
                     myUsername={myUsername}
                     authorCanVisitByUsername={authorCanVisitByUsername}
-                    onOpenVideo={setActiveVideo}
+                    onOpenVideo={(request) => { void openActivityVideo(request); }}
                   />
                 ))
               : null}
@@ -1570,7 +1688,7 @@ export default function MyActivityColumn({
           </>
         )}
       </div>
-      {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} /> : null}
+      {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} onUpdated={updateActiveVideo} onDeleted={deleteActiveVideo} /> : null}
       {activeReactionSummary ? <ReactionSummaryModal summary={activeReactionSummary} myUsername={myUsername} onClose={closeReactionSummary} /> : null}
     </section>
   );
