@@ -15,6 +15,8 @@ export type SocialActivityType =
   | "directed_comment_reaction"
   | "private_message"
   | "private_comment_reaction"
+  | "video_reactions_received_summary"
+  | "comment_reactions_received_summary"
   | string;
 
 export interface FavoriteMovie {
@@ -153,6 +155,18 @@ export interface SocialActivityItem {
   videoLikesCount?: number;
   videoDislikesCount?: number;
   videoMyReaction?: "like" | "dislike" | null;
+  likesCount?: number;
+  dislikesCount?: number;
+  usersWhoLiked?: ReactionSummaryUser[];
+  usersWhoDisliked?: ReactionSummaryUser[];
+  latestReactionAt?: string | null;
+  objectCreatedAt?: string | null;
+}
+
+export interface ReactionSummaryUser {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
 }
 
 export interface PaginatedSocialActivity {
@@ -260,11 +274,27 @@ export interface VideoReactionActivityPayload {
   my_reaction?: "like" | "dislike" | null;
 }
 
+export interface ReactionSummaryActivityPayload {
+  comment_id?: number | string;
+  comment_text?: string;
+  content?: string;
+  video_comment_id?: number | string;
+  video_url?: string;
+  likes_count: number;
+  dislikes_count: number;
+  users_who_liked: Array<{ id: number | string; username: string; avatar: string | null }>;
+  users_who_disliked: Array<{ id: number | string; username: string; avatar: string | null }>;
+  latest_reaction_at: string;
+  object_created_at: string;
+  owner?: { id?: number | string; username?: string; avatar?: string | null };
+}
+
 export type ProfileFeedActivityPayload =
   | RatingActivityPayload
   | PublicCommentActivityPayload
   | PublicCommentLikeActivityPayload
   | VideoReactionActivityPayload
+  | ReactionSummaryActivityPayload
   | null;
 
 export interface ProfileFeedActivityResponseItem {

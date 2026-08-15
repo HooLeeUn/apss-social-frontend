@@ -432,6 +432,9 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const isVideoCreatedType = normalizedActivityType === "video_reaction_created";
   const isVideoGivenType = normalizedActivityType === "video_reaction_given";
   const isVideoReceivedType = normalizedActivityType === "video_reaction_received";
+  const isVideoReceivedSummaryType = normalizedActivityType === "video_reactions_received_summary";
+  const isCommentReceivedSummaryType = normalizedActivityType === "comment_reactions_received_summary";
+  const isReceivedSummaryType = isVideoReceivedSummaryType || isCommentReceivedSummaryType;
   const isVideoReactionType = isVideoGivenType || isVideoReceivedType;
   const isPrivateType =
     normalizedActivityType === "private_message" ||
@@ -446,7 +449,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     isPrivateType || hasPrivatePayloadCommentType || isTrueValue(payload.is_directed);
   const isReactionType =
     isPublicReactionType ||
-    isVideoReactionType ||
+    isVideoReactionType || isReceivedSummaryType ||
     normalizedActivityType.includes("comment_like") ||
     normalizedActivityType.includes("comment_dislike");
   const normalizedReactionValue = safeTrim(
@@ -478,7 +481,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     isTrueValue(payload.is_directed);
   const score = toNumberOrNull(pickFirst(payload.score, activityRecord.score, movie.my_rating));
   const commentText = toStringOrNull(
-    pickFirst(payload.content, payload.text, activityRecord.comment_text),
+    pickFirst(payload.comment_text, payload.content, payload.text, activityRecord.comment_text),
   );
   const commentId = toStringOrNull(pickFirst(payload.comment_id, payload.commentId));
   const likedCommentSnippet = toStringOrNull(
@@ -494,6 +497,20 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   );
   const videoLikesCount = toNumberOrNull(pickFirst(payload.likes_count, activityRecord.likes_count));
   const videoDislikesCount = toNumberOrNull(pickFirst(payload.dislikes_count, activityRecord.dislikes_count));
+  const toSummaryUsers = (value: unknown) => (Array.isArray(value) ? value : []).flatMap((entry) => {
+    const user = toRecord(entry);
+    const username = toStringOrNull(user?.username);
+    if (!user || !username) return [];
+    return [{
+      id: String(pickFirst(user.id, username)),
+      username,
+      avatarUrl: toStringOrNull(pickFirst(user.avatar, user.avatar_url)),
+    }];
+  });
+  const usersWhoLiked = toSummaryUsers(payload.users_who_liked);
+  const usersWhoDisliked = toSummaryUsers(payload.users_who_disliked);
+  const latestReactionAt = toStringOrNull(payload.latest_reaction_at);
+  const objectCreatedAt = toStringOrNull(payload.object_created_at);
   const videoMyReactionValue = safeTrim(pickFirst(payload.my_reaction, activityRecord.my_reaction))?.toLocaleLowerCase();
   const videoMyReaction = videoMyReactionValue === "like" || videoMyReactionValue === "dislike" ? videoMyReactionValue : null;
   const reactionActor = toRecord(payload.actor);
@@ -502,7 +519,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const isGivenReaction = isVideoGivenType || isTrueValue(
     pickFirst(payload.is_given_reaction, payload.isGivenReaction, activityRecord.is_given_reaction, activityRecord.isGivenReaction),
   );
-  const isReceivedReaction = isVideoReceivedType || isTrueValue(
+  const isReceivedReaction = isVideoReceivedType || isReceivedSummaryType || isTrueValue(
     pickFirst(
       payload.is_received_reaction,
       payload.isReceivedReaction,
@@ -593,12 +610,18 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
             : "public"
         : undefined,
     reactionValue: interactionType === "like" || interactionType === "dislike" ? interactionType : undefined,
-    videoCommentId: toStringOrNull(pickFirst(payload.video_comment_id, payload.videoCommentId)) ?? undefined,
+    videoCommentId: normalizeOptionalId(pickFirst(payload.video_comment_id, payload.videoCommentId)) ?? undefined,
     videoUrl: toStringOrNull(pickFirst(payload.video_url, payload.videoUrl)) ?? undefined,
     videoOwnerUsername: videoOwnerUsername ?? undefined,
     videoLikesCount: videoLikesCount ?? undefined,
     videoDislikesCount: videoDislikesCount ?? undefined,
     videoMyReaction,
+    likesCount: isReceivedSummaryType ? (videoLikesCount ?? 0) : undefined,
+    dislikesCount: isReceivedSummaryType ? (videoDislikesCount ?? 0) : undefined,
+    usersWhoLiked: isReceivedSummaryType ? usersWhoLiked : undefined,
+    usersWhoDisliked: isReceivedSummaryType ? usersWhoDisliked : undefined,
+    latestReactionAt: isReceivedSummaryType ? latestReactionAt : undefined,
+    objectCreatedAt: isReceivedSummaryType ? objectCreatedAt : undefined,
   };
 }
 
