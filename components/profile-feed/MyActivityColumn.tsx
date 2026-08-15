@@ -328,6 +328,8 @@ function PlayIcon({ className = "" }: { className?: string }) {
 type ActivityVideoReaction = "like" | "dislike";
 type ReactionSummaryState = Pick<SocialActivityItem, "likesCount" | "dislikesCount" | "usersWhoLiked" | "usersWhoDisliked">;
 type ActivityVideoState = {
+  activityId?: string;
+  activityType?: string;
   url: string;
   commentId?: string;
   likesCount?: number;
@@ -413,7 +415,7 @@ function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Requi
   </div>;
 }
 
-function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onClose: () => void }) {
+function ActivityVideoModal({ video, onClose, onReactionUpdated }: { video: ActivityVideoState; onClose: () => void; onReactionUpdated?: (video: ActivityVideoState, reaction: ReturnType<typeof normalizeVideoCommentReactionData>) => void }) {
   const { locale } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [reactionData, setReactionData] = useState({
@@ -430,11 +432,13 @@ function ActivityVideoModal({ video, onClose }: { video: ActivityVideoState; onC
       .then((result) => {
         if (!result || typeof result !== "object") return;
         const data = result as VideoCommentReactionData;
-        setReactionData(normalizeVideoCommentReactionData(data));
+        const normalizedReaction = normalizeVideoCommentReactionData(data);
+        setReactionData(normalizedReaction);
+        onReactionUpdated?.(video, normalizedReaction);
       })
       .catch(() => undefined)
       .finally(() => { reactingRef.current = false; });
-  }, [video.commentId]);
+  }, [onReactionUpdated, video]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -644,6 +648,8 @@ function ActivityRow({
   const isSummary = isReactionSummary(item);
   const localizedTitle = resolveMovieTitles(locale, item.movieTitleSpanish, item.movieTitleEnglish, item.movieTitle).primary;
   const selectedVideo = item.videoUrl ? {
+    activityId: item.id,
+    activityType,
     url: item.videoUrl,
     commentId: item.videoCommentId,
     likesCount: isVideoSummary ? item.likesCount : item.videoLikesCount,
@@ -991,6 +997,7 @@ export default function MyActivityColumn({
   const [activeVideo, setActiveVideo] = useState<ActivityVideoState | null>(null);
   const closeActiveVideo = useCallback(() => setActiveVideo(null), []);
   const resolvingVideoReactionRef = useRef(false);
+  const [activityVideoReactionOverrides, setActivityVideoReactionOverrides] = useState<Map<string, ActivityVideoReaction | null>>(() => new Map());
   const [activeReactionSummary, setActiveReactionSummary] = useState<ReactionSummaryState | null>(null);
   const closeReactionSummary = useCallback(() => setActiveReactionSummary(null), []);
 
@@ -1088,6 +1095,15 @@ export default function MyActivityColumn({
     }
   }, []);
 
+  const syncGivenVideoReaction = useCallback((video: ActivityVideoState, reaction: ReturnType<typeof normalizeVideoCommentReactionData>) => {
+    if (video.activityType !== "video_reaction_given" || !video.activityId) return;
+    setActivityVideoReactionOverrides((current) => {
+      const next = new Map(current);
+      next.set(video.activityId!, reaction.myReaction);
+      return next;
+    });
+  }, []);
+
   const filteredMessages = useMemo(() => {
     const normalizedQuery = senderQuery.trim().toLocaleLowerCase();
     if (!normalizedQuery) return messages.items;
@@ -1123,8 +1139,14 @@ export default function MyActivityColumn({
 
   const ownActivityItems = useMemo(() => {
     return activity.items
-      .filter((item) => isPublicOwnActivityItem(item, myUsername));
-  }, [activity.items, myUsername]);
+      .filter((item) => activityVideoReactionOverrides.get(item.id) !== null)
+      .filter((item) => isPublicOwnActivityItem(item, myUsername))
+      .map((item) => {
+        const reaction = activityVideoReactionOverrides.get(item.id);
+        if (reaction !== "like" && reaction !== "dislike") return item;
+        return { ...item, interactionType: reaction, reactionValue: reaction, videoMyReaction: reaction };
+      });
+  }, [activity.items, activityVideoReactionOverrides, myUsername]);
 
   const ownRatedItems = useMemo(() => {
     return activity.items
@@ -1670,7 +1692,7 @@ export default function MyActivityColumn({
           </>
         )}
       </div>
-      {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} /> : null}
+      {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} onReactionUpdated={syncGivenVideoReaction} /> : null}
       {activeReactionSummary ? <ReactionSummaryModal summary={activeReactionSummary} myUsername={myUsername} onClose={closeReactionSummary} /> : null}
     </section>
   );
