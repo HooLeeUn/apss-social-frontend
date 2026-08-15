@@ -334,6 +334,12 @@ type ActivityVideoState = {
   dislikesCount?: number;
   myReaction?: ActivityVideoReaction | null;
 };
+type ActivityVideoOpenRequest = { movieId: string; video: ActivityVideoState };
+type CanonicalVideoReaction = { likesCount: number; dislikesCount: number; myReaction: ActivityVideoReaction | null };
+type CanonicalVideoReactionPage = {
+  next?: string | null;
+  results?: Array<{ id: string | number; likes_count: number; dislikes_count: number; my_reaction: ActivityVideoReaction | null }>;
+};
 
 type VideoCommentReactionData = {
   video_comment_id?: string | number;
@@ -350,6 +356,37 @@ function normalizeVideoCommentReactionData(data: VideoCommentReactionData): { li
     dislikesCount: Number.isFinite(dislikesCount) ? dislikesCount : 0,
     myReaction: data.my_reaction === "like" || data.my_reaction === "dislike" ? data.my_reaction : null,
   };
+}
+
+function normalizeCanonicalVideoReactionNext(next: string | null | undefined): string | null {
+  if (!next) return null;
+  try {
+    const url = new URL(next, window.location.origin);
+    const apiIndex = url.pathname.indexOf("/api/");
+    return `${apiIndex >= 0 ? url.pathname.slice(apiIndex + 4) : url.pathname}${url.search}`;
+  } catch {
+    return next.startsWith("/api/") ? next.slice(4) : next;
+  }
+}
+
+async function resolveCanonicalVideoReaction(movieId: string, videoCommentId: string): Promise<CanonicalVideoReaction | null> {
+  let endpoint: string | null = `/movies/${encodeURIComponent(movieId)}/video-comments/`;
+  while (endpoint) {
+    const page = await apiFetch(endpoint) as CanonicalVideoReactionPage;
+    const match = page.results?.find((video) => String(video.id) === videoCommentId);
+    if (match) {
+      const likesCount = Number(match.likes_count);
+      const dislikesCount = Number(match.dislikes_count);
+      if (!Number.isFinite(likesCount) || !Number.isFinite(dislikesCount)) return null;
+      return {
+        likesCount,
+        dislikesCount,
+        myReaction: match.my_reaction === "like" || match.my_reaction === "dislike" ? match.my_reaction : null,
+      };
+    }
+    endpoint = normalizeCanonicalVideoReactionNext(page.next);
+  }
+  return null;
 }
 
 function ActivityVideoReactionButtons({ data, disabled, onReact }: { data: Required<Pick<ActivityVideoState, "likesCount" | "dislikesCount">> & Pick<ActivityVideoState, "myReaction">; disabled: boolean; onReact: (reaction: ActivityVideoReaction) => void }) {
@@ -561,7 +598,7 @@ function ActivityRow({
   viewedUsername?: string;
   myUsername?: string | null;
   authorCanVisitByUsername?: Record<string, boolean>;
-  onOpenVideo?: (video: ActivityVideoState) => void;
+  onOpenVideo?: (request: ActivityVideoOpenRequest) => void;
   onOpenReactionSummary?: (summary: ReactionSummaryState) => void;
 }) {
   const { locale, t } = useI18n();
@@ -602,7 +639,7 @@ function ActivityRow({
   } satisfies ActivityVideoState : null;
   const openSelectedVideo = (event: ReactMouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    if (selectedVideo) onOpenVideo?.(selectedVideo);
+    if (selectedVideo && hasMovieId) onOpenVideo?.({ movieId: String(item.movieId), video: selectedVideo });
   };
   const ownActivityIcon =
     isSummary ? (
@@ -940,6 +977,7 @@ export default function MyActivityColumn({
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
   const [activeVideo, setActiveVideo] = useState<ActivityVideoState | null>(null);
   const closeActiveVideo = useCallback(() => setActiveVideo(null), []);
+  const resolvingVideoReactionRef = useRef(false);
   const [activeReactionSummary, setActiveReactionSummary] = useState<ReactionSummaryState | null>(null);
   const closeReactionSummary = useCallback(() => setActiveReactionSummary(null), []);
 
@@ -987,6 +1025,22 @@ export default function MyActivityColumn({
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
   const messages = useInfiniteMyMessages(messagesEnabled);
   const reloadMessages = messages.reload;
+
+  const openActivityVideo = useCallback(async ({ movieId, video }: ActivityVideoOpenRequest) => {
+    if (resolvingVideoReactionRef.current) return;
+    resolvingVideoReactionRef.current = true;
+    try {
+      const canonicalReaction = video.commentId
+        ? await resolveCanonicalVideoReaction(movieId, video.commentId)
+        : null;
+      setActiveVideo(canonicalReaction ? { ...video, ...canonicalReaction } : video);
+    } catch (error) {
+      console.warn("Could not resolve canonical activity video reaction.", { movieId, videoCommentId: video.commentId, error });
+      setActiveVideo(video);
+    } finally {
+      resolvingVideoReactionRef.current = false;
+    }
+  }, []);
 
   const filteredMessages = useMemo(() => {
     const normalizedQuery = senderQuery.trim().toLocaleLowerCase();
@@ -1483,7 +1537,7 @@ export default function MyActivityColumn({
                     viewedUsername={normalizedViewedUsername}
                     myUsername={myUsername}
                     authorCanVisitByUsername={authorCanVisitByUsername}
-                    onOpenVideo={setActiveVideo}
+                    onOpenVideo={(request) => { void openActivityVideo(request); }}
                     onOpenReactionSummary={setActiveReactionSummary}
                   />
                 ))
@@ -1561,7 +1615,7 @@ export default function MyActivityColumn({
                     viewedUsername={normalizedViewedUsername}
                     myUsername={myUsername}
                     authorCanVisitByUsername={authorCanVisitByUsername}
-                    onOpenVideo={setActiveVideo}
+                    onOpenVideo={(request) => { void openActivityVideo(request); }}
                   />
                 ))
               : null}
