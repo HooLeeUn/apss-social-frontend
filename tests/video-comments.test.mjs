@@ -251,6 +251,21 @@ test("touch landscape keeps the mobile Detail Movie layout", () => {
   has(/data-mobile-comment-tabs/);
 });
 
+test("Detail Movie keeps the authenticated avatar beside both tab layouts", () => {
+  has(/getMyProfile\(\)\.then/);
+  has(/href="\/profile-feed"/);
+  has(/movieDetailMyProfileAvatarLabel/);
+  assert.equal((page.match(/<AuthenticatedProfileAvatar/g) ?? []).length, 2);
+  has(/data-mobile-comment-tabs className="relative/);
+  has(/data-desktop-comment-tabs className="relative/);
+});
+
+test("mobile Video Reaction tab resets its real vertical history scroller", () => {
+  has(/mode === "video-comment"[\s\S]*\[data-mobile-video-reaction-scroll-container\][\s\S]*scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
+  has(/if \(commentInputMode === mode\)/);
+  assert.doesNotMatch(page, /window\.scrollTo\(\{ top: 0/);
+});
+
 test("desktop Video Reaction ends at its content without changing shared comment height", () => {
   const reactionRule = css.slice(
     css.indexOf("body:not(.detail-trailer-active) [data-mobile-video-reaction]"),
