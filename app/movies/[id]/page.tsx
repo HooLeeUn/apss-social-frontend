@@ -77,6 +77,7 @@ type VideoSoundPreference = "muted" | "sound-on";
 const VIDEO_COMMENT_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
 const VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min(calc(100dvh - 230px), calc((100vw - 40px) * 16 / 9))";
 const VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp(14rem, 36dvh, 18rem)";
+const VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX = 24;
 const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm", "video/mp4"];
 const IOS_VIDEO_COMMENT_MIME_CANDIDATES = ["video/mp4", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/webm;codecs=vp8,opus", "video/webm"];
 const VIDEO_COMMENT_DIAGNOSTIC_MIMES = ["video/mp4", "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/webm", "video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus"];
@@ -1595,7 +1596,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   useEffect(() => {
     if (!active || !notificationTarget || initialLoading || loadingMore || recorderState !== "idle") return;
     const targetKey = `${movieId}:${notificationTarget.id}:${notificationTarget.reaction ?? ""}`;
-    if (processedNotificationTargetRef.current === targetKey) return;
+    if (processedNotificationTargetRef.current === targetKey || notificationPositioningRef.current) return;
     const desktop = window.matchMedia("(min-width: 768px)").matches;
     const container = desktop ? historyScrollRef.current : mobileHistoryScrollRef.current;
     const card = container?.querySelector<HTMLElement>(`[data-video-comment-card="${CSS.escape(notificationTarget.id)}"]`);
@@ -1711,12 +1712,23 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           videoRectAfter = visualVideo.getBoundingClientRect();
           fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
         }
+        const maxSafeLift = Math.max(0, videoRectAfter.top - containerRectAfter.top - topMargin);
+        const remainingScroll = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight - scrollContainer.scrollTop);
+        const extraTargetLift = Math.min(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, remainingScroll);
+        if (extraTargetLift > 0) {
+          scrollContainer.scrollBy({ top: extraTargetLift, behavior });
+          await waitForNotificationScroll(scrollContainer, reducedMotion);
+          containerRectAfter = scrollContainer.getBoundingClientRect();
+          videoRectAfter = visualVideo.getBoundingClientRect();
+          fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
+        }
         console.log("[VIDEO MOBILE FINAL ALIGNMENT]", {
           videoCommentId: notificationTarget.id,
           containerBottom: containerRectAfter.bottom,
           videoBottomBefore,
           bottomOverflow,
           correctionApplied,
+          extraTargetLift,
           videoBottomAfter: videoRectAfter.bottom,
           fullyVisible,
         });
