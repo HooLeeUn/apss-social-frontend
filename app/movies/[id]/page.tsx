@@ -1680,6 +1680,22 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
         const centeredTop = relativeVideoTop - (scrollContainer.clientHeight - videoRectBefore.height) / 2;
         const maxScrollTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
         const desiredTop = Math.min(maxScrollTop, Math.max(0, centeredTop));
+        const availableMargin = Math.max(0, (scrollContainer.clientHeight - videoRectBefore.height) / 2);
+        const topMargin = Math.min(8, availableMargin);
+        const safeBottomMargin = Math.min(10, availableMargin);
+        const extraBottomMargin = Math.min(6, Math.max(0, availableMargin - safeBottomMargin));
+        const projectedTop = containerRectBefore.top + relativeVideoTop - desiredTop;
+        const projectedBottom = projectedTop + videoRectBefore.height;
+        const projectedBottomOverflow = projectedBottom - (containerRectBefore.bottom - safeBottomMargin);
+        const projectedTopOverflow = projectedTop - (containerRectBefore.top + topMargin);
+        const alignmentCorrection = projectedBottomOverflow > 0
+          ? projectedBottomOverflow + extraBottomMargin
+          : Math.min(0, projectedTopOverflow);
+        const alignedScrollTop = Math.min(maxScrollTop, Math.max(0, desiredTop + alignmentCorrection));
+        const alignedProjectedTop = containerRectBefore.top + relativeVideoTop - alignedScrollTop;
+        const maxSafeLift = Math.max(0, alignedProjectedTop - containerRectBefore.top - topMargin);
+        const extraTargetLift = Math.min(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, maxScrollTop - alignedScrollTop);
+        const finalScrollTop = alignedScrollTop + extraTargetLift;
         logNotificationTarget("mobile video before scroll", {
           targetId: notificationTarget.id,
           scrollContainerFound: true,
@@ -1690,34 +1706,28 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           videoRect: { top: videoRectBefore.top, bottom: videoRectBefore.bottom, height: videoRectBefore.height },
           notificationPositioning: notificationPositioningRef.current,
         });
-        scrollContainer.scrollTo({ top: desiredTop, behavior });
+        console.log("[MOBILE NOTIFICATION SCROLL]", {
+          targetType: "video-reaction",
+          targetId: notificationTarget.id,
+          phase: "final",
+          scrollContainer: "video-reaction",
+          scrollTop: scrollTopBefore,
+          intendedFinalScrollTop: finalScrollTop,
+          behavior,
+          positioningLock: notificationPositioningRef.current,
+        });
+        scrollContainer.scrollTo({ top: finalScrollTop, behavior });
         await waitForNotificationScroll(scrollContainer, reducedMotion);
         let containerRectAfter = scrollContainer.getBoundingClientRect();
         let videoRectAfter = visualVideo.getBoundingClientRect();
-        const availableMargin = Math.max(0, (scrollContainer.clientHeight - videoRectAfter.height) / 2);
-        const topMargin = Math.min(8, availableMargin);
-        const safeBottomMargin = Math.min(10, availableMargin);
-        const extraBottomMargin = Math.min(6, Math.max(0, availableMargin - safeBottomMargin));
         const videoBottomBefore = videoRectAfter.bottom;
         const bottomOverflow = videoRectAfter.bottom - (containerRectAfter.bottom - safeBottomMargin);
-        let correctionApplied = 0;
+        const topOverflow = videoRectAfter.top - (containerRectAfter.top + topMargin);
+        const correctionApplied = bottomOverflow > 0 ? bottomOverflow : Math.min(0, topOverflow);
         let fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
-        if (!fullyVisible) {
-          correctionApplied = bottomOverflow > 0
-            ? bottomOverflow + extraBottomMargin
-            : videoRectAfter.top - containerRectAfter.top - topMargin;
-          scrollContainer.scrollBy({ top: correctionApplied, behavior });
-          await waitForNotificationScroll(scrollContainer, reducedMotion);
-          containerRectAfter = scrollContainer.getBoundingClientRect();
-          videoRectAfter = visualVideo.getBoundingClientRect();
-          fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
-        }
-        const maxSafeLift = Math.max(0, videoRectAfter.top - containerRectAfter.top - topMargin);
-        const remainingScroll = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight - scrollContainer.scrollTop);
-        const extraTargetLift = Math.min(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, remainingScroll);
-        if (extraTargetLift > 0) {
-          scrollContainer.scrollBy({ top: extraTargetLift, behavior });
-          await waitForNotificationScroll(scrollContainer, reducedMotion);
+        if (!fullyVisible && correctionApplied !== 0) {
+          scrollContainer.scrollBy({ top: correctionApplied, behavior: "auto" });
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           containerRectAfter = scrollContainer.getBoundingClientRect();
           videoRectAfter = visualVideo.getBoundingClientRect();
           fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
@@ -1731,6 +1741,16 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           extraTargetLift,
           videoBottomAfter: videoRectAfter.bottom,
           fullyVisible,
+        });
+        console.log("[MOBILE NOTIFICATION FINAL]", {
+          targetType: "video-reaction",
+          targetId: notificationTarget.id,
+          finalTop: videoRectAfter.top,
+          finalBottom: videoRectAfter.bottom,
+          containerTop: containerRectAfter.top,
+          containerBottom: containerRectAfter.bottom,
+          fullyVisible,
+          correctionPx: correctionApplied,
         });
         logNotificationTarget("mobile video after scroll", {
           targetId: notificationTarget.id,
@@ -1749,7 +1769,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           cardFound: true,
           playerFound: true,
           scrollTopBefore,
-          desiredScrollTop: desiredTop,
+          desiredScrollTop: finalScrollTop,
           scrollTopAfter: scrollContainer.scrollTop,
           containerClientHeight: scrollContainer.clientHeight,
           videoHeight: videoRectAfter.height,
@@ -3403,8 +3423,9 @@ function MovieDetailPageContent() {
     const positionTarget = async () => {
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
-      publicCommentsSectionRef.current?.scrollIntoView({ behavior, block: "start", inline: "nearest" });
-      await waitForNotificationScroll(window, reducedMotion);
+      const mobile = !window.matchMedia("(min-width: 768px)").matches;
+      publicCommentsSectionRef.current?.scrollIntoView({ behavior: mobile ? "auto" : behavior, block: "start", inline: "nearest" });
+      if (!mobile) await waitForNotificationScroll(window, reducedMotion);
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       if (cancelled) return;
 
@@ -3413,16 +3434,67 @@ function MovieDetailPageContent() {
       if (hasInternalScroll) {
         const containerRect = container.getBoundingClientRect();
         const commentRect = comment.getBoundingClientRect();
+        const intendedFinalScrollTop = container.scrollTop + commentRect.top - containerRect.top - (container.clientHeight - commentRect.height) / 2;
+        if (mobile) console.log("[MOBILE NOTIFICATION SCROLL]", {
+          targetType: "public-comment",
+          targetId: notificationTarget.id,
+          phase: "final",
+          scrollContainer: "public-comments",
+          scrollTop: container.scrollTop,
+          intendedFinalScrollTop,
+          behavior,
+          positioningLock: true,
+        });
         container.scrollTo({
-          top: container.scrollTop + commentRect.top - containerRect.top - (container.clientHeight - commentRect.height) / 2,
+          top: intendedFinalScrollTop,
           behavior,
         });
         await waitForNotificationScroll(container, reducedMotion);
       } else {
+        if (mobile) console.log("[MOBILE NOTIFICATION SCROLL]", {
+          targetType: "public-comment",
+          targetId: notificationTarget.id,
+          phase: "final",
+          scrollContainer: "page",
+          scrollTop: window.scrollY,
+          intendedFinalScrollTop: comment.getBoundingClientRect().top + window.scrollY - (window.innerHeight - comment.getBoundingClientRect().height) / 2,
+          behavior,
+          positioningLock: true,
+        });
         comment.scrollIntoView({ behavior, block: "center", inline: "nearest" });
         await waitForNotificationScroll(window, reducedMotion);
       }
       if (cancelled) return;
+      if (mobile) {
+        let finalContainerRect = hasInternalScroll ? container.getBoundingClientRect() : document.documentElement.getBoundingClientRect();
+        let finalCommentRect = comment.getBoundingClientRect();
+        const visibleTop = hasInternalScroll ? finalContainerRect.top : 0;
+        const visibleBottom = hasInternalScroll ? finalContainerRect.bottom : window.innerHeight;
+        const correctionPx = finalCommentRect.top < visibleTop
+          ? finalCommentRect.top - visibleTop
+          : finalCommentRect.bottom > visibleBottom
+            ? finalCommentRect.bottom - visibleBottom
+            : 0;
+        if (correctionPx !== 0) {
+          if (hasInternalScroll) container.scrollBy({ top: correctionPx, behavior: "auto" });
+          else window.scrollBy({ top: correctionPx, behavior: "auto" });
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          finalContainerRect = hasInternalScroll ? container.getBoundingClientRect() : document.documentElement.getBoundingClientRect();
+          finalCommentRect = comment.getBoundingClientRect();
+        }
+        console.log("[MOBILE NOTIFICATION FINAL]", {
+          targetType: "public-comment",
+          targetId: notificationTarget.id,
+          finalTop: finalCommentRect.top,
+          finalBottom: finalCommentRect.bottom,
+          containerTop: hasInternalScroll ? finalContainerRect.top : 0,
+          containerBottom: hasInternalScroll ? finalContainerRect.bottom : window.innerHeight,
+          fullyVisible: hasInternalScroll
+            ? finalCommentRect.top >= finalContainerRect.top && finalCommentRect.bottom <= finalContainerRect.bottom
+            : finalCommentRect.top >= 0 && finalCommentRect.bottom <= window.innerHeight,
+          correctionPx,
+        });
+      }
       comment.classList.add("notification-public-comment-highlight");
       window.setTimeout(() => comment.classList.remove("notification-public-comment-highlight"), reducedMotion ? 900 : 2100);
       processedPublicTargetRef.current = targetKey;

@@ -145,16 +145,27 @@ test("mobile notification positioning measures the visual video in its real scro
   assert.match(mobileScrollContent, /data-video-reaction-rec[\s\S]*data-video-comment-card/);
   assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
   assert.match(mobilePositioning, /mobileHistoryScrollRef\.current[\s\S]*scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
-  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: desiredTop, behavior \}\)/);
-  assert.match(mobilePositioning, /bottomOverflow > 0[\s\S]*bottomOverflow \+ extraBottomMargin[\s\S]*scrollContainer\.scrollBy\(\{ top: correctionApplied, behavior \}\)/);
+  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\)/);
+  assert.match(mobilePositioning, /scrollContainer\.scrollBy\(\{ top: correctionApplied, behavior: "auto" \}\)/);
   assert.match(detail, /VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX = 24/);
-  assert.match(mobilePositioning, /maxSafeLift[\s\S]*remainingScroll[\s\S]*Math\.min\(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, remainingScroll\)[\s\S]*scrollContainer\.scrollBy\(\{ top: extraTargetLift, behavior \}\)/);
+  assert.match(mobilePositioning, /alignedScrollTop[\s\S]*maxSafeLift[\s\S]*Math\.min\(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, maxScrollTop - alignedScrollTop\)[\s\S]*finalScrollTop/);
+  assert.equal((mobilePositioning.match(/scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\)/g) ?? []).length, 1);
+  assert.doesNotMatch(mobilePositioning, /scrollBy\(\{[^}]*behavior \}\)/);
   assert.match(mobilePositioning, /\[VIDEO MOBILE FINAL ALIGNMENT\][\s\S]*videoBottomBefore[\s\S]*bottomOverflow[\s\S]*correctionApplied[\s\S]*videoBottomAfter[\s\S]*fullyVisible/);
   assert.doesNotMatch(mobilePositioning, /window\.scrollTo|window\.visualViewport|scrollIntoView/);
   assert.match(detail, /notificationPositioningRef\.current = true[\s\S]*notificationPositioningRef\.current = false/);
   assert.match(detail, /processedNotificationTargetRef\.current === targetKey \|\| notificationPositioningRef\.current/);
   assert.match(detail, /const openCommentMovieSection[\s\S]*setCommentInputMode\("text-comment"\)/);
   assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
+});
+
+test("mobile public notification preparation is instant and target movement is the only smooth scroll", () => {
+  const publicPositioning = detail.slice(detail.indexOf('const positionTarget = async () => {', detail.indexOf('notificationTarget?.type !== "public-comment"')), detail.indexOf('comment.classList.add("notification-public-comment-highlight")'));
+  assert.match(publicPositioning, /scrollIntoView\(\{ behavior: mobile \? "auto" : behavior/);
+  assert.match(publicPositioning, /container\.scrollTo\([\s\S]*intendedFinalScrollTop[\s\S]*behavior/);
+  assert.match(publicPositioning, /\[MOBILE NOTIFICATION SCROLL\][\s\S]*targetType: "public-comment"/);
+  assert.match(publicPositioning, /\[MOBILE NOTIFICATION FINAL\][\s\S]*fullyVisible/);
+  assert.match(publicPositioning, /correctionPx !== 0[\s\S]*behavior: "auto"/);
 });
 
 test("explicit notification diagnostics work in production and consumption requires visible target DOM", () => {
