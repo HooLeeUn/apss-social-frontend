@@ -2143,6 +2143,9 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
 
   const rawId = pickFirst(record.notification_id, record.notificationId, record.id, record.uuid);
   const id = normalizeNotificationId(rawId) ?? `${FALLBACK_NOTIFICATION_ID_PREFIX}${index}`;
+  const normalizedNotificationType = safeTrim(
+    pickFirst(record.type, record.notification_type, record.notificationType, record.activity_type, record.activityType),
+  )?.toLocaleLowerCase();
   const normalizedActivityType = safeTrim(pickFirst(record.activity_type, record.activityType, record.type, record.notification_type))?.toLocaleLowerCase();
   const isFriendRequest = isFriendRequestNotification(record);
 
@@ -2168,7 +2171,7 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
 
   return {
     id,
-    type: normalizedActivityType ?? null,
+    type: normalizedNotificationType ?? null,
     text,
     targetTab,
     movieId: toNotificationMovieId(record),
@@ -2176,11 +2179,11 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
     actorUsername,
     directedCommentId: toNotificationDirectedCommentId(record),
     commentId:
-      normalizedActivityType === "public_comment_reaction"
+      normalizedNotificationType === "public_comment_reaction"
         ? toCanonicalNotificationId(toRecord(toRecord(record.object)?.comment)?.id)
         : null,
     videoCommentId:
-      normalizedActivityType === "video_comment_reaction"
+      normalizedNotificationType === "video_comment_reaction"
         ? toCanonicalNotificationId(toRecord(record.object)?.video_comment_id)
         : null,
     reactionType: (() => {

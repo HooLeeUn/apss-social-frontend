@@ -10,6 +10,8 @@ const commentsList = readFileSync(new URL("../components/social/CommentsList.tsx
 const feed = readFileSync(new URL("../app/feed/page.tsx", import.meta.url), "utf8");
 
 test("bell normalization preserves canonical public and video reaction fields", () => {
+  assert.match(adapters, /pickFirst\(record\.type, record\.notification_type, record\.notificationType, record\.activity_type, record\.activityType\)/);
+  assert.match(adapters, /type: normalizedNotificationType \?\? null/);
   assert.match(adapters, /public_comment_reaction[\s\S]*toRecord\(toRecord\(record\.object\)\?\.comment\)\?\.id/);
   assert.match(adapters, /video_comment_reaction[\s\S]*toRecord\(record\.object\)\?\.video_comment_id/);
   assert.match(adapters, /pickFirst\(record\.reaction_type, record\.reaction_value\)/);
@@ -17,8 +19,10 @@ test("bell normalization preserves canonical public and video reaction fields", 
 });
 
 test("notification routing adds exact targets and retains previous fallbacks", () => {
-  assert.match(navigation, /target=public-comment&targetId=/);
-  assert.match(navigation, /reaction = item\.reactionType \? `&reaction=/);
+  const publicRoute = navigation.slice(navigation.indexOf('item.type === "public_comment_reaction"'), navigation.indexOf('item.type === "video_comment_reaction"'));
+  const videoRoute = navigation.slice(navigation.indexOf('item.type === "video_comment_reaction"'), navigation.indexOf('item.targetTab === "private_inbox"'));
+  assert.match(publicRoute, /item\.commentId[\s\S]*item\.reactionType[\s\S]*target=public-comment&targetId=/);
+  assert.match(videoRoute, /item\.videoCommentId[\s\S]*item\.reactionType[\s\S]*target=video-reaction&targetId=/);
   assert.match(navigation, /target=video-reaction&targetId=/);
   assert.match(navigation, /section=directed-comments[\s\S]*item\.directedCommentId/);
   assert.match(navigation, /friend_requests_pending[\s\S]*friendsTab=pending/);
@@ -73,7 +77,7 @@ test("feed propagates explicit target diagnostics and logs its complete destinat
   assert.match(feed, /<Suspense fallback=\{null\}>[\s\S]*<FeedDebugSearchParamsBridge[\s\S]*<\/Suspense>/);
   assert.doesNotMatch(feed, /export default function FeedPage\(\) \{\s*const router = useRouter\(\);\s*const searchParams = useSearchParams\(\)/);
   assert.match(feed, /targetRoute\.startsWith\("\/movies\/"\)[\s\S]*url\.searchParams\.set\("debugNotificationTarget", "1"\)/);
-  assert.match(feed, /\[NotificationTarget\]\[FEED CLICK\][\s\S]*notificationObjectCommentId[\s\S]*notificationObjectVideoCommentId[\s\S]*destination/);
+  assert.match(feed, /\[NotificationTarget\]\[FEED CLICK\][\s\S]*notificationObjectCommentId[\s\S]*notificationObjectVideoCommentId[\s\S]*destinationUrl/);
   assert.match(feed, /router\.push\(destination\)/);
 });
 

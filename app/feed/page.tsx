@@ -702,7 +702,7 @@ export default function FeedPage() {
             target: destinationUrl.searchParams.get("target"),
             targetId: destinationUrl.searchParams.get("targetId"),
             reaction: destinationUrl.searchParams.get("reaction"),
-            destination,
+            destinationUrl: destination,
           });
         }
         router.push(destination);
