@@ -775,7 +775,6 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
 @media (min-width: 768px) {
   body:not(.detail-trailer-active) [data-mobile-video-reaction] {
     position: relative;
-    min-height: 34rem;
     padding-inline: 0;
   }
 
