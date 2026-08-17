@@ -6,6 +6,7 @@ import { API_BASE_URL } from "../../lib/api";
 import AuthShell from "../../components/auth/AuthShell";
 import AuthCountrySelector, { useAuthLocale } from "../../components/auth/AuthCountrySelector";
 import AuthDialog from "../../components/auth/AuthDialog";
+import PasswordVisibilityButton from "../../components/auth/PasswordVisibilityButton";
 import { getAgeFromBirthDate, MINIMUM_AGE } from "../../lib/personal-data";
 
 type FieldName =
@@ -56,6 +57,8 @@ export default function SignupPage() {
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showBirthDateModal, setShowBirthDateModal] = useState(false);
   const [registrationPending, setRegistrationPending] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<UsernameAvailabilityStatus>("idle");
@@ -389,14 +392,17 @@ export default function SignupPage() {
             <label htmlFor="signup-password" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">
               {text.password}
             </label>
-            <input
-              id="signup-password"
-              type="password"
-              className={inputBaseClassName}
-              placeholder={text.createPassword}
-              value={form.password}
-              onChange={(e) => handleChange("password", e.target.value)}
-            />
+            <div className="relative">
+              <input
+                id="signup-password"
+                type={showPassword ? "text" : "password"}
+                className={`${inputBaseClassName} !pr-12`}
+                placeholder={text.createPassword}
+                value={form.password}
+                onChange={(e) => handleChange("password", e.target.value)}
+              />
+              <PasswordVisibilityButton visible={showPassword} showLabel={text.showPassword} hideLabel={text.hidePassword} onToggle={() => setShowPassword((visible) => !visible)} />
+            </div>
             {errors.password && <p className={errorClassName}>{errors.password}</p>}
           </div>
 
@@ -407,14 +413,17 @@ export default function SignupPage() {
             >
               {text.confirmPassword}
             </label>
-            <input
-              id="signup-password-confirmation"
-              type="password"
-              className={inputBaseClassName}
-              placeholder={text.repeatPassword}
-              value={form.password_confirmation}
-              onChange={(e) => handleChange("password_confirmation", e.target.value)}
-            />
+            <div className="relative">
+              <input
+                id="signup-password-confirmation"
+                type={showConfirmPassword ? "text" : "password"}
+                className={`${inputBaseClassName} !pr-12`}
+                placeholder={text.repeatPassword}
+                value={form.password_confirmation}
+                onChange={(e) => handleChange("password_confirmation", e.target.value)}
+              />
+              <PasswordVisibilityButton visible={showConfirmPassword} showLabel={text.showPassword} hideLabel={text.hidePassword} onToggle={() => setShowConfirmPassword((visible) => !visible)} />
+            </div>
             {errors.password_confirmation && <p className={errorClassName}>{errors.password_confirmation}</p>}
           </div>
 
