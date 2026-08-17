@@ -39,7 +39,17 @@ test("notification positioning waits for the mounted tab and both scroll surface
   assert.match(detail, /section\.getBoundingClientRect\(\)\.top/);
   assert.match(detail, /await waitForNotificationScroll\(window, reducedMotion\)[\s\S]*container\.scrollTo\(\{ left:/);
   assert.match(detail, /const chooseVisibleHistoryVideo[\s\S]*notificationPositioningRef\.current/);
-  assert.match(detail, /commentInputMode !== "text-comment" \|\| activeCommentsTab !== "public"/);
+  assert.match(detail, /commentInputMode !== "text-comment" \|\| \(!desktop && activeCommentsTab !== "public"\)/);
   assert.match(detail, /publicCommentsSectionRef\.current\?\.scrollIntoView[\s\S]*hasInternalScroll[\s\S]*container\.scrollTo/);
   assert.match(detail, /comment\.classList\.add\("notification-public-comment-highlight"\)[\s\S]*processedPublicTargetRef\.current = targetKey[\s\S]*consumeNotificationTarget\(\)/);
+});
+
+test("mobile notification positioning measures the visual video once and uses the real tab handler", () => {
+  assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
+  assert.match(detail, /window\.visualViewport[\s\S]*viewportHeight[\s\S]*videoRectBefore\.height/);
+  assert.match(detail, /window\.scrollTo\(\{ top: Math\.max\(0, window\.scrollY \+ videoRectBefore\.top - desiredTop\)/);
+  assert.match(detail, /notificationPositioningRef\.current = true[\s\S]*notificationPositioningRef\.current = false/);
+  assert.match(detail, /handleCommentInputTabClick\("text-comment"\)/);
+  assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
+  assert.match(detail, /process\.env\.NODE_ENV !== "production"[\s\S]*\[NotificationTarget\]/);
 });

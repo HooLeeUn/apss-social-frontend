@@ -103,6 +103,10 @@ function waitForNotificationScroll(target: Window | HTMLElement, reducedMotion: 
   });
 }
 
+function logNotificationTarget(event: string, details: Record<string, unknown>): void {
+  if (process.env.NODE_ENV !== "production") console.debug("[NotificationTarget]", event, details);
+}
+
 function VideoCommentReactionButtons({ comment, disabled, expanded = false, className = "", t, onReact }: { comment: VideoComment; disabled: boolean; expanded?: boolean; className?: string; t: (key: Parameters<typeof translate>[1]) => string; onReact: (id: string | number, reaction: VideoCommentReaction) => void }) {
   return <div className={`flex items-center gap-1 ${className}`}>
     {(["like", "dislike"] as const).map((reaction) => {
@@ -1594,6 +1598,13 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
     if (processedNotificationTargetRef.current === targetKey) return;
     const container = historyScrollRef.current;
     const card = container?.querySelector<HTMLElement>(`[data-video-comment-card="${CSS.escape(notificationTarget.id)}"]`);
+    logNotificationTarget("video target lookup", {
+      target: "video-reaction",
+      targetId: notificationTarget.id,
+      viewport: window.matchMedia("(min-width: 768px)").matches ? "desktop" : "mobile",
+      videoCardFound: Boolean(card),
+      notificationPositioning: notificationPositioningRef.current,
+    });
     if (!container || !card) {
       if (next) void fetchPage(next, "more");
       return;
@@ -1610,11 +1621,9 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       if (desktop && section) {
         const tabsHeight = document.querySelector<HTMLElement>("[data-desktop-comment-tabs]")?.getBoundingClientRect().height ?? 0;
         window.scrollTo({ top: Math.max(0, window.scrollY + section.getBoundingClientRect().top - tabsHeight - 16), behavior });
-      } else {
-        card.scrollIntoView({ behavior, block: "center", inline: "nearest" });
+        await waitForNotificationScroll(window, reducedMotion);
       }
 
-      await waitForNotificationScroll(window, reducedMotion);
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       if (cancelled) return;
 
@@ -1624,8 +1633,35 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
         container.scrollTo({ left: container.scrollLeft + stableCardRect.left - stableContainerRect.left - (container.clientWidth - stableCardRect.width) / 2, behavior });
         await waitForNotificationScroll(container, reducedMotion);
       } else {
-        card.scrollIntoView({ behavior, block: "center", inline: "nearest" });
+        const visualVideo = card.querySelector<HTMLElement>('[data-video-comment-player="true"]');
+        if (!visualVideo) {
+          notificationPositioningRef.current = false;
+          logNotificationTarget("mobile visual video missing", { targetId: notificationTarget.id });
+          return;
+        }
+        const visualViewport = window.visualViewport;
+        const viewportTop = visualViewport?.offsetTop ?? 0;
+        const viewportHeight = visualViewport?.height ?? window.innerHeight;
+        const videoRectBefore = visualVideo.getBoundingClientRect();
+        const availableSpace = Math.max(0, viewportHeight - videoRectBefore.height);
+        const margin = Math.min(32, Math.max(12, availableSpace / 4));
+        const usableTop = viewportTop + margin;
+        const usableHeight = Math.max(0, viewportHeight - margin * 2);
+        const desiredTop = usableTop + Math.max(0, (usableHeight - videoRectBefore.height) / 2);
+        logNotificationTarget("mobile video before scroll", {
+          targetId: notificationTarget.id,
+          videoRect: { top: videoRectBefore.top, bottom: videoRectBefore.bottom, height: videoRectBefore.height },
+          visualViewport: { height: viewportHeight, offsetTop: viewportTop },
+          notificationPositioning: notificationPositioningRef.current,
+        });
+        window.scrollTo({ top: Math.max(0, window.scrollY + videoRectBefore.top - desiredTop), behavior });
         await waitForNotificationScroll(window, reducedMotion);
+        const videoRectAfter = visualVideo.getBoundingClientRect();
+        logNotificationTarget("mobile video after scroll", {
+          targetId: notificationTarget.id,
+          videoRect: { top: videoRectAfter.top, bottom: videoRectAfter.bottom, height: videoRectAfter.height },
+          notificationPositioning: notificationPositioningRef.current,
+        });
       }
       if (cancelled) return;
 
@@ -1635,6 +1671,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       }
       processedNotificationTargetRef.current = targetKey;
       notificationPositioningRef.current = false;
+      logNotificationTarget("target consumed", { target: "video-reaction", targetId: notificationTarget.id, timestamp: Date.now() });
       onNotificationTargetConsumed();
     };
     void positionTarget();
@@ -2566,6 +2603,7 @@ function MovieDetailPageContent() {
   const directedCommentsScrollRef = useRef<HTMLDivElement | null>(null);
   const processedDirectedTargetRef = useRef<string | null>(null);
   const processedPublicTargetRef = useRef<string | null>(null);
+  const publicMainTabRequestedRef = useRef<string | null>(null);
 
   const notificationTarget = useMemo(() => {
     const target = searchParams.get("target");
@@ -3088,11 +3126,32 @@ function MovieDetailPageContent() {
 
   useEffect(() => {
     if (notificationTarget?.type !== "public-comment") return;
-    setCommentInputMode("text-comment");
-    setActiveCommentsTab("public");
+    const targetKey = `${movieId}:${notificationTarget.id}`;
+    logNotificationTarget("public target received", {
+      target: notificationTarget.type,
+      targetId: notificationTarget.id,
+      viewport: window.matchMedia("(min-width: 768px)").matches ? "desktop" : "mobile",
+      mainTabBefore: commentInputMode,
+    });
+    if (commentInputMode !== "text-comment" && publicMainTabRequestedRef.current !== targetKey) {
+      publicMainTabRequestedRef.current = targetKey;
+      handleCommentInputTabClick("text-comment");
+      logNotificationTarget("main tab requested", { targetId: notificationTarget.id, requestedTab: "text-comment", mainTabAfterRequest: commentInputMode });
+    }
     setSelectedPublicFilterUser(null);
     setPublicSearchQuery("");
-  }, [notificationTarget]);
+  }, [commentInputMode, handleCommentInputTabClick, movieId, notificationTarget]);
+
+  useEffect(() => {
+    if (notificationTarget?.type !== "public-comment" || commentInputMode !== "text-comment") return;
+    const mobile = !window.matchMedia("(min-width: 768px)").matches;
+    if (mobile && activeCommentsTab !== "public") setActiveCommentsTab("public");
+    logNotificationTarget("main tab rendered", {
+      targetId: notificationTarget.id,
+      mainTabAfterRender: commentInputMode,
+      mobileCommentsSubtab: mobile ? (activeCommentsTab === "public" ? "public" : "public requested") : "desktop simultaneous panels",
+    });
+  }, [activeCommentsTab, commentInputMode, notificationTarget]);
 
   useEffect(() => {
     if (notificationTarget?.type !== "video-reaction") return;
@@ -3101,11 +3160,19 @@ function MovieDetailPageContent() {
   }, [notificationTarget]);
 
   useEffect(() => {
-    if (notificationTarget?.type !== "public-comment" || commentInputMode !== "text-comment" || activeCommentsTab !== "public" || loadingPublic || loadingPublicMore) return;
+    const desktop = typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+    if (notificationTarget?.type !== "public-comment" || commentInputMode !== "text-comment" || (!desktop && activeCommentsTab !== "public") || loadingPublic || loadingPublicMore) return;
     const targetKey = `${movieId}:${notificationTarget.id}`;
     if (processedPublicTargetRef.current === targetKey) return;
     const container = publicCommentsScrollRef.current;
     const comment = container?.querySelector<HTMLElement>(`[data-public-comment-id="${CSS.escape(notificationTarget.id)}"]`);
+    logNotificationTarget("public comment lookup", {
+      targetId: notificationTarget.id,
+      mainTabAfterRender: commentInputMode,
+      mobileCommentsSubtab: desktop ? "desktop simultaneous panels" : activeCommentsTab,
+      publicContainerFound: Boolean(container),
+      publicCommentFound: Boolean(comment),
+    });
     if (!container || !comment) {
       if (publicNext) void appendPublicComments();
       return;
@@ -3138,6 +3205,8 @@ function MovieDetailPageContent() {
       comment.classList.add("notification-public-comment-highlight");
       window.setTimeout(() => comment.classList.remove("notification-public-comment-highlight"), reducedMotion ? 900 : 2100);
       processedPublicTargetRef.current = targetKey;
+      publicMainTabRequestedRef.current = null;
+      logNotificationTarget("target consumed", { target: "public-comment", targetId: notificationTarget.id, timestamp: Date.now() });
       consumeNotificationTarget();
     };
     void positionTarget();
