@@ -21,6 +21,9 @@ interface ProfileIdentityCardProps {
   formatAge?: (age: number) => string;
   followersCount?: number | null;
   formatFollowers?: (count: number) => string;
+  avatarHref?: string;
+  avatarLinkLabel?: string;
+  constrainDesktopAvatar?: boolean;
 }
 
 function formatGender(gender: string): string {
@@ -57,6 +60,9 @@ export default function ProfileIdentityCard({
   formatAge = (value) => `${value} Años`,
   followersCount = null,
   formatFollowers = (count) => count === 1 ? "Tiene 1 seguidor" : `Tiene ${count} seguidores`,
+  avatarHref,
+  avatarLinkLabel,
+  constrainDesktopAvatar = false,
 }: ProfileIdentityCardProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);
@@ -69,6 +75,7 @@ export default function ProfileIdentityCard({
   const cardHeightClass = autoHeight ? "h-fit min-h-0 self-start" : "min-h-[220px]";
   const personalDataSpacingClass = autoHeight ? "mt-0" : "mt-auto";
   const stableMobileHeightClass = stabilizeMobileHeight ? "min-h-[264px] md:min-h-[220px]" : "";
+  const avatarClassName = `relative top-24 z-10 block h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${constrainDesktopAvatar ? "lg:absolute lg:right-1 lg:top-20 lg:h-[72px] lg:w-[72px]" : ""}`;
   const cardClassName = `relative mx-auto flex w-full min-w-0 max-w-full box-border flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass} ${stableMobileHeightClass}`;
 
   if (isLoading) {
@@ -108,14 +115,21 @@ export default function ProfileIdentityCard({
           />
         </Link>
 
-        <div className="relative top-24 h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90">
+        {avatarHref ? <Link href={avatarHref} aria-label={avatarLinkLabel} className={`${avatarClassName} cursor-pointer`}>
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt={`Avatar de @${username}`} className="h-full w-full object-cover" />
+            <img src={avatarUrl} alt={`Avatar de @${username}`} className="block h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-zinc-200">{initials}</div>
           )}
-        </div>
+        </Link> : <div className={avatarClassName}>
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt={`Avatar de @${username}`} className="block h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-zinc-200">{initials}</div>
+          )}
+        </div>}
       </div>
 
       <div className="relative min-w-0 space-y-2 pr-24">

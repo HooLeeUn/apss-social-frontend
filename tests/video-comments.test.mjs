@@ -251,6 +251,26 @@ test("touch landscape keeps the mobile Detail Movie layout", () => {
   has(/data-mobile-comment-tabs/);
 });
 
+test("Detail Movie keeps the authenticated avatar beside both tab layouts", () => {
+  has(/getMyProfile\(\)\.then/);
+  has(/href="\/profile-feed"/);
+  has(/movieDetailMyProfileAvatarLabel/);
+  assert.equal((page.match(/<AuthenticatedProfileAvatar/g) ?? []).length, 2);
+  has(/data-mobile-comment-tabs className="relative/);
+  has(/data-desktop-comment-tabs className="relative/);
+});
+
+test("mobile Video Reaction tab adds avatar clearance without moving the row or desktop tabs", () => {
+  has(/mode === "video-comment" \? "pl-6 pr-2" : "px-2"/);
+  assert.match(page, /data-desktop-comment-tabs[\s\S]*className=\{`min-h-11 px-3 py-2/);
+});
+
+test("mobile Video Reaction tab resets its real vertical history scroller", () => {
+  has(/mode === "video-comment"[\s\S]*\[data-mobile-video-reaction-scroll-container\][\s\S]*scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
+  has(/if \(commentInputMode === mode\)/);
+  assert.doesNotMatch(page, /window\.scrollTo\(\{ top: 0/);
+});
+
 test("desktop Video Reaction ends at its content without changing shared comment height", () => {
   const reactionRule = css.slice(
     css.indexOf("body:not(.detail-trailer-active) [data-mobile-video-reaction]"),
@@ -276,6 +296,13 @@ test("trailer and reactions coordinate audio and fullscreen through player refs"
   has(/qnext:reaction-muted-change/);
   has(/qnext:trailer-muted-change/);
   has(/historyVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
+});
+
+test("active trailer loops from the real YouTube ended state without rebuilding its iframe", () => {
+  assert.match(trailerModal, /event\.data !== window\.YT\?\.PlayerState\.ENDED/);
+  assert.match(trailerModal, /cancelled \|\| !trailerIsActiveRef\.current/);
+  assert.match(trailerModal, /event\.target\.seekTo\(0, true\);\s*event\.target\.playVideo\(\);/);
+  assert.doesNotMatch(trailerModal, /setInterval\([^)]*seekTo|setTimeout\([^)]*seekTo/);
 });
 
 test("trailer companion navigates the three existing views without circular swipes", () => {

@@ -37,7 +37,7 @@ import { useAppBranding } from "../../../hooks/useAppBranding";
 import { useI18n } from "../../../hooks/useI18n";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
 import { getProfilePrivacySettings } from "../../../lib/privacy";
-import { getTopFollowing } from "../../../lib/profile-feed/adapters";
+import { getMyProfile, getTopFollowing } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { t as translate } from "../../../lib/i18n";
 
@@ -105,6 +105,16 @@ function waitForNotificationScroll(target: Window | HTMLElement, reducedMotion: 
 }
 
 type NotificationDiagnosticLogger = (event: string, details?: Record<string, unknown>) => void;
+
+function AuthenticatedProfileAvatar({ user, label, className }: { user: SocialUser | null; label: string; className: string }) {
+  const initials = (user?.username || "U").slice(0, 2).toUpperCase();
+  return <Link href="/profile-feed" aria-label={label} className={`block overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${className}`}>
+    {user?.avatarUrl ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={user.avatarUrl} alt="" className="block h-full w-full object-cover" />
+    ) : <span aria-hidden="true" className="flex h-full w-full items-center justify-center text-xs font-semibold text-zinc-200">{initials}</span>}
+  </Link>;
+}
 
 function VideoCommentReactionButtons({ comment, disabled, expanded = false, className = "", t, onReact }: { comment: VideoComment; disabled: boolean; expanded?: boolean; className?: string; t: (key: Parameters<typeof translate>[1]) => string; onReact: (id: string | number, reaction: VideoCommentReaction) => void }) {
   return <div className={`flex items-center gap-1 ${className}`}>
@@ -272,13 +282,6 @@ function isSeriesContentType(contentType: string | null | undefined): boolean {
   const normalized = (contentType ?? "").trim().toLowerCase();
   return normalized === "series" || normalized === "tv series" || normalized === "tvseries";
 }
-
-function getCurrentUsernameFromPayload(payload: unknown): string | null {
-  const root = toRecord(payload);
-  const user = toRecord(root?.user);
-  return typeof (user?.username ?? root?.username) === "string" ? String(user?.username ?? root?.username) : null;
-}
-
 
 function normalizeEndpointPath(nextValue: string | null): string | null {
   if (!nextValue) return null;
@@ -2698,6 +2701,7 @@ function MovieDetailPageContent() {
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [followingUsers, setFollowingUsers] = useState<SocialUser[]>([]);
+  const [authenticatedUser, setAuthenticatedUser] = useState<SocialUser | null>(null);
   const [authenticatedUsername, setAuthenticatedUsername] = useState("");
   const [friendRequestsRestricted, setFriendRequestsRestricted] = useState<boolean | null>(null);
 
@@ -2886,6 +2890,9 @@ function MovieDetailPageContent() {
           }
         });
         return;
+      }
+      if (mode === "video-comment") {
+        videoCommentStartRef.current?.querySelector<HTMLElement>("[data-mobile-video-reaction-scroll-container]")?.scrollTo({ top: 0, behavior: "smooth" });
       }
       if (commentInputMode === mode) {
         scrollCommentStartIntoView(mode);
@@ -3117,7 +3124,7 @@ function MovieDetailPageContent() {
       setLoadingDirected(true);
       try {
         const [meResult, privacyResult] = await Promise.all([
-          apiFetch("/me/").then(
+          getMyProfile().then(
             (payload) => ({ ok: true as const, payload }),
             (error) => ({ ok: false as const, error }),
           ),
@@ -3137,7 +3144,8 @@ function MovieDetailPageContent() {
           return;
         }
 
-        const meUsername = meResult.ok ? getCurrentUsernameFromPayload(meResult.payload) ?? "" : "";
+        const meUsername = meResult.ok ? meResult.payload?.username ?? "" : "";
+        if (meResult.ok) setAuthenticatedUser(meResult.payload);
         if (meUsername) setAuthenticatedUsername(meUsername);
 
         if (!privacyResult.ok) {
@@ -4102,7 +4110,8 @@ function MovieDetailPageContent() {
             />
           ) : null}
 
-          <div data-mobile-comment-tabs className="flex items-center justify-between gap-4 md:hidden" role="tablist" aria-label={composerTitle}>
+          <div data-mobile-comment-tabs className="relative flex items-center justify-between gap-4 md:hidden" role="tablist" aria-label={composerTitle}>
+            <AuthenticatedProfileAvatar user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-y-1/2 cursor-pointer" />
             {(["video-comment", "text-comment"] as const).map((mode) => {
               const isActiveMode = commentInputMode === mode;
 
@@ -4112,7 +4121,7 @@ function MovieDetailPageContent() {
                   type="button"
                   role="tab"
                   aria-selected={isActiveMode}
-                  className={`flex min-h-11 flex-1 items-center justify-center px-2 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
+                  className={`flex min-h-11 flex-1 items-center justify-center py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "pl-6 pr-2" : "px-2"} ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
                   data-comment-input-mode={mode}
                   onClick={() => handleCommentInputTabClick(mode)}
                 >
@@ -4123,7 +4132,8 @@ function MovieDetailPageContent() {
           </div>
         </div>
 
-        <div data-desktop-comment-tabs className="hidden items-center justify-center gap-16 md:flex" role="tablist" aria-label={composerTitle}>
+        <div data-desktop-comment-tabs className="relative hidden items-center justify-center gap-16 md:flex" role="tablist" aria-label={composerTitle}>
+          <AuthenticatedProfileAvatar user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-10 w-10 -translate-y-1/2 cursor-pointer" />
           {(["video-comment", "text-comment"] as const).map((mode) => {
             const isActiveMode = commentInputMode === mode;
             return (

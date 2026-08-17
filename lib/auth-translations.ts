@@ -4,7 +4,7 @@ export const authTranslations = {
   es: {
     countryLabel: "Seleccionar país", countrySearch: "Buscar país", noCountries: "Sin resultados",
     loginTitle: "Bienvenido de nuevo", loginDescription: "Inicia sesión para seguir descubriendo y compartiendo recomendaciones de películas con tu comunidad.",
-    username: "USUARIO", password: "CONTRASEÑA", usernamePlaceholder: "Usuario", passwordPlaceholder: "Contraseña",
+    username: "USUARIO", password: "CONTRASEÑA", usernamePlaceholder: "Usuario", passwordPlaceholder: "Contraseña", showPassword: "Mostrar contraseña", hidePassword: "Ocultar contraseña",
     loginButton: "Entrar", loggingIn: "Iniciando sesión…", noAccount: "¿No tienes cuenta?", signupLink: "Regístrate",
     requiredUsername: "El usuario es obligatorio.", requiredPassword: "La contraseña es obligatoria.",
     credentialTitle: "No pudimos iniciar sesión", credentialMessage: "El usuario o la contraseña son incorrectos. Revisa la información e inténtalo nuevamente.",
@@ -22,7 +22,7 @@ export const authTranslations = {
   en: {
     countryLabel: "Select country", countrySearch: "Search countries", noCountries: "No results",
     loginTitle: "Welcome back", loginDescription: "Sign in to keep discovering and sharing movie recommendations with your community.",
-    username: "USERNAME", password: "PASSWORD", usernamePlaceholder: "Username", passwordPlaceholder: "Password",
+    username: "USERNAME", password: "PASSWORD", usernamePlaceholder: "Username", passwordPlaceholder: "Password", showPassword: "Show password", hidePassword: "Hide password",
     loginButton: "Sign in", loggingIn: "Signing in…", noAccount: "Don’t have an account?", signupLink: "Sign up",
     requiredUsername: "Username is required.", requiredPassword: "Password is required.",
     credentialTitle: "We couldn’t sign you in", credentialMessage: "The username or password is incorrect. Check your information and try again.",

@@ -815,6 +815,9 @@ function ProfileFeedContent() {
                 isLoading={loadingProfileUser || !profileUser}
                 stabilizeMobileHeight
                 avatarUrl={profileUser?.avatarUrl}
+                avatarHref="/settings/personal-data"
+                avatarLinkLabel={t("profileFeedPersonalDataAvatarLink")}
+                constrainDesktopAvatar
                 firstName={profileUser?.firstName}
                 lastName={profileUser?.lastName}
                 age={profileUser?.age}
