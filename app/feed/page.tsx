@@ -678,11 +678,22 @@ export default function FeedPage() {
           videoCommentId: item.videoCommentId,
           reactionType: item.reactionType,
         });
-        if (item.type === "public_comment_reaction" && (item.commentId === null || item.commentId === "")) {
-          console.error("[NotificationTarget] public_comment_reaction missing commentId", item);
-        }
       }
       const targetRoute = buildNotificationTargetRoute(item);
+      if (item.type === "public_comment_reaction") {
+        console.log("[PUBLIC COMMENT NOTIFICATION REAL]", {
+          item,
+          type: item.type,
+          movieId: item.movieId,
+          commentId: item.commentId,
+          reactionType: item.reactionType,
+          targetTab: item.targetTab,
+          builtRoute: targetRoute,
+        });
+        if (process.env.NODE_ENV !== "production" && (item.commentId === null || item.commentId === "")) {
+          console.error("[PUBLIC COMMENT ROUTING ERROR] Missing commentId", item);
+        }
+      }
       const destination = (() => {
         if (!debugNotificationTarget || !targetRoute.startsWith("/movies/")) return targetRoute;
         const url = new URL(targetRoute, window.location.origin);

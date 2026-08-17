@@ -3229,7 +3229,27 @@ function MovieDetailPageContent() {
   }, []);
 
   useEffect(() => {
-    if (searchParams.get("section") !== "directed-comments") return;
+    const section = searchParams.get("section");
+    if (searchParams.get("section") !== "directed-comments" && section !== "public-comments") return;
+
+    if (section === "public-comments") {
+      const commentId = normalizeId(searchParams.get("commentId"));
+      if (!commentId) return;
+      const targetKey = `${movieId}:${commentId}`;
+      if (publicMainTabRequestedRef.current === targetKey) return;
+      publicMainTabRequestedRef.current = targetKey;
+      openCommentMovieSection();
+      setSelectedPublicFilterUser(null);
+      setPublicSearchQuery("");
+      logNotificationTarget("public target received", {
+        target: "public-comment",
+        targetId: commentId,
+        viewport: window.matchMedia("(min-width: 768px)").matches ? "desktop" : "mobile",
+        mainTabBefore: commentInputMode,
+      });
+      return;
+    }
+
     const actorId = normalizeId(searchParams.get("actorId"));
     const actorUsername = normalizeUsername(searchParams.get("actorUsername"));
     const commentId = normalizeId(searchParams.get("commentId"));
@@ -3241,25 +3261,7 @@ function MovieDetailPageContent() {
     setActiveCommentsTab("directed");
     openCommentMovieSection();
     setPendingDirectedNotificationTarget({ actorId, actorUsername, commentId, conversationKey: null, stage: "find-conversation" });
-  }, [movieId, openCommentMovieSection, searchParams]);
-
-  useEffect(() => {
-    if (notificationTarget?.type !== "public-comment") return;
-    const targetKey = `${movieId}:${notificationTarget.id}`;
-    logNotificationTarget("public target received", {
-      target: notificationTarget.type,
-      targetId: notificationTarget.id,
-      viewport: window.matchMedia("(min-width: 768px)").matches ? "desktop" : "mobile",
-      mainTabBefore: commentInputMode,
-    });
-    if (commentInputMode !== "text-comment" && publicMainTabRequestedRef.current !== targetKey) {
-      publicMainTabRequestedRef.current = targetKey;
-      openCommentMovieSection();
-      logNotificationTarget("main tab requested", { targetId: notificationTarget.id, requestedTab: "text-comment", mainTabAfterRequest: commentInputMode });
-    }
-    setSelectedPublicFilterUser(null);
-    setPublicSearchQuery("");
-  }, [commentInputMode, logNotificationTarget, movieId, notificationTarget, openCommentMovieSection]);
+  }, [commentInputMode, logNotificationTarget, movieId, openCommentMovieSection, searchParams]);
 
   useEffect(() => {
     if (notificationTarget?.type !== "public-comment" || commentInputMode !== "text-comment") return;

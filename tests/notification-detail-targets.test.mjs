@@ -49,6 +49,34 @@ test("real public reaction payload variants normalize and route canonically", ()
   }
 });
 
+test("public and directed comment routes share movie and canonical comment ids", () => {
+  const base = {
+    id: 1,
+    text: "notification",
+    targetTab: "private_inbox",
+    movieId: 492436,
+    actorId: 1,
+    actorUsername: "Julian",
+    createdAt: null,
+    videoCommentId: null,
+  };
+  assert.equal(buildNotificationTargetRoute({
+    ...base,
+    type: "private_message",
+    directedCommentId: 32,
+    commentId: null,
+    reactionType: null,
+  }), "/movies/492436?section=directed-comments&actorId=1&actorUsername=Julian&commentId=32");
+  assert.equal(buildNotificationTargetRoute({
+    ...base,
+    type: "public_comment_reaction",
+    targetTab: "activity",
+    directedCommentId: null,
+    commentId: 22,
+    reactionType: "like",
+  }), "/movies/492436?section=public-comments&commentId=22&reaction=like");
+});
+
 test("notification routing adds exact targets and retains previous fallbacks", () => {
   const publicRoute = navigation.slice(navigation.indexOf('item.type === "public_comment_reaction"'), navigation.indexOf('item.type === "video_comment_reaction"'));
   const videoRoute = navigation.slice(navigation.indexOf('item.type === "video_comment_reaction"'), navigation.indexOf('item.targetTab === "private_inbox"'));
@@ -109,7 +137,8 @@ test("feed propagates explicit target diagnostics and logs its complete destinat
   assert.doesNotMatch(feed, /export default function FeedPage\(\) \{\s*const router = useRouter\(\);\s*const searchParams = useSearchParams\(\)/);
   assert.match(feed, /targetRoute\.startsWith\("\/movies\/"\)[\s\S]*url\.searchParams\.set\("debugNotificationTarget", "1"\)/);
   assert.match(feed, /\[NotificationTarget\]\[NORMALIZED ITEM\][\s\S]*const targetRoute = buildNotificationTargetRoute\(item\)/);
-  assert.match(feed, /public_comment_reaction missing commentId/);
+  assert.match(feed, /\[PUBLIC COMMENT NOTIFICATION REAL\][\s\S]*builtRoute: targetRoute/);
+  assert.match(feed, /\[PUBLIC COMMENT ROUTING ERROR\] Missing commentId/);
   assert.match(feed, /\[NotificationTarget\]\[FEED CLICK\][\s\S]*notificationObjectCommentId[\s\S]*notificationObjectVideoCommentId[\s\S]*destinationUrl/);
   assert.match(feed, /router\.push\(destination\)/);
 });
@@ -125,9 +154,8 @@ test("detail snapshots received query data before processing and retains it afte
 
 test("public comment sections reuse the proven directed-comments entry architecture", () => {
   assert.match(detail, /section === "public-comments"[\s\S]*type: "public-comment"/);
-  const directedEntry = detail.slice(detail.indexOf('searchParams.get("section") !== "directed-comments"'), detail.indexOf('if (notificationTarget?.type !== "public-comment")'));
-  assert.match(directedEntry, /setActiveCommentsTab\("directed"\)[\s\S]*openCommentMovieSection\(\)[\s\S]*setPendingDirectedNotificationTarget/);
-  assert.match(detail, /publicMainTabRequestedRef[\s\S]*openCommentMovieSection\(\)/);
+  const sharedEntry = detail.slice(detail.indexOf('searchParams.get("section") !== "directed-comments" && section !== "public-comments"'), detail.indexOf('if (notificationTarget?.type !== "public-comment")'));
+  assert.match(sharedEntry, /section === "public-comments"[\s\S]*openCommentMovieSection\(\)[\s\S]*setActiveCommentsTab\("directed"\)[\s\S]*openCommentMovieSection\(\)[\s\S]*setPendingDirectedNotificationTarget/);
   assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
   assert.match(detail, /received\?\.type === "public-comment"[\s\S]*cleaned\.delete\("section"\)[\s\S]*cleaned\.delete\("commentId"\)/);
 });
