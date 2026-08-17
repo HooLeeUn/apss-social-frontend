@@ -2132,6 +2132,11 @@ function toNotificationDirectedCommentId(record: Record<string, unknown>): strin
   return safeTrim(rawCommentId);
 }
 
+function toCanonicalNotificationId(value: unknown): string | number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return safeTrim(value);
+}
+
 function toNotificationItem(value: unknown, index: number): MyNotificationItem | null {
   const record = toRecord(value);
   if (!record) return null;
@@ -2163,12 +2168,25 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
 
   return {
     id,
+    type: normalizedActivityType ?? null,
     text,
     targetTab,
     movieId: toNotificationMovieId(record),
     actorId: toNotificationActorId(record),
     actorUsername,
     directedCommentId: toNotificationDirectedCommentId(record),
+    commentId:
+      normalizedActivityType === "public_comment_reaction"
+        ? toCanonicalNotificationId(toRecord(toRecord(record.object)?.comment)?.id)
+        : null,
+    videoCommentId:
+      normalizedActivityType === "video_comment_reaction"
+        ? toCanonicalNotificationId(toRecord(record.object)?.video_comment_id)
+        : null,
+    reactionType: (() => {
+      const reaction = safeTrim(pickFirst(record.reaction_type, record.reaction_value))?.toLocaleLowerCase();
+      return reaction === "like" || reaction === "dislike" ? reaction : null;
+    })(),
     createdAt: safeTrim(pickFirst(record.created_at, record.createdAt, record.timestamp)),
   };
 }
@@ -2190,7 +2208,7 @@ function isNotificationUnread(value: unknown): boolean {
   return true;
 }
 
-function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
+export function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
   const root = toRecord(payload);
   const data = toRecord(root?.data);
   const notificationsRaw = pickFirst(

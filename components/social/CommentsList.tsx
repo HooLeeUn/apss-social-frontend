@@ -29,6 +29,7 @@ interface CommentsListProps {
   getDisplayText?: (comment: SocialComment) => string;
   borderlessContainer?: boolean;
   exposeDirectedCommentIds?: boolean;
+  exposePublicCommentIds?: boolean;
   unboundedOnMobile?: boolean;
   desktopDarkScrollbar?: boolean;
   containerRef?: Ref<HTMLDivElement>;
@@ -60,6 +61,7 @@ export default function CommentsList({
   getDisplayText,
   borderlessContainer = false,
   exposeDirectedCommentIds = false,
+  exposePublicCommentIds = false,
   unboundedOnMobile = false,
   desktopDarkScrollbar = false,
   containerRef,
@@ -108,6 +110,7 @@ export default function CommentsList({
             className={index === 0 ? "" : "border-t border-white/10"}
             data-directed-comment-id={exposeDirectedCommentIds ? String(comment.id) : undefined}
             data-directed-comment-direction={exposeDirectedCommentIds ? comment.direction : undefined}
+            data-public-comment-id={exposePublicCommentIds ? String(comment.id) : undefined}
           >
             <CommentItem
               comment={comment}
@@ -161,6 +164,7 @@ export default function CommentsList({
             className={index === 0 ? "" : "border-t border-white/10"}
             data-directed-comment-id={exposeDirectedCommentIds ? String(comment.id) : undefined}
             data-directed-comment-direction={exposeDirectedCommentIds ? comment.direction : undefined}
+            data-public-comment-id={exposePublicCommentIds ? String(comment.id) : undefined}
           >
             <CommentItem
               comment={comment}

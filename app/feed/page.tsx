@@ -22,6 +22,7 @@ import {
   markAllNotificationsAsRead,
   markNotificationsAsReadBatch,
 } from "../../lib/profile-feed/adapters";
+import { buildNotificationTargetRoute } from "../../lib/notification-navigation";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { normalizeBackendMediaUrl } from "../../lib/branding";
@@ -655,21 +656,7 @@ export default function FeedPage() {
   const handleNotificationItemClick = useCallback(
     async (item: MyNotificationItem) => {
       setIsNotificationPanelOpen(false);
-      const targetRoute =
-        item.targetTab === "friend_requests_pending"
-          ? "/profile-feed?friendsTab=pending"
-          : item.movieId !== null && item.movieId !== ""
-            ? item.targetTab === "private_inbox" &&
-              item.directedCommentId !== null &&
-              item.directedCommentId !== "" &&
-              ((item.actorId !== null && item.actorId !== "") || item.actorUsername)
-              ? `/movies/${encodeURIComponent(String(item.movieId))}?section=directed-comments${
-                  item.actorId !== null && item.actorId !== "" ? `&actorId=${encodeURIComponent(String(item.actorId))}` : ""
-                }${item.actorUsername ? `&actorUsername=${encodeURIComponent(item.actorUsername)}` : ""}&commentId=${encodeURIComponent(String(item.directedCommentId))}`
-              : `/movies/${item.movieId}`
-            : item.targetTab === "private_inbox"
-              ? "/profile-feed?tab=private_inbox"
-              : "/profile-feed?tab=activity";
+      const targetRoute = buildNotificationTargetRoute(item);
 
       try {
         if (isRealNotificationId(item.id)) {

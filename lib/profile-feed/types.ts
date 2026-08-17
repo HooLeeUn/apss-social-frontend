@@ -206,12 +206,16 @@ export type NotificationContext = "activity" | "private_inbox";
 
 export interface MyNotificationItem {
   id: NotificationId;
+  type: string | null;
   text: string;
   targetTab: NotificationTargetTab;
   movieId: number | string | null;
   actorId: number | string | null;
   actorUsername: string | null;
   directedCommentId: number | string | null;
+  commentId: number | string | null;
+  videoCommentId: number | string | null;
+  reactionType: "like" | "dislike" | null;
   createdAt: string | null;
 }
 
