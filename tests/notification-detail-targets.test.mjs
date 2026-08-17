@@ -140,6 +140,7 @@ test("notification positioning waits for the mounted tab and both scroll surface
 test("mobile notification positioning measures the visual video in its real scroll container and uses the real tab handler", () => {
   const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = historyScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
   assert.match(detail, /data-mobile-video-reaction-scroll-container/);
+  assert.match(detail, /data-mobile-video-reaction-scroll-container="true"[\s\S]*max-h-\[50dvh\][\s\S]*overflow-y-auto/);
   assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
   assert.match(mobilePositioning, /scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
   assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: desiredTop, behavior \}\)/);
@@ -176,7 +177,7 @@ test("feed propagates explicit target diagnostics and logs its complete destinat
 
 test("video target diagnostics report desktop and mobile final geometry", () => {
   assert.match(detail, /\[VIDEO NOTIFICATION TARGET\][\s\S]*viewport: "desktop"[\s\S]*carouselScrollLeftAfter/);
-  assert.match(detail, /\[VIDEO NOTIFICATION TARGET\][\s\S]*viewport: "mobile"[\s\S]*containerScrollTopAfter[\s\S]*fullyVisible/);
+  assert.match(detail, /\[VIDEO MOBILE TARGET\][\s\S]*scrollTopBefore[\s\S]*desiredScrollTop[\s\S]*scrollTopAfter[\s\S]*fullyVisible[\s\S]*positioningRef/);
 });
 
 test("detail snapshots received query data before processing and retains it after consumption", () => {

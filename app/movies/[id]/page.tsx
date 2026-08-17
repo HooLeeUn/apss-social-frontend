@@ -1604,6 +1604,16 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       notificationPositioning: notificationPositioningRef.current,
     });
     if (!container || !card) {
+      if (!window.matchMedia("(min-width: 768px)").matches) {
+        console.log("[VIDEO MOBILE TARGET]", {
+          videoCommentId: notificationTarget.id,
+          scrollContainerFound: Boolean(container),
+          cardFound: Boolean(card),
+          playerFound: false,
+          fullyVisible: false,
+          positioningRef: notificationPositioningRef.current,
+        });
+      }
       if (next) void fetchPage(next, "more");
       return;
     }
@@ -1648,6 +1658,14 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       } else {
         const scrollContainer = historyScrollRef.current;
         if (!scrollContainer || !visualVideo) {
+          console.log("[VIDEO MOBILE TARGET]", {
+            videoCommentId: notificationTarget.id,
+            scrollContainerFound: Boolean(scrollContainer),
+            cardFound: true,
+            playerFound: Boolean(visualVideo),
+            fullyVisible: false,
+            positioningRef: notificationPositioningRef.current,
+          });
           notificationPositioningRef.current = false;
           logNotificationTarget("TARGET NOT CONSUMED", { targetId: notificationTarget.id, scrollContainerFound: Boolean(scrollContainer), videoPlayerFound: Boolean(visualVideo) });
           return;
@@ -1695,20 +1713,21 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           fullyVisible,
           notificationPositioning: notificationPositioningRef.current,
         });
-        console.log("[VIDEO NOTIFICATION TARGET]", {
+        console.log("[VIDEO MOBILE TARGET]", {
           videoCommentId: notificationTarget.id,
           reaction: notificationTarget.reaction,
-          viewport: "mobile",
+          scrollContainerFound: true,
           cardFound: true,
           playerFound: true,
-          scrollContainerFound: true,
-          containerScrollTopBefore: scrollTopBefore,
-          containerScrollTopAfter: scrollContainer.scrollTop,
+          scrollTopBefore,
+          desiredScrollTop: desiredTop,
+          scrollTopAfter: scrollContainer.scrollTop,
           containerClientHeight: scrollContainer.clientHeight,
           videoHeight: videoRectAfter.height,
-          videoTop: videoRectAfter.top,
-          videoBottom: videoRectAfter.bottom,
+          videoTopRelative: videoRectAfter.top - containerRectAfter.top,
+          videoBottomRelative: videoRectAfter.bottom - containerRectAfter.top,
           fullyVisible,
+          positioningRef: notificationPositioningRef.current,
         });
         if (!fullyVisible) {
           notificationPositioningRef.current = false;
@@ -2531,7 +2550,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200 md:hidden" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
     <button type="button" data-history-carousel-arrow="left" disabled={recorderState !== "idle" || !canScrollHistoryLeft} className="hidden" aria-label="Anterior" onClick={() => scrollHistoryCarousel(-1)}>←</button>
     <div data-history-carousel-viewport className="relative">
-    <div ref={historyScrollRef} data-desktop-video-reaction-history data-mobile-video-reaction-scroll-container data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
+    <div ref={historyScrollRef} data-desktop-video-reaction-history data-mobile-video-reaction-scroll-container="true" data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 max-h-[50dvh] space-y-3 overflow-y-auto overscroll-contain md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
