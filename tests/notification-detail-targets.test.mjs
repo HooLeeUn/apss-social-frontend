@@ -7,6 +7,7 @@ const types = readFileSync(new URL("../lib/profile-feed/types.ts", import.meta.u
 const navigation = readFileSync(new URL("../lib/notification-navigation.ts", import.meta.url), "utf8");
 const detail = readFileSync(new URL("../app/movies/[id]/page.tsx", import.meta.url), "utf8");
 const commentsList = readFileSync(new URL("../components/social/CommentsList.tsx", import.meta.url), "utf8");
+const feed = readFileSync(new URL("../app/feed/page.tsx", import.meta.url), "utf8");
 
 test("bell normalization preserves canonical public and video reaction fields", () => {
   assert.match(adapters, /public_comment_reaction[\s\S]*toRecord\(toRecord\(record\.object\)\?\.comment\)\?\.id/);
@@ -64,4 +65,20 @@ test("explicit notification diagnostics work in production and consumption requi
   assert.match(detail, /textContentVisible[\s\S]*if \(!container \|\| !comment \|\| !textContentVisible\)[\s\S]*TARGET NOT CONSUMED/);
   assert.match(detail, /const desktop[\s\S]*\(!desktop && activeCommentsTab !== "public"\)/);
   assert.match(detail, /main tab after two frames[\s\S]*main tab after 500ms/);
+});
+
+test("feed propagates explicit target diagnostics and logs its complete destination", () => {
+  assert.match(feed, /searchParams\.get\("debugNotificationTarget"\) === "1"/);
+  assert.match(feed, /targetRoute\.startsWith\("\/movies\/"\)[\s\S]*url\.searchParams\.set\("debugNotificationTarget", "1"\)/);
+  assert.match(feed, /\[NotificationTarget\]\[FEED CLICK\][\s\S]*notificationObjectCommentId[\s\S]*notificationObjectVideoCommentId[\s\S]*destination/);
+  assert.match(feed, /router\.push\(destination\)/);
+});
+
+test("detail snapshots received query data before processing and retains it after consumption", () => {
+  assert.match(detail, /\[NotificationTarget\]\[\$\{event\}\]/);
+  assert.match(detail, /DETAIL RECEIVED[\s\S]*source: "query param"[\s\S]*url: window\.location\.href/);
+  assert.match(detail, /receivedNotificationTargetRef\.current = received[\s\S]*setReceivedNotificationTarget\(received\)/);
+  assert.match(detail, /CONSUME[\s\S]*commentDomFound[\s\S]*videoDomFound[\s\S]*setNotificationDiagnosticStatus\("consumed"\)/);
+  assert.match(detail, />RECEIVED<[\s\S]*receivedNotificationTarget\?\.type[\s\S]*>CURRENT<[\s\S]*notificationDiagnosticStatus/);
+  assert.match(detail, /MAIN TAB CHANGE[\s\S]*COMMENTS SUBTAB CHANGE/);
 });

@@ -2572,12 +2572,16 @@ function MovieDetailPageContent() {
   const debugNotificationTarget = searchParams.get("debugNotificationTarget") === "1";
   const [notificationDiagnosticEntries, setNotificationDiagnosticEntries] = useState<string[]>([]);
   const [notificationDiagnosticViewport, setNotificationDiagnosticViewport] = useState<"unknown" | "mobile" | "desktop">("unknown");
+  const [notificationDiagnosticStatus, setNotificationDiagnosticStatus] = useState<"idle" | "pending" | "processing" | "consumed" | "failed">("idle");
 
   const logNotificationTarget = useCallback<NotificationDiagnosticLogger>((event, details = {}) => {
     if (!debugNotificationTarget && process.env.NODE_ENV === "production") return;
     const entry = `${new Date().toISOString()} ${event} ${JSON.stringify(details)}`;
-    console.debug("[NotificationTarget]", event, details);
-    if (debugNotificationTarget) setNotificationDiagnosticEntries((current) => [...current.slice(-17), entry]);
+    console.debug(`[NotificationTarget][${event}]`, details);
+    if (debugNotificationTarget) {
+      setNotificationDiagnosticEntries((current) => [...current.slice(-17), entry]);
+      if (event === "TARGET NOT CONSUMED") setNotificationDiagnosticStatus("failed");
+    }
   }, [debugNotificationTarget]);
 
   useEffect(() => {
@@ -2655,14 +2659,72 @@ function MovieDetailPageContent() {
     return { type: target, id: targetId, reaction: rawReaction === "like" || rawReaction === "dislike" ? rawReaction : null } as const;
   }, [searchParams]);
 
-  const consumeNotificationTarget = useCallback(() => {
+  const receivedNotificationTargetRef = useRef<{ type: "public-comment" | "video-reaction"; id: string; reaction: VideoCommentReaction | null } | null>(null);
+  const [receivedNotificationTarget, setReceivedNotificationTarget] = useState<typeof receivedNotificationTargetRef.current>(null);
+  const previousDiagnosticMainTabRef = useRef(commentInputMode);
+  const previousDiagnosticCommentsTabRef = useRef(activeCommentsTab);
+
+  useEffect(() => {
+    if (!debugNotificationTarget || !notificationTarget || receivedNotificationTargetRef.current) return;
+    const received = { type: notificationTarget.type, id: notificationTarget.id, reaction: notificationTarget.reaction };
+    receivedNotificationTargetRef.current = received;
+    setReceivedNotificationTarget(received);
+    setNotificationDiagnosticStatus("pending");
+    logNotificationTarget("DETAIL RECEIVED", {
+      target: received.type,
+      targetId: received.id,
+      reaction: received.reaction,
+      source: "query param",
+      commentInputMode,
+      activeCommentsTab,
+      url: window.location.href,
+    });
+  }, [activeCommentsTab, commentInputMode, debugNotificationTarget, logNotificationTarget, notificationTarget]);
+
+  useEffect(() => {
+    if (!debugNotificationTarget || notificationDiagnosticStatus === "idle" || notificationDiagnosticStatus === "consumed") return;
+    const previous = previousDiagnosticMainTabRef.current;
+    if (previous !== commentInputMode) {
+      logNotificationTarget("MAIN TAB CHANGE", { from: previous, to: commentInputMode, source: "observed state render" });
+      previousDiagnosticMainTabRef.current = commentInputMode;
+    }
+  }, [commentInputMode, debugNotificationTarget, logNotificationTarget, notificationDiagnosticStatus]);
+
+  useEffect(() => {
+    if (!debugNotificationTarget || notificationDiagnosticStatus === "idle" || notificationDiagnosticStatus === "consumed") return;
+    const previous = previousDiagnosticCommentsTabRef.current;
+    if (previous !== activeCommentsTab) {
+      logNotificationTarget("COMMENTS SUBTAB CHANGE", { from: previous, to: activeCommentsTab, source: "observed state render" });
+      previousDiagnosticCommentsTabRef.current = activeCommentsTab;
+    }
+  }, [activeCommentsTab, debugNotificationTarget, logNotificationTarget, notificationDiagnosticStatus]);
+
+  useEffect(() => {
+    if (!debugNotificationTarget || notificationDiagnosticStatus !== "pending") return;
+    const frame = requestAnimationFrame(() => setNotificationDiagnosticStatus("processing"));
+    return () => cancelAnimationFrame(frame);
+  }, [debugNotificationTarget, notificationDiagnosticStatus]);
+
+  const consumeNotificationTarget = useCallback((details: Record<string, unknown> = {}) => {
+    const received = receivedNotificationTargetRef.current ?? notificationTarget;
+    if (debugNotificationTarget) {
+      logNotificationTarget("CONSUME", {
+        reason: details.reason ?? "target positioning completed",
+        mainTab: commentInputMode,
+        activeCommentsTab,
+        commentDomFound: Boolean(received?.type === "public-comment" && document.querySelector(`[data-public-comment-id="${CSS.escape(received.id)}"]`)),
+        videoDomFound: Boolean(received?.type === "video-reaction" && document.querySelector(`[data-video-comment-card="${CSS.escape(received.id)}"]`)),
+        timestamp: Date.now(),
+      });
+      setNotificationDiagnosticStatus("consumed");
+    }
     const cleaned = new URLSearchParams(searchParams.toString());
     cleaned.delete("target");
     cleaned.delete("targetId");
     cleaned.delete("reaction");
     const query = cleaned.toString();
     router.replace(`${window.location.pathname}${query ? `?${query}` : ""}`, { scroll: false });
-  }, [router, searchParams]);
+  }, [activeCommentsTab, commentInputMode, debugNotificationTarget, logNotificationTarget, notificationTarget, router, searchParams]);
 
 
   const getMobileStickyOffset = useCallback(() => {
@@ -3805,9 +3867,13 @@ function MovieDetailPageContent() {
       {debugNotificationTarget ? (
         <aside data-notification-target-debug className="fixed bottom-2 right-2 z-[2000] max-h-[42dvh] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-lg border border-[#86ADE0]/60 bg-black/90 p-2 font-mono text-[10px] leading-4 text-[#c7dcf6] shadow-2xl pointer-events-none" aria-live="polite">
           <strong className="block text-xs text-white">Notification target debug</strong>
-          <div>target: {notificationTarget?.type ?? "consumed/none"}</div>
-          <div>targetId: {notificationTarget?.id ?? "—"}</div>
-          <div>reaction: {notificationTarget?.reaction ?? "—"}</div>
+          <strong className="mt-1 block text-white">RECEIVED</strong>
+          <div>target: {receivedNotificationTarget?.type ?? "none"}</div>
+          <div>targetId: {receivedNotificationTarget?.id ?? "—"}</div>
+          <div>reaction: {receivedNotificationTarget?.reaction ?? "—"}</div>
+          <strong className="mt-1 block text-white">CURRENT</strong>
+          <div>target: {notificationTarget?.type ?? "none"}</div>
+          <div>status: {notificationDiagnosticStatus}</div>
           <div>viewport: {notificationDiagnosticViewport}</div>
           <div>mainTab: {commentInputMode}</div>
           <div>activeCommentsTab: {activeCommentsTab}</div>

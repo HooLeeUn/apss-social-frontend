@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { clearToken, getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
@@ -205,6 +205,7 @@ type StreamingCountry = Country;
 
 export default function FeedPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const branding = useAppBranding();
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
@@ -657,6 +658,13 @@ export default function FeedPage() {
     async (item: MyNotificationItem) => {
       setIsNotificationPanelOpen(false);
       const targetRoute = buildNotificationTargetRoute(item);
+      const debugNotificationTarget = searchParams.get("debugNotificationTarget") === "1";
+      const destination = (() => {
+        if (!debugNotificationTarget || !targetRoute.startsWith("/movies/")) return targetRoute;
+        const url = new URL(targetRoute, window.location.origin);
+        url.searchParams.set("debugNotificationTarget", "1");
+        return `${url.pathname}${url.search}${url.hash}`;
+      })();
 
       try {
         if (isRealNotificationId(item.id)) {
@@ -671,10 +679,26 @@ export default function FeedPage() {
       } catch (error) {
         console.warn("No se pudo marcar la notificación como leída.", error);
       } finally {
-        router.push(targetRoute);
+        if (debugNotificationTarget) {
+          const destinationUrl = new URL(destination, window.location.origin);
+          console.debug("[NotificationTarget][FEED CLICK]", {
+            notificationId: item.id,
+            notificationType: item.type,
+            notificationTargetTab: item.targetTab,
+            notificationReactionType: item.reactionType,
+            notificationObjectCommentId: item.commentId,
+            notificationObjectVideoCommentId: item.videoCommentId,
+            movieId: item.movieId,
+            target: destinationUrl.searchParams.get("target"),
+            targetId: destinationUrl.searchParams.get("targetId"),
+            reaction: destinationUrl.searchParams.get("reaction"),
+            destination,
+          });
+        }
+        router.push(destination);
       }
     },
-    [refreshNotifications, router],
+    [refreshNotifications, router, searchParams],
   );
 
   const handleMarkAllNotificationsAsRead = useCallback(async () => {
