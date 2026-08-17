@@ -138,11 +138,13 @@ test("notification positioning waits for the mounted tab and both scroll surface
 });
 
 test("mobile notification positioning measures the visual video in its real scroll container and uses the real tab handler", () => {
-  const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = historyScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
+  const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = mobileHistoryScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
   assert.match(detail, /data-mobile-video-reaction-scroll-container/);
-  assert.match(detail, /data-mobile-video-reaction-scroll-container="true"[\s\S]*max-h-\[50dvh\][\s\S]*overflow-y-auto/);
+  assert.match(detail, /ref=\{mobileHistoryScrollRef\} data-mobile-video-reaction-scroll-container="true"[\s\S]*max-h-\[50dvh\][\s\S]*overflow-y-auto/);
+  const mobileScrollContent = detail.slice(detail.indexOf('data-mobile-video-reaction-scroll-container="true"'), detail.indexOf('data-history-carousel-arrow="right"'));
+  assert.match(mobileScrollContent, /data-video-reaction-rec[\s\S]*data-video-comment-card/);
   assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
-  assert.match(mobilePositioning, /scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
+  assert.match(mobilePositioning, /mobileHistoryScrollRef\.current[\s\S]*scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
   assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: desiredTop, behavior \}\)/);
   assert.doesNotMatch(mobilePositioning, /window\.scrollTo|window\.visualViewport|scrollIntoView/);
   assert.match(detail, /notificationPositioningRef\.current = true[\s\S]*notificationPositioningRef\.current = false/);

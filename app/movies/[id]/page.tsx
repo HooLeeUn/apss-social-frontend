@@ -1042,6 +1042,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   const menuRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const historyScrollRef = useRef<HTMLDivElement | null>(null);
+  const mobileHistoryScrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
@@ -1290,7 +1291,8 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   }, [getVisibleDesktopHistoryIds, playHistoryVideo, syncPlayerState]);
 
   const updateHistoryCarouselState = useCallback(() => {
-    const container = historyScrollRef.current;
+    const desktop = window.matchMedia("(min-width: 768px)").matches;
+    const container = desktop ? historyScrollRef.current : mobileHistoryScrollRef.current;
     if (!container || !window.matchMedia("(min-width: 768px)").matches || document.body.classList.contains("detail-trailer-active")) return;
     const tolerance = 2;
     setCanScrollHistoryLeft(container.scrollLeft > tolerance);
@@ -1594,7 +1596,8 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
     if (!active || !notificationTarget || initialLoading || loadingMore || recorderState !== "idle") return;
     const targetKey = `${movieId}:${notificationTarget.id}:${notificationTarget.reaction ?? ""}`;
     if (processedNotificationTargetRef.current === targetKey) return;
-    const container = historyScrollRef.current;
+    const desktop = window.matchMedia("(min-width: 768px)").matches;
+    const container = desktop ? historyScrollRef.current : mobileHistoryScrollRef.current;
     const card = container?.querySelector<HTMLElement>(`[data-video-comment-card="${CSS.escape(notificationTarget.id)}"]`);
     logNotificationTarget("video target lookup", {
       target: "video-reaction",
@@ -1623,7 +1626,6 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
     const positionTarget = async () => {
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
-      const desktop = window.matchMedia("(min-width: 768px)").matches;
       const section = document.querySelector<HTMLElement>("[data-video-reaction-section]");
       const visualVideo = card.querySelector<HTMLElement>('[data-video-comment-player="true"]');
       const verticalPositionBefore = section?.getBoundingClientRect().top ?? null;
@@ -1656,7 +1658,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           carouselScrollLeftAfter: container.scrollLeft,
         });
       } else {
-        const scrollContainer = historyScrollRef.current;
+        const scrollContainer = mobileHistoryScrollRef.current;
         if (!scrollContainer || !visualVideo) {
           console.log("[VIDEO MOBILE TARGET]", {
             videoCommentId: notificationTarget.id,
@@ -2520,6 +2522,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
 
 
   return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3 md:top-0 md:overflow-y-auto md:py-8" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
+    <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className="max-h-[50dvh] overflow-y-auto overscroll-contain md:contents">
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:mx-auto md:max-w-2xl">
       <div ref={menuRef} data-video-reaction-rec className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] md:h-20 md:w-20 md:transition md:hover:border-[#86ADE0] md:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
@@ -2550,7 +2553,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200 md:hidden" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
     <button type="button" data-history-carousel-arrow="left" disabled={recorderState !== "idle" || !canScrollHistoryLeft} className="hidden" aria-label="Anterior" onClick={() => scrollHistoryCarousel(-1)}>←</button>
     <div data-history-carousel-viewport className="relative">
-    <div ref={historyScrollRef} data-desktop-video-reaction-history data-mobile-video-reaction-scroll-container="true" data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 max-h-[50dvh] space-y-3 overflow-y-auto overscroll-contain md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
+    <div ref={historyScrollRef} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
@@ -2574,6 +2577,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
         </article>;
       }) : null}
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
+    </div>
     </div>
     </div>
     <button type="button" data-history-carousel-arrow="right" disabled={recorderState !== "idle" || !canScrollHistoryRight} className="hidden" aria-label="Siguiente" onClick={() => scrollHistoryCarousel(1)}>→</button>
