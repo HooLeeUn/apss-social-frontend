@@ -13,14 +13,15 @@ test("own Profile Feed avatar links to Personal Data with a localized label", ()
 });
 
 test("avatar containment adjustment is desktop-only and opt-in", () => {
-  assert.match(card, /constrainDesktopAvatar \? "lg:mr-1 lg:top-20 lg:h-\[72px\] lg:w-\[72px\]" : ""/);
+  assert.match(card, /constrainDesktopAvatar \? "lg:absolute lg:right-1 lg:top-20 lg:h-\[72px\] lg:w-\[72px\]" : ""/);
   assert.match(card, /top-24 block h-20 w-20/);
   assert.match(page, /constrainDesktopAvatar/);
   assert.doesNotMatch(visitedProfile, /constrainDesktopAvatar|avatarHref/);
 });
 
 test("the link itself owns the complete circular hit area", () => {
-  assert.match(card, /avatarClassName = `[^`]*block h-20 w-20[^`]*overflow-hidden rounded-full/);
+  assert.match(card, /avatarClassName = `[^`]*block h-20 w-20[^`]*overflow-hidden rounded-full[^`]*\[clip-path:circle\(50%\)\]/);
   assert.match(card, /<Link href=\{avatarHref\} aria-label=\{avatarLinkLabel\} className=\{`\$\{avatarClassName\} cursor-pointer`\}/);
+  assert.match(card, /className="block h-full w-full object-cover"/);
   assert.match(card, /pointer-events-none absolute inset-0/);
 });
