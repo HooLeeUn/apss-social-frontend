@@ -1693,18 +1693,33 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
         await waitForNotificationScroll(scrollContainer, reducedMotion);
         let containerRectAfter = scrollContainer.getBoundingClientRect();
         let videoRectAfter = visualVideo.getBoundingClientRect();
-        const visibilityMargin = Math.min(12, Math.max(0, (scrollContainer.clientHeight - videoRectAfter.height) / 4));
-        let fullyVisible = videoRectAfter.top >= containerRectAfter.top + visibilityMargin && videoRectAfter.bottom <= containerRectAfter.bottom - visibilityMargin;
+        const availableMargin = Math.max(0, (scrollContainer.clientHeight - videoRectAfter.height) / 2);
+        const topMargin = Math.min(8, availableMargin);
+        const safeBottomMargin = Math.min(10, availableMargin);
+        const extraBottomMargin = Math.min(6, Math.max(0, availableMargin - safeBottomMargin));
+        const videoBottomBefore = videoRectAfter.bottom;
+        const bottomOverflow = videoRectAfter.bottom - (containerRectAfter.bottom - safeBottomMargin);
+        let correctionApplied = 0;
+        let fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
         if (!fullyVisible) {
-          const correction = videoRectAfter.top < containerRectAfter.top + visibilityMargin
-            ? videoRectAfter.top - containerRectAfter.top - visibilityMargin
-            : videoRectAfter.bottom - containerRectAfter.bottom + visibilityMargin;
-          scrollContainer.scrollTo({ top: Math.min(maxScrollTop, Math.max(0, scrollContainer.scrollTop + correction)), behavior });
+          correctionApplied = bottomOverflow > 0
+            ? bottomOverflow + extraBottomMargin
+            : videoRectAfter.top - containerRectAfter.top - topMargin;
+          scrollContainer.scrollBy({ top: correctionApplied, behavior });
           await waitForNotificationScroll(scrollContainer, reducedMotion);
           containerRectAfter = scrollContainer.getBoundingClientRect();
           videoRectAfter = visualVideo.getBoundingClientRect();
-          fullyVisible = videoRectAfter.top >= containerRectAfter.top + visibilityMargin && videoRectAfter.bottom <= containerRectAfter.bottom - visibilityMargin;
+          fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
         }
+        console.log("[VIDEO MOBILE FINAL ALIGNMENT]", {
+          videoCommentId: notificationTarget.id,
+          containerBottom: containerRectAfter.bottom,
+          videoBottomBefore,
+          bottomOverflow,
+          correctionApplied,
+          videoBottomAfter: videoRectAfter.bottom,
+          fullyVisible,
+        });
         logNotificationTarget("mobile video after scroll", {
           targetId: notificationTarget.id,
           scrollTopAfter: scrollContainer.scrollTop,

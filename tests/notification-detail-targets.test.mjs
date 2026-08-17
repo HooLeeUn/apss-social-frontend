@@ -146,6 +146,8 @@ test("mobile notification positioning measures the visual video in its real scro
   assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
   assert.match(mobilePositioning, /mobileHistoryScrollRef\.current[\s\S]*scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
   assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: desiredTop, behavior \}\)/);
+  assert.match(mobilePositioning, /bottomOverflow > 0[\s\S]*bottomOverflow \+ extraBottomMargin[\s\S]*scrollContainer\.scrollBy\(\{ top: correctionApplied, behavior \}\)/);
+  assert.match(mobilePositioning, /\[VIDEO MOBILE FINAL ALIGNMENT\][\s\S]*videoBottomBefore[\s\S]*bottomOverflow[\s\S]*correctionApplied[\s\S]*videoBottomAfter[\s\S]*fullyVisible/);
   assert.doesNotMatch(mobilePositioning, /window\.scrollTo|window\.visualViewport|scrollIntoView/);
   assert.match(detail, /notificationPositioningRef\.current = true[\s\S]*notificationPositioningRef\.current = false/);
   assert.match(detail, /const openCommentMovieSection[\s\S]*setCommentInputMode\("text-comment"\)/);
