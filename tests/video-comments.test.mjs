@@ -251,6 +251,15 @@ test("touch landscape keeps the mobile Detail Movie layout", () => {
   has(/data-mobile-comment-tabs/);
 });
 
+test("desktop Video Reaction ends at its content without changing shared comment height", () => {
+  const reactionRule = css.slice(
+    css.indexOf("body:not(.detail-trailer-active) [data-mobile-video-reaction]"),
+    css.indexOf("body:not(.detail-trailer-active) [data-video-reaction-rec]"),
+  );
+  assert.match(reactionRule, /position: relative/);
+  assert.doesNotMatch(reactionRule, /min-height|height:|padding-bottom|margin-bottom/);
+});
+
 test("trailer overlay exposes the existing reaction list without duplicating players", () => {
   assert.match(css, /body\.detail-trailer-active \[data-desktop-video-reaction-history\]/);
   assert.match(css, /overscroll-behavior: contain/);

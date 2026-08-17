@@ -1,4 +1,5 @@
 import { ApiError, apiFetch } from "../api";
+import { normalizeNotificationRoutingFields } from "../notification-routing-fields";
 import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle, resolveMovieSecondaryTitle } from "../movies";
 import { favoriteMoviesMock } from "./mocks";
 import {
@@ -2138,6 +2139,7 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
 
   const rawId = pickFirst(record.notification_id, record.notificationId, record.id, record.uuid);
   const id = normalizeNotificationId(rawId) ?? `${FALLBACK_NOTIFICATION_ID_PREFIX}${index}`;
+  const routingFields = normalizeNotificationRoutingFields(record);
   const normalizedActivityType = safeTrim(pickFirst(record.activity_type, record.activityType, record.type, record.notification_type))?.toLocaleLowerCase();
   const isFriendRequest = isFriendRequestNotification(record);
 
@@ -2163,12 +2165,16 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
 
   return {
     id,
+    type: routingFields.type,
     text,
     targetTab,
     movieId: toNotificationMovieId(record),
     actorId: toNotificationActorId(record),
     actorUsername,
     directedCommentId: toNotificationDirectedCommentId(record),
+    commentId: routingFields.commentId,
+    videoCommentId: routingFields.videoCommentId,
+    reactionType: routingFields.reactionType,
     createdAt: safeTrim(pickFirst(record.created_at, record.createdAt, record.timestamp)),
   };
 }
@@ -2190,7 +2196,7 @@ function isNotificationUnread(value: unknown): boolean {
   return true;
 }
 
-function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
+export function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
   const root = toRecord(payload);
   const data = toRecord(root?.data);
   const notificationsRaw = pickFirst(

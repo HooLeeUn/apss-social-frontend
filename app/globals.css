@@ -775,7 +775,6 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
 @media (min-width: 768px) {
   body:not(.detail-trailer-active) [data-mobile-video-reaction] {
     position: relative;
-    min-height: 34rem;
     padding-inline: 0;
   }
 
@@ -1001,6 +1000,63 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
 @media (prefers-reduced-motion: reduce) {
   .video-reaction-phone { animation: none; }
 }
+
+.notification-public-comment-highlight {
+  border-color: transparent !important;
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 2px rgb(134 173 224 / 0.9), 0 0 22px rgb(134 173 224 / 0.55);
+  animation: notification-public-comment-glow 2.1s ease-out forwards;
+}
+
+.notification-video-reaction-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: clamp(4rem, 14vw, 7rem);
+}
+
+.notification-video-reaction-overlay--like > span { animation: notification-like-pop 1.85s ease-out forwards; }
+.notification-video-reaction-overlay--dislike > span { animation: notification-dislike-deflate 1.7s ease-in forwards; }
+.notification-reaction-confetti {
+  position: absolute;
+  color: #86ade0;
+  font-size: 2rem;
+  font-style: normal;
+  letter-spacing: 1rem;
+  animation: notification-confetti 1.8s ease-out forwards;
+}
+
+@keyframes notification-public-comment-glow {
+  0%, 65% { box-shadow: 0 0 0 2px rgb(134 173 224 / 0.9), 0 0 22px rgb(134 173 224 / 0.55); }
+  100% { box-shadow: 0 0 0 2px transparent, 0 0 0 transparent; }
+}
+@keyframes notification-like-pop {
+  0% { opacity: 0; transform: scale(0.45) rotate(-12deg); }
+  35% { opacity: 1; transform: scale(1.25) rotate(8deg); }
+  60% { transform: scale(1) rotate(0); }
+  100% { opacity: 0; transform: scale(1.05); }
+}
+@keyframes notification-dislike-deflate {
+  0% { opacity: 0; transform: translateY(-0.75rem) scale(1.05); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(2rem) scale(0.35); }
+}
+@keyframes notification-confetti {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-4rem) scale(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification-public-comment-highlight { animation: notification-public-comment-glow 0.9s linear forwards; }
+  .notification-video-reaction-overlay--reduced > span { animation: notification-reduced-fade 0.9s linear forwards; }
+  .notification-reaction-confetti { display: none; }
+}
+@keyframes notification-reduced-fade { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
 
 /* A touch phone remains in the mobile Detail Movie experience when physically rotated. */
 @media (orientation: landscape) and (pointer: coarse) {

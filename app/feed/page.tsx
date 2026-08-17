@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { clearToken, getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
@@ -22,6 +22,7 @@ import {
   markAllNotificationsAsRead,
   markNotificationsAsReadBatch,
 } from "../../lib/profile-feed/adapters";
+import { buildNotificationTargetRoute } from "../../lib/notification-navigation";
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { normalizeBackendMediaUrl } from "../../lib/branding";
@@ -202,9 +203,21 @@ function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<strin
 
 type StreamingCountry = Country;
 
+function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean) => void }) {
+  const searchParams = useSearchParams();
+  const debugNotificationTarget = searchParams.get("debugNotificationTarget") === "1";
+
+  useEffect(() => {
+    onChange(debugNotificationTarget);
+  }, [debugNotificationTarget, onChange]);
+
+  return null;
+}
+
 export default function FeedPage() {
   const router = useRouter();
   const branding = useAppBranding();
+  const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
@@ -655,21 +668,53 @@ export default function FeedPage() {
   const handleNotificationItemClick = useCallback(
     async (item: MyNotificationItem) => {
       setIsNotificationPanelOpen(false);
-      const targetRoute =
-        item.targetTab === "friend_requests_pending"
-          ? "/profile-feed?friendsTab=pending"
-          : item.movieId !== null && item.movieId !== ""
-            ? item.targetTab === "private_inbox" &&
-              item.directedCommentId !== null &&
-              item.directedCommentId !== "" &&
-              ((item.actorId !== null && item.actorId !== "") || item.actorUsername)
-              ? `/movies/${encodeURIComponent(String(item.movieId))}?section=directed-comments${
-                  item.actorId !== null && item.actorId !== "" ? `&actorId=${encodeURIComponent(String(item.actorId))}` : ""
-                }${item.actorUsername ? `&actorUsername=${encodeURIComponent(item.actorUsername)}` : ""}&commentId=${encodeURIComponent(String(item.directedCommentId))}`
-              : `/movies/${item.movieId}`
-            : item.targetTab === "private_inbox"
-              ? "/profile-feed?tab=private_inbox"
-              : "/profile-feed?tab=activity";
+      if (debugNotificationTarget) {
+        console.debug("[NotificationTarget][NORMALIZED ITEM]", {
+          id: item.id,
+          type: item.type,
+          targetTab: item.targetTab,
+          movieId: item.movieId,
+          commentId: item.commentId,
+          videoCommentId: item.videoCommentId,
+          reactionType: item.reactionType,
+        });
+      }
+      const targetRoute = buildNotificationTargetRoute(item);
+      if (item.type === "public_comment_reaction") {
+        console.log("[PUBLIC COMMENT NOTIFICATION REAL]", {
+          item,
+          type: item.type,
+          movieId: item.movieId,
+          commentId: item.commentId,
+          reactionType: item.reactionType,
+          targetTab: item.targetTab,
+          builtRoute: targetRoute,
+        });
+        if (process.env.NODE_ENV !== "production" && (item.commentId === null || item.commentId === "")) {
+          console.error("[PUBLIC COMMENT ROUTING ERROR] Missing commentId", item);
+        }
+      }
+      if (item.type === "video_comment_reaction") {
+        console.log("[VIDEO COMMENT NOTIFICATION REAL]", {
+          item,
+          movieId: item.movieId,
+          videoCommentId: item.videoCommentId,
+          reactionType: item.reactionType,
+          builtRoute: targetRoute,
+        });
+        if (
+          process.env.NODE_ENV !== "production" &&
+          (item.videoCommentId === null || item.videoCommentId === "")
+        ) {
+          console.error("[VIDEO COMMENT ROUTING ERROR] Missing videoCommentId", item);
+        }
+      }
+      const destination = (() => {
+        if (!debugNotificationTarget || !targetRoute.startsWith("/movies/")) return targetRoute;
+        const url = new URL(targetRoute, window.location.origin);
+        url.searchParams.set("debugNotificationTarget", "1");
+        return `${url.pathname}${url.search}${url.hash}`;
+      })();
 
       try {
         if (isRealNotificationId(item.id)) {
@@ -684,10 +729,28 @@ export default function FeedPage() {
       } catch (error) {
         console.warn("No se pudo marcar la notificación como leída.", error);
       } finally {
-        router.push(targetRoute);
+        if (debugNotificationTarget) {
+          const destinationUrl = new URL(destination, window.location.origin);
+          console.debug("[NotificationTarget][FEED CLICK]", {
+            notificationId: item.id,
+            notificationType: item.type,
+            notificationTargetTab: item.targetTab,
+            notificationReactionType: item.reactionType,
+            notificationObjectCommentId: item.commentId,
+            notificationObjectVideoCommentId: item.videoCommentId,
+            movieId: item.movieId,
+            target: destinationUrl.searchParams.get("target"),
+            targetId: destinationUrl.searchParams.get("targetId"),
+            section: destinationUrl.searchParams.get("section"),
+            commentId: destinationUrl.searchParams.get("commentId"),
+            reaction: destinationUrl.searchParams.get("reaction"),
+            destinationUrl: destination,
+          });
+        }
+        router.push(destination);
       }
     },
-    [refreshNotifications, router],
+    [debugNotificationTarget, refreshNotifications, router],
   );
 
   const handleMarkAllNotificationsAsRead = useCallback(async () => {
@@ -866,6 +929,9 @@ export default function FeedPage() {
 
   return (
     <main className="min-h-screen bg-black">
+      <Suspense fallback={null}>
+        <FeedDebugSearchParamsBridge onChange={setDebugNotificationTarget} />
+      </Suspense>
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
           <div className="flex items-center gap-3 lg:block">
