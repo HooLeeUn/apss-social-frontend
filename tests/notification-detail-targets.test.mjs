@@ -69,6 +69,9 @@ test("explicit notification diagnostics work in production and consumption requi
 
 test("feed propagates explicit target diagnostics and logs its complete destination", () => {
   assert.match(feed, /searchParams\.get\("debugNotificationTarget"\) === "1"/);
+  assert.match(feed, /function FeedDebugSearchParamsBridge[\s\S]*useSearchParams\(\)/);
+  assert.match(feed, /<Suspense fallback=\{null\}>[\s\S]*<FeedDebugSearchParamsBridge[\s\S]*<\/Suspense>/);
+  assert.doesNotMatch(feed, /export default function FeedPage\(\) \{\s*const router = useRouter\(\);\s*const searchParams = useSearchParams\(\)/);
   assert.match(feed, /targetRoute\.startsWith\("\/movies\/"\)[\s\S]*url\.searchParams\.set\("debugNotificationTarget", "1"\)/);
   assert.match(feed, /\[NotificationTarget\]\[FEED CLICK\][\s\S]*notificationObjectCommentId[\s\S]*notificationObjectVideoCommentId[\s\S]*destination/);
   assert.match(feed, /router\.push\(destination\)/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { clearToken, getToken } from "../../lib/auth";
@@ -203,10 +203,21 @@ function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<strin
 
 type StreamingCountry = Country;
 
+function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean) => void }) {
+  const searchParams = useSearchParams();
+  const debugNotificationTarget = searchParams.get("debugNotificationTarget") === "1";
+
+  useEffect(() => {
+    onChange(debugNotificationTarget);
+  }, [debugNotificationTarget, onChange]);
+
+  return null;
+}
+
 export default function FeedPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const branding = useAppBranding();
+  const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
@@ -658,7 +669,6 @@ export default function FeedPage() {
     async (item: MyNotificationItem) => {
       setIsNotificationPanelOpen(false);
       const targetRoute = buildNotificationTargetRoute(item);
-      const debugNotificationTarget = searchParams.get("debugNotificationTarget") === "1";
       const destination = (() => {
         if (!debugNotificationTarget || !targetRoute.startsWith("/movies/")) return targetRoute;
         const url = new URL(targetRoute, window.location.origin);
@@ -698,7 +708,7 @@ export default function FeedPage() {
         router.push(destination);
       }
     },
-    [refreshNotifications, router, searchParams],
+    [debugNotificationTarget, refreshNotifications, router],
   );
 
   const handleMarkAllNotificationsAsRead = useCallback(async () => {
@@ -877,6 +887,9 @@ export default function FeedPage() {
 
   return (
     <main className="min-h-screen bg-black">
+      <Suspense fallback={null}>
+        <FeedDebugSearchParamsBridge onChange={setDebugNotificationTarget} />
+      </Suspense>
       <div className="mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-5 lg:px-0 relative">
           <div className="flex items-center gap-3 lg:block">
