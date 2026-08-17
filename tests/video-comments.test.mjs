@@ -260,6 +260,11 @@ test("Detail Movie keeps the authenticated avatar beside both tab layouts", () =
   has(/data-desktop-comment-tabs className="relative/);
 });
 
+test("mobile Video Reaction tab adds avatar clearance without moving the row or desktop tabs", () => {
+  has(/mode === "video-comment" \? "pl-6 pr-2" : "px-2"/);
+  assert.match(page, /data-desktop-comment-tabs[\s\S]*className=\{`min-h-11 px-3 py-2/);
+});
+
 test("mobile Video Reaction tab resets its real vertical history scroller", () => {
   has(/mode === "video-comment"[\s\S]*\[data-mobile-video-reaction-scroll-container\][\s\S]*scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
   has(/if \(commentInputMode === mode\)/);

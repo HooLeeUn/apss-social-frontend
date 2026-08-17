@@ -4121,7 +4121,7 @@ function MovieDetailPageContent() {
                   type="button"
                   role="tab"
                   aria-selected={isActiveMode}
-                  className={`flex min-h-11 flex-1 items-center justify-center px-2 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
+                  className={`flex min-h-11 flex-1 items-center justify-center py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "pl-6 pr-2" : "px-2"} ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
                   data-comment-input-mode={mode}
                   onClick={() => handleCommentInputTabClick(mode)}
                 >
