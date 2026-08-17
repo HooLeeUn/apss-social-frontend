@@ -44,12 +44,24 @@ test("notification positioning waits for the mounted tab and both scroll surface
   assert.match(detail, /comment\.classList\.add\("notification-public-comment-highlight"\)[\s\S]*processedPublicTargetRef\.current = targetKey[\s\S]*consumeNotificationTarget\(\)/);
 });
 
-test("mobile notification positioning measures the visual video once and uses the real tab handler", () => {
+test("mobile notification positioning measures the visual video in its real scroll container and uses the real tab handler", () => {
+  const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = historyScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
+  assert.match(detail, /data-mobile-video-reaction-scroll-container/);
   assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
-  assert.match(detail, /window\.visualViewport[\s\S]*viewportHeight[\s\S]*videoRectBefore\.height/);
-  assert.match(detail, /window\.scrollTo\(\{ top: Math\.max\(0, window\.scrollY \+ videoRectBefore\.top - desiredTop\)/);
+  assert.match(mobilePositioning, /scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
+  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: desiredTop, behavior \}\)/);
+  assert.doesNotMatch(mobilePositioning, /window\.scrollTo|window\.visualViewport|scrollIntoView/);
   assert.match(detail, /notificationPositioningRef\.current = true[\s\S]*notificationPositioningRef\.current = false/);
   assert.match(detail, /handleCommentInputTabClick\("text-comment"\)/);
   assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
-  assert.match(detail, /process\.env\.NODE_ENV !== "production"[\s\S]*\[NotificationTarget\]/);
+});
+
+test("explicit notification diagnostics work in production and consumption requires visible target DOM", () => {
+  assert.match(detail, /searchParams\.get\("debugNotificationTarget"\) === "1"/);
+  assert.match(detail, /if \(!debugNotificationTarget && process\.env\.NODE_ENV === "production"\) return/);
+  assert.match(detail, /data-notification-target-debug/);
+  assert.match(detail, /data-comment-input-mode=\{mode\}/);
+  assert.match(detail, /textContentVisible[\s\S]*if \(!container \|\| !comment \|\| !textContentVisible\)[\s\S]*TARGET NOT CONSUMED/);
+  assert.match(detail, /const desktop[\s\S]*\(!desktop && activeCommentsTab !== "public"\)/);
+  assert.match(detail, /main tab after two frames[\s\S]*main tab after 500ms/);
 });

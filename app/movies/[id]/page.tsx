@@ -103,9 +103,7 @@ function waitForNotificationScroll(target: Window | HTMLElement, reducedMotion: 
   });
 }
 
-function logNotificationTarget(event: string, details: Record<string, unknown>): void {
-  if (process.env.NODE_ENV !== "production") console.debug("[NotificationTarget]", event, details);
-}
+type NotificationDiagnosticLogger = (event: string, details?: Record<string, unknown>) => void;
 
 function VideoCommentReactionButtons({ comment, disabled, expanded = false, className = "", t, onReact }: { comment: VideoComment; disabled: boolean; expanded?: boolean; className?: string; t: (key: Parameters<typeof translate>[1]) => string; onReact: (id: string | number, reaction: VideoCommentReaction) => void }) {
   return <div className={`flex items-center gap-1 ${className}`}>
@@ -1008,7 +1006,7 @@ function CommentUserSearch({
   );
 }
 
-function MobileVideoComments({ movieId, active, notificationTarget, onNotificationTargetConsumed, t, onAuthorClick }: { movieId: string; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void }) {
+function MobileVideoComments({ movieId, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick }: { movieId: string; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void }) {
   const [recorderState, setRecorderState] = useState<VideoRecorderState>("idle");
   const [error, setError] = useState("");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -1633,35 +1631,61 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
         container.scrollTo({ left: container.scrollLeft + stableCardRect.left - stableContainerRect.left - (container.clientWidth - stableCardRect.width) / 2, behavior });
         await waitForNotificationScroll(container, reducedMotion);
       } else {
+        const scrollContainer = historyScrollRef.current;
         const visualVideo = card.querySelector<HTMLElement>('[data-video-comment-player="true"]');
-        if (!visualVideo) {
+        if (!scrollContainer || !visualVideo) {
           notificationPositioningRef.current = false;
-          logNotificationTarget("mobile visual video missing", { targetId: notificationTarget.id });
+          logNotificationTarget("TARGET NOT CONSUMED", { targetId: notificationTarget.id, scrollContainerFound: Boolean(scrollContainer), videoPlayerFound: Boolean(visualVideo) });
           return;
         }
-        const visualViewport = window.visualViewport;
-        const viewportTop = visualViewport?.offsetTop ?? 0;
-        const viewportHeight = visualViewport?.height ?? window.innerHeight;
+        const containerRectBefore = scrollContainer.getBoundingClientRect();
         const videoRectBefore = visualVideo.getBoundingClientRect();
-        const availableSpace = Math.max(0, viewportHeight - videoRectBefore.height);
-        const margin = Math.min(32, Math.max(12, availableSpace / 4));
-        const usableTop = viewportTop + margin;
-        const usableHeight = Math.max(0, viewportHeight - margin * 2);
-        const desiredTop = usableTop + Math.max(0, (usableHeight - videoRectBefore.height) / 2);
+        const scrollTopBefore = scrollContainer.scrollTop;
+        const relativeVideoTop = videoRectBefore.top - containerRectBefore.top + scrollTopBefore;
+        const centeredTop = relativeVideoTop - (scrollContainer.clientHeight - videoRectBefore.height) / 2;
+        const maxScrollTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+        const desiredTop = Math.min(maxScrollTop, Math.max(0, centeredTop));
         logNotificationTarget("mobile video before scroll", {
           targetId: notificationTarget.id,
+          scrollContainerFound: true,
+          videoPlayerFound: true,
+          scrollTopBefore,
+          containerClientHeight: scrollContainer.clientHeight,
+          relativeVideoTop,
           videoRect: { top: videoRectBefore.top, bottom: videoRectBefore.bottom, height: videoRectBefore.height },
-          visualViewport: { height: viewportHeight, offsetTop: viewportTop },
           notificationPositioning: notificationPositioningRef.current,
         });
-        window.scrollTo({ top: Math.max(0, window.scrollY + videoRectBefore.top - desiredTop), behavior });
-        await waitForNotificationScroll(window, reducedMotion);
-        const videoRectAfter = visualVideo.getBoundingClientRect();
+        scrollContainer.scrollTo({ top: desiredTop, behavior });
+        await waitForNotificationScroll(scrollContainer, reducedMotion);
+        let containerRectAfter = scrollContainer.getBoundingClientRect();
+        let videoRectAfter = visualVideo.getBoundingClientRect();
+        const visibilityMargin = Math.min(12, Math.max(0, (scrollContainer.clientHeight - videoRectAfter.height) / 4));
+        let fullyVisible = videoRectAfter.top >= containerRectAfter.top + visibilityMargin && videoRectAfter.bottom <= containerRectAfter.bottom - visibilityMargin;
+        if (!fullyVisible) {
+          const correction = videoRectAfter.top < containerRectAfter.top + visibilityMargin
+            ? videoRectAfter.top - containerRectAfter.top - visibilityMargin
+            : videoRectAfter.bottom - containerRectAfter.bottom + visibilityMargin;
+          scrollContainer.scrollTo({ top: Math.min(maxScrollTop, Math.max(0, scrollContainer.scrollTop + correction)), behavior });
+          await waitForNotificationScroll(scrollContainer, reducedMotion);
+          containerRectAfter = scrollContainer.getBoundingClientRect();
+          videoRectAfter = visualVideo.getBoundingClientRect();
+          fullyVisible = videoRectAfter.top >= containerRectAfter.top + visibilityMargin && videoRectAfter.bottom <= containerRectAfter.bottom - visibilityMargin;
+        }
         logNotificationTarget("mobile video after scroll", {
           targetId: notificationTarget.id,
+          scrollTopAfter: scrollContainer.scrollTop,
+          containerClientHeight: scrollContainer.clientHeight,
           videoRect: { top: videoRectAfter.top, bottom: videoRectAfter.bottom, height: videoRectAfter.height },
+          videoTopRelative: videoRectAfter.top - containerRectAfter.top,
+          videoBottomRelative: videoRectAfter.bottom - containerRectAfter.top,
+          fullyVisible,
           notificationPositioning: notificationPositioningRef.current,
         });
+        if (!fullyVisible) {
+          notificationPositioningRef.current = false;
+          logNotificationTarget("TARGET NOT CONSUMED", { targetId: notificationTarget.id, reason: "mobile video is not fully visible" });
+          return;
+        }
       }
       if (cancelled) return;
 
@@ -1679,7 +1703,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       cancelled = true;
       notificationPositioningRef.current = false;
     };
-  }, [active, fetchPage, initialLoading, loadingMore, movieId, next, notificationTarget, onNotificationTargetConsumed, recorderState]);
+  }, [active, fetchPage, initialLoading, loadingMore, logNotificationTarget, movieId, next, notificationTarget, onNotificationTargetConsumed, recorderState]);
 
   const finishRecording = useCallback(() => {
     stopModeRef.current = "previewRecorded";
@@ -2478,7 +2502,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200 md:hidden" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
     <button type="button" data-history-carousel-arrow="left" disabled={recorderState !== "idle" || !canScrollHistoryLeft} className="hidden" aria-label="Anterior" onClick={() => scrollHistoryCarousel(-1)}>←</button>
     <div data-history-carousel-viewport className="relative">
-    <div ref={historyScrollRef} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
+    <div ref={historyScrollRef} data-desktop-video-reaction-history data-mobile-video-reaction-scroll-container data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 md:mx-auto md:max-h-[32rem] md:max-w-3xl md:overflow-y-auto md:pr-2">
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
@@ -2545,6 +2569,24 @@ function MovieDetailPageContent() {
   const { locale, t } = useI18n();
   const params = useParams<{ id: string }>();
   const movieId = params?.id ? String(params.id) : "";
+  const debugNotificationTarget = searchParams.get("debugNotificationTarget") === "1";
+  const [notificationDiagnosticEntries, setNotificationDiagnosticEntries] = useState<string[]>([]);
+  const [notificationDiagnosticViewport, setNotificationDiagnosticViewport] = useState<"unknown" | "mobile" | "desktop">("unknown");
+
+  const logNotificationTarget = useCallback<NotificationDiagnosticLogger>((event, details = {}) => {
+    if (!debugNotificationTarget && process.env.NODE_ENV === "production") return;
+    const entry = `${new Date().toISOString()} ${event} ${JSON.stringify(details)}`;
+    console.debug("[NotificationTarget]", event, details);
+    if (debugNotificationTarget) setNotificationDiagnosticEntries((current) => [...current.slice(-17), entry]);
+  }, [debugNotificationTarget]);
+
+  useEffect(() => {
+    if (!debugNotificationTarget) return;
+    const updateViewport = () => setNotificationDiagnosticViewport(window.matchMedia("(min-width: 768px)").matches ? "desktop" : "mobile");
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, [debugNotificationTarget]);
 
   const [movie, setMovie] = useState<Movie | null>(null);
   const [movieLoading, setMovieLoading] = useState(true);
@@ -2661,6 +2703,7 @@ function MovieDetailPageContent() {
 
   const handleCommentInputTabClick = useCallback(
     (mode: CommentInputMode) => {
+      logNotificationTarget("main tab handler", { requestedMainTab: mode, mainTabBefore: commentInputMode });
       if (window.matchMedia("(min-width: 768px)").matches) {
         setCommentInputMode(mode);
         requestAnimationFrame(() => {
@@ -2681,7 +2724,7 @@ function MovieDetailPageContent() {
       pendingCommentInputScrollRef.current = mode;
       setCommentInputMode(mode);
     },
-    [commentInputMode, scrollCommentStartIntoView],
+    [commentInputMode, logNotificationTarget, scrollCommentStartIntoView],
   );
 
   useEffect(() => {
@@ -3140,7 +3183,7 @@ function MovieDetailPageContent() {
     }
     setSelectedPublicFilterUser(null);
     setPublicSearchQuery("");
-  }, [commentInputMode, handleCommentInputTabClick, movieId, notificationTarget]);
+  }, [commentInputMode, handleCommentInputTabClick, logNotificationTarget, movieId, notificationTarget]);
 
   useEffect(() => {
     if (notificationTarget?.type !== "public-comment" || commentInputMode !== "text-comment") return;
@@ -3151,7 +3194,22 @@ function MovieDetailPageContent() {
       mainTabAfterRender: commentInputMode,
       mobileCommentsSubtab: mobile ? (activeCommentsTab === "public" ? "public" : "public requested") : "desktop simultaneous panels",
     });
-  }, [activeCommentsTab, commentInputMode, notificationTarget]);
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => logNotificationTarget("main tab after two frames", { targetId: notificationTarget.id, mainTab: commentInputMode, activeCommentsTab }));
+    });
+    const after500ms = window.setTimeout(() => logNotificationTarget("main tab after 500ms", { targetId: notificationTarget.id, mainTab: commentInputMode, activeCommentsTab }), 500);
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+      window.clearTimeout(after500ms);
+    };
+  }, [activeCommentsTab, commentInputMode, logNotificationTarget, notificationTarget]);
+
+  useEffect(() => {
+    if (!notificationTarget) return;
+    logNotificationTarget("main tab state changed", { target: notificationTarget.type, targetId: notificationTarget.id, mainTab: commentInputMode, activeCommentsTab });
+  }, [activeCommentsTab, commentInputMode, logNotificationTarget, notificationTarget]);
 
   useEffect(() => {
     if (notificationTarget?.type !== "video-reaction") return;
@@ -3166,15 +3224,21 @@ function MovieDetailPageContent() {
     if (processedPublicTargetRef.current === targetKey) return;
     const container = publicCommentsScrollRef.current;
     const comment = container?.querySelector<HTMLElement>(`[data-public-comment-id="${CSS.escape(notificationTarget.id)}"]`);
+    const commentHistory = document.querySelector<HTMLElement>('[data-comment-history]');
+    const selectedTextTab = document.querySelector<HTMLElement>('[data-comment-input-mode="text-comment"][aria-selected="true"]');
+    const publicSection = publicCommentsSectionRef.current;
+    const textContentVisible = Boolean(commentHistory && getComputedStyle(commentHistory).display !== "none" && selectedTextTab && publicSection && getComputedStyle(publicSection).display !== "none");
     logNotificationTarget("public comment lookup", {
       targetId: notificationTarget.id,
       mainTabAfterRender: commentInputMode,
       mobileCommentsSubtab: desktop ? "desktop simultaneous panels" : activeCommentsTab,
       publicContainerFound: Boolean(container),
       publicCommentFound: Boolean(comment),
+      textContentVisible,
     });
-    if (!container || !comment) {
+    if (!container || !comment || !textContentVisible) {
       if (publicNext) void appendPublicComments();
+      logNotificationTarget("TARGET NOT CONSUMED", { targetId: notificationTarget.id, reason: !textContentVisible ? "text comment DOM is not visibly active" : "public comment DOM is missing" });
       return;
     }
 
@@ -3211,7 +3275,7 @@ function MovieDetailPageContent() {
     };
     void positionTarget();
     return () => { cancelled = true; };
-  }, [activeCommentsTab, appendPublicComments, commentInputMode, consumeNotificationTarget, loadingPublic, loadingPublicMore, movieId, notificationTarget, publicNext, selectedPublicFilterUser]);
+  }, [activeCommentsTab, appendPublicComments, commentInputMode, consumeNotificationTarget, loadingPublic, loadingPublicMore, logNotificationTarget, movieId, notificationTarget, publicNext, selectedPublicFilterUser]);
 
   useEffect(() => {
     const target = pendingDirectedNotificationTarget;
@@ -3738,6 +3802,18 @@ function MovieDetailPageContent() {
 
   return (
     <main className="min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
+      {debugNotificationTarget ? (
+        <aside data-notification-target-debug className="fixed bottom-2 right-2 z-[2000] max-h-[42dvh] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-lg border border-[#86ADE0]/60 bg-black/90 p-2 font-mono text-[10px] leading-4 text-[#c7dcf6] shadow-2xl pointer-events-none" aria-live="polite">
+          <strong className="block text-xs text-white">Notification target debug</strong>
+          <div>target: {notificationTarget?.type ?? "consumed/none"}</div>
+          <div>targetId: {notificationTarget?.id ?? "—"}</div>
+          <div>reaction: {notificationTarget?.reaction ?? "—"}</div>
+          <div>viewport: {notificationDiagnosticViewport}</div>
+          <div>mainTab: {commentInputMode}</div>
+          <div>activeCommentsTab: {activeCommentsTab}</div>
+          {notificationDiagnosticEntries.map((entry, index) => <div key={`${index}-${entry}`} className="mt-1 border-t border-white/10 pt-1 break-words">{entry}</div>)}
+        </aside>
+      ) : null}
       <div
         data-trailer-companion-controls
         className="hidden"
@@ -3804,6 +3880,7 @@ function MovieDetailPageContent() {
                   role="tab"
                   aria-selected={isActiveMode}
                   className={`flex min-h-11 flex-1 items-center justify-center px-2 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
+                  data-comment-input-mode={mode}
                   onClick={() => handleCommentInputTabClick(mode)}
                 >
                   {mode === "text-comment" ? composerTitle : t("movieDetailVideoCommentTitle")}
@@ -3823,6 +3900,7 @@ function MovieDetailPageContent() {
                 role="tab"
                 aria-selected={isActiveMode}
                 className={`min-h-11 px-3 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActiveMode ? "text-xl font-bold text-[#86ADE0]" : "text-base font-medium text-zinc-400 hover:text-zinc-300"}`}
+                data-comment-input-mode={mode}
                 onClick={() => handleCommentInputTabClick(mode)}
               >
                 {mode === "text-comment" ? composerTitle : t("movieDetailVideoCommentTitle")}
@@ -3835,7 +3913,7 @@ function MovieDetailPageContent() {
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
         <div ref={videoCommentStartRef} data-video-reaction-section>
-          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
+          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${commentInputMode === "text-comment" ? "hidden md:block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
