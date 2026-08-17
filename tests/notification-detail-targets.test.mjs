@@ -33,3 +33,13 @@ test("Detail Movie targets stable canonical DOM ids and consumes query once", ()
   assert.match(detail, /cleaned\.delete\("target"\)[\s\S]*router\.replace/);
   assert.match(detail, /notification-video-reaction-overlay/);
 });
+
+test("notification positioning waits for the mounted tab and both scroll surfaces", () => {
+  assert.match(detail, /data-video-reaction-section/);
+  assert.match(detail, /section\.getBoundingClientRect\(\)\.top/);
+  assert.match(detail, /await waitForNotificationScroll\(window, reducedMotion\)[\s\S]*container\.scrollTo\(\{ left:/);
+  assert.match(detail, /const chooseVisibleHistoryVideo[\s\S]*notificationPositioningRef\.current/);
+  assert.match(detail, /commentInputMode !== "text-comment" \|\| activeCommentsTab !== "public"/);
+  assert.match(detail, /publicCommentsSectionRef\.current\?\.scrollIntoView[\s\S]*hasInternalScroll[\s\S]*container\.scrollTo/);
+  assert.match(detail, /comment\.classList\.add\("notification-public-comment-highlight"\)[\s\S]*processedPublicTargetRef\.current = targetKey[\s\S]*consumeNotificationTarget\(\)/);
+});

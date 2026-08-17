@@ -87,6 +87,22 @@ interface VideoComment { id: string | number; user: VideoCommentUser; video_url:
 interface VideoCommentsPage { count: number; next: string | null; previous: string | null; results: VideoComment[]; }
 interface VideoCommentReactionResponse { video_comment_id: string | number; my_reaction: VideoCommentReaction | null; likes_count: number; dislikes_count: number; }
 
+function waitForNotificationScroll(target: Window | HTMLElement, reducedMotion: boolean): Promise<void> {
+  if (reducedMotion) return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      target.removeEventListener("scrollend", finish);
+      window.clearTimeout(fallback);
+      resolve();
+    };
+    const fallback = window.setTimeout(finish, 800);
+    target.addEventListener("scrollend", finish, { once: true });
+  });
+}
+
 function VideoCommentReactionButtons({ comment, disabled, expanded = false, className = "", t, onReact }: { comment: VideoComment; disabled: boolean; expanded?: boolean; className?: string; t: (key: Parameters<typeof translate>[1]) => string; onReact: (id: string | number, reaction: VideoCommentReaction) => void }) {
   return <div className={`flex items-center gap-1 ${className}`}>
     {(["like", "dislike"] as const).map((reaction) => {
@@ -1073,6 +1089,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   const carouselScrollTimerRef = useRef<number | null>(null);
   const carouselScrollingRef = useRef(false);
   const processedNotificationTargetRef = useRef<string | null>(null);
+  const notificationPositioningRef = useRef(false);
 
   const appendVideoDebugLog = useCallback((event: string, details: Record<string, unknown>) => {
     if (!videoDebugEnabled) return;
@@ -1209,7 +1226,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   }, [getVisibleDesktopHistoryIds, playHistoryVideo]);
 
   const chooseVisibleHistoryVideo = useCallback(() => {
-    if (expandedOpenRef.current || document.hidden) return;
+    if (expandedOpenRef.current || document.hidden || notificationPositioningRef.current) return;
     const desktopScrollRoot = window.matchMedia("(min-width: 768px)").matches ? historyScrollRef.current : null;
     const rootRect = desktopScrollRoot?.getBoundingClientRect();
     const desktopCarousel = Boolean(desktopScrollRoot && !document.body.classList.contains("detail-trailer-active"));
@@ -1582,22 +1599,49 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       return;
     }
 
-    processedNotificationTargetRef.current = targetKey;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const containerRect = container.getBoundingClientRect();
-    const cardRect = card.getBoundingClientRect();
-    const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
-    if (window.matchMedia("(min-width: 768px)").matches && container.scrollWidth > container.clientWidth) {
-      container.scrollTo({ left: container.scrollLeft + cardRect.left - containerRect.left - (container.clientWidth - cardRect.width) / 2, behavior });
-    } else {
-      container.scrollTo({ top: container.scrollTop + cardRect.top - containerRect.top - (container.clientHeight - cardRect.height) / 2, behavior });
-      card.scrollIntoView({ behavior, block: "center", inline: "center" });
-    }
-    if (notificationTarget.reaction) {
-      window.setTimeout(() => setNotificationReactionOverlay({ id: notificationTarget.id, reaction: notificationTarget.reaction!, reducedMotion }), reducedMotion ? 0 : 350);
-      window.setTimeout(() => setNotificationReactionOverlay(null), reducedMotion ? 900 : 2200);
-    }
-    onNotificationTargetConsumed();
+    let cancelled = false;
+    notificationPositioningRef.current = true;
+    const positionTarget = async () => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
+      const desktop = window.matchMedia("(min-width: 768px)").matches;
+      const section = document.querySelector<HTMLElement>("[data-video-reaction-section]");
+
+      if (desktop && section) {
+        const tabsHeight = document.querySelector<HTMLElement>("[data-desktop-comment-tabs]")?.getBoundingClientRect().height ?? 0;
+        window.scrollTo({ top: Math.max(0, window.scrollY + section.getBoundingClientRect().top - tabsHeight - 16), behavior });
+      } else {
+        card.scrollIntoView({ behavior, block: "center", inline: "nearest" });
+      }
+
+      await waitForNotificationScroll(window, reducedMotion);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      if (cancelled) return;
+
+      const stableContainerRect = container.getBoundingClientRect();
+      const stableCardRect = card.getBoundingClientRect();
+      if (desktop && container.scrollWidth > container.clientWidth) {
+        container.scrollTo({ left: container.scrollLeft + stableCardRect.left - stableContainerRect.left - (container.clientWidth - stableCardRect.width) / 2, behavior });
+        await waitForNotificationScroll(container, reducedMotion);
+      } else {
+        card.scrollIntoView({ behavior, block: "center", inline: "nearest" });
+        await waitForNotificationScroll(window, reducedMotion);
+      }
+      if (cancelled) return;
+
+      if (notificationTarget.reaction) {
+        setNotificationReactionOverlay({ id: notificationTarget.id, reaction: notificationTarget.reaction, reducedMotion });
+        window.setTimeout(() => setNotificationReactionOverlay(null), reducedMotion ? 900 : 2200);
+      }
+      processedNotificationTargetRef.current = targetKey;
+      notificationPositioningRef.current = false;
+      onNotificationTargetConsumed();
+    };
+    void positionTarget();
+    return () => {
+      cancelled = true;
+      notificationPositioningRef.current = false;
+    };
   }, [active, fetchPage, initialLoading, loadingMore, movieId, next, notificationTarget, onNotificationTargetConsumed, recorderState]);
 
   const finishRecording = useCallback(() => {
@@ -2518,6 +2562,7 @@ function MovieDetailPageContent() {
   const pendingCommentInputScrollRef = useRef<CommentInputMode | null>(null);
   const directedCommentsSectionRef = useRef<HTMLElement | null>(null);
   const publicCommentsScrollRef = useRef<HTMLDivElement | null>(null);
+  const publicCommentsSectionRef = useRef<HTMLElement | null>(null);
   const directedCommentsScrollRef = useRef<HTMLDivElement | null>(null);
   const processedDirectedTargetRef = useRef<string | null>(null);
   const processedPublicTargetRef = useRef<string | null>(null);
@@ -3056,7 +3101,7 @@ function MovieDetailPageContent() {
   }, [notificationTarget]);
 
   useEffect(() => {
-    if (notificationTarget?.type !== "public-comment" || loadingPublic || loadingPublicMore) return;
+    if (notificationTarget?.type !== "public-comment" || commentInputMode !== "text-comment" || activeCommentsTab !== "public" || loadingPublic || loadingPublicMore) return;
     const targetKey = `${movieId}:${notificationTarget.id}`;
     if (processedPublicTargetRef.current === targetKey) return;
     const container = publicCommentsScrollRef.current;
@@ -3066,18 +3111,38 @@ function MovieDetailPageContent() {
       return;
     }
 
-    processedPublicTargetRef.current = targetKey;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const containerRect = container.getBoundingClientRect();
-    const commentRect = comment.getBoundingClientRect();
-    container.scrollTo({
-      top: container.scrollTop + commentRect.top - containerRect.top - (container.clientHeight - commentRect.height) / 2,
-      behavior: reducedMotion ? "auto" : "smooth",
-    });
-    comment.classList.add("notification-public-comment-highlight");
-    window.setTimeout(() => comment.classList.remove("notification-public-comment-highlight"), reducedMotion ? 900 : 2100);
-    consumeNotificationTarget();
-  }, [appendPublicComments, consumeNotificationTarget, loadingPublic, loadingPublicMore, movieId, notificationTarget, publicNext, selectedPublicFilterUser]);
+    let cancelled = false;
+    const positionTarget = async () => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
+      publicCommentsSectionRef.current?.scrollIntoView({ behavior, block: "start", inline: "nearest" });
+      await waitForNotificationScroll(window, reducedMotion);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      if (cancelled) return;
+
+      const containerStyle = getComputedStyle(container);
+      const hasInternalScroll = /(auto|scroll|overlay)/.test(containerStyle.overflowY) && container.scrollHeight > container.clientHeight;
+      if (hasInternalScroll) {
+        const containerRect = container.getBoundingClientRect();
+        const commentRect = comment.getBoundingClientRect();
+        container.scrollTo({
+          top: container.scrollTop + commentRect.top - containerRect.top - (container.clientHeight - commentRect.height) / 2,
+          behavior,
+        });
+        await waitForNotificationScroll(container, reducedMotion);
+      } else {
+        comment.scrollIntoView({ behavior, block: "center", inline: "nearest" });
+        await waitForNotificationScroll(window, reducedMotion);
+      }
+      if (cancelled) return;
+      comment.classList.add("notification-public-comment-highlight");
+      window.setTimeout(() => comment.classList.remove("notification-public-comment-highlight"), reducedMotion ? 900 : 2100);
+      processedPublicTargetRef.current = targetKey;
+      consumeNotificationTarget();
+    };
+    void positionTarget();
+    return () => { cancelled = true; };
+  }, [activeCommentsTab, appendPublicComments, commentInputMode, consumeNotificationTarget, loadingPublic, loadingPublicMore, movieId, notificationTarget, publicNext, selectedPublicFilterUser]);
 
   useEffect(() => {
     const target = pendingDirectedNotificationTarget;
@@ -3700,7 +3765,7 @@ function MovieDetailPageContent() {
         <div ref={textCommentStartRef} data-mobile-text-comment data-active={commentInputMode === "text-comment"} className={`md:hidden ${commentInputMode === "text-comment" ? "block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
-        <div ref={videoCommentStartRef}>
+        <div ref={videoCommentStartRef} data-video-reaction-section>
           <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${commentInputMode === "text-comment" ? "hidden md:block" : "hidden"}`}>
@@ -3739,7 +3804,7 @@ function MovieDetailPageContent() {
               </div>
             </>
           ) : null}
-          <section data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
+          <section ref={publicCommentsSectionRef} data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               {!trailerCompanionOpen ? <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden lg:block" : ""}`}>{t("movieDetailPublicComments")}</h2> : null}
               <CommentUserSearch
