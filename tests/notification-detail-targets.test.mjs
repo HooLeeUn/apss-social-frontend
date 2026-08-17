@@ -21,7 +21,7 @@ test("bell normalization preserves canonical public and video reaction fields", 
 test("notification routing adds exact targets and retains previous fallbacks", () => {
   const publicRoute = navigation.slice(navigation.indexOf('item.type === "public_comment_reaction"'), navigation.indexOf('item.type === "video_comment_reaction"'));
   const videoRoute = navigation.slice(navigation.indexOf('item.type === "video_comment_reaction"'), navigation.indexOf('item.targetTab === "private_inbox"'));
-  assert.match(publicRoute, /item\.commentId[\s\S]*item\.reactionType[\s\S]*target=public-comment&targetId=/);
+  assert.match(publicRoute, /item\.commentId[\s\S]*item\.reactionType[\s\S]*section=public-comments&commentId=/);
   assert.match(videoRoute, /item\.videoCommentId[\s\S]*item\.reactionType[\s\S]*target=video-reaction&targetId=/);
   assert.match(navigation, /target=video-reaction&targetId=/);
   assert.match(navigation, /section=directed-comments[\s\S]*item\.directedCommentId/);
@@ -57,7 +57,7 @@ test("mobile notification positioning measures the visual video in its real scro
   assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: desiredTop, behavior \}\)/);
   assert.doesNotMatch(mobilePositioning, /window\.scrollTo|window\.visualViewport|scrollIntoView/);
   assert.match(detail, /notificationPositioningRef\.current = true[\s\S]*notificationPositioningRef\.current = false/);
-  assert.match(detail, /handleCommentInputTabClick\("text-comment"\)/);
+  assert.match(detail, /const openCommentMovieSection[\s\S]*setCommentInputMode\("text-comment"\)/);
   assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
 });
 
@@ -88,4 +88,13 @@ test("detail snapshots received query data before processing and retains it afte
   assert.match(detail, /CONSUME[\s\S]*commentDomFound[\s\S]*videoDomFound[\s\S]*setNotificationDiagnosticStatus\("consumed"\)/);
   assert.match(detail, />RECEIVED<[\s\S]*receivedNotificationTarget\?\.type[\s\S]*>CURRENT<[\s\S]*notificationDiagnosticStatus/);
   assert.match(detail, /MAIN TAB CHANGE[\s\S]*COMMENTS SUBTAB CHANGE/);
+});
+
+test("public comment sections reuse the proven directed-comments entry architecture", () => {
+  assert.match(detail, /section === "public-comments"[\s\S]*type: "public-comment"/);
+  const directedEntry = detail.slice(detail.indexOf('searchParams.get("section") !== "directed-comments"'), detail.indexOf('if (notificationTarget?.type !== "public-comment")'));
+  assert.match(directedEntry, /setActiveCommentsTab\("directed"\)[\s\S]*openCommentMovieSection\(\)[\s\S]*setPendingDirectedNotificationTarget/);
+  assert.match(detail, /publicMainTabRequestedRef[\s\S]*openCommentMovieSection\(\)/);
+  assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
+  assert.match(detail, /received\?\.type === "public-comment"[\s\S]*cleaned\.delete\("section"\)[\s\S]*cleaned\.delete\("commentId"\)/);
 });

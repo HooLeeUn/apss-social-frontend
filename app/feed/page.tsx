@@ -701,6 +701,8 @@ export default function FeedPage() {
             movieId: item.movieId,
             target: destinationUrl.searchParams.get("target"),
             targetId: destinationUrl.searchParams.get("targetId"),
+            section: destinationUrl.searchParams.get("section"),
+            commentId: destinationUrl.searchParams.get("commentId"),
             reaction: destinationUrl.searchParams.get("reaction"),
             destinationUrl: destination,
           });

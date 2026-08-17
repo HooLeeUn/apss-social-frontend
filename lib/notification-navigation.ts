@@ -6,7 +6,7 @@ export function buildNotificationTargetRoute(item: MyNotificationItem): string {
     const movieRoute = `/movies/${encodeURIComponent(String(item.movieId))}`;
     if (item.type === "public_comment_reaction" && item.commentId !== null && item.commentId !== "") {
       const reaction = item.reactionType ? `&reaction=${encodeURIComponent(item.reactionType)}` : "";
-      return `${movieRoute}?target=public-comment&targetId=${encodeURIComponent(String(item.commentId))}${reaction}`;
+      return `${movieRoute}?section=public-comments&commentId=${encodeURIComponent(String(item.commentId))}${reaction}`;
     }
     if (item.type === "video_comment_reaction" && item.videoCommentId !== null && item.videoCommentId !== "") {
       const reaction = item.reactionType ? `&reaction=${encodeURIComponent(item.reactionType)}` : "";

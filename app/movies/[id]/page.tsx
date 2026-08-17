@@ -2652,11 +2652,17 @@ function MovieDetailPageContent() {
   const publicMainTabRequestedRef = useRef<string | null>(null);
 
   const notificationTarget = useMemo(() => {
+    const section = searchParams.get("section");
+    const sectionCommentId = normalizeId(searchParams.get("commentId"));
+    const rawReaction = searchParams.get("reaction")?.toLowerCase();
+    const reaction = rawReaction === "like" || rawReaction === "dislike" ? rawReaction : null;
+    if (section === "public-comments" && sectionCommentId) {
+      return { type: "public-comment", id: sectionCommentId, reaction } as const;
+    }
     const target = searchParams.get("target");
     const targetId = normalizeId(searchParams.get("targetId"));
     if (!targetId || (target !== "public-comment" && target !== "video-reaction")) return null;
-    const rawReaction = searchParams.get("reaction")?.toLowerCase();
-    return { type: target, id: targetId, reaction: rawReaction === "like" || rawReaction === "dislike" ? rawReaction : null } as const;
+    return { type: target, id: targetId, reaction } as const;
   }, [searchParams]);
 
   const receivedNotificationTargetRef = useRef<{ type: "public-comment" | "video-reaction"; id: string; reaction: VideoCommentReaction | null } | null>(null);
@@ -2722,6 +2728,10 @@ function MovieDetailPageContent() {
     cleaned.delete("target");
     cleaned.delete("targetId");
     cleaned.delete("reaction");
+    if (received?.type === "public-comment") {
+      cleaned.delete("section");
+      cleaned.delete("commentId");
+    }
     const query = cleaned.toString();
     router.replace(`${window.location.pathname}${query ? `?${query}` : ""}`, { scroll: false });
   }, [activeCommentsTab, commentInputMode, debugNotificationTarget, logNotificationTarget, notificationTarget, router, searchParams]);
@@ -3214,6 +3224,10 @@ function MovieDetailPageContent() {
     [expandedConversationKey, fullLoadedByConversationKey, loadingFullHistoryByConversationKey],
   );
 
+  const openCommentMovieSection = useCallback(() => {
+    setCommentInputMode("text-comment");
+  }, []);
+
   useEffect(() => {
     if (searchParams.get("section") !== "directed-comments") return;
     const actorId = normalizeId(searchParams.get("actorId"));
@@ -3225,9 +3239,9 @@ function MovieDetailPageContent() {
     if (processedDirectedTargetRef.current === targetKey) return;
     processedDirectedTargetRef.current = targetKey;
     setActiveCommentsTab("directed");
-    setCommentInputMode("text-comment");
+    openCommentMovieSection();
     setPendingDirectedNotificationTarget({ actorId, actorUsername, commentId, conversationKey: null, stage: "find-conversation" });
-  }, [movieId, searchParams]);
+  }, [movieId, openCommentMovieSection, searchParams]);
 
   useEffect(() => {
     if (notificationTarget?.type !== "public-comment") return;
@@ -3240,12 +3254,12 @@ function MovieDetailPageContent() {
     });
     if (commentInputMode !== "text-comment" && publicMainTabRequestedRef.current !== targetKey) {
       publicMainTabRequestedRef.current = targetKey;
-      handleCommentInputTabClick("text-comment");
+      openCommentMovieSection();
       logNotificationTarget("main tab requested", { targetId: notificationTarget.id, requestedTab: "text-comment", mainTabAfterRequest: commentInputMode });
     }
     setSelectedPublicFilterUser(null);
     setPublicSearchQuery("");
-  }, [commentInputMode, handleCommentInputTabClick, logNotificationTarget, movieId, notificationTarget]);
+  }, [commentInputMode, logNotificationTarget, movieId, notificationTarget, openCommentMovieSection]);
 
   useEffect(() => {
     if (notificationTarget?.type !== "public-comment" || commentInputMode !== "text-comment") return;
