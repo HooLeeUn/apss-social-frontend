@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Locale } from "../lib/i18n";
 import { t } from "../lib/i18n";
@@ -37,6 +37,7 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
   const isMobile = useIsMobileTrailerModal(open);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const trailerIsActiveRef = useRef(false);
   const wasFullscreenRef = useRef(false);
   const trailerMutedRef = useRef(true);
   const [embedErrorUrl, setEmbedErrorUrl] = useState<string | null>(null);
@@ -46,6 +47,10 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
   const iframeReady = Boolean(trailerUrl && iframeReadyUrl === trailerUrl);
   const cachedExternalOnly = Boolean(trailerUrl && (cachedExternalOnlyUrl === trailerUrl || hasTrailerExternalOnlyFallback(trailerUrl, watchUrl)));
   const shouldAttemptIframe = Boolean(open && trailerUrl && !loading && !error && !unavailable && !externalOnly && !embedError && !cachedExternalOnly);
+
+  useLayoutEffect(() => {
+    trailerIsActiveRef.current = shouldAttemptIframe;
+  }, [shouldAttemptIframe]);
 
   useEffect(() => {
     if (!shouldAttemptIframe || !iframeRef.current) return;
@@ -68,6 +73,11 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
             if (!cancelled) setIframeReadyUrl(trailerUrl);
           },
           onError: handleEmbedError,
+          onStateChange: (event) => {
+            if (event.data !== window.YT?.PlayerState.ENDED || cancelled || !trailerIsActiveRef.current) return;
+            event.target.seekTo(0, true);
+            event.target.playVideo();
+          },
         },
       });
     };

@@ -278,6 +278,13 @@ test("trailer and reactions coordinate audio and fullscreen through player refs"
   has(/historyVideosRef\.current\.forEach\(\(video\) => video\.pause\(\)\)/);
 });
 
+test("active trailer loops from the real YouTube ended state without rebuilding its iframe", () => {
+  assert.match(trailerModal, /event\.data !== window\.YT\?\.PlayerState\.ENDED/);
+  assert.match(trailerModal, /cancelled \|\| !trailerIsActiveRef\.current/);
+  assert.match(trailerModal, /event\.target\.seekTo\(0, true\);\s*event\.target\.playVideo\(\);/);
+  assert.doesNotMatch(trailerModal, /setInterval\([^)]*seekTo|setTimeout\([^)]*seekTo/);
+});
+
 test("trailer companion navigates the three existing views without circular swipes", () => {
   has(/type TrailerCompanionView = "reaction" \| "public-comments" \| "directed-comments"/);
   has(/TRAILER_COMPANION_SWIPE_THRESHOLD_PX = 56/);
