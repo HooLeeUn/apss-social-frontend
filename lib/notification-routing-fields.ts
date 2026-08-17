@@ -24,7 +24,11 @@ function canonicalId(value: unknown): string | number | null {
 export function resolveNotificationType(value: unknown): string | null {
   const record = asRecord(value);
   if (!record) return null;
-  const candidate = firstPresent(record.notification_type, record.notificationType, record.activity_type, record.activityType, record.type);
+  const candidates = [record.notification_type, record.notificationType, record.activity_type, record.activityType, record.type];
+  const canonicalVideoReactionType = candidates.find(
+    (candidate) => typeof candidate === "string" && candidate.trim().toLowerCase() === "video_comment_reaction",
+  );
+  const candidate = canonicalVideoReactionType ?? firstPresent(...candidates);
   return typeof candidate === "string" && candidate.trim() ? candidate.trim().toLowerCase() : null;
 }
 

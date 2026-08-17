@@ -1615,6 +1615,9 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
       const desktop = window.matchMedia("(min-width: 768px)").matches;
       const section = document.querySelector<HTMLElement>("[data-video-reaction-section]");
+      const visualVideo = card.querySelector<HTMLElement>('[data-video-comment-player="true"]');
+      const verticalPositionBefore = section?.getBoundingClientRect().top ?? null;
+      const carouselScrollLeftBefore = container.scrollLeft;
 
       if (desktop && section) {
         const tabsHeight = document.querySelector<HTMLElement>("[data-desktop-comment-tabs]")?.getBoundingClientRect().height ?? 0;
@@ -1630,9 +1633,20 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       if (desktop && container.scrollWidth > container.clientWidth) {
         container.scrollTo({ left: container.scrollLeft + stableCardRect.left - stableContainerRect.left - (container.clientWidth - stableCardRect.width) / 2, behavior });
         await waitForNotificationScroll(container, reducedMotion);
+        console.log("[VIDEO NOTIFICATION TARGET]", {
+          videoCommentId: notificationTarget.id,
+          reaction: notificationTarget.reaction,
+          viewport: "desktop",
+          cardFound: true,
+          playerFound: Boolean(visualVideo),
+          scrollContainerFound: true,
+          verticalPositionBefore,
+          verticalPositionAfter: section?.getBoundingClientRect().top ?? null,
+          carouselScrollLeftBefore,
+          carouselScrollLeftAfter: container.scrollLeft,
+        });
       } else {
         const scrollContainer = historyScrollRef.current;
-        const visualVideo = card.querySelector<HTMLElement>('[data-video-comment-player="true"]');
         if (!scrollContainer || !visualVideo) {
           notificationPositioningRef.current = false;
           logNotificationTarget("TARGET NOT CONSUMED", { targetId: notificationTarget.id, scrollContainerFound: Boolean(scrollContainer), videoPlayerFound: Boolean(visualVideo) });
@@ -1680,6 +1694,21 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           videoBottomRelative: videoRectAfter.bottom - containerRectAfter.top,
           fullyVisible,
           notificationPositioning: notificationPositioningRef.current,
+        });
+        console.log("[VIDEO NOTIFICATION TARGET]", {
+          videoCommentId: notificationTarget.id,
+          reaction: notificationTarget.reaction,
+          viewport: "mobile",
+          cardFound: true,
+          playerFound: true,
+          scrollContainerFound: true,
+          containerScrollTopBefore: scrollTopBefore,
+          containerScrollTopAfter: scrollContainer.scrollTop,
+          containerClientHeight: scrollContainer.clientHeight,
+          videoHeight: videoRectAfter.height,
+          videoTop: videoRectAfter.top,
+          videoBottom: videoRectAfter.bottom,
+          fullyVisible,
         });
         if (!fullyVisible) {
           notificationPositioningRef.current = false;

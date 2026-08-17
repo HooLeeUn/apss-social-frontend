@@ -49,6 +49,35 @@ test("real public reaction payload variants normalize and route canonically", ()
   }
 });
 
+test("real video reaction payload keeps its canonical type, id, and target route", () => {
+  const fields = normalizeNotificationRoutingFields({
+    notification_type: "generic_notification",
+    activity_type: "activity",
+    type: "video_comment_reaction",
+    object: { video_comment_id: 86 },
+    movie: { id: 492436 },
+    reaction_type: "like",
+  });
+
+  assert.deepEqual(fields, {
+    type: "video_comment_reaction",
+    commentId: null,
+    videoCommentId: 86,
+    reactionType: "like",
+  });
+  assert.equal(buildNotificationTargetRoute({
+    id: 2,
+    text: "video reaction",
+    targetTab: "activity",
+    movieId: 492436,
+    actorId: null,
+    actorUsername: null,
+    directedCommentId: null,
+    createdAt: null,
+    ...fields,
+  }), "/movies/492436?target=video-reaction&targetId=86&reaction=like");
+});
+
 test("public and directed comment routes share movie and canonical comment ids", () => {
   const base = {
     id: 1,
@@ -139,8 +168,15 @@ test("feed propagates explicit target diagnostics and logs its complete destinat
   assert.match(feed, /\[NotificationTarget\]\[NORMALIZED ITEM\][\s\S]*const targetRoute = buildNotificationTargetRoute\(item\)/);
   assert.match(feed, /\[PUBLIC COMMENT NOTIFICATION REAL\][\s\S]*builtRoute: targetRoute/);
   assert.match(feed, /\[PUBLIC COMMENT ROUTING ERROR\] Missing commentId/);
+  assert.match(feed, /\[VIDEO COMMENT NOTIFICATION REAL\][\s\S]*videoCommentId:[\s\S]*builtRoute: targetRoute/);
+  assert.match(feed, /\[VIDEO COMMENT ROUTING ERROR\] Missing videoCommentId/);
   assert.match(feed, /\[NotificationTarget\]\[FEED CLICK\][\s\S]*notificationObjectCommentId[\s\S]*notificationObjectVideoCommentId[\s\S]*destinationUrl/);
   assert.match(feed, /router\.push\(destination\)/);
+});
+
+test("video target diagnostics report desktop and mobile final geometry", () => {
+  assert.match(detail, /\[VIDEO NOTIFICATION TARGET\][\s\S]*viewport: "desktop"[\s\S]*carouselScrollLeftAfter/);
+  assert.match(detail, /\[VIDEO NOTIFICATION TARGET\][\s\S]*viewport: "mobile"[\s\S]*containerScrollTopAfter[\s\S]*fullyVisible/);
 });
 
 test("detail snapshots received query data before processing and retains it after consumption", () => {

@@ -694,6 +694,21 @@ export default function FeedPage() {
           console.error("[PUBLIC COMMENT ROUTING ERROR] Missing commentId", item);
         }
       }
+      if (item.type === "video_comment_reaction") {
+        console.log("[VIDEO COMMENT NOTIFICATION REAL]", {
+          item,
+          movieId: item.movieId,
+          videoCommentId: item.videoCommentId,
+          reactionType: item.reactionType,
+          builtRoute: targetRoute,
+        });
+        if (
+          process.env.NODE_ENV !== "production" &&
+          (item.videoCommentId === null || item.videoCommentId === "")
+        ) {
+          console.error("[VIDEO COMMENT ROUTING ERROR] Missing videoCommentId", item);
+        }
+      }
       const destination = (() => {
         if (!debugNotificationTarget || !targetRoute.startsWith("/movies/")) return targetRoute;
         const url = new URL(targetRoute, window.location.origin);
