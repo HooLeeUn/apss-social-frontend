@@ -8,14 +8,45 @@ const navigation = readFileSync(new URL("../lib/notification-navigation.ts", imp
 const detail = readFileSync(new URL("../app/movies/[id]/page.tsx", import.meta.url), "utf8");
 const commentsList = readFileSync(new URL("../components/social/CommentsList.tsx", import.meta.url), "utf8");
 const feed = readFileSync(new URL("../app/feed/page.tsx", import.meta.url), "utf8");
+const { normalizeNotificationRoutingFields } = await import(new URL("../lib/notification-routing-fields.ts", import.meta.url));
+const { buildNotificationTargetRoute } = await import(new URL("../lib/notification-navigation.ts", import.meta.url));
 
 test("bell normalization preserves canonical public and video reaction fields", () => {
-  assert.match(adapters, /pickFirst\(record\.type, record\.notification_type, record\.notificationType, record\.activity_type, record\.activityType\)/);
-  assert.match(adapters, /type: normalizedNotificationType \?\? null/);
-  assert.match(adapters, /public_comment_reaction[\s\S]*toRecord\(toRecord\(record\.object\)\?\.comment\)\?\.id/);
-  assert.match(adapters, /video_comment_reaction[\s\S]*toRecord\(record\.object\)\?\.video_comment_id/);
-  assert.match(adapters, /pickFirst\(record\.reaction_type, record\.reaction_value\)/);
+  assert.match(adapters, /normalizeNotificationRoutingFields\(record\)/);
+  assert.match(adapters, /type: routingFields\.type/);
+  assert.match(adapters, /commentId: routingFields\.commentId/);
+  assert.match(adapters, /videoCommentId: routingFields\.videoCommentId/);
+  assert.match(adapters, /reactionType: routingFields\.reactionType/);
   assert.match(types, /type: string \| null;[\s\S]*directedCommentId:[\s\S]*commentId:[\s\S]*videoCommentId:[\s\S]*reactionType:/);
+});
+
+test("real public reaction payload variants normalize and route canonically", () => {
+  for (const object of [{ comment: { id: 22 } }, { comment_id: 22 }]) {
+    const fields = normalizeNotificationRoutingFields({
+      type: "generic_notification",
+      notification_type: "public_comment_reaction",
+      object,
+      movie: { id: 492436 },
+      reaction_type: "dislike",
+    });
+    assert.deepEqual(fields, {
+      type: "public_comment_reaction",
+      commentId: 22,
+      videoCommentId: null,
+      reactionType: "dislike",
+    });
+    assert.equal(buildNotificationTargetRoute({
+      id: 1,
+      text: "reaction",
+      targetTab: "activity",
+      movieId: 492436,
+      actorId: null,
+      actorUsername: null,
+      directedCommentId: null,
+      createdAt: null,
+      ...fields,
+    }), "/movies/492436?section=public-comments&commentId=22&reaction=dislike");
+  }
 });
 
 test("notification routing adds exact targets and retains previous fallbacks", () => {
@@ -77,6 +108,8 @@ test("feed propagates explicit target diagnostics and logs its complete destinat
   assert.match(feed, /<Suspense fallback=\{null\}>[\s\S]*<FeedDebugSearchParamsBridge[\s\S]*<\/Suspense>/);
   assert.doesNotMatch(feed, /export default function FeedPage\(\) \{\s*const router = useRouter\(\);\s*const searchParams = useSearchParams\(\)/);
   assert.match(feed, /targetRoute\.startsWith\("\/movies\/"\)[\s\S]*url\.searchParams\.set\("debugNotificationTarget", "1"\)/);
+  assert.match(feed, /\[NotificationTarget\]\[NORMALIZED ITEM\][\s\S]*const targetRoute = buildNotificationTargetRoute\(item\)/);
+  assert.match(feed, /public_comment_reaction missing commentId/);
   assert.match(feed, /\[NotificationTarget\]\[FEED CLICK\][\s\S]*notificationObjectCommentId[\s\S]*notificationObjectVideoCommentId[\s\S]*destinationUrl/);
   assert.match(feed, /router\.push\(destination\)/);
 });

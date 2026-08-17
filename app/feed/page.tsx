@@ -668,6 +668,20 @@ export default function FeedPage() {
   const handleNotificationItemClick = useCallback(
     async (item: MyNotificationItem) => {
       setIsNotificationPanelOpen(false);
+      if (debugNotificationTarget) {
+        console.debug("[NotificationTarget][NORMALIZED ITEM]", {
+          id: item.id,
+          type: item.type,
+          targetTab: item.targetTab,
+          movieId: item.movieId,
+          commentId: item.commentId,
+          videoCommentId: item.videoCommentId,
+          reactionType: item.reactionType,
+        });
+        if (item.type === "public_comment_reaction" && (item.commentId === null || item.commentId === "")) {
+          console.error("[NotificationTarget] public_comment_reaction missing commentId", item);
+        }
+      }
       const targetRoute = buildNotificationTargetRoute(item);
       const destination = (() => {
         if (!debugNotificationTarget || !targetRoute.startsWith("/movies/")) return targetRoute;

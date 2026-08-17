@@ -1,4 +1,4 @@
-import { MyNotificationItem } from "./profile-feed/types";
+import type { MyNotificationItem } from "./profile-feed/types";
 
 export function buildNotificationTargetRoute(item: MyNotificationItem): string {
   if (item.targetTab === "friend_requests_pending") return "/profile-feed?friendsTab=pending";

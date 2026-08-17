@@ -1,4 +1,5 @@
 import { ApiError, apiFetch } from "../api";
+import { normalizeNotificationRoutingFields } from "../notification-routing-fields";
 import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle, resolveMovieSecondaryTitle } from "../movies";
 import { favoriteMoviesMock } from "./mocks";
 import {
@@ -2132,20 +2133,13 @@ function toNotificationDirectedCommentId(record: Record<string, unknown>): strin
   return safeTrim(rawCommentId);
 }
 
-function toCanonicalNotificationId(value: unknown): string | number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  return safeTrim(value);
-}
-
 function toNotificationItem(value: unknown, index: number): MyNotificationItem | null {
   const record = toRecord(value);
   if (!record) return null;
 
   const rawId = pickFirst(record.notification_id, record.notificationId, record.id, record.uuid);
   const id = normalizeNotificationId(rawId) ?? `${FALLBACK_NOTIFICATION_ID_PREFIX}${index}`;
-  const normalizedNotificationType = safeTrim(
-    pickFirst(record.type, record.notification_type, record.notificationType, record.activity_type, record.activityType),
-  )?.toLocaleLowerCase();
+  const routingFields = normalizeNotificationRoutingFields(record);
   const normalizedActivityType = safeTrim(pickFirst(record.activity_type, record.activityType, record.type, record.notification_type))?.toLocaleLowerCase();
   const isFriendRequest = isFriendRequestNotification(record);
 
@@ -2171,25 +2165,16 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
 
   return {
     id,
-    type: normalizedNotificationType ?? null,
+    type: routingFields.type,
     text,
     targetTab,
     movieId: toNotificationMovieId(record),
     actorId: toNotificationActorId(record),
     actorUsername,
     directedCommentId: toNotificationDirectedCommentId(record),
-    commentId:
-      normalizedNotificationType === "public_comment_reaction"
-        ? toCanonicalNotificationId(toRecord(toRecord(record.object)?.comment)?.id)
-        : null,
-    videoCommentId:
-      normalizedNotificationType === "video_comment_reaction"
-        ? toCanonicalNotificationId(toRecord(record.object)?.video_comment_id)
-        : null,
-    reactionType: (() => {
-      const reaction = safeTrim(pickFirst(record.reaction_type, record.reaction_value))?.toLocaleLowerCase();
-      return reaction === "like" || reaction === "dislike" ? reaction : null;
-    })(),
+    commentId: routingFields.commentId,
+    videoCommentId: routingFields.videoCommentId,
+    reactionType: routingFields.reactionType,
     createdAt: safeTrim(pickFirst(record.created_at, record.createdAt, record.timestamp)),
   };
 }
