@@ -146,6 +146,9 @@ test("mobile notification positioning measures the visual video in its real scro
   assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
   assert.match(mobilePositioning, /mobileHistoryScrollRef\.current[\s\S]*scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
   assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\)/);
+  assert.match(detail, /const behavior: ScrollBehavior = desktop && !reducedMotion \? "smooth" : "auto"/);
+  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\);[\s\S]*requestAnimationFrame\(\(\) => resolve\(\)\)/);
+  assert.doesNotMatch(mobilePositioning, /waitForNotificationScroll\(scrollContainer/);
   assert.match(mobilePositioning, /scrollContainer\.scrollBy\(\{ top: correctionApplied, behavior: "auto" \}\)/);
   assert.match(detail, /VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX = 24/);
   assert.match(mobilePositioning, /alignedScrollTop[\s\S]*maxSafeLift[\s\S]*Math\.min\(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, maxScrollTop - alignedScrollTop\)[\s\S]*finalScrollTop/);
@@ -159,13 +162,20 @@ test("mobile notification positioning measures the visual video in its real scro
   assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
 });
 
-test("iOS remeasures video notification geometry after layout stabilization without changing Android", () => {
+test("iOS does not apply a second notification correction after the shared mobile positioning", () => {
   const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = mobileHistoryScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
-  assert.match(detail, /function calculateIOSVideoNotificationCorrection[\s\S]*Math\.max\(containerRect\.top, stickyBottom, 0\)[\s\S]*Math\.min\(containerRect\.bottom, viewportHeight\)/);
-  assert.match(mobilePositioning, /if \(iosWebKit\) \{[\s\S]*requestAnimationFrame\(\(\) => requestAnimationFrame[\s\S]*data-mobile-detail-sticky="true"[\s\S]*calculateIOSVideoNotificationCorrection/);
-  assert.match(mobilePositioning, /iosStabilizedCorrection !== 0[\s\S]*scrollContainer\.scrollBy\(\{ top: iosStabilizedCorrection, behavior: "auto" \}\)/);
-  assert.match(mobilePositioning, /stableVisibleTop[\s\S]*stableVisibleBottom[\s\S]*iOS mobile video stabilized/);
-  assert.equal((mobilePositioning.match(/if \(iosWebKit\)/g) ?? []).length, 1);
+  assert.doesNotMatch(detail, /calculateIOSVideoNotificationCorrection/);
+  assert.doesNotMatch(mobilePositioning, /if \(iosWebKit\)/);
+  assert.doesNotMatch(mobilePositioning, /iosStabilizedCorrection|iOS mobile video stabilized/);
+  assert.equal((mobilePositioning.match(/scrollContainer\.scrollBy/g) ?? []).length, 1);
+});
+
+test("mobile reaction animation starts after positioning while desktop keeps its existing branch", () => {
+  const positionTarget = detail.slice(detail.indexOf("const positionTarget = async () => {"), detail.indexOf("const finishRecording"));
+  assert.match(positionTarget, /if \(desktop && section\)[\s\S]*waitForNotificationScroll\(window, reducedMotion\)/);
+  assert.match(positionTarget, /if \(desktop && container\.scrollWidth > container\.clientWidth\)[\s\S]*container\.scrollTo\(\{ left:[\s\S]*behavior \}\)/);
+  assert.match(positionTarget, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\)[\s\S]*if \(notificationTarget\.reaction\)[\s\S]*setNotificationReactionOverlay/);
+  assert.match(positionTarget, /setNotificationReactionOverlay\(null\), reducedMotion \? 900 : 2200/);
 });
 
 test("mobile public notification preparation is instant and target movement is the only smooth scroll", () => {
