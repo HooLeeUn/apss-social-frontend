@@ -202,6 +202,16 @@ test("recorded preview reuses the recording size and overlay while saved card di
   assert.doesNotMatch(page, /intersectionRatio[^\n]*(height|maxHeight|style)/);
 });
 
+test("REC options and the active recorder escape reaction scroll clipping without resizing media", () => {
+  has(/createPortal\(<div ref=\{optionsMenuRef\} data-rec-options-menu/);
+  has(/className="fixed z-\[100\] w-52/);
+  has(/desktop \? rect\.right \+ 12 : rect\.left \+ rect\.width \/ 2 - menuWidth \/ 2/);
+  has(/isRecordingOverlay \? "contents" : "max-h-\[50dvh\] overflow-y-auto/);
+  has(/isRecordingOverlay && typeof document !== "undefined" \? createPortal\(reactionContent, document\.body\)/);
+  has(/isRecordingOverlay \? "fixed inset-0 z-50 overflow-hidden bg-black px-5 py-3"/);
+  has(/VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min\(calc\(100dvh - 230px\), calc\(\(100vw - 40px\) \* 16 \/ 9\)\)"/);
+});
+
 test("playable visibility is symmetric above and below the sticky boundary", () => {
   has(/calculatePlayableIntersectionRatio/);
   has(/visibleTop = Math\.max\(rect\.top, stickyBottom, 0\)/);
