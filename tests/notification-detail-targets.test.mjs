@@ -137,25 +137,22 @@ test("notification positioning waits for the mounted tab and both scroll surface
   assert.match(detail, /comment\.classList\.add\("notification-public-comment-highlight"\)[\s\S]*processedPublicTargetRef\.current = targetKey[\s\S]*consumeNotificationTarget\(\)/);
 });
 
-test("mobile video notification has one instant geometry-based positioning authority", () => {
-  const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = mobileHistoryScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
-  assert.match(detail, /data-mobile-video-reaction-scroll-container/);
-  assert.match(detail, /ref=\{mobileHistoryScrollRef\} data-mobile-video-reaction-scroll-container="true"[\s\S]*max-h-\[50dvh\][\s\S]*overflow-y-auto/);
-  assert.match(detail, /visualVideo\.readyState < HTMLMediaElement\.HAVE_METADATA[\s\S]*geometryLocked/);
-  assert.match(mobilePositioning, /data-mobile-detail-sticky="true"[\s\S]*visibleTop[\s\S]*visibleBottom/);
-  assert.match(mobilePositioning, /videoContentTop[\s\S]*requestedScrollTop[\s\S]*finalScrollTop/);
-  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior: "auto" \}\)/);
-  assert.equal((mobilePositioning.match(/scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior: "auto" \}\)/g) ?? []).length, 1);
-  assert.doesNotMatch(mobilePositioning, /scrollBy|behavior: "smooth"|waitForNotificationScroll|window\.scrollTo|scrollIntoView/);
+test("mobile video notification hides, positions its card once, reveals, then animates", () => {
+  const flow = detail.slice(detail.indexOf("const stopFinding = findNotificationVideoTargetOverFrames"), detail.indexOf("const finishRecording"));
+  assert.match(flow, /data-video-comment-card=/);
+  assert.match(flow, /getBoundingClientRect\(\)\.height > 0/);
+  assert.doesNotMatch(flow, /HAVE_METADATA|geometryLocked|data-video-comment-player/);
+  assert.equal((flow.match(/scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior: "auto" \}\)/g) ?? []).length, 1);
+  assert.match(flow, /scrollTo[\s\S]*requestAnimationFrame[\s\S]*setNotificationTargetPrepared\(true\)[\s\S]*requestAnimationFrame[\s\S]*setNotificationReactionOverlay/);
+  assert.doesNotMatch(flow, /scrollBy|behavior: "smooth"|scrollIntoView/);
+  assert.match(detail, /notificationTarget && !notificationTargetPrepared \? "invisible md:visible" : "visible"/);
 });
 
-test("mobile notification confirms stable visibility before its one-shot animation", () => {
-  const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = mobileHistoryScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
-  assert.match(detail, /notificationNavigationPhaseRef[\s\S]*"waiting-for-target"[\s\S]*"positioning"[\s\S]*"positioned"[\s\S]*"reaction-animation"[\s\S]*"done"/);
-  assert.match(mobilePositioning, /requestAnimationFrame\(\(\) => requestAnimationFrame[\s\S]*stableVideoRect[\s\S]*fullyVisible[\s\S]*positionStable/);
+test("video notification preparation is scoped and cleaned up", () => {
+  assert.match(detail, /useState\(notificationTarget === null\)/);
+  assert.match(detail, /stopFinding\(\)[\s\S]*cancelAnimationFrame\(revealFrame\)[\s\S]*cancelAnimationFrame\(animationFrame\)/);
+  assert.match(detail, /notificationOverlayTimerRef[\s\S]*window\.clearTimeout/);
   assert.doesNotMatch(detail, /calculateIOSVideoNotificationCorrection|iosStabilizedCorrection/);
-  assert.match(detail, /setNotificationReactionOverlay[\s\S]*processedNotificationTargetRef\.current = targetKey[\s\S]*onNotificationTargetConsumed/);
-  assert.match(detail, /cleaned\.delete\("target"\)[\s\S]*cleaned\.delete\("reaction"\)/);
 });
 
 test("mobile public notification preparation is instant and target movement is the only smooth scroll", () => {
@@ -192,8 +189,10 @@ test("feed propagates explicit target diagnostics and logs its complete destinat
   assert.match(feed, /router\.push\(destination\)/);
 });
 
-test("video target diagnostics report stable mobile final geometry", () => {
-  assert.match(detail, /\[VIDEO MOBILE TARGET\][\s\S]*scrollTopBefore[\s\S]*desiredScrollTop[\s\S]*scrollTopAfter[\s\S]*fullyVisible[\s\S]*positionStable/);
+test("video target flow uses the shared bounded card-positioning helper", () => {
+  assert.match(detail, /findNotificationVideoTargetOverFrames<HTMLElement>/);
+  assert.match(detail, /calculateNotificationVideoScrollTop/);
+  assert.match(detail, /NOTIFICATION_VIDEO_TARGET_MAX_FRAMES/);
 });
 
 test("detail snapshots received query data before processing and retains it after consumption", () => {
