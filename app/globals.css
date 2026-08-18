@@ -782,6 +782,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
      viewport overlay. Keep this after the base rule so the portal cannot fall
      back into document flow below Detail Movie. */
   body:not(.detail-trailer-active) [data-mobile-video-reaction][data-recording-overlay="true"] {
+    --video-recording-controls-space: 104px;
     position: fixed;
     inset: 0;
     z-index: 50;

@@ -208,10 +208,12 @@ test("REC options and the active recorder escape reaction scroll clipping withou
   has(/desktop \? rect\.right \+ 12 : rect\.left \+ rect\.width \/ 2 - menuWidth \/ 2/);
   has(/isRecordingOverlay \? "contents" : "max-h-\[50dvh\] overflow-y-auto/);
   has(/isRecordingOverlay && typeof document !== "undefined" \? createPortal\(reactionContent, document\.body\)/);
-  has(/isRecordingOverlay \? "fixed inset-0 z-50 overflow-hidden bg-black px-5 py-3"/);
+  has(/isRecordingOverlay \? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3"/);
   has(/data-recording-overlay=\{isRecordingOverlay\}/);
-  assert.match(css, /@media \(min-width: 768px\)[\s\S]*\[data-mobile-video-reaction\]\[data-recording-overlay="true"\] \{\s*position: fixed;\s*inset: 0;\s*z-index: 50;/);
-  has(/VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min\(calc\(100dvh - 230px\), calc\(\(100vw - 40px\) \* 16 \/ 9\)\)"/);
+  assert.match(css, /@media \(min-width: 768px\)[\s\S]*\[data-mobile-video-reaction\]\[data-recording-overlay="true"\] \{[\s\S]*?position: fixed;\s*inset: 0;\s*z-index: 50;/);
+  has(/VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min\(calc\(100dvh - var\(--video-recording-controls-space, 116px\) - env\(safe-area-inset-bottom\)\), calc\(\(100vw - 24px\) \* 16 \/ 9\)\)"/);
+  has(/maxHeight: VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT/);
+  assert.match(css, /data-recording-overlay="true"\] \{\s*--video-recording-controls-space: 104px;/);
 });
 
 test("playable visibility is symmetric above and below the sticky boundary", () => {
