@@ -6,6 +6,7 @@ const adapters = readFileSync(new URL("../lib/profile-feed/adapters.ts", import.
 const types = readFileSync(new URL("../lib/profile-feed/types.ts", import.meta.url), "utf8");
 const navigation = readFileSync(new URL("../lib/notification-navigation.ts", import.meta.url), "utf8");
 const detail = readFileSync(new URL("../app/movies/[id]/page.tsx", import.meta.url), "utf8");
+const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const commentsList = readFileSync(new URL("../components/social/CommentsList.tsx", import.meta.url), "utf8");
 const feed = readFileSync(new URL("../app/feed/page.tsx", import.meta.url), "utf8");
 const { normalizeNotificationRoutingFields } = await import(new URL("../lib/notification-routing-fields.ts", import.meta.url));
@@ -145,18 +146,27 @@ test("mobile notification positioning measures the visual video in its real scro
   assert.match(mobileScrollContent, /data-video-reaction-rec[\s\S]*data-video-comment-card/);
   assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
   assert.match(mobilePositioning, /mobileHistoryScrollRef\.current[\s\S]*scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
-  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\)/);
-  assert.match(mobilePositioning, /scrollContainer\.scrollBy\(\{ top: correctionApplied, behavior: "auto" \}\)/);
-  assert.match(detail, /VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX = 24/);
-  assert.match(mobilePositioning, /alignedScrollTop[\s\S]*maxSafeLift[\s\S]*Math\.min\(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, maxScrollTop - alignedScrollTop\)[\s\S]*finalScrollTop/);
-  assert.equal((mobilePositioning.match(/scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\)/g) ?? []).length, 1);
-  assert.doesNotMatch(mobilePositioning, /scrollBy\(\{[^}]*behavior \}\)/);
-  assert.match(mobilePositioning, /\[VIDEO MOBILE FINAL ALIGNMENT\][\s\S]*videoBottomBefore[\s\S]*bottomOverflow[\s\S]*correctionApplied[\s\S]*videoBottomAfter[\s\S]*fullyVisible/);
+  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior: "auto" \}\)/);
+  assert.equal((mobilePositioning.match(/scrollContainer\.scrollTo\(/g) ?? []).length, 1);
+  assert.doesNotMatch(mobilePositioning, /scrollContainer\.scrollBy|behavior: "smooth"|waitForNotificationScroll/);
+  assert.match(mobilePositioning, /stickyBottom[\s\S]*visibleTop[\s\S]*visibleBottom[\s\S]*projectedBottom[\s\S]*finalScrollTop/);
+  assert.match(mobilePositioning, /\[VIDEO MOBILE FINAL ALIGNMENT\][\s\S]*videoBottomAfter[\s\S]*fullyVisible/);
   assert.doesNotMatch(mobilePositioning, /window\.scrollTo|window\.visualViewport|scrollIntoView/);
   assert.match(detail, /notificationPositioningRef\.current = true[\s\S]*notificationPositioningRef\.current = false/);
   assert.match(detail, /processedNotificationTargetRef\.current === targetKey \|\| notificationPositioningRef\.current/);
   assert.match(detail, /const openCommentMovieSection[\s\S]*setCommentInputMode\("text-comment"\)/);
   assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
+});
+
+test("mobile notification positioning has one instant authority before its one-shot animation", () => {
+  const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = mobileHistoryScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
+  assert.match(mobilePositioning, /requestAnimationFrame\(\(\) => requestAnimationFrame[\s\S]*scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior: "auto" \}\)[\s\S]*requestAnimationFrame\(\(\) => requestAnimationFrame/);
+  assert.match(mobilePositioning, /stableVisibleTop[\s\S]*stableVisibleBottom[\s\S]*fullyVisible/);
+  assert.doesNotMatch(mobilePositioning, /iosWebKit|calculateIOSVideoNotificationCorrection|correctionApplied|extraTargetLift/);
+  assert.match(detail, /if \(notificationTarget\.reaction\)[\s\S]*setNotificationReactionOverlay[\s\S]*processedNotificationTargetRef\.current = targetKey[\s\S]*onNotificationTargetConsumed\(\)/);
+  assert.match(detail, /setNotificationReactionOverlay\(null\), reducedMotion \? 900 : 2000/);
+  assert.match(css, /notification-video-reaction-overlay--like > span \{ animation: notification-like-pop 2s/);
+  assert.match(css, /notification-video-reaction-overlay--dislike > span \{ animation: notification-dislike-deflate 2s/);
 });
 
 test("mobile public notification preparation is instant and target movement is the only smooth scroll", () => {

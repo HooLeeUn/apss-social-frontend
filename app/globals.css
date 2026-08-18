@@ -778,6 +778,16 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     padding-inline: 0;
   }
 
+  /* The normal desktop carousel is relative, but its active recorder is a
+     viewport overlay. Keep this after the base rule so the portal cannot fall
+     back into document flow below Detail Movie. */
+  body:not(.detail-trailer-active) [data-mobile-video-reaction][data-recording-overlay="true"] {
+    --video-recording-controls-space: 104px;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+
   body:not(.detail-trailer-active) [data-video-reaction-rec] {
     position: absolute;
     top: 8.75rem;
@@ -1019,15 +1029,15 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   font-size: clamp(4rem, 14vw, 7rem);
 }
 
-.notification-video-reaction-overlay--like > span { animation: notification-like-pop 1.85s ease-out forwards; }
-.notification-video-reaction-overlay--dislike > span { animation: notification-dislike-deflate 1.7s ease-in forwards; }
+.notification-video-reaction-overlay--like > span { animation: notification-like-pop 2s ease-out forwards; }
+.notification-video-reaction-overlay--dislike > span { animation: notification-dislike-deflate 2s ease-in forwards; }
 .notification-reaction-confetti {
   position: absolute;
   color: #86ade0;
   font-size: 2rem;
   font-style: normal;
   letter-spacing: 1rem;
-  animation: notification-confetti 1.8s ease-out forwards;
+  animation: notification-confetti 2s ease-out forwards;
 }
 
 @keyframes notification-public-comment-glow {
