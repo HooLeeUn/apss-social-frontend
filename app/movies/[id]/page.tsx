@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "../../../components/AppLogo";
 import CommentComposer from "../../../components/social/CommentComposer";
@@ -75,7 +76,7 @@ const VIDEO_REACTION_SOURCE_HEIGHT = 720;
 const VIDEO_REACTION_SOURCE_ASPECT_RATIO = 16 / 9;
 type VideoSoundPreference = "muted" | "sound-on";
 const VIDEO_COMMENT_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
-const VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min(calc(100dvh - 230px), calc((100vw - 40px) * 16 / 9))";
+const VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min(calc(100dvh - var(--video-recording-controls-space, 116px) - env(safe-area-inset-bottom)), calc((100vw - 24px) * 16 / 9))";
 const VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp(14rem, 36dvh, 18rem)";
 const VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX = 24;
 const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm", "video/mp4"];
@@ -178,6 +179,13 @@ function calculatePlayableIntersectionRatio(rect: DOMRect, viewportHeight: numbe
   const visibleTop = Math.max(rect.top, stickyBottom, 0);
   const visibleBottom = Math.min(rect.bottom, viewportHeight);
   return Math.max(0, visibleBottom - visibleTop) / Math.max(1, rect.height);
+}
+function calculateIOSVideoNotificationCorrection(videoRect: DOMRect, containerRect: DOMRect, stickyBottom: number, viewportHeight: number, topMargin: number, bottomMargin: number): number {
+  const visibleTop = Math.max(containerRect.top, stickyBottom, 0) + topMargin;
+  const visibleBottom = Math.min(containerRect.bottom, viewportHeight) - bottomMargin;
+  const bottomOverflow = videoRect.bottom - visibleBottom;
+  if (bottomOverflow > 0) return bottomOverflow;
+  return Math.min(0, videoRect.top - visibleTop);
 }
 function dedupeVideoComments(existing: VideoComment[], incoming: VideoComment[]): VideoComment[] {
   const seen = new Set<string>();
@@ -1044,6 +1052,8 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   const recorderOutputStreamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const optionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const [optionsMenuPosition, setOptionsMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const historyScrollRef = useRef<HTMLDivElement | null>(null);
   const mobileHistoryScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1579,9 +1589,38 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
 
   useEffect(() => {
     if (recorderState !== "menu") return;
-    const onDown = (event: PointerEvent) => { if (!menuRef.current?.contains(event.target as Node)) setRecorderState("idle"); };
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target) && !optionsMenuRef.current?.contains(target)) setRecorderState("idle");
+    };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
+  }, [recorderState]);
+
+  useEffect(() => {
+    if (recorderState !== "menu") {
+      setOptionsMenuPosition(null);
+      return;
+    }
+    const positionMenu = () => {
+      const anchor = menuRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const menuWidth = 208;
+      const desktop = window.matchMedia("(min-width: 768px)").matches;
+      const desiredLeft = desktop ? rect.right + 12 : rect.left + rect.width / 2 - menuWidth / 2;
+      setOptionsMenuPosition({
+        left: Math.max(8, Math.min(desiredLeft, window.innerWidth - menuWidth - 8)),
+        top: desktop ? rect.top : rect.bottom + 12,
+      });
+    };
+    positionMenu();
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    return () => {
+      window.removeEventListener("resize", positionMenu);
+      window.removeEventListener("scroll", positionMenu, true);
+    };
   }, [recorderState]);
 
   useEffect(() => {
@@ -1735,12 +1774,40 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           videoRectAfter = visualVideo.getBoundingClientRect();
           fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
         }
+        let iosStabilizedCorrection = 0;
+        if (iosWebKit) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          if (cancelled) return;
+          containerRectAfter = scrollContainer.getBoundingClientRect();
+          videoRectAfter = visualVideo.getBoundingClientRect();
+          const stickyBottom = document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? containerRectAfter.top;
+          iosStabilizedCorrection = calculateIOSVideoNotificationCorrection(videoRectAfter, containerRectAfter, stickyBottom, window.innerHeight, topMargin, safeBottomMargin);
+          if (iosStabilizedCorrection !== 0) {
+            scrollContainer.scrollBy({ top: iosStabilizedCorrection, behavior: "auto" });
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            containerRectAfter = scrollContainer.getBoundingClientRect();
+            videoRectAfter = visualVideo.getBoundingClientRect();
+          }
+          const stableVisibleTop = Math.max(containerRectAfter.top, stickyBottom, 0) + topMargin;
+          const stableVisibleBottom = Math.min(containerRectAfter.bottom, window.innerHeight) - safeBottomMargin;
+          fullyVisible = videoRectAfter.top >= stableVisibleTop && videoRectAfter.bottom <= stableVisibleBottom;
+          logNotificationTarget("iOS mobile video stabilized", {
+            targetId: notificationTarget.id,
+            stickyBottom,
+            viewportHeight: window.innerHeight,
+            correction: iosStabilizedCorrection,
+            videoTop: videoRectAfter.top,
+            videoBottom: videoRectAfter.bottom,
+            fullyVisible,
+          });
+        }
         console.log("[VIDEO MOBILE FINAL ALIGNMENT]", {
           videoCommentId: notificationTarget.id,
           containerBottom: containerRectAfter.bottom,
           videoBottomBefore,
           bottomOverflow,
           correctionApplied,
+          iosStabilizedCorrection,
           extraTargetLift,
           videoBottomAfter: videoRectAfter.bottom,
           fullyVisible,
@@ -1803,7 +1870,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       cancelled = true;
       notificationPositioningRef.current = false;
     };
-  }, [active, fetchPage, initialLoading, loadingMore, logNotificationTarget, movieId, next, notificationTarget, onNotificationTargetConsumed, recorderState]);
+  }, [active, fetchPage, initialLoading, iosWebKit, loadingMore, logNotificationTarget, movieId, next, notificationTarget, onNotificationTargetConsumed, recorderState]);
 
   const finishRecording = useCallback(() => {
     stopModeRef.current = "previewRecorded";
@@ -2571,15 +2638,15 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay;
 
 
-  return <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-x-0 bottom-0 top-[var(--mobile-video-overlay-top,144px)] z-50 bg-black px-5 py-3 md:top-0 md:overflow-y-auto md:py-8" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
-    <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className="max-h-[50dvh] overflow-y-auto overscroll-contain md:contents">
+  const reactionContent = <section data-mobile-video-reaction data-recording-overlay={isRecordingOverlay} data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
+    <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : "max-h-[50dvh] overflow-y-auto overscroll-contain md:contents"}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:mx-auto md:max-w-2xl">
       <div ref={menuRef} data-video-reaction-rec className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] md:h-20 md:w-20 md:transition md:hover:border-[#86ADE0] md:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
-        {showMenu ? <div data-rec-options-menu className="absolute left-1/2 top-full z-30 mt-3 w-52 -translate-x-1/2 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl">
+        {showMenu && optionsMenuPosition ? createPortal(<div ref={optionsMenuRef} data-rec-options-menu className="fixed z-[100] w-52 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl" style={optionsMenuPosition}>
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoRecord")} onClick={beginRecordingFlow}><span className="h-2.5 w-2.5 rounded-full bg-red-500" />{t("movieDetailVideoRecord")}</button>
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoUpload")} onClick={() => fileInputRef.current?.click()}><span>▣</span>{t("movieDetailVideoUpload")}</button>
-        </div> : null}
+        </div>, document.body) : null}
       </div>
       <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(event) => { const input = event.currentTarget; const selectedFile = input.files?.item(0) ?? undefined; input.value = ""; void processSelectedVideo(selectedFile); }} />
       {recorderState === "permissionInfo" ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950 p-5 text-center shadow-2xl"><p className="text-sm font-semibold text-zinc-100">{t("movieDetailVideoPermissionInfo")}</p><div className="mt-5 flex gap-3"><button type="button" className="flex-1 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={() => setRecorderState("menu")}>{t("movieDetailVideoCancel")}</button><button type="button" className="flex-1 rounded-xl bg-[#86ADE0] px-4 py-2 text-sm font-bold text-black" onClick={continueToNativePermissions}>{t("movieDetailVideoContinue")}</button></div></div></div> : null}
@@ -2587,7 +2654,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       {recorderState === "validatingSelected" ? <div className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 text-center"><p className="text-sm text-zinc-300">{t("movieDetailVideoReadingSelectedFile")}</p></div> : null}
       {recorderState === "requestingPermission" ? <div className="w-full rounded-2xl border border-white/10 bg-black/25 p-4 text-center"><p className="text-sm text-zinc-300">{t("movieDetailVideoRequestingPermission")}</p><button type="button" className="mt-3 rounded-xl bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100" onClick={cancelRequest}>{t("movieDetailVideoCancel")}</button></div> : null}
       {showRecorderShell ? <div className={`w-full space-y-3 ${orientationPaused ? "invisible" : "visible"}`}>
-        <div className="relative mx-auto max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black" style={{ aspectRatio: previewAspectRatio, height: recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay ? VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT : undefined, width: previewOrigin === "selected" ? "100%" : undefined, maxHeight: "calc(100dvh - 230px)" }}>
+        <div className="relative mx-auto max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black" style={{ aspectRatio: previewAspectRatio, height: recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay ? VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT : undefined, width: previewOrigin === "selected" ? "100%" : undefined, maxHeight: VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT }}>
           {recorderState === "preparingRecorder" || recorderState === "recording" ? <><canvas ref={canvasRef} className="h-full w-full object-contain" aria-label={t("movieDetailVideoRecording")} /><video ref={livePreviewRef} autoPlay muted playsInline className="hidden" /></> : previewUrl ? <video key={previewUrl} ref={previewVideoRef} src={previewUrl} muted={previewMuted} controls={false} preload="auto" playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onClick={(event) => event.currentTarget.paused ? void event.currentTarget.play() : event.currentTarget.pause()} onVolumeChange={(event) => setPreviewMuted(event.currentTarget.muted)} onLoadedMetadata={(event) => { setPreviewAspectRatio(previewOrigin === "recorded" ? 9 / 16 : event.currentTarget.videoWidth / Math.max(1, event.currentTarget.videoHeight)); appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadedmetadata" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onDurationChange={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "durationchange" }); handlePreviewMediaEvent("duration", event.currentTarget); }} onLoadedData={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "loadeddata" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onCanPlay={(event) => { appendVideoDebugLog("PREVIEW_EVENTS", { event: "canplay" }); handlePreviewMediaEvent("playable", event.currentTarget); }} onError={(event) => { const mediaError = event.currentTarget.error; appendVideoDebugLog("PREVIEW_EVENTS", { event: "error" }); appendVideoDebugLog("PREVIEW_ERROR", { code: mediaError?.code ?? null, message: mediaError?.message ?? "" }); logVideoCommentDevError("Video preview playback failed", mediaError); if (!tryWebKitBlobPreviewFallback()) setPreviewError(t("movieDetailVideoPreviewPlaybackError")); }} /> : null}
           {recorderState === "preparingRecorder" ? <span className="absolute left-3 top-3 rounded-full bg-zinc-900/80 px-3 py-1 text-xs font-bold text-zinc-100">{t("movieDetailVideoPreparingCamera")}</span> : null}
           {recorderState === "recording" ? <span className="absolute left-3 top-3 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-100">{t("movieDetailVideoRecording")} {formatVideoDuration(recordingSeconds)}</span> : null}
@@ -2662,6 +2729,8 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       </div>;
     })() : null}
   </section>;
+
+  return isRecordingOverlay && typeof document !== "undefined" ? createPortal(reactionContent, document.body) : reactionContent;
 }
 
 function MovieDetailPageContent() {
