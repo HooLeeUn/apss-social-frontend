@@ -180,13 +180,6 @@ function calculatePlayableIntersectionRatio(rect: DOMRect, viewportHeight: numbe
   const visibleBottom = Math.min(rect.bottom, viewportHeight);
   return Math.max(0, visibleBottom - visibleTop) / Math.max(1, rect.height);
 }
-function calculateIOSVideoNotificationCorrection(videoRect: DOMRect, containerRect: DOMRect, stickyBottom: number, viewportHeight: number, topMargin: number, bottomMargin: number): number {
-  const visibleTop = Math.max(containerRect.top, stickyBottom, 0) + topMargin;
-  const visibleBottom = Math.min(containerRect.bottom, viewportHeight) - bottomMargin;
-  const bottomOverflow = videoRect.bottom - visibleBottom;
-  if (bottomOverflow > 0) return bottomOverflow;
-  return Math.min(0, videoRect.top - visibleTop);
-}
 function dedupeVideoComments(existing: VideoComment[], incoming: VideoComment[]): VideoComment[] {
   const seen = new Set<string>();
   return [...existing, ...incoming].filter((item) => {
@@ -1668,7 +1661,9 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
     notificationPositioningRef.current = true;
     const positionTarget = async () => {
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
+      // Notification navigation remains animated on desktop, while mobile uses
+      // the exact same destination coordinate without exposing the traversal.
+      const behavior: ScrollBehavior = desktop && !reducedMotion ? "smooth" : "auto";
       const section = document.querySelector<HTMLElement>("[data-video-reaction-section]");
       const visualVideo = card.querySelector<HTMLElement>('[data-video-comment-player="true"]');
       const verticalPositionBefore = section?.getBoundingClientRect().top ?? null;
@@ -1759,7 +1754,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           positioningLock: notificationPositioningRef.current,
         });
         scrollContainer.scrollTo({ top: finalScrollTop, behavior });
-        await waitForNotificationScroll(scrollContainer, reducedMotion);
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         let containerRectAfter = scrollContainer.getBoundingClientRect();
         let videoRectAfter = visualVideo.getBoundingClientRect();
         const videoBottomBefore = videoRectAfter.bottom;
@@ -1774,40 +1769,12 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
           videoRectAfter = visualVideo.getBoundingClientRect();
           fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
         }
-        let iosStabilizedCorrection = 0;
-        if (iosWebKit) {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-          if (cancelled) return;
-          containerRectAfter = scrollContainer.getBoundingClientRect();
-          videoRectAfter = visualVideo.getBoundingClientRect();
-          const stickyBottom = document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? containerRectAfter.top;
-          iosStabilizedCorrection = calculateIOSVideoNotificationCorrection(videoRectAfter, containerRectAfter, stickyBottom, window.innerHeight, topMargin, safeBottomMargin);
-          if (iosStabilizedCorrection !== 0) {
-            scrollContainer.scrollBy({ top: iosStabilizedCorrection, behavior: "auto" });
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            containerRectAfter = scrollContainer.getBoundingClientRect();
-            videoRectAfter = visualVideo.getBoundingClientRect();
-          }
-          const stableVisibleTop = Math.max(containerRectAfter.top, stickyBottom, 0) + topMargin;
-          const stableVisibleBottom = Math.min(containerRectAfter.bottom, window.innerHeight) - safeBottomMargin;
-          fullyVisible = videoRectAfter.top >= stableVisibleTop && videoRectAfter.bottom <= stableVisibleBottom;
-          logNotificationTarget("iOS mobile video stabilized", {
-            targetId: notificationTarget.id,
-            stickyBottom,
-            viewportHeight: window.innerHeight,
-            correction: iosStabilizedCorrection,
-            videoTop: videoRectAfter.top,
-            videoBottom: videoRectAfter.bottom,
-            fullyVisible,
-          });
-        }
         console.log("[VIDEO MOBILE FINAL ALIGNMENT]", {
           videoCommentId: notificationTarget.id,
           containerBottom: containerRectAfter.bottom,
           videoBottomBefore,
           bottomOverflow,
           correctionApplied,
-          iosStabilizedCorrection,
           extraTargetLift,
           videoBottomAfter: videoRectAfter.bottom,
           fullyVisible,
