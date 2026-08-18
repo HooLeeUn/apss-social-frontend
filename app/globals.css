@@ -1029,15 +1029,15 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   font-size: clamp(4rem, 14vw, 7rem);
 }
 
-.notification-video-reaction-overlay--like > span { animation: notification-like-pop 1.85s ease-out forwards; }
-.notification-video-reaction-overlay--dislike > span { animation: notification-dislike-deflate 1.7s ease-in forwards; }
+.notification-video-reaction-overlay--like > span { animation: notification-like-pop 2s ease-out forwards; }
+.notification-video-reaction-overlay--dislike > span { animation: notification-dislike-deflate 2s ease-in forwards; }
 .notification-reaction-confetti {
   position: absolute;
   color: #86ade0;
   font-size: 2rem;
   font-style: normal;
   letter-spacing: 1rem;
-  animation: notification-confetti 1.8s ease-out forwards;
+  animation: notification-confetti 2s ease-out forwards;
 }
 
 @keyframes notification-public-comment-glow {

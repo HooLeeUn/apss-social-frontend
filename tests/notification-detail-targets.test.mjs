@@ -137,35 +137,25 @@ test("notification positioning waits for the mounted tab and both scroll surface
   assert.match(detail, /comment\.classList\.add\("notification-public-comment-highlight"\)[\s\S]*processedPublicTargetRef\.current = targetKey[\s\S]*consumeNotificationTarget\(\)/);
 });
 
-test("mobile notification positioning measures the visual video in its real scroll container and uses the real tab handler", () => {
+test("mobile video notification has one instant geometry-based positioning authority", () => {
   const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = mobileHistoryScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
   assert.match(detail, /data-mobile-video-reaction-scroll-container/);
   assert.match(detail, /ref=\{mobileHistoryScrollRef\} data-mobile-video-reaction-scroll-container="true"[\s\S]*max-h-\[50dvh\][\s\S]*overflow-y-auto/);
-  const mobileScrollContent = detail.slice(detail.indexOf('data-mobile-video-reaction-scroll-container="true"'), detail.indexOf('data-history-carousel-arrow="right"'));
-  assert.match(mobileScrollContent, /data-video-reaction-rec[\s\S]*data-video-comment-card/);
-  assert.match(detail, /card\.querySelector<HTMLElement>\('\[data-video-comment-player="true"\]'/);
-  assert.match(mobilePositioning, /mobileHistoryScrollRef\.current[\s\S]*scrollContainer\.scrollTop[\s\S]*scrollContainer\.clientHeight[\s\S]*videoRectBefore\.height/);
-  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\)/);
-  assert.match(mobilePositioning, /scrollContainer\.scrollBy\(\{ top: correctionApplied, behavior: "auto" \}\)/);
-  assert.match(detail, /VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX = 24/);
-  assert.match(mobilePositioning, /alignedScrollTop[\s\S]*maxSafeLift[\s\S]*Math\.min\(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, maxScrollTop - alignedScrollTop\)[\s\S]*finalScrollTop/);
-  assert.equal((mobilePositioning.match(/scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior \}\)/g) ?? []).length, 1);
-  assert.doesNotMatch(mobilePositioning, /scrollBy\(\{[^}]*behavior \}\)/);
-  assert.match(mobilePositioning, /\[VIDEO MOBILE FINAL ALIGNMENT\][\s\S]*videoBottomBefore[\s\S]*bottomOverflow[\s\S]*correctionApplied[\s\S]*videoBottomAfter[\s\S]*fullyVisible/);
-  assert.doesNotMatch(mobilePositioning, /window\.scrollTo|window\.visualViewport|scrollIntoView/);
-  assert.match(detail, /notificationPositioningRef\.current = true[\s\S]*notificationPositioningRef\.current = false/);
-  assert.match(detail, /processedNotificationTargetRef\.current === targetKey \|\| notificationPositioningRef\.current/);
-  assert.match(detail, /const openCommentMovieSection[\s\S]*setCommentInputMode\("text-comment"\)/);
-  assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
+  assert.match(detail, /visualVideo\.readyState < HTMLMediaElement\.HAVE_METADATA[\s\S]*geometryLocked/);
+  assert.match(mobilePositioning, /data-mobile-detail-sticky="true"[\s\S]*visibleTop[\s\S]*visibleBottom/);
+  assert.match(mobilePositioning, /videoContentTop[\s\S]*requestedScrollTop[\s\S]*finalScrollTop/);
+  assert.match(mobilePositioning, /scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior: "auto" \}\)/);
+  assert.equal((mobilePositioning.match(/scrollContainer\.scrollTo\(\{ top: finalScrollTop, behavior: "auto" \}\)/g) ?? []).length, 1);
+  assert.doesNotMatch(mobilePositioning, /scrollBy|behavior: "smooth"|waitForNotificationScroll|window\.scrollTo|scrollIntoView/);
 });
 
-test("iOS remeasures video notification geometry after layout stabilization without changing Android", () => {
+test("mobile notification confirms stable visibility before its one-shot animation", () => {
   const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = mobileHistoryScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
-  assert.match(detail, /function calculateIOSVideoNotificationCorrection[\s\S]*Math\.max\(containerRect\.top, stickyBottom, 0\)[\s\S]*Math\.min\(containerRect\.bottom, viewportHeight\)/);
-  assert.match(mobilePositioning, /if \(iosWebKit\) \{[\s\S]*requestAnimationFrame\(\(\) => requestAnimationFrame[\s\S]*data-mobile-detail-sticky="true"[\s\S]*calculateIOSVideoNotificationCorrection/);
-  assert.match(mobilePositioning, /iosStabilizedCorrection !== 0[\s\S]*scrollContainer\.scrollBy\(\{ top: iosStabilizedCorrection, behavior: "auto" \}\)/);
-  assert.match(mobilePositioning, /stableVisibleTop[\s\S]*stableVisibleBottom[\s\S]*iOS mobile video stabilized/);
-  assert.equal((mobilePositioning.match(/if \(iosWebKit\)/g) ?? []).length, 1);
+  assert.match(detail, /notificationNavigationPhaseRef[\s\S]*"waiting-for-target"[\s\S]*"positioning"[\s\S]*"positioned"[\s\S]*"reaction-animation"[\s\S]*"done"/);
+  assert.match(mobilePositioning, /requestAnimationFrame\(\(\) => requestAnimationFrame[\s\S]*stableVideoRect[\s\S]*fullyVisible[\s\S]*positionStable/);
+  assert.doesNotMatch(detail, /calculateIOSVideoNotificationCorrection|iosStabilizedCorrection/);
+  assert.match(detail, /setNotificationReactionOverlay[\s\S]*processedNotificationTargetRef\.current = targetKey[\s\S]*onNotificationTargetConsumed/);
+  assert.match(detail, /cleaned\.delete\("target"\)[\s\S]*cleaned\.delete\("reaction"\)/);
 });
 
 test("mobile public notification preparation is instant and target movement is the only smooth scroll", () => {
@@ -202,9 +192,8 @@ test("feed propagates explicit target diagnostics and logs its complete destinat
   assert.match(feed, /router\.push\(destination\)/);
 });
 
-test("video target diagnostics report desktop and mobile final geometry", () => {
-  assert.match(detail, /\[VIDEO NOTIFICATION TARGET\][\s\S]*viewport: "desktop"[\s\S]*carouselScrollLeftAfter/);
-  assert.match(detail, /\[VIDEO MOBILE TARGET\][\s\S]*scrollTopBefore[\s\S]*desiredScrollTop[\s\S]*scrollTopAfter[\s\S]*fullyVisible[\s\S]*positioningRef/);
+test("video target diagnostics report stable mobile final geometry", () => {
+  assert.match(detail, /\[VIDEO MOBILE TARGET\][\s\S]*scrollTopBefore[\s\S]*desiredScrollTop[\s\S]*scrollTopAfter[\s\S]*fullyVisible[\s\S]*positionStable/);
 });
 
 test("detail snapshots received query data before processing and retains it after consumption", () => {

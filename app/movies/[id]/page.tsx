@@ -78,7 +78,6 @@ type VideoSoundPreference = "muted" | "sound-on";
 const VIDEO_COMMENT_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
 const VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min(calc(100dvh - var(--video-recording-controls-space, 116px) - env(safe-area-inset-bottom)), calc((100vw - 24px) * 16 / 9))";
 const VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "clamp(14rem, 36dvh, 18rem)";
-const VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX = 24;
 const VIDEO_COMMENT_MIME_CANDIDATES = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm", "video/mp4"];
 const IOS_VIDEO_COMMENT_MIME_CANDIDATES = ["video/mp4", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/webm;codecs=vp8,opus", "video/webm"];
 const VIDEO_COMMENT_DIAGNOSTIC_MIMES = ["video/mp4", "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/webm", "video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus"];
@@ -179,13 +178,6 @@ function calculatePlayableIntersectionRatio(rect: DOMRect, viewportHeight: numbe
   const visibleTop = Math.max(rect.top, stickyBottom, 0);
   const visibleBottom = Math.min(rect.bottom, viewportHeight);
   return Math.max(0, visibleBottom - visibleTop) / Math.max(1, rect.height);
-}
-function calculateIOSVideoNotificationCorrection(videoRect: DOMRect, containerRect: DOMRect, stickyBottom: number, viewportHeight: number, topMargin: number, bottomMargin: number): number {
-  const visibleTop = Math.max(containerRect.top, stickyBottom, 0) + topMargin;
-  const visibleBottom = Math.min(containerRect.bottom, viewportHeight) - bottomMargin;
-  const bottomOverflow = videoRect.bottom - visibleBottom;
-  if (bottomOverflow > 0) return bottomOverflow;
-  return Math.min(0, videoRect.top - visibleTop);
 }
 function dedupeVideoComments(existing: VideoComment[], incoming: VideoComment[]): VideoComment[] {
   const seen = new Set<string>();
@@ -1040,6 +1032,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   const [loadingMore, setLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [notificationReactionOverlay, setNotificationReactionOverlay] = useState<{ id: string; reaction: VideoCommentReaction; reducedMotion: boolean } | null>(null);
+  const [notificationLayoutVersion, setNotificationLayoutVersion] = useState(0);
   const [deletingIds, setDeletingIds] = useState<Record<string, boolean>>({});
   const [reactingIds, setReactingIds] = useState<Record<string, boolean>>({});
   const reactingIdsRef = useRef(new Set<string>());
@@ -1107,6 +1100,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   const carouselScrollingRef = useRef(false);
   const processedNotificationTargetRef = useRef<string | null>(null);
   const notificationPositioningRef = useRef(false);
+  const notificationNavigationPhaseRef = useRef<"idle" | "waiting-for-target" | "positioning" | "positioned" | "reaction-animation" | "done">("idle");
 
   const appendVideoDebugLog = useCallback((event: string, details: Record<string, unknown>) => {
     if (!videoDebugEnabled) return;
@@ -1639,230 +1633,124 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
     if (!active || !notificationTarget || initialLoading || loadingMore || recorderState !== "idle") return;
     const targetKey = `${movieId}:${notificationTarget.id}:${notificationTarget.reaction ?? ""}`;
     if (processedNotificationTargetRef.current === targetKey || notificationPositioningRef.current) return;
+    notificationNavigationPhaseRef.current = "waiting-for-target";
+
     const desktop = window.matchMedia("(min-width: 768px)").matches;
     const container = desktop ? historyScrollRef.current : mobileHistoryScrollRef.current;
     const card = container?.querySelector<HTMLElement>(`[data-video-comment-card="${CSS.escape(notificationTarget.id)}"]`);
+    const visualVideo = card?.querySelector<HTMLVideoElement>('[data-video-comment-player="true"]');
     logNotificationTarget("video target lookup", {
       target: "video-reaction",
       targetId: notificationTarget.id,
-      viewport: window.matchMedia("(min-width: 768px)").matches ? "desktop" : "mobile",
+      viewport: desktop ? "desktop" : "mobile",
       videoCardFound: Boolean(card),
-      notificationPositioning: notificationPositioningRef.current,
+      videoPlayerFound: Boolean(visualVideo),
+      navigationPhase: notificationNavigationPhaseRef.current,
     });
-    if (!container || !card) {
-      if (!window.matchMedia("(min-width: 768px)").matches) {
-        console.log("[VIDEO MOBILE TARGET]", {
-          videoCommentId: notificationTarget.id,
-          scrollContainerFound: Boolean(container),
-          cardFound: Boolean(card),
-          playerFound: false,
-          fullyVisible: false,
-          positioningRef: notificationPositioningRef.current,
-        });
-      }
+    if (!container || !card || !visualVideo) {
       if (next) void fetchPage(next, "more");
       return;
     }
+    // Metadata locking gives the card its definitive dimensions. The metadata
+    // callback increments notificationLayoutVersion and lets this effect retry.
+    if (!desktop && (visualVideo.readyState < HTMLMediaElement.HAVE_METADATA || visualVideo.dataset.geometryLocked !== "true")) return;
 
     let cancelled = false;
     notificationPositioningRef.current = true;
+    notificationNavigationPhaseRef.current = "positioning";
     const positionTarget = async () => {
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
       const section = document.querySelector<HTMLElement>("[data-video-reaction-section]");
-      const visualVideo = card.querySelector<HTMLElement>('[data-video-comment-player="true"]');
-      const verticalPositionBefore = section?.getBoundingClientRect().top ?? null;
-      const carouselScrollLeftBefore = container.scrollLeft;
 
-      if (desktop && section) {
-        const tabsHeight = document.querySelector<HTMLElement>("[data-desktop-comment-tabs]")?.getBoundingClientRect().height ?? 0;
-        window.scrollTo({ top: Math.max(0, window.scrollY + section.getBoundingClientRect().top - tabsHeight - 16), behavior });
-        await waitForNotificationScroll(window, reducedMotion);
-      }
-
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      if (cancelled) return;
-
-      const stableContainerRect = container.getBoundingClientRect();
-      const stableCardRect = card.getBoundingClientRect();
-      if (desktop && container.scrollWidth > container.clientWidth) {
-        container.scrollTo({ left: container.scrollLeft + stableCardRect.left - stableContainerRect.left - (container.clientWidth - stableCardRect.width) / 2, behavior });
-        await waitForNotificationScroll(container, reducedMotion);
-        console.log("[VIDEO NOTIFICATION TARGET]", {
-          videoCommentId: notificationTarget.id,
-          reaction: notificationTarget.reaction,
-          viewport: "desktop",
-          cardFound: true,
-          playerFound: Boolean(visualVideo),
-          scrollContainerFound: true,
-          verticalPositionBefore,
-          verticalPositionAfter: section?.getBoundingClientRect().top ?? null,
-          carouselScrollLeftBefore,
-          carouselScrollLeftAfter: container.scrollLeft,
-        });
-      } else {
-        const scrollContainer = mobileHistoryScrollRef.current;
-        if (!scrollContainer || !visualVideo) {
-          console.log("[VIDEO MOBILE TARGET]", {
-            videoCommentId: notificationTarget.id,
-            scrollContainerFound: Boolean(scrollContainer),
-            cardFound: true,
-            playerFound: Boolean(visualVideo),
-            fullyVisible: false,
-            positioningRef: notificationPositioningRef.current,
-          });
-          notificationPositioningRef.current = false;
-          logNotificationTarget("TARGET NOT CONSUMED", { targetId: notificationTarget.id, scrollContainerFound: Boolean(scrollContainer), videoPlayerFound: Boolean(visualVideo) });
-          return;
+      if (desktop) {
+        const behavior: ScrollBehavior = reducedMotion ? "auto" : "smooth";
+        if (section) {
+          const tabsHeight = document.querySelector<HTMLElement>("[data-desktop-comment-tabs]")?.getBoundingClientRect().height ?? 0;
+          window.scrollTo({ top: Math.max(0, window.scrollY + section.getBoundingClientRect().top - tabsHeight - 16), behavior });
+          await waitForNotificationScroll(window, reducedMotion);
         }
-        const containerRectBefore = scrollContainer.getBoundingClientRect();
-        const videoRectBefore = visualVideo.getBoundingClientRect();
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        if (cancelled) return;
+        const containerRect = container.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        if (container.scrollWidth > container.clientWidth) {
+          container.scrollTo({ left: container.scrollLeft + cardRect.left - containerRect.left - (container.clientWidth - cardRect.width) / 2, behavior });
+          await waitForNotificationScroll(container, reducedMotion);
+        }
+      } else {
+        // Wait for React, the selected tab, media metadata, and sticky layout to
+        // be painted before taking the only geometry snapshot used to position.
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        if (cancelled) return;
+        const scrollContainer = mobileHistoryScrollRef.current;
+        if (!scrollContainer || !scrollContainer.contains(visualVideo)) return;
+
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const videoRect = visualVideo.getBoundingClientRect();
+        const stickyBottom = document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? containerRect.top;
+        const topGap = 8;
+        const bottomGap = 10;
+        const visibleTop = Math.max(containerRect.top, stickyBottom, 0) + topGap;
+        const visibleBottom = Math.min(containerRect.bottom, window.innerHeight) - bottomGap;
+        if (videoRect.width <= 0 || videoRect.height <= 0 || visibleBottom <= visibleTop || videoRect.height > visibleBottom - visibleTop) return;
+
         const scrollTopBefore = scrollContainer.scrollTop;
-        const relativeVideoTop = videoRectBefore.top - containerRectBefore.top + scrollTopBefore;
-        const centeredTop = relativeVideoTop - (scrollContainer.clientHeight - videoRectBefore.height) / 2;
+        const videoContentTop = videoRect.top - containerRect.top + scrollTopBefore;
+        const requestedScrollTop = videoContentTop - (visibleTop - containerRect.top);
         const maxScrollTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
-        const desiredTop = Math.min(maxScrollTop, Math.max(0, centeredTop));
-        const availableMargin = Math.max(0, (scrollContainer.clientHeight - videoRectBefore.height) / 2);
-        const topMargin = Math.min(8, availableMargin);
-        const safeBottomMargin = Math.min(10, availableMargin);
-        const extraBottomMargin = Math.min(6, Math.max(0, availableMargin - safeBottomMargin));
-        const projectedTop = containerRectBefore.top + relativeVideoTop - desiredTop;
-        const projectedBottom = projectedTop + videoRectBefore.height;
-        const projectedBottomOverflow = projectedBottom - (containerRectBefore.bottom - safeBottomMargin);
-        const projectedTopOverflow = projectedTop - (containerRectBefore.top + topMargin);
-        const alignmentCorrection = projectedBottomOverflow > 0
-          ? projectedBottomOverflow + extraBottomMargin
-          : Math.min(0, projectedTopOverflow);
-        const alignedScrollTop = Math.min(maxScrollTop, Math.max(0, desiredTop + alignmentCorrection));
-        const alignedProjectedTop = containerRectBefore.top + relativeVideoTop - alignedScrollTop;
-        const maxSafeLift = Math.max(0, alignedProjectedTop - containerRectBefore.top - topMargin);
-        const extraTargetLift = Math.min(VIDEO_NOTIFICATION_EXTRA_TARGET_LIFT_PX, maxSafeLift, maxScrollTop - alignedScrollTop);
-        const finalScrollTop = alignedScrollTop + extraTargetLift;
-        logNotificationTarget("mobile video before scroll", {
-          targetId: notificationTarget.id,
-          scrollContainerFound: true,
-          videoPlayerFound: true,
-          scrollTopBefore,
-          containerClientHeight: scrollContainer.clientHeight,
-          relativeVideoTop,
-          videoRect: { top: videoRectBefore.top, bottom: videoRectBefore.bottom, height: videoRectBefore.height },
-          notificationPositioning: notificationPositioningRef.current,
-        });
+        const finalScrollTop = Math.min(maxScrollTop, Math.max(0, requestedScrollTop));
         console.log("[MOBILE NOTIFICATION SCROLL]", {
           targetType: "video-reaction",
           targetId: notificationTarget.id,
-          phase: "final",
+          phase: "positioning",
           scrollContainer: "video-reaction",
           scrollTop: scrollTopBefore,
           intendedFinalScrollTop: finalScrollTop,
-          behavior,
-          positioningLock: notificationPositioningRef.current,
+          behavior: "auto",
+          navigationPhase: notificationNavigationPhaseRef.current,
         });
-        scrollContainer.scrollTo({ top: finalScrollTop, behavior });
-        await waitForNotificationScroll(scrollContainer, reducedMotion);
-        let containerRectAfter = scrollContainer.getBoundingClientRect();
-        let videoRectAfter = visualVideo.getBoundingClientRect();
-        const videoBottomBefore = videoRectAfter.bottom;
-        const bottomOverflow = videoRectAfter.bottom - (containerRectAfter.bottom - safeBottomMargin);
-        const topOverflow = videoRectAfter.top - (containerRectAfter.top + topMargin);
-        const correctionApplied = bottomOverflow > 0 ? bottomOverflow : Math.min(0, topOverflow);
-        let fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
-        if (!fullyVisible && correctionApplied !== 0) {
-          scrollContainer.scrollBy({ top: correctionApplied, behavior: "auto" });
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          containerRectAfter = scrollContainer.getBoundingClientRect();
-          videoRectAfter = visualVideo.getBoundingClientRect();
-          fullyVisible = videoRectAfter.top >= containerRectAfter.top + topMargin && videoRectAfter.bottom <= containerRectAfter.bottom - safeBottomMargin;
-        }
-        let iosStabilizedCorrection = 0;
-        if (iosWebKit) {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-          if (cancelled) return;
-          containerRectAfter = scrollContainer.getBoundingClientRect();
-          videoRectAfter = visualVideo.getBoundingClientRect();
-          const stickyBottom = document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? containerRectAfter.top;
-          iosStabilizedCorrection = calculateIOSVideoNotificationCorrection(videoRectAfter, containerRectAfter, stickyBottom, window.innerHeight, topMargin, safeBottomMargin);
-          if (iosStabilizedCorrection !== 0) {
-            scrollContainer.scrollBy({ top: iosStabilizedCorrection, behavior: "auto" });
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            containerRectAfter = scrollContainer.getBoundingClientRect();
-            videoRectAfter = visualVideo.getBoundingClientRect();
-          }
-          const stableVisibleTop = Math.max(containerRectAfter.top, stickyBottom, 0) + topMargin;
-          const stableVisibleBottom = Math.min(containerRectAfter.bottom, window.innerHeight) - safeBottomMargin;
-          fullyVisible = videoRectAfter.top >= stableVisibleTop && videoRectAfter.bottom <= stableVisibleBottom;
-          logNotificationTarget("iOS mobile video stabilized", {
-            targetId: notificationTarget.id,
-            stickyBottom,
-            viewportHeight: window.innerHeight,
-            correction: iosStabilizedCorrection,
-            videoTop: videoRectAfter.top,
-            videoBottom: videoRectAfter.bottom,
-            fullyVisible,
-          });
-        }
-        console.log("[VIDEO MOBILE FINAL ALIGNMENT]", {
-          videoCommentId: notificationTarget.id,
-          containerBottom: containerRectAfter.bottom,
-          videoBottomBefore,
-          bottomOverflow,
-          correctionApplied,
-          iosStabilizedCorrection,
-          extraTargetLift,
-          videoBottomAfter: videoRectAfter.bottom,
-          fullyVisible,
-        });
-        console.log("[MOBILE NOTIFICATION FINAL]", {
-          targetType: "video-reaction",
-          targetId: notificationTarget.id,
-          finalTop: videoRectAfter.top,
-          finalBottom: videoRectAfter.bottom,
-          containerTop: containerRectAfter.top,
-          containerBottom: containerRectAfter.bottom,
-          fullyVisible,
-          correctionPx: correctionApplied,
-        });
-        logNotificationTarget("mobile video after scroll", {
-          targetId: notificationTarget.id,
-          scrollTopAfter: scrollContainer.scrollTop,
-          containerClientHeight: scrollContainer.clientHeight,
-          videoRect: { top: videoRectAfter.top, bottom: videoRectAfter.bottom, height: videoRectAfter.height },
-          videoTopRelative: videoRectAfter.top - containerRectAfter.top,
-          videoBottomRelative: videoRectAfter.bottom - containerRectAfter.top,
-          fullyVisible,
-          notificationPositioning: notificationPositioningRef.current,
-        });
+        // This is deliberately the single mobile scroll mutation. There is no
+        // smooth traversal and no later iOS correction to fight it.
+        scrollContainer.scrollTo({ top: finalScrollTop, behavior: "auto" });
+        notificationNavigationPhaseRef.current = "positioned";
+
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        if (cancelled) return;
+        const stableContainerRect = scrollContainer.getBoundingClientRect();
+        const stableVideoRect = visualVideo.getBoundingClientRect();
+        const stableStickyBottom = document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? stableContainerRect.top;
+        const stableVisibleTop = Math.max(stableContainerRect.top, stableStickyBottom, 0) + topGap;
+        const stableVisibleBottom = Math.min(stableContainerRect.bottom, window.innerHeight) - bottomGap;
+        const fullyVisible = stableVideoRect.top >= stableVisibleTop - 1 && stableVideoRect.bottom <= stableVisibleBottom + 1;
+        const positionStable = Math.abs(scrollContainer.scrollTop - finalScrollTop) <= 1;
         console.log("[VIDEO MOBILE TARGET]", {
           videoCommentId: notificationTarget.id,
           reaction: notificationTarget.reaction,
-          scrollContainerFound: true,
-          cardFound: true,
-          playerFound: true,
           scrollTopBefore,
           desiredScrollTop: finalScrollTop,
           scrollTopAfter: scrollContainer.scrollTop,
-          containerClientHeight: scrollContainer.clientHeight,
-          videoHeight: videoRectAfter.height,
-          videoTopRelative: videoRectAfter.top - containerRectAfter.top,
-          videoBottomRelative: videoRectAfter.bottom - containerRectAfter.top,
           fullyVisible,
-          positioningRef: notificationPositioningRef.current,
+          positionStable,
+          navigationPhase: notificationNavigationPhaseRef.current,
         });
-        if (!fullyVisible) {
+        if (!fullyVisible || !positionStable) {
           notificationPositioningRef.current = false;
-          logNotificationTarget("TARGET NOT CONSUMED", { targetId: notificationTarget.id, reason: "mobile video is not fully visible" });
+          notificationNavigationPhaseRef.current = "waiting-for-target";
+          logNotificationTarget("TARGET NOT CONSUMED", { targetId: notificationTarget.id, reason: "mobile target layout was not stable" });
           return;
         }
       }
       if (cancelled) return;
 
       if (notificationTarget.reaction) {
+        notificationNavigationPhaseRef.current = "reaction-animation";
         setNotificationReactionOverlay({ id: notificationTarget.id, reaction: notificationTarget.reaction, reducedMotion });
-        window.setTimeout(() => setNotificationReactionOverlay(null), reducedMotion ? 900 : 2200);
+        window.setTimeout(() => setNotificationReactionOverlay(null), reducedMotion ? 900 : 2050);
       }
       processedNotificationTargetRef.current = targetKey;
+      notificationNavigationPhaseRef.current = "done";
       notificationPositioningRef.current = false;
-      logNotificationTarget("target consumed", { target: "video-reaction", targetId: notificationTarget.id, timestamp: Date.now() });
+      logNotificationTarget("target consumed", { target: "video-reaction", targetId: notificationTarget.id, timestamp: Date.now(), navigationPhase: notificationNavigationPhaseRef.current });
       onNotificationTargetConsumed();
     };
     void positionTarget();
@@ -1870,7 +1758,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
       cancelled = true;
       notificationPositioningRef.current = false;
     };
-  }, [active, fetchPage, initialLoading, iosWebKit, loadingMore, logNotificationTarget, movieId, next, notificationTarget, onNotificationTargetConsumed, recorderState]);
+  }, [active, fetchPage, initialLoading, loadingMore, logNotificationTarget, movieId, next, notificationLayoutVersion, notificationTarget, onNotificationTargetConsumed, recorderState]);
 
   const finishRecording = useCallback(() => {
     stopModeRef.current = "previewRecorded";
@@ -2683,7 +2571,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
             <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3 md:flex-col md:items-start md:gap-0"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div><VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[id]} t={t} onReact={(commentId, reaction) => void reactToVideo(commentId, reaction)} className="shrink-0 md:hidden" />{comment.can_delete === true ? <div data-video-delete-menu className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 hover:bg-white/10" disabled={!!deletingIds[id]} aria-label={t("movieDetailVideoDelete")} onClick={() => setDeleteMenuId((current) => current === id ? null : id)}>⋮</button>{deleteMenuId === id ? <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuId(null); setDeleteConfirmId(comment.id); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}</div>
           <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black md:mx-auto md:w-fit md:max-w-full">
             <div className="group relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
-              <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); if (window.matchMedia("(min-width: 768px)").matches && !document.body.classList.contains("detail-trailer-active")) playNextVisibleHistoryVideo(id); }} />
+              <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => { lockHistoryPlayerGeometry(event.currentTarget); if (notificationTarget?.id === id) setNotificationLayoutVersion((version) => version + 1); }} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); if (window.matchMedia("(min-width: 768px)").matches && !document.body.classList.contains("detail-trailer-active")) playNextVisibleHistoryVideo(id); }} />
               <VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[id]} t={t} onReact={(commentId, reaction) => { selectHistoryVideoForReaction(String(commentId)); void reactToVideo(commentId, reaction); }} className="pointer-events-none absolute left-2 top-2 z-10 hidden opacity-0 md:flex md:group-hover:pointer-events-auto md:group-hover:opacity-100" />
               <div className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7 transition-opacity duration-150 ${state.paused ? "md:opacity-0" : "md:opacity-0 md:group-hover:opacity-100"}`}>
                 <button type="button" className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white ${state.paused ? "md:pointer-events-none" : "md:pointer-events-none md:group-hover:pointer-events-auto"}`} aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); toggleHistorySound(id); }}>{state.muted ? "🔇" : "🔊"}</button>

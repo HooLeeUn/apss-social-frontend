@@ -144,7 +144,7 @@ test("saved cards only render volume and expand controls and tap toggles playbac
   assert.match(card, /controls=\{false\}/);
   assert.match(card, /block h-auto w-auto max-w-full shrink-0 object-contain \[contain:layout_paint\]/);
   assert.match(card, /maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT/);
-  assert.match(card, /onLoadedMetadata=\{\(event\) => lockHistoryPlayerGeometry\(event\.currentTarget\)\}/);
+  assert.match(card, /onLoadedMetadata=\{\(event\) => \{ lockHistoryPlayerGeometry\(event\.currentTarget\)/);
   has(/wrapper\.style\.width = `\$\{rect\.width\}px`/);
   has(/wrapper\.style\.height = `\$\{rect\.height\}px`/);
   has(/HISTORY_PLAYER_GEOMETRY/);
