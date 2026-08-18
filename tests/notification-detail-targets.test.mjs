@@ -159,6 +159,15 @@ test("mobile notification positioning measures the visual video in its real scro
   assert.match(detail, /if \(mobile && activeCommentsTab !== "public"\) setActiveCommentsTab\("public"\)/);
 });
 
+test("iOS remeasures video notification geometry after layout stabilization without changing Android", () => {
+  const mobilePositioning = detail.slice(detail.indexOf("const scrollContainer = mobileHistoryScrollRef.current"), detail.indexOf("if (notificationTarget.reaction)"));
+  assert.match(detail, /function calculateIOSVideoNotificationCorrection[\s\S]*Math\.max\(containerRect\.top, stickyBottom, 0\)[\s\S]*Math\.min\(containerRect\.bottom, viewportHeight\)/);
+  assert.match(mobilePositioning, /if \(iosWebKit\) \{[\s\S]*requestAnimationFrame\(\(\) => requestAnimationFrame[\s\S]*data-mobile-detail-sticky="true"[\s\S]*calculateIOSVideoNotificationCorrection/);
+  assert.match(mobilePositioning, /iosStabilizedCorrection !== 0[\s\S]*scrollContainer\.scrollBy\(\{ top: iosStabilizedCorrection, behavior: "auto" \}\)/);
+  assert.match(mobilePositioning, /stableVisibleTop[\s\S]*stableVisibleBottom[\s\S]*iOS mobile video stabilized/);
+  assert.equal((mobilePositioning.match(/if \(iosWebKit\)/g) ?? []).length, 1);
+});
+
 test("mobile public notification preparation is instant and target movement is the only smooth scroll", () => {
   const publicPositioning = detail.slice(detail.indexOf('const positionTarget = async () => {', detail.indexOf('notificationTarget?.type !== "public-comment"')), detail.indexOf('comment.classList.add("notification-public-comment-highlight")'));
   assert.match(publicPositioning, /scrollIntoView\(\{ behavior: mobile \? "auto" : behavior/);
