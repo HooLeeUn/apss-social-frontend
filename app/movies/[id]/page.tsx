@@ -10,6 +10,7 @@ import CommentsList from "../../../components/social/CommentsList";
 import MovieCard from "../../../components/MovieCard";
 import StreamingProviders from "../../../components/StreamingProviders";
 import MovieDetailStreamingCountrySelector from "../../../components/MovieDetailStreamingCountrySelector";
+import VideoReactionMovieMetadata from "../../../components/VideoReactionMovieMetadata";
 import { apiFetch, ApiError, API_BASE_URL } from "../../../lib/api";
 import { getToken } from "../../../lib/auth";
 import {
@@ -40,7 +41,7 @@ import { stripLeadingMention } from "../../../lib/strip-leading-mention";
 import { getProfilePrivacySettings } from "../../../lib/privacy";
 import { getMyProfile, getTopFollowing } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
-import { t as translate } from "../../../lib/i18n";
+import { resolveMovieTitles, t as translate } from "../../../lib/i18n";
 
 type CommentInputMode = "text-comment" | "video-comment";
 type TrailerCompanionView = "reaction" | "public-comments" | "directed-comments";
@@ -1011,7 +1012,8 @@ function CommentUserSearch({
   );
 }
 
-function MobileVideoComments({ movieId, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick }: { movieId: string; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void }) {
+function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick }: { movieId: string; movieTitle: string; moviePoster: string | null; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void }) {
+  const router = useRouter();
   const [recorderState, setRecorderState] = useState<VideoRecorderState>("idle");
   const [error, setError] = useState("");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -2684,6 +2686,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
               <div className="relative inline-flex max-h-[calc(100dvh-1rem)] max-w-full overflow-hidden">
               <video data-expanded-video-id={expandedVideoId} ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block max-h-[calc(100dvh-1rem)] max-w-full object-contain" onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY, vertical: null } : null; suppressExpandedTapRef.current = false; setExpandedDragAnimating(false); }} onTouchMove={(event) => { const start = expandedTouchStartRef.current; const touch = event.touches[0]; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (start.vertical === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX) start.vertical = Math.abs(deltaY) > Math.abs(deltaX); if (!start.vertical) return; event.preventDefault(); suppressExpandedTapRef.current = true; const direction = deltaY < 0 ? 1 : -1; const hasTarget = comments[currentIndex + direction] !== undefined; setExpandedDragOffset(hasTarget ? deltaY : deltaY * 0.2); }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch || !start.vertical) { if (expandedDragOffset !== 0) cancelExpandedDrag(); return; } const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; const direction: -1 | 1 = deltaY < 0 ? 1 : -1; if (Math.abs(deltaY) >= VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX) && comments[currentIndex + direction]) finishExpandedDrag(direction); else cancelExpandedDrag(); }} onTouchCancel={() => { expandedTouchStartRef.current = null; if (expandedDragOffset !== 0) cancelExpandedDrag(); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
               <VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[expandedVideoId]} expanded t={t} onReact={(commentId, reaction) => void reactToVideo(commentId, reaction)} className="absolute left-3 top-3 z-20 bg-transparent" />
+              <VideoReactionMovieMetadata poster={moviePoster} title={movieTitle} onTitleClick={() => { closeExpandedVideo(); router.push(`/movies/${encodeURIComponent(movieId)}`); }} />
               <button type="button" className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
               <button type="button" className="absolute bottom-4 left-3 z-20 flex min-w-0 items-center gap-2 rounded-full bg-black/25 pr-2 text-sm font-semibold text-white" aria-label={`Ver perfil de ${comment.user.username}`} onClick={(event) => { event.stopPropagation(); navigateFromExpandedVideoToAuthor(comment.user.username); }}><span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-[10px]">{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
                 <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0, 2).toUpperCase()}</span><span className="max-w-36 truncate">{comment.user.username}</span></button>
@@ -4192,7 +4195,7 @@ function MovieDetailPageContent() {
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
         <div ref={videoCommentStartRef} data-video-reaction-section>
-          <MobileVideoComments movieId={movieId} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
+          <MobileVideoComments movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${commentInputMode === "text-comment" ? "hidden md:block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
