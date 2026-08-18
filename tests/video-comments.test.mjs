@@ -209,6 +209,8 @@ test("REC options and the active recorder escape reaction scroll clipping withou
   has(/isRecordingOverlay \? "contents" : "max-h-\[50dvh\] overflow-y-auto/);
   has(/isRecordingOverlay && typeof document !== "undefined" \? createPortal\(reactionContent, document\.body\)/);
   has(/isRecordingOverlay \? "fixed inset-0 z-50 overflow-hidden bg-black px-5 py-3"/);
+  has(/data-recording-overlay=\{isRecordingOverlay\}/);
+  assert.match(css, /@media \(min-width: 768px\)[\s\S]*\[data-mobile-video-reaction\]\[data-recording-overlay="true"\] \{\s*position: fixed;\s*inset: 0;\s*z-index: 50;/);
   has(/VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min\(calc\(100dvh - 230px\), calc\(\(100vw - 40px\) \* 16 \/ 9\)\)"/);
 });
 

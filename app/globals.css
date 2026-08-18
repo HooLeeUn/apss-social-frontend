@@ -778,6 +778,15 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     padding-inline: 0;
   }
 
+  /* The normal desktop carousel is relative, but its active recorder is a
+     viewport overlay. Keep this after the base rule so the portal cannot fall
+     back into document flow below Detail Movie. */
+  body:not(.detail-trailer-active) [data-mobile-video-reaction][data-recording-overlay="true"] {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+
   body:not(.detail-trailer-active) [data-video-reaction-rec] {
     position: absolute;
     top: 8.75rem;

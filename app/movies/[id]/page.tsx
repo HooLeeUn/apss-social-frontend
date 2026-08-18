@@ -2603,7 +2603,7 @@ function MobileVideoComments({ movieId, active, notificationTarget, onNotificati
   const isRecordingOverlay = recorderState === "preparingRecorder" || recorderState === "recording" || isRecordedPreviewOverlay;
 
 
-  const reactionContent = <section data-mobile-video-reaction data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-0 z-50 overflow-hidden bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
+  const reactionContent = <section data-mobile-video-reaction data-recording-overlay={isRecordingOverlay} data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-0 z-50 overflow-hidden bg-black px-5 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
     <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : "max-h-[50dvh] overflow-y-auto overscroll-contain md:contents"}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:mx-auto md:max-w-2xl">
       <div ref={menuRef} data-video-reaction-rec className="relative flex justify-center">
