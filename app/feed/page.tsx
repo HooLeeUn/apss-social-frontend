@@ -12,7 +12,7 @@ import DirectorBoardMenu from "../../components/DirectorBoardMenu";
 import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholderButton";
 import StreamingCountrySelector from "../../components/StreamingCountrySelector";
 import AppLogo from "../../components/AppLogo";
-import MobileVideoReactionViewer from "../../components/MobileVideoReactionViewer";
+import VideoReactionViewer from "../../components/VideoReactionViewer";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
 import {
@@ -687,15 +687,13 @@ export default function FeedPage() {
       }
       const targetRoute = buildNotificationTargetRoute(item);
 
-      const isMobileVideoReaction =
+      const isReceivedVideoReaction =
         item.type === "video_comment_reaction" &&
         (item.reactionType === "like" || item.reactionType === "dislike") &&
         item.movieId !== null &&
-        item.videoCommentId !== null &&
-        typeof window !== "undefined" &&
-        window.matchMedia("(max-width: 1023px)").matches;
+        item.videoCommentId !== null;
 
-      if (isMobileVideoReaction) {
+      if (isReceivedVideoReaction) {
         try {
           const movieId = String(item.movieId);
           const [video, rawMovie] = await Promise.all([
@@ -1254,7 +1252,7 @@ export default function FeedPage() {
         </div>
       ) : null}
       {notificationVideo ? (
-        <MobileVideoReactionViewer
+        <VideoReactionViewer
           video={notificationVideo.video}
           reaction={notificationVideo.reaction}
           moviePoster={notificationVideo.movie.posterUrl}

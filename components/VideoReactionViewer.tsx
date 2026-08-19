@@ -5,7 +5,7 @@ import { apiFetch } from "../lib/api";
 import type { VideoReactionComment, VideoReactionKind } from "../lib/video-reactions";
 import VideoReactionMovieMetadata from "./VideoReactionMovieMetadata";
 
-export default function MobileVideoReactionViewer({ video, movieTitle, moviePoster, reaction, onClose, onMovieOpen }: { video: VideoReactionComment; movieTitle: string; moviePoster: string | null; reaction: VideoReactionKind; onClose: () => void; onMovieOpen: () => void }) {
+export default function VideoReactionViewer({ video, movieTitle, moviePoster, reaction, onClose, onMovieOpen }: { video: VideoReactionComment; movieTitle: string; moviePoster: string | null; reaction: VideoReactionKind; onClose: () => void; onMovieOpen: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const animationStartedRef = useRef(false);
   const [muted, setMuted] = useState(true);
@@ -34,7 +34,7 @@ export default function MobileVideoReactionViewer({ video, movieTitle, moviePost
     } finally { reactingRef.current = false; }
   }, [counts.dislikes, counts.likes, video.id]);
 
-  return <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black p-2 lg:hidden" role="dialog" aria-modal="true" aria-label="Video reaction">
+  return <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black p-2" role="dialog" aria-modal="true" aria-label="Video reaction">
     <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
       <div className="relative inline-flex max-h-[calc(100dvh-1rem)] max-w-full overflow-hidden">
         <video ref={videoRef} src={video.video_url} autoPlay muted={muted} playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block max-h-[calc(100dvh-1rem)] max-w-full object-contain" onClick={(event) => { if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} />
