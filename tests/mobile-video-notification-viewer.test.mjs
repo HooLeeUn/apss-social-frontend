@@ -37,3 +37,16 @@ test("Detail Movie adds the same localized fullscreen metadata on mobile and des
   assert.match(detail, /closeExpandedVideo\(\); router\.push\(`\/movies\/\$\{encodeURIComponent\(movieId\)\}`\)/);
   assert.doesNotMatch(readFileSync(new URL("../components/VideoReactionMovieMetadata.tsx", import.meta.url), "utf8"), /lg:hidden/);
 });
+
+test("expanded reaction controls stack only at the desktop breakpoint", () => {
+  assert.match(viewer, /items-center gap-1[^"]*md:flex-col md:items-start md:gap-0/);
+  assert.match(detail, /VideoCommentReactionButtons[\s\S]*className="absolute left-3 top-3 z-20 bg-transparent md:flex-col md:items-start md:gap-0"/);
+});
+
+test("mobile expanded swipes wait for loadeddata and preserve a painted frame across the keyed video remount", () => {
+  assert.match(detail, /expandedReadyVideoIdsRef[\s\S]*pendingExpandedSwipeDirectionRef/);
+  assert.match(detail, /preload="auto"[\s\S]*onLoadedData=/);
+  assert.match(detail, /readyState >= HTMLMediaElement\.HAVE_CURRENT_DATA[\s\S]*drawImage\(preparedVideo/);
+  assert.match(detail, /expandedTransitionCanvasRef[\s\S]*md:hidden[\s\S]*showExpandedTransitionFrame/);
+  assert.match(detail, /onLoadedData=\{\(\) => setShowExpandedTransitionFrame\(false\)\}/);
+});
