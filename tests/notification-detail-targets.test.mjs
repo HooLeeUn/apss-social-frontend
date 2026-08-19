@@ -20,6 +20,15 @@ test("bell normalization preserves canonical public and video reaction fields", 
   assert.match(types, /type: string \| null;[\s\S]*directedCommentId:[\s\S]*commentId:[\s\S]*videoCommentId:[\s\S]*reactionType:/);
 });
 
+test("the final shared bell list is sorted newest-first by its normalized real timestamp", () => {
+  const parser = adapters.slice(adapters.indexOf("export function sortNotificationsNewestFirst"), adapters.indexOf("export async function getMyNotificationsSummary"));
+  assert.match(adapters, /createdAt: safeTrim\(pickFirst\(record\.created_at, record\.createdAt, record\.timestamp\)\)/);
+  assert.match(parser, /item\.createdAt \? Date\.parse\(item\.createdAt\) : Number\.NaN/);
+  assert.match(parser, /if \(leftValid && rightValid\) return right\.timestamp - left\.timestamp/);
+  assert.match(parser, /if \(leftValid\) return -1;[\s\S]*if \(rightValid\) return 1;[\s\S]*return left\.index - right\.index/);
+  assert.match(parser, /const notifications = sortNotificationsNewestFirst\(Array\.isArray\(notificationsRaw\)/);
+});
+
 test("real public reaction payload variants normalize and route canonically", () => {
   for (const object of [{ comment: { id: 22 } }, { comment_id: 22 }]) {
     const fields = normalizeNotificationRoutingFields({

@@ -2196,6 +2196,20 @@ function isNotificationUnread(value: unknown): boolean {
   return true;
 }
 
+export function sortNotificationsNewestFirst(items: MyNotificationItem[]): MyNotificationItem[] {
+  return items
+    .map((item, index) => ({ item, index, timestamp: item.createdAt ? Date.parse(item.createdAt) : Number.NaN }))
+    .sort((left, right) => {
+      const leftValid = Number.isFinite(left.timestamp);
+      const rightValid = Number.isFinite(right.timestamp);
+      if (leftValid && rightValid) return right.timestamp - left.timestamp;
+      if (leftValid) return -1;
+      if (rightValid) return 1;
+      return left.index - right.index;
+    })
+    .map(({ item }) => item);
+}
+
 export function parseNotificationsSummary(payload: unknown): MyNotificationsSummary {
   const root = toRecord(payload);
   const data = toRecord(root?.data);
@@ -2210,12 +2224,12 @@ export function parseNotificationsSummary(payload: unknown): MyNotificationsSumm
     data?.unread_notifications,
     [],
   );
-  const notifications = Array.isArray(notificationsRaw)
+  const notifications = sortNotificationsNewestFirst(Array.isArray(notificationsRaw)
     ? notificationsRaw
         .filter((item) => isNotificationUnread(item))
         .map((item, index) => toNotificationItem(item, index))
         .filter((item): item is MyNotificationItem => Boolean(item))
-    : [];
+    : []);
 
   const totalUnread = toNonNegativeInteger(
     pickFirst(root?.total_unread, root?.unread_count, data?.total_unread, data?.unread_count, notifications.length),
