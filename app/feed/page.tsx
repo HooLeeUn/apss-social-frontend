@@ -12,6 +12,7 @@ import DirectorBoardMenu from "../../components/DirectorBoardMenu";
 import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholderButton";
 import StreamingCountrySelector from "../../components/StreamingCountrySelector";
 import AppLogo from "../../components/AppLogo";
+import VideoReactionViewer from "../../components/VideoReactionViewer";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
 import {
@@ -26,7 +27,7 @@ import { buildNotificationTargetRoute } from "../../lib/notification-navigation"
 import { MyNotificationItem } from "../../lib/profile-feed/types";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { normalizeBackendMediaUrl } from "../../lib/branding";
-import { type Country, countryToLocale, hasStoredCountryPreference, isSupportedCountry, normalizeCountry, setActiveLocaleScope, t as translate } from "../../lib/i18n";
+import { type Country, countryToLocale, hasStoredCountryPreference, isSupportedCountry, normalizeCountry, resolveMovieTitles, setActiveLocaleScope, t as translate } from "../../lib/i18n";
 import { useI18n } from "../../hooks/useI18n";
 import {
   addMovieToMyList,
@@ -41,7 +42,11 @@ import {
   parseMovieList,
   parseMoviePagination,
   normalizeNextEndpoint,
+  buildMovieDetailEndpoint,
+  MOVIE_DETAIL_ENDPOINT_TEMPLATE,
+  normalizeMovie,
 } from "../../lib/movies";
+import { resolveVideoReactionComment, type VideoReactionComment, type VideoReactionKind } from "../../lib/video-reactions";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
@@ -218,6 +223,7 @@ export default function FeedPage() {
   const router = useRouter();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
+  const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
@@ -680,6 +686,32 @@ export default function FeedPage() {
         });
       }
       const targetRoute = buildNotificationTargetRoute(item);
+
+      const isReceivedVideoReaction =
+        item.type === "video_comment_reaction" &&
+        (item.reactionType === "like" || item.reactionType === "dislike") &&
+        item.movieId !== null &&
+        item.videoCommentId !== null;
+
+      if (isReceivedVideoReaction) {
+        try {
+          const movieId = String(item.movieId);
+          const [video, rawMovie] = await Promise.all([
+            resolveVideoReactionComment(movieId, String(item.videoCommentId)),
+            apiFetch(buildMovieDetailEndpoint(movieId, MOVIE_DETAIL_ENDPOINT_TEMPLATE)),
+          ]);
+          if (!video || !rawMovie || typeof rawMovie !== "object") throw new Error("notification-video-not-found");
+          setNotificationVideo({ video, movie: normalizeMovie(rawMovie as Record<string, unknown>, 0), reaction: item.reactionType! });
+          if (isRealNotificationId(item.id)) await markNotificationsAsReadBatch([item.id]);
+          setNotificationItems((current) => current.filter((notificationItem) => notificationItem.id !== item.id));
+          setUnreadNotificationsCount((current) => Math.max(0, current - 1));
+          void refreshNotifications();
+          return;
+        } catch (error) {
+          console.warn("No se pudo abrir el video de la notificación en el Feed.", error);
+          return;
+        }
+      }
       if (item.type === "public_comment_reaction") {
         console.log("[PUBLIC COMMENT NOTIFICATION REAL]", {
           item,
@@ -1218,6 +1250,20 @@ export default function FeedPage() {
             )}
           </div>
         </div>
+      ) : null}
+      {notificationVideo ? (
+        <VideoReactionViewer
+          video={notificationVideo.video}
+          reaction={notificationVideo.reaction}
+          moviePoster={notificationVideo.movie.posterUrl}
+          movieTitle={resolveMovieTitles(locale, notificationVideo.movie.titleSpanish, notificationVideo.movie.titleEnglish, notificationVideo.movie.displayTitle).primary}
+          onClose={() => setNotificationVideo(null)}
+          onMovieOpen={() => {
+            const movieId = String(notificationVideo.movie.id);
+            setNotificationVideo(null);
+            router.push(`/movies/${encodeURIComponent(movieId)}`);
+          }}
+        />
       ) : null}
     </main>
   );
