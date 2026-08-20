@@ -2796,6 +2796,10 @@ function MovieDetailPageContent() {
   const [savingEditCommentId, setSavingEditCommentId] = useState<string | null>(null);
   const [deletingCommentIds, setDeletingCommentIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [directReplyDrafts, setDirectReplyDrafts] = useState<Record<string, string>>({});
+  const [directReplySubmitting, setDirectReplySubmitting] = useState<Record<string, boolean>>({});
+  const [directReplyErrors, setDirectReplyErrors] = useState<Record<string, string>>({});
+  const directReplySubmittingRef = useRef(new Set<string>());
   const [publicSearchQuery, setPublicSearchQuery] = useState("");
   const [directedSearchQuery, setDirectedSearchQuery] = useState("");
   const [selectedPublicFilterUser, setSelectedPublicFilterUser] = useState<CommentFilterUser | null>(null);
@@ -3786,6 +3790,82 @@ function MovieDetailPageContent() {
     }
   };
 
+  const handleSubmitDirectReply = async (conversation: DirectedConversation) => {
+    const conversationKey = conversation.key;
+    const body = (directReplyDrafts[conversationKey] ?? "").trim();
+    const recipientUsername = conversation.otherUsername;
+    if (!movieId || !body || !recipientUsername || directReplySubmittingRef.current.has(conversationKey)) return;
+
+    directReplySubmittingRef.current.add(conversationKey);
+    setDirectReplySubmitting((current) => ({ ...current, [conversationKey]: true }));
+    setDirectReplyErrors((current) => ({ ...current, [conversationKey]: "" }));
+
+    try {
+      let submitResponse: Awaited<ReturnType<typeof debugApiRequest>> | null = null;
+      let submitError: unknown = null;
+      const payload = { body, mentioned_username: recipientUsername, movie_id: movieId };
+
+      const endpoints = buildMovieDirectedSubmitEndpoints(movieId);
+      for (let index = 0; index < endpoints.length; index += 1) {
+        try {
+          submitResponse = await debugApiRequest(endpoints[index], {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          break;
+        } catch (error) {
+          submitError = error;
+          if (error instanceof ApiError && [404, 405].includes(error.status) && index < endpoints.length - 1) continue;
+          throw error;
+        }
+      }
+      if (!submitResponse) throw submitError ?? new Error("No endpoint available for directed submit.");
+
+      const parsedSubmittedComment = parseComments([submitResponse.body], "directed")[0];
+      setDirectReplyDrafts((current) => ({ ...current, [conversationKey]: "" }));
+
+      try {
+        const refreshed = await fetchWithFallbacks<unknown>(buildMovieDirectedFetchEndpoints(movieId), "[movie-detail-debug]");
+        setDirectedConversations(groupDirectedConversations(refreshed.payload, authenticatedUsername, movieId));
+        setLoadingFullHistoryByConversationKey({});
+        setFullLoadedByConversationKey({});
+        setDirectedError("");
+      } catch (refreshError) {
+        if (refreshError instanceof ApiError && refreshError.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (parsedSubmittedComment) {
+          const nextMessage: SocialComment = { ...parsedSubmittedComment, direction: "sent" };
+          setDirectedConversations((current) =>
+            current.map((item) =>
+              item.key === conversationKey
+                ? {
+                    ...item,
+                    messages: mergeUniqueMessages(item.messages, [nextMessage]),
+                    lastMessageAt: nextMessage.createdAt,
+                  }
+                : item,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      setDirectReplyErrors((current) => ({
+        ...current,
+        [conversationKey]: translate(locale, "movieDetailCommentPostError"),
+      }));
+    } finally {
+      directReplySubmittingRef.current.delete(conversationKey);
+      setDirectReplySubmitting((current) => ({ ...current, [conversationKey]: false }));
+    }
+  };
+
   const handleReact = async (commentId: number | string, reaction: ReactionType) => {
     setReactionError("");
 
@@ -4395,6 +4475,26 @@ function MovieDetailPageContent() {
                                 }
                               }}
                             >
+                              <input
+                                type="text"
+                                value={directReplyDrafts[conversation.key] ?? ""}
+                                onChange={(event) =>
+                                  setDirectReplyDrafts((current) => ({ ...current, [conversation.key]: event.target.value }))
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                                  event.preventDefault();
+                                  void handleSubmitDirectReply(conversation);
+                                }}
+                                enterKeyHint="send"
+                                placeholder={t("movieDetailDirectReplyPlaceholder")}
+                                disabled={!conversation.otherUsername || directReplySubmitting[conversation.key]}
+                                aria-busy={directReplySubmitting[conversation.key] || undefined}
+                                className="mb-3 h-10 w-full rounded-lg border border-[#86ADE0]/35 bg-black/45 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-[#86ADE0] focus:ring-1 focus:ring-[#86ADE0]/40 disabled:cursor-not-allowed disabled:opacity-60"
+                              />
+                              {directReplyErrors[conversation.key] ? (
+                                <p className="mb-3 text-xs text-red-300" role="alert">{directReplyErrors[conversation.key]}</p>
+                              ) : null}
                               <CommentsList
                                 comments={conversation.messages}
                                 emptyMessage={t("movieDetailNoConversationMessages")}
