@@ -26,15 +26,6 @@ function normalizeIdentityId(value: number | string | null | undefined): string 
   return normalized || null;
 }
 
-function getCreatedCommentId(payload: unknown): number | string | null {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-  const root = payload as Record<string, unknown>;
-  const data = root.data && typeof root.data === "object" && !Array.isArray(root.data) ? root.data as Record<string, unknown> : null;
-  const comment = (data?.comment && typeof data.comment === "object" ? data.comment : root.comment && typeof root.comment === "object" ? root.comment : data ?? root) as Record<string, unknown>;
-  const id = comment.id ?? comment.comment_id;
-  return typeof id === "number" || (typeof id === "string" && id.trim()) ? id : null;
-}
-
 export default function NotificationCommentViewer({ comment, movie, movieTitle, locale, allowReactions = false, canDirectReply = false, replyRecipient = null, authenticatedUserId = null, onClose, onMovieOpen }: NotificationCommentViewerProps) {
   const [displayedComment, setDisplayedComment] = useState(comment);
   const [reacting, setReacting] = useState(false);
@@ -113,9 +104,7 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
       const endpoints = buildMovieDirectedSubmitEndpoints(movieId);
       for (let index = 0; index < endpoints.length; index += 1) {
         try {
-          const createdPayload = await apiFetch(endpoints[index], { method: "POST", body: JSON.stringify(payload) });
-          const createdCommentId = getCreatedCommentId(createdPayload);
-          if (createdCommentId === null) throw new Error("directed-reply-missing-created-id");
+          await apiFetch(endpoints[index], { method: "POST", body: JSON.stringify(payload) });
           setReplyText("");
           setReplyStatus("sent");
           closeTimerRef.current = window.setTimeout(onClose, 650);
