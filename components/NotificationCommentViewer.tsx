@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, apiFetch } from "../lib/api";
 import { t as translate } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
-import { buildCommentDetailEndpoint, buildMovieDirectedSubmitEndpoints, buildReactionEndpoint, formatSocialDate, parseComments, type ReactionType, type SocialComment } from "../lib/social";
+import { buildMovieDirectedSubmitEndpoints, buildReactionEndpoint, formatSocialDate, type ReactionType, type SocialComment } from "../lib/social";
 import ReactionButtons from "./social/ReactionButtons";
 
 interface NotificationCommentViewerProps {
@@ -116,24 +116,6 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
           const createdPayload = await apiFetch(endpoints[index], { method: "POST", body: JSON.stringify(payload) });
           const createdCommentId = getCreatedCommentId(createdPayload);
           if (createdCommentId === null) throw new Error("directed-reply-missing-created-id");
-
-          const persistedPayload = await apiFetch(buildCommentDetailEndpoint(createdCommentId), { cache: "no-store" });
-          const persistedRecord = persistedPayload && typeof persistedPayload === "object" && !Array.isArray(persistedPayload)
-            ? persistedPayload as Record<string, unknown>
-            : null;
-          const persistedData = persistedRecord?.data && typeof persistedRecord.data === "object" && !Array.isArray(persistedRecord.data)
-            ? persistedRecord.data as Record<string, unknown>
-            : null;
-          const persistedComment = parseComments([persistedData?.comment ?? persistedRecord?.comment ?? persistedData ?? persistedPayload], "directed")[0];
-          const persistedRecipientId = normalizeIdentityId(persistedComment?.targetUserId);
-          const persistedMovieId = normalizeIdentityId(persistedComment?.movieId);
-          if (
-            !persistedComment || String(persistedComment.id) !== String(createdCommentId) ||
-            persistedComment.type !== "directed" || persistedComment.text.trim() !== body ||
-            persistedRecipientId !== recipientId || persistedMovieId !== normalizeIdentityId(movieId)
-          ) {
-            throw new Error("directed-reply-persistence-mismatch");
-          }
           setReplyText("");
           setReplyStatus("sent");
           closeTimerRef.current = window.setTimeout(onClose, 650);

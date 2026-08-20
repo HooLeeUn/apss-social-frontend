@@ -55,10 +55,9 @@ test("directed notification modal replies through the existing directed-comment 
   assert.match(modalSource, /buildMovieDirectedSubmitEndpoints\(movieId\)/);
   assert.match(modalSource, /replyingRef\.current \|\| !body/);
   assert.match(modalSource, /getCreatedCommentId\(createdPayload\)/);
-  assert.match(modalSource, /buildCommentDetailEndpoint\(createdCommentId\)/);
-  assert.match(modalSource, /persistedComment\.type !== "directed"/);
-  assert.match(modalSource, /persistedRecipientId !== recipientId/);
-  assert.match(modalSource, /persistedMovieId !== normalizeIdentityId\(movieId\)/);
+  assert.match(modalSource, /createdCommentId === null/);
+  assert.doesNotMatch(modalSource, /buildCommentDetailEndpoint\(createdCommentId\)/);
+  assert.doesNotMatch(modalSource, /directed-reply-persistence-mismatch/);
   assert.match(modalSource, /setReplyText\(""\)[\s\S]*setReplyStatus\("sent"\)[\s\S]*setTimeout\(onClose, 650\)/);
   assert.doesNotMatch(modalSource, /body:\s*`@\$\{recipientUsername\}/);
 });
