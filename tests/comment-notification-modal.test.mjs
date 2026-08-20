@@ -27,6 +27,8 @@ test("a new private-message notification reuses the exact directed-comment modal
   assert.match(feedSource, /item\.movieId !== null && \(isReceivedCommentReaction \|\| isNewDirectedMessage\)/);
   assert.match(feedSource, /String\(isPublicCommentReaction \? item\.commentId : item\.directedCommentId\)/);
   assert.match(feedSource, /allowReactions: fallbackType === "directed" && comment\.type === "directed" && item\.directedCommentId !== null/);
+  assert.match(feedSource, /canDirectReply: isNewDirectedMessage/);
+  assert.match(feedSource, /replyRecipient: isNewDirectedMessage && item\.actorId !== null && item\.actorUsername/);
   assert.ok(feedSource.indexOf("if (shouldOpenCommentModal)") < feedSource.indexOf("if (isReceivedVideoReaction)"));
 });
 
@@ -48,19 +50,24 @@ test("directed reaction notifications enable controls from the recovered comment
 });
 
 test("directed notification modal replies through the existing directed-comment contract", () => {
-  assert.match(modalSource, /displayedComment\.authorUsername\.trim\(\)\.replace/);
-  assert.match(modalSource, /displayedComment\.authorId !== null/);
+  assert.match(modalSource, /recipientId === originalSenderId && recipientId !== currentUserId/);
   assert.match(modalSource, /const payload = \{ body, mentioned_username: recipientUsername, movie_id: String\(movieId\) \}/);
   assert.match(modalSource, /buildMovieDirectedSubmitEndpoints\(movieId\)/);
   assert.match(modalSource, /replyingRef\.current \|\| !body/);
-  assert.match(modalSource, /setReplyText\(""\)[\s\S]*setReplyStatus\("sent"\)/);
+  assert.match(modalSource, /getCreatedCommentId\(createdPayload\)/);
+  assert.match(modalSource, /buildCommentDetailEndpoint\(createdCommentId\)/);
+  assert.match(modalSource, /persistedComment\.type !== "directed"/);
+  assert.match(modalSource, /persistedRecipientId !== recipientId/);
+  assert.match(modalSource, /persistedMovieId !== normalizeIdentityId\(movieId\)/);
+  assert.match(modalSource, /setReplyText\(""\)[\s\S]*setReplyStatus\("sent"\)[\s\S]*setTimeout\(onClose, 650\)/);
   assert.doesNotMatch(modalSource, /body:\s*`@\$\{recipientUsername\}/);
 });
 
-test("directed reply controls are localized, responsive, and keep the modal open", () => {
+test("only private-message events expose localized responsive reply controls", () => {
   assert.match(modalSource, /notificationReplyPlaceholder/);
   assert.match(modalSource, /notificationReplyButton/);
   assert.match(modalSource, /flex flex-col gap-2 sm:flex-row/);
-  assert.doesNotMatch(modalSource, /setNotificationComment/);
+  assert.match(modalSource, /\{canDirectReply \? \(/);
+  assert.doesNotMatch(modalSource, /\{displayedComment\.type === "directed" \? \(/);
   assert.match(modalSource, /setReplyStatus\("error"\)/);
 });

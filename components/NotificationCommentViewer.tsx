@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, apiFetch } from "../lib/api";
 import { t as translate } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
-import { buildMovieDirectedSubmitEndpoints, buildReactionEndpoint, formatSocialDate, type ReactionType, type SocialComment } from "../lib/social";
+import { buildCommentDetailEndpoint, buildMovieDirectedSubmitEndpoints, buildReactionEndpoint, formatSocialDate, parseComments, type ReactionType, type SocialComment } from "../lib/social";
 import ReactionButtons from "./social/ReactionButtons";
 
 interface NotificationCommentViewerProps {
@@ -13,17 +13,36 @@ interface NotificationCommentViewerProps {
   movieTitle: string;
   locale: "es" | "en";
   allowReactions?: boolean;
+  canDirectReply?: boolean;
+  replyRecipient?: { id: number | string; username: string } | null;
+  authenticatedUserId?: number | string | null;
   onClose: () => void;
   onMovieOpen: () => void;
 }
 
-export default function NotificationCommentViewer({ comment, movie, movieTitle, locale, allowReactions = false, onClose, onMovieOpen }: NotificationCommentViewerProps) {
+function normalizeIdentityId(value: number | string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+function getCreatedCommentId(payload: unknown): number | string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const root = payload as Record<string, unknown>;
+  const data = root.data && typeof root.data === "object" && !Array.isArray(root.data) ? root.data as Record<string, unknown> : null;
+  const comment = (data?.comment && typeof data.comment === "object" ? data.comment : root.comment && typeof root.comment === "object" ? root.comment : data ?? root) as Record<string, unknown>;
+  const id = comment.id ?? comment.comment_id;
+  return typeof id === "number" || (typeof id === "string" && id.trim()) ? id : null;
+}
+
+export default function NotificationCommentViewer({ comment, movie, movieTitle, locale, allowReactions = false, canDirectReply = false, replyRecipient = null, authenticatedUserId = null, onClose, onMovieOpen }: NotificationCommentViewerProps) {
   const [displayedComment, setDisplayedComment] = useState(comment);
   const [reacting, setReacting] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replyStatus, setReplyStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const reactingRef = useRef(false);
   const replyingRef = useRef(false);
+  const closeTimerRef = useRef<number | null>(null);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -34,6 +53,7 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
     };
   }, [onClose]);
 
@@ -64,8 +84,14 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
   };
 
   const authorLabel = displayedComment.authorName || displayedComment.authorUsername;
-  const recipientUsername = displayedComment.authorUsername.trim().replace(/^@+/, "");
-  const canReply = displayedComment.type === "directed" && displayedComment.authorId !== null && recipientUsername.length > 0;
+  const recipientUsername = replyRecipient?.username.trim().replace(/^@+/, "") ?? "";
+  const recipientId = normalizeIdentityId(replyRecipient?.id);
+  const currentUserId = normalizeIdentityId(authenticatedUserId);
+  const originalSenderId = normalizeIdentityId(displayedComment.authorId);
+  const hasValidReplyRecipient = Boolean(
+    recipientId && currentUserId && originalSenderId && recipientUsername &&
+    recipientId === originalSenderId && recipientId !== currentUserId,
+  );
   const badge = displayedComment.type === "public"
     ? (locale === "en" ? "Public comment" : "Comentario público")
     : (locale === "en" ? "Directed comment" : "Comentario dirigido");
@@ -73,7 +99,7 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
   const handleReply = async () => {
     const body = replyText.trim();
     if (replyingRef.current || !body) return;
-    if (!canReply) {
+    if (!canDirectReply || !hasValidReplyRecipient || !replyRecipient) {
       setReplyStatus("error");
       return;
     }
@@ -87,9 +113,30 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
       const endpoints = buildMovieDirectedSubmitEndpoints(movieId);
       for (let index = 0; index < endpoints.length; index += 1) {
         try {
-          await apiFetch(endpoints[index], { method: "POST", body: JSON.stringify(payload) });
+          const createdPayload = await apiFetch(endpoints[index], { method: "POST", body: JSON.stringify(payload) });
+          const createdCommentId = getCreatedCommentId(createdPayload);
+          if (createdCommentId === null) throw new Error("directed-reply-missing-created-id");
+
+          const persistedPayload = await apiFetch(buildCommentDetailEndpoint(createdCommentId), { cache: "no-store" });
+          const persistedRecord = persistedPayload && typeof persistedPayload === "object" && !Array.isArray(persistedPayload)
+            ? persistedPayload as Record<string, unknown>
+            : null;
+          const persistedData = persistedRecord?.data && typeof persistedRecord.data === "object" && !Array.isArray(persistedRecord.data)
+            ? persistedRecord.data as Record<string, unknown>
+            : null;
+          const persistedComment = parseComments([persistedData?.comment ?? persistedRecord?.comment ?? persistedData ?? persistedPayload], "directed")[0];
+          const persistedRecipientId = normalizeIdentityId(persistedComment?.targetUserId);
+          const persistedMovieId = normalizeIdentityId(persistedComment?.movieId);
+          if (
+            !persistedComment || String(persistedComment.id) !== String(createdCommentId) ||
+            persistedComment.type !== "directed" || persistedComment.text.trim() !== body ||
+            persistedRecipientId !== recipientId || persistedMovieId !== normalizeIdentityId(movieId)
+          ) {
+            throw new Error("directed-reply-persistence-mismatch");
+          }
           setReplyText("");
           setReplyStatus("sent");
+          closeTimerRef.current = window.setTimeout(onClose, 650);
           return;
         } catch (error) {
           if (error instanceof ApiError && [404, 405].includes(error.status) && index < endpoints.length - 1) continue;
@@ -143,7 +190,7 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
           <div className="mt-5 flex items-center gap-4 border-t border-white/10 pt-4 text-sm text-zinc-300 [&_button]:cursor-pointer" aria-label={locale === "en" ? "Reaction counts" : "Contadores de reacciones"}>
             {allowReactions ? <ReactionButtons comment={displayedComment} onReact={handleReact} disabled={reacting} /> : <><span>👍 {displayedComment.likesCount}</span><span>👎 {displayedComment.dislikesCount}</span></>}
           </div>
-          {displayedComment.type === "directed" ? (
+          {canDirectReply ? (
             <form className="mt-4 border-t border-white/10 pt-4" onSubmit={(event) => { event.preventDefault(); void handleReply(); }}>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <textarea
@@ -155,7 +202,7 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
                   aria-label={translate(locale, "notificationReplyPlaceholder").replace("{username}", recipientUsername)}
                   className="min-h-12 min-w-0 flex-1 resize-none rounded-xl border border-white/15 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-blue-300 disabled:opacity-60"
                 />
-                <button type="submit" disabled={!canReply || !replyText.trim() || replyStatus === "sending"} className="min-h-11 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="submit" disabled={!hasValidReplyRecipient || !replyText.trim() || replyStatus === "sending"} className="min-h-11 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
                   {replyStatus === "sending" ? translate(locale, "notificationReplySending") : translate(locale, "notificationReplyButton")}
                 </button>
               </div>
