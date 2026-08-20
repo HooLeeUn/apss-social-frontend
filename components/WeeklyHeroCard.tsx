@@ -90,7 +90,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const tagIconClassName = `interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
-    <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
+    <article className="weekly-hero-card relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
         <div className="mx-auto w-full max-w-[270px] px-4 pt-3 sm:max-w-[270px] lg:max-w-[288px]">
           <div className="relative h-[318px] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900 lg:aspect-[2/3] lg:h-auto" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave} {...trailerLongPress.posterProps}>
@@ -215,18 +215,18 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </p>
 
           <div className="mt-2 grid grid-cols-3 gap-1.5 pt-1 text-xs lg:mt-auto lg:gap-3 lg:pt-3 lg:text-sm">
-            <div className="rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
+            <div className="weekly-hero-rating weekly-hero-rating--general rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">General</p>
-              <p className="whitespace-nowrap text-sm font-semibold text-zinc-100 lg:text-base">⭐ {formatAverageRating(movie?.displayRating)}</p>
+              <p className="weekly-hero-rating__value whitespace-nowrap text-sm font-semibold text-zinc-100 lg:text-base">⭐ {formatAverageRating(movie?.displayRating)}</p>
             </div>
-            <div className="rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
+            <div className="weekly-hero-rating weekly-hero-rating--following rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("following")}</p>
               <p className="whitespace-nowrap text-sm font-semibold text-zinc-100 lg:text-base">👥 {formatFollowingRating(movie?.followingAvgRating)}</p>
               {formatFollowingRatingsCount(movie?.followingRatingsCount) ? (
                 <p className="text-[10px] text-zinc-500">{formatFollowingRatingsCount(movie?.followingRatingsCount)}</p>
               ) : null}
             </div>
-            <div className="rounded-lg border border-transparent bg-blue-950/25 px-1.5 py-1.5 transition-all duration-150 hover:-translate-y-px lg:bg-blue-950/35 lg:px-3 lg:py-2 lg:shadow-[0_4px_12px_rgba(59,130,246,0.22)] lg:hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
+            <div className="weekly-hero-rating weekly-hero-rating--mine rounded-lg border border-transparent bg-blue-950/25 px-1.5 py-1.5 transition-all duration-150 hover:-translate-y-px lg:bg-blue-950/35 lg:px-3 lg:py-2 lg:shadow-[0_4px_12px_rgba(59,130,246,0.22)] lg:hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
                 {movie && onRated ? (

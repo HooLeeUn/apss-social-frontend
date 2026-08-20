@@ -265,6 +265,248 @@ textarea,
   filter: brightness(0) saturate(100%) invert(45%) sepia(96%) saturate(2107%) hue-rotate(196deg) brightness(101%) contrast(101%);
 }
 
+/* The weekly desktop composition uses real layout dimensions (rather than a
+   visual transform) so its cards and hit targets stay aligned at 100% zoom. */
+@media (min-width: 1024px) {
+  .feed-shell {
+    gap: 0.875rem;
+    padding-top: 0.5rem;
+  }
+
+  .feed-header {
+    gap: 0.375rem;
+    padding-block: 0.375rem;
+  }
+
+  .feed-header__brand {
+    top: 0.5rem;
+    width: 18.5rem;
+    height: 5.125rem;
+    padding-left: 1rem;
+  }
+
+  .feed-header__logo {
+    height: 5.125rem;
+    max-width: 16.25rem;
+    transform: none;
+  }
+
+  .feed-header__search {
+    padding: 0.1875rem;
+  }
+
+  .feed-header__search input {
+    min-height: 2rem;
+    padding-block: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .feed-header__genres,
+  .feed-header__genres > div {
+    gap: 0.375rem;
+  }
+
+  .feed-header__genres > div {
+    padding-bottom: 0;
+  }
+
+  .feed-header__genres button {
+    padding: 0.125rem 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+  }
+
+  .feed-header__genre-note {
+    font-size: 0.625rem;
+    line-height: 0.75rem;
+  }
+
+  .feed-header__account {
+    top: 0.5rem;
+  }
+
+  .feed-header__account button[aria-label="Ver notificaciones"] {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .feed-header__account button[aria-label="Perfil de usuario"] {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .feed-header__account [id="streaming-country-button"] {
+    height: 2rem;
+    padding-block: 0.125rem;
+  }
+
+  .feed-header__menu {
+    top: 3.75rem;
+    z-index: 80;
+  }
+
+  .feed-header__account:has(#streaming-country-button[aria-expanded="true"]) {
+    z-index: 100;
+  }
+
+  .feed-header__menu > div > button {
+    padding-block: 0.375rem;
+  }
+
+  .feed-header__menu > div > button > span:first-child {
+    height: 0.75rem;
+  }
+
+  .feed-header__menu > div > button > span:nth-child(2) {
+    height: 1.25rem;
+    margin-top: 0.25rem;
+    font-size: 0.5625rem;
+    line-height: 1.25rem;
+  }
+
+  .weekly-recommendations__title {
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+  }
+
+  .weekly-recommendations__desktop {
+    width: 100%;
+    min-width: 0;
+    height: clamp(26rem, calc(100vh - 20rem), 30rem);
+  }
+
+  .weekly-hero-card > div > div:first-child {
+    max-width: 10.75rem;
+    padding-inline: 0.625rem;
+    padding-top: 0.375rem;
+  }
+
+  .weekly-hero-card > div > div:first-child > div:first-child {
+    aspect-ratio: 2 / 3;
+  }
+
+  .weekly-hero-card > div > div:last-child {
+    padding: 0.5rem 0.625rem;
+  }
+
+  .weekly-hero-card h3 {
+    font-size: 1rem;
+  }
+
+  .weekly-hero-card h3 + p,
+  .weekly-hero-card h3 ~ p {
+    font-size: 0.6875rem;
+  }
+
+  .weekly-hero-card .interaction-icon--hero-lg {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .weekly-hero-card a[aria-label^="Ir al perfil"],
+  .weekly-hero-card div[aria-label^="Top user"] {
+    width: 2rem;
+    height: 2rem;
+    margin-left: -1.5rem;
+  }
+
+  .weekly-hero-card button[class*="h-9"] {
+    width: 1.875rem;
+    height: 1.875rem;
+  }
+
+  .weekly-hero-card button[aria-label^="Ver sinopsis"] {
+    margin-right: -1.5rem;
+  }
+
+  .weekly-hero-card [class*="grid-cols-3"] {
+    gap: 0.25rem;
+    padding-top: 0.25rem;
+  }
+
+  .weekly-hero-card [class*="grid-cols-3"] > div {
+    padding: 0.25rem 0.375rem;
+  }
+
+  .weekly-hero-card [class*="grid-cols-3"] p {
+    font-size: 0.625rem;
+  }
+
+  .weekly-hero-rating {
+    text-align: center;
+  }
+
+  .weekly-hero-rating--general .weekly-hero-rating__value {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    font-size: 1rem;
+    line-height: 1.25rem;
+  }
+
+  .weekly-hero-rating--general {
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+
+  .weekly-hero-rating--following > p {
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .weekly-hero-rating--mine > div,
+  .weekly-hero-rating--mine [role="button"],
+  .weekly-hero-rating--mine button {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .weekly-mini-card > .interaction-icons {
+    left: 2rem;
+    top: 52%;
+  }
+
+  .weekly-mini-card .interaction-icon--mini-lg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .weekly-mini-card > a,
+  .weekly-mini-card > div[aria-label^="Top user"] {
+    width: 1.75rem;
+    height: 1.75rem;
+    top: 60%;
+  }
+
+  .weekly-mini-card h4 {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .weekly-mini-card [class*="min-h-[2.7rem]"] {
+    min-height: 2rem;
+    margin-top: 0.25rem;
+  }
+
+  .weekly-mini-card [class~="pt-2"] {
+    padding-top: 0.375rem;
+  }
+
+  .weekly-mini-card > div:last-of-type > div > div:first-child {
+    padding: 0.3rem 0.4rem;
+  }
+
+  .weekly-mini-card > div[class*="right-"] {
+    top: calc(52% + 0.5rem);
+  }
+
+  .weekly-mini-card > div:last-of-type > div > div:last-child {
+    min-width: 4rem;
+    max-width: 4.75rem;
+  }
+}
+
 .synopsis-popover-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #4a4a4a #121212;

@@ -100,9 +100,17 @@ export default function RatingPopover({
       const rect = triggerRef.current.getBoundingClientRect();
       const maxLeft = Math.max(8, window.innerWidth - POPOVER_WIDTH - 8);
       const alignedLeft = rect.right - POPOVER_WIDTH;
+      const popoverHeight = popoverRef.current?.offsetHeight ?? 180;
+      const availableBelow = window.innerHeight - rect.bottom;
+      const availableAbove = rect.top;
+      const shouldOpenAbove = window.matchMedia("(min-width: 1024px)").matches
+        && availableBelow < popoverHeight + 8
+        && availableAbove > availableBelow;
+      const desiredTop = shouldOpenAbove ? rect.top - popoverHeight - 8 : rect.bottom + 8;
+      const maxTop = Math.max(8, window.innerHeight - popoverHeight - 8);
 
       setPopoverPosition({
-        top: rect.bottom + 8,
+        top: Math.min(Math.max(8, desiredTop), maxTop),
         left: Math.min(Math.max(8, alignedLeft), maxLeft),
       });
     };
