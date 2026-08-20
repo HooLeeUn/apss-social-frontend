@@ -1025,13 +1025,13 @@ export default function FeedPage() {
       <div className="feed-shell mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="feed-header sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-3 lg:px-0 relative">
           <div className="flex items-center gap-3 lg:block">
-            <div className="relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
+            <div className="feed-header__brand relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
               <MobileFeedDefaultLogo branding={branding} onClick={handleMobileLogoClick} />
               <AppLogo
                 branding={branding}
                 slot="feed_logo_url"
                 alt="QNext"
-                className="hidden h-24 w-auto max-w-[260px] translate-y-1 object-contain object-left lg:block"
+                className="feed-header__logo hidden h-24 w-auto max-w-[260px] translate-y-1 object-contain object-left lg:block"
                 textClassName="hidden bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text font-bold uppercase tracking-[0.18em] text-transparent lg:block lg:text-xs"
                 eager
                 fallbackText="QNext"
@@ -1060,7 +1060,7 @@ export default function FeedPage() {
                 iconOnly
               />
             </div>
-            <div className="feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 lg:pointer-events-none lg:absolute lg:right-4 lg:top-6 lg:block lg:pr-1">
+            <div className="feed-header__account feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 lg:pointer-events-none lg:absolute lg:right-4 lg:top-6 lg:block lg:pr-1">
               <div className="pointer-events-auto relative flex w-auto flex-col items-end lg:w-[198px] lg:items-center">
                 <div className="flex items-center gap-2">
                 <button
@@ -1142,15 +1142,15 @@ export default function FeedPage() {
           </div>
           </div>
 
-          <div className="feed-desktop-only hidden items-center justify-between gap-3 lg:block">
+          <div className="feed-header__search-row feed-desktop-only hidden items-center justify-between gap-3 lg:block">
             <SearchBar
               locale={locale}
-              className="mx-0 w-[52%] min-w-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5 sm:w-[58%] lg:mx-auto lg:w-full lg:max-w-2xl"
+              className="feed-header__search mx-0 w-[52%] min-w-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5 sm:w-[58%] lg:mx-auto lg:w-full lg:max-w-2xl"
               inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
               showSearchIcon
               inlineAutocomplete
             />
-            <div className="relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] lg:absolute lg:right-4 lg:top-[5.75rem] lg:[&>div]:w-[198px]">
+            <div className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] lg:absolute lg:right-4 lg:top-[5.75rem] lg:[&>div]:w-[198px]">
               <DirectorBoardMenu
                 locale={locale}
                 isOpen={isDirectorBoardOpen}
@@ -1171,7 +1171,7 @@ export default function FeedPage() {
             onToggleGenre={toggleGenreSelection}
             onClearSelection={() => setSelectedGenres([])}
             showAllChip={selectedGenres.length > 0}
-            className="w-full justify-start overflow-hidden lg:justify-center"
+            className="feed-header__genres w-full justify-start overflow-hidden lg:justify-center"
             chipsContainerClassName="w-full flex-none justify-start overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:w-auto lg:flex-initial lg:justify-center lg:overflow-visible"
             chipClassName="border-2"
             selectedChipClassName="border-blue-300/90 bg-gradient-to-b from-blue-300/25 to-blue-600/40 text-blue-50 shadow-[0_4px_14px_rgba(56,189,248,0.35)]"
@@ -1180,7 +1180,7 @@ export default function FeedPage() {
             isGenreDisabled={shouldDisableGenreChip}
           />
 
-          <p className="text-center text-xs text-zinc-500">{translate(locale, "chooseGenres")}</p>
+          <p className="feed-header__genre-note text-center text-xs text-zinc-500">{translate(locale, "chooseGenres")}</p>
         </div>
 
         <section className="space-y-5">

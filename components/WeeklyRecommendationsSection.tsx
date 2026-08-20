@@ -55,7 +55,7 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
 
   return (
     <section className="weekly-recommendations space-y-4 pt-4 pb-8 lg:space-y-4 lg:pb-0 lg:pt-0">
-      <h2 className="text-center text-2xl font-semibold text-zinc-100">{t("weeklyRecs")}</h2>
+      <h2 className="weekly-recommendations__title text-center text-2xl font-semibold text-zinc-100">{t("weeklyRecs")}</h2>
 
       <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
         <div className="min-h-[34.5rem] w-[min(84vw,22rem)] flex-none snap-center">
