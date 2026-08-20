@@ -24,6 +24,7 @@ interface ProfileIdentityCardProps {
   avatarHref?: string;
   avatarLinkLabel?: string;
   constrainDesktopAvatar?: boolean;
+  fitDesktopPersonalDataRow?: boolean;
 }
 
 function formatGender(gender: string): string {
@@ -63,6 +64,7 @@ export default function ProfileIdentityCard({
   avatarHref,
   avatarLinkLabel,
   constrainDesktopAvatar = false,
+  fitDesktopPersonalDataRow = false,
 }: ProfileIdentityCardProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);
@@ -151,14 +153,14 @@ export default function ProfileIdentityCard({
       </div>
 
       {shouldRenderPersonalData ? (
-        <div className={`relative flex flex-wrap items-center gap-2 ${personalDataSpacingClass}`}>
+        <div className={`relative flex flex-wrap items-center gap-2 ${fitDesktopPersonalDataRow ? "lg:flex-nowrap lg:gap-1" : ""} ${personalDataSpacingClass}`}>
           {canShowGender ? (
-            <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
+            <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "lg:shrink-0 lg:whitespace-nowrap lg:px-1.5 lg:text-[11px]" : ""}`}>
               {formatGender(genderIdentity as string)}
             </span>
           ) : null}
           {canShowAge ? (
-            <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
+            <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "lg:shrink-0 lg:whitespace-nowrap lg:px-1.5 lg:text-[11px]" : ""}`}>
               {formatAge(age)}
             </span>
           ) : null}
@@ -167,11 +169,16 @@ export default function ProfileIdentityCard({
               {followersCopy}
             </span>
           ) : null}
+          {fitDesktopPersonalDataRow && canShowFollowers && canShowAge ? (
+            <span className="hidden min-w-0 shrink-0 whitespace-nowrap rounded-full border border-white/15 bg-zinc-950/70 px-1.5 py-1 text-[11px] text-zinc-300 lg:inline-block">
+              {followersCopy}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
       {canShowFollowers && canShowAge ? (
-        <div className="absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300">
+        <div className={`absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "lg:hidden" : ""}`}>
           {followersCopy}
         </div>
       ) : null}
