@@ -26,5 +26,16 @@ test("a new private-message notification reuses the exact directed-comment modal
   assert.match(feedSource, /item\.type === "private_message" && item\.directedCommentId !== null/);
   assert.match(feedSource, /item\.movieId !== null && \(isReceivedCommentReaction \|\| isNewDirectedMessage\)/);
   assert.match(feedSource, /String\(isPublicCommentReaction \? item\.commentId : item\.directedCommentId\)/);
+  assert.match(feedSource, /allowReactions: isNewDirectedMessage/);
   assert.ok(feedSource.indexOf("if (shouldOpenCommentModal)") < feedSource.indexOf("if (isReceivedVideoReaction)"));
+});
+
+test("only new private-message modals reuse the canonical directed-comment reaction controls and endpoint", () => {
+  assert.match(modalSource, /<ReactionButtons comment=\{displayedComment\} onReact=\{handleReact\} disabled=\{reacting\}/);
+  assert.match(modalSource, /buildReactionEndpoint\(commentId\)/);
+  assert.match(modalSource, /reaction === null[\s\S]*method: "DELETE"[\s\S]*method: "PUT"/);
+  assert.match(modalSource, /response\.likes_count/);
+  assert.match(modalSource, /response\.dislikes_count/);
+  assert.match(modalSource, /response\.my_reaction/);
+  assert.match(modalSource, /if \(!allowReactions \|\| reactingRef\.current\) return/);
 });

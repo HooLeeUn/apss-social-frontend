@@ -1,19 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { apiFetch } from "../lib/api";
 import type { Movie } from "../lib/movies";
-import { formatSocialDate, type SocialComment } from "../lib/social";
+import { buildReactionEndpoint, formatSocialDate, type ReactionType, type SocialComment } from "../lib/social";
+import ReactionButtons from "./social/ReactionButtons";
 
 interface NotificationCommentViewerProps {
   comment: SocialComment;
   movie: Movie;
   movieTitle: string;
   locale: "es" | "en";
+  allowReactions?: boolean;
   onClose: () => void;
   onMovieOpen: () => void;
 }
 
-export default function NotificationCommentViewer({ comment, movie, movieTitle, locale, onClose, onMovieOpen }: NotificationCommentViewerProps) {
+export default function NotificationCommentViewer({ comment, movie, movieTitle, locale, allowReactions = false, onClose, onMovieOpen }: NotificationCommentViewerProps) {
+  const [displayedComment, setDisplayedComment] = useState(comment);
+  const [reacting, setReacting] = useState(false);
+  const reactingRef = useRef(false);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -27,8 +33,34 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
     };
   }, [onClose]);
 
-  const authorLabel = comment.authorName || comment.authorUsername;
-  const badge = comment.type === "public"
+  const handleReact = async (commentId: number | string, reaction: ReactionType) => {
+    if (!allowReactions || reactingRef.current) return;
+    reactingRef.current = true;
+    setReacting(true);
+    try {
+      const response = await apiFetch(
+        buildReactionEndpoint(commentId),
+        reaction === null
+          ? { method: "DELETE" }
+          : { method: "PUT", body: JSON.stringify({ reaction }) },
+      ) as Record<string, unknown>;
+      if (String(response.comment_id) !== String(commentId)) throw new Error("comment-reaction-id-mismatch");
+      const likesCount = Number(response.likes_count);
+      const dislikesCount = Number(response.dislikes_count);
+      const rawMyReaction = typeof response.my_reaction === "string" ? response.my_reaction.toLowerCase() : null;
+      const myReaction: ReactionType = rawMyReaction === "like" || rawMyReaction === "dislike" ? rawMyReaction : null;
+      if (!Number.isFinite(likesCount) || !Number.isFinite(dislikesCount)) throw new Error("invalid-comment-reaction-response");
+      setDisplayedComment((current) => ({ ...current, likesCount, dislikesCount, myReaction }));
+    } catch (error) {
+      console.error("Reaction request failed in notification comment modal", error);
+    } finally {
+      reactingRef.current = false;
+      setReacting(false);
+    }
+  };
+
+  const authorLabel = displayedComment.authorName || displayedComment.authorUsername;
+  const badge = displayedComment.type === "public"
     ? (locale === "en" ? "Public comment" : "Comentario público")
     : (locale === "en" ? "Directed comment" : "Comentario dirigido");
 
@@ -57,20 +89,19 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-800 text-sm font-semibold text-zinc-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {comment.authorAvatar ? <img src={comment.authorAvatar} alt={authorLabel} className="h-full w-full object-cover" /> : authorLabel.slice(0, 1).toUpperCase()}
+                {displayedComment.authorAvatar ? <img src={displayedComment.authorAvatar} alt={authorLabel} className="h-full w-full object-cover" /> : authorLabel.slice(0, 1).toUpperCase()}
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-zinc-100">{authorLabel}</p>
-                {comment.authorUsername && comment.authorUsername !== authorLabel ? <p className="truncate text-xs text-zinc-400">@{comment.authorUsername}</p> : null}
-                <p className="text-xs text-zinc-500">{formatSocialDate(comment.createdAt, locale, locale === "en" ? "No date" : "Sin fecha")}</p>
+                {displayedComment.authorUsername && displayedComment.authorUsername !== authorLabel ? <p className="truncate text-xs text-zinc-400">@{displayedComment.authorUsername}</p> : null}
+                <p className="text-xs text-zinc-500">{formatSocialDate(displayedComment.createdAt, locale, locale === "en" ? "No date" : "Sin fecha")}</p>
               </div>
             </div>
             <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-zinc-300">{badge}</span>
           </div>
-          <p className="mt-5 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-100 sm:text-base">{comment.text}</p>
-          <div className="mt-5 flex items-center gap-4 border-t border-white/10 pt-4 text-sm text-zinc-300" aria-label={locale === "en" ? "Reaction counts" : "Contadores de reacciones"}>
-            <span>👍 {comment.likesCount}</span>
-            <span>👎 {comment.dislikesCount}</span>
+          <p className="mt-5 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-100 sm:text-base">{displayedComment.text}</p>
+          <div className="mt-5 flex items-center gap-4 border-t border-white/10 pt-4 text-sm text-zinc-300 [&_button]:cursor-pointer" aria-label={locale === "en" ? "Reaction counts" : "Contadores de reacciones"}>
+            {allowReactions ? <ReactionButtons comment={displayedComment} onReact={handleReact} disabled={reacting} /> : <><span>👍 {displayedComment.likesCount}</span><span>👎 {displayedComment.dislikesCount}</span></>}
           </div>
         </div>
       </article>

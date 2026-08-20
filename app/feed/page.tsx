@@ -226,7 +226,7 @@ export default function FeedPage() {
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
-  const [notificationComment, setNotificationComment] = useState<{ comment: SocialComment; movie: Movie } | null>(null);
+  const [notificationComment, setNotificationComment] = useState<{ comment: SocialComment; movie: Movie; allowReactions: boolean } | null>(null);
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
@@ -719,7 +719,7 @@ export default function FeedPage() {
           const commentRecord = rawCommentData?.comment ?? rawCommentRecord?.comment ?? rawCommentData ?? rawComment;
           const comment = parseComments([commentRecord], fallbackType)[0];
           if (!comment || String(comment.id) !== commentId || !rawMovie || typeof rawMovie !== "object") throw new Error("notification-comment-not-found");
-          setNotificationComment({ comment, movie: normalizeMovie(rawMovie as Record<string, unknown>, 0) });
+          setNotificationComment({ comment, movie: normalizeMovie(rawMovie as Record<string, unknown>, 0), allowReactions: isNewDirectedMessage });
           if (isRealNotificationId(item.id)) await markNotificationsAsReadBatch([item.id]);
           setNotificationItems((current) => current.filter((notificationItem) => notificationItem.id !== item.id));
           setUnreadNotificationsCount((current) => Math.max(0, current - 1));
@@ -1315,6 +1315,7 @@ export default function FeedPage() {
           movie={notificationComment.movie}
           movieTitle={resolveMovieTitles(locale, notificationComment.movie.titleSpanish, notificationComment.movie.titleEnglish, notificationComment.movie.displayTitle).primary}
           locale={locale}
+          allowReactions={notificationComment.allowReactions}
           onClose={() => setNotificationComment(null)}
           onMovieOpen={() => {
             const movieId = String(notificationComment.movie.id);
