@@ -39,7 +39,13 @@ import { useAppBranding } from "../../../hooks/useAppBranding";
 import { useI18n } from "../../../hooks/useI18n";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
 import { getProfilePrivacySettings } from "../../../lib/privacy";
-import { getMyProfile, getTopFollowing } from "../../../lib/profile-feed/adapters";
+import {
+  getMyNotificationsSummary,
+  getMyProfile,
+  getTopFollowing,
+  isRealNotificationId,
+  markNotificationsAsReadBatch,
+} from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { resolveMovieTitles, t as translate } from "../../../lib/i18n";
 
@@ -307,6 +313,23 @@ function mergeUniqueMessages(existing: SocialComment[], incoming: SocialComment[
     byId.set(String(message.id), message);
   });
   return [...byId.values()].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
+}
+
+function mergeDirectedConversationSnapshots(
+  existing: DirectedConversation[],
+  incoming: DirectedConversation[],
+): DirectedConversation[] {
+  const existingByKey = new Map(existing.map((conversation) => [conversation.key, conversation]));
+  const merged = incoming.map((conversation) => {
+    const current = existingByKey.get(conversation.key);
+    return current
+      ? { ...conversation, messages: mergeUniqueMessages(current.messages, conversation.messages) }
+      : conversation;
+  });
+  const incomingKeys = new Set(incoming.map((conversation) => conversation.key));
+  return [...merged, ...existing.filter((conversation) => !incomingKeys.has(conversation.key))].sort((a, b) =>
+    a.lastMessageAt && b.lastMessageAt ? b.lastMessageAt.localeCompare(a.lastMessageAt) : 0,
+  );
 }
 
 function normalizeId(value: number | string | null | undefined): string | null {
@@ -2796,6 +2819,13 @@ function MovieDetailPageContent() {
   const [savingEditCommentId, setSavingEditCommentId] = useState<string | null>(null);
   const [deletingCommentIds, setDeletingCommentIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [directReplyDrafts, setDirectReplyDrafts] = useState<Record<string, string>>({});
+  const [directReplySubmitting, setDirectReplySubmitting] = useState<Record<string, boolean>>({});
+  const [directReplyErrors, setDirectReplyErrors] = useState<Record<string, string>>({});
+  const directReplySubmittingRef = useRef(new Set<string>());
+  const directedConversationsRef = useRef<DirectedConversation[]>([]);
+  const directedPollingInFlightRef = useRef(false);
+  const processedDirectedNotificationIdsRef = useRef(new Set<string>());
   const [publicSearchQuery, setPublicSearchQuery] = useState("");
   const [directedSearchQuery, setDirectedSearchQuery] = useState("");
   const [selectedPublicFilterUser, setSelectedPublicFilterUser] = useState<CommentFilterUser | null>(null);
@@ -3308,6 +3338,138 @@ function MovieDetailPageContent() {
     }
   }, [directedConversations, expandedConversationKey]);
 
+  useEffect(() => {
+    directedConversationsRef.current = directedConversations;
+  }, [directedConversations]);
+
+  useEffect(() => {
+    const isTrailerDirectedView = trailerCompanionOpen && trailerCompanionView === "directed-comments";
+    if (!expandedConversationKey || (commentInputMode !== "text-comment" && !isTrailerDirectedView)) return;
+
+    const isDirectedSectionVisible = () =>
+      activeCommentsTab === "directed" ||
+      window.matchMedia("(min-width: 1024px)").matches ||
+      isTrailerDirectedView;
+
+    let cancelled = false;
+
+    const markVisibleReceivedMessagesAsRead = async (conversation: DirectedConversation) => {
+      const receivedMessageIds = new Set(
+        conversation.messages
+          .filter((message) => message.direction === "received")
+          .map((message) => String(message.id)),
+      );
+      if (receivedMessageIds.size === 0 || cancelled || document.visibilityState !== "visible") return;
+
+      try {
+        const summary = await getMyNotificationsSummary();
+        if (cancelled) return;
+        const matchingIds = summary.items
+          .filter(
+            (notification) =>
+              notification.type === "private_message" &&
+              notification.movieId !== null &&
+              String(notification.movieId) === movieId &&
+              notification.directedCommentId !== null &&
+              receivedMessageIds.has(String(notification.directedCommentId)) &&
+              isRealNotificationId(notification.id) &&
+              !processedDirectedNotificationIdsRef.current.has(String(notification.id)),
+          )
+          .map((notification) => notification.id);
+        if (matchingIds.length === 0) return;
+
+        matchingIds.forEach((id) => processedDirectedNotificationIdsRef.current.add(String(id)));
+        try {
+          await markNotificationsAsReadBatch(matchingIds);
+        } catch {
+          matchingIds.forEach((id) => processedDirectedNotificationIdsRef.current.delete(String(id)));
+        }
+      } catch {
+        // Notification refresh is best-effort and must not disturb the open conversation.
+      }
+    };
+
+    const refreshExpandedConversation = async () => {
+      if (
+        cancelled ||
+        directedPollingInFlightRef.current ||
+        document.visibilityState !== "visible" ||
+        !isDirectedSectionVisible()
+      ) return;
+
+      const target = directedConversationsRef.current.find((conversation) => conversation.key === expandedConversationKey);
+      if (!target) return;
+
+      directedPollingInFlightRef.current = true;
+      try {
+        let refreshedTarget = target;
+        if (target.messagesEndpoint) {
+          const payload = await apiFetch(target.messagesEndpoint, { cache: "no-store" });
+          const parsed = parseCommentsPage(payload, "directed");
+          if (cancelled) return;
+          const polledMessages = parsed.comments.map((message) => ({
+            ...message,
+            direction:
+              message.direction ??
+              (normalizeUsername(message.authorUsername)?.toLowerCase() === normalizeUsername(authenticatedUsername)?.toLowerCase()
+                ? "sent"
+                : "received"),
+          } satisfies SocialComment));
+          refreshedTarget = {
+            ...target,
+            messages: mergeUniqueMessages(target.messages, polledMessages),
+            next: normalizeEndpointPath(parsed.next) ?? target.next,
+          };
+          setDirectedConversations((current) =>
+            current.map((conversation) => {
+              if (conversation.key !== expandedConversationKey) return conversation;
+              return {
+                ...conversation,
+                messages: mergeUniqueMessages(conversation.messages, polledMessages),
+                next: normalizeEndpointPath(parsed.next) ?? conversation.next,
+              };
+            }),
+          );
+        } else {
+          const result = await fetchWithFallbacks<unknown>(buildMovieDirectedFetchEndpoints(movieId), "[movie-detail-debug]");
+          if (cancelled) return;
+          const snapshots = groupDirectedConversations(result.payload, authenticatedUsername, movieId);
+          const incomingTarget = snapshots.find((conversation) => conversation.key === expandedConversationKey);
+          if (incomingTarget) {
+            refreshedTarget = { ...incomingTarget, messages: mergeUniqueMessages(target.messages, incomingTarget.messages) };
+            setDirectedConversations((current) => mergeDirectedConversationSnapshots(current, snapshots));
+          }
+        }
+        await markVisibleReceivedMessagesAsRead(refreshedTarget);
+      } catch {
+        // Polling is intentionally silent; preserve history and retry on the next interval.
+      } finally {
+        directedPollingInFlightRef.current = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshExpandedConversation();
+    };
+    void refreshExpandedConversation();
+    const intervalId = window.setInterval(() => void refreshExpandedConversation(), 4_000);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [
+    activeCommentsTab,
+    authenticatedUsername,
+    commentInputMode,
+    expandedConversationKey,
+    movieId,
+    trailerCompanionOpen,
+    trailerCompanionView,
+  ]);
+
   const handleAuthorNavigation = useCallback(
     (username: string) => {
       if (!username) return;
@@ -3783,6 +3945,97 @@ function MovieDetailPageContent() {
       setComposerError(translate(locale, "movieDetailCommentPostError"));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitDirectReply = async (conversation: DirectedConversation) => {
+    const conversationKey = conversation.key;
+    const body = (directReplyDrafts[conversationKey] ?? "").trim();
+    const recipientUsername = conversation.otherUsername;
+    if (!movieId || !body || !recipientUsername || directReplySubmittingRef.current.has(conversationKey)) return;
+
+    directReplySubmittingRef.current.add(conversationKey);
+    setDirectReplySubmitting((current) => ({ ...current, [conversationKey]: true }));
+    setDirectReplyErrors((current) => ({ ...current, [conversationKey]: "" }));
+
+    try {
+      let submitResponse: Awaited<ReturnType<typeof debugApiRequest>> | null = null;
+      let submitError: unknown = null;
+      const payload = { body, mentioned_username: recipientUsername, movie_id: movieId };
+
+      const endpoints = buildMovieDirectedSubmitEndpoints(movieId);
+      for (let index = 0; index < endpoints.length; index += 1) {
+        try {
+          submitResponse = await debugApiRequest(endpoints[index], {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          break;
+        } catch (error) {
+          submitError = error;
+          if (error instanceof ApiError && [404, 405].includes(error.status) && index < endpoints.length - 1) continue;
+          throw error;
+        }
+      }
+      if (!submitResponse) throw submitError ?? new Error("No endpoint available for directed submit.");
+
+      const parsedSubmittedComment = parseComments([submitResponse.body], "directed")[0];
+      setDirectReplyDrafts((current) => ({ ...current, [conversationKey]: "" }));
+      if (parsedSubmittedComment) {
+        const nextMessage: SocialComment = { ...parsedSubmittedComment, direction: "sent" };
+        setDirectedConversations((current) =>
+          current.map((item) =>
+            item.key === conversationKey
+              ? {
+                  ...item,
+                  messages: mergeUniqueMessages(item.messages, [nextMessage]),
+                  lastMessageAt: nextMessage.createdAt,
+                }
+              : item,
+          ),
+        );
+      }
+
+      try {
+        const refreshed = await fetchWithFallbacks<unknown>(buildMovieDirectedFetchEndpoints(movieId), "[movie-detail-debug]");
+        const snapshots = groupDirectedConversations(refreshed.payload, authenticatedUsername, movieId);
+        setDirectedConversations((current) => mergeDirectedConversationSnapshots(current, snapshots));
+        setLoadingFullHistoryByConversationKey({});
+        setFullLoadedByConversationKey({});
+        setDirectedError("");
+      } catch (refreshError) {
+        if (refreshError instanceof ApiError && refreshError.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (parsedSubmittedComment) {
+          const nextMessage: SocialComment = { ...parsedSubmittedComment, direction: "sent" };
+          setDirectedConversations((current) =>
+            current.map((item) =>
+              item.key === conversationKey
+                ? {
+                    ...item,
+                    messages: mergeUniqueMessages(item.messages, [nextMessage]),
+                    lastMessageAt: nextMessage.createdAt,
+                  }
+                : item,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      setDirectReplyErrors((current) => ({
+        ...current,
+        [conversationKey]: translate(locale, "movieDetailCommentPostError"),
+      }));
+    } finally {
+      directReplySubmittingRef.current.delete(conversationKey);
+      setDirectReplySubmitting((current) => ({ ...current, [conversationKey]: false }));
     }
   };
 
@@ -4395,6 +4648,26 @@ function MovieDetailPageContent() {
                                 }
                               }}
                             >
+                              <input
+                                type="text"
+                                value={directReplyDrafts[conversation.key] ?? ""}
+                                onChange={(event) =>
+                                  setDirectReplyDrafts((current) => ({ ...current, [conversation.key]: event.target.value }))
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                                  event.preventDefault();
+                                  void handleSubmitDirectReply(conversation);
+                                }}
+                                enterKeyHint="send"
+                                placeholder={t("movieDetailDirectReplyPlaceholder")}
+                                disabled={!conversation.otherUsername || directReplySubmitting[conversation.key]}
+                                aria-busy={directReplySubmitting[conversation.key] || undefined}
+                                className="mb-3 h-10 w-full rounded-lg border border-[#86ADE0]/35 bg-black/45 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-[#86ADE0] focus:ring-1 focus:ring-[#86ADE0]/40 disabled:cursor-not-allowed disabled:opacity-60"
+                              />
+                              {directReplyErrors[conversation.key] ? (
+                                <p className="mb-3 text-xs text-red-300" role="alert">{directReplyErrors[conversation.key]}</p>
+                              ) : null}
                               <CommentsList
                                 comments={conversation.messages}
                                 emptyMessage={t("movieDetailNoConversationMessages")}
