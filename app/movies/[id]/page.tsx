@@ -39,7 +39,13 @@ import { useAppBranding } from "../../../hooks/useAppBranding";
 import { useI18n } from "../../../hooks/useI18n";
 import { stripLeadingMention } from "../../../lib/strip-leading-mention";
 import { getProfilePrivacySettings } from "../../../lib/privacy";
-import { getMyProfile, getTopFollowing } from "../../../lib/profile-feed/adapters";
+import {
+  getMyNotificationsSummary,
+  getMyProfile,
+  getTopFollowing,
+  isRealNotificationId,
+  markNotificationsAsReadBatch,
+} from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { resolveMovieTitles, t as translate } from "../../../lib/i18n";
 
@@ -307,6 +313,23 @@ function mergeUniqueMessages(existing: SocialComment[], incoming: SocialComment[
     byId.set(String(message.id), message);
   });
   return [...byId.values()].sort((a, b) => (a.createdAt && b.createdAt ? b.createdAt.localeCompare(a.createdAt) : 0));
+}
+
+function mergeDirectedConversationSnapshots(
+  existing: DirectedConversation[],
+  incoming: DirectedConversation[],
+): DirectedConversation[] {
+  const existingByKey = new Map(existing.map((conversation) => [conversation.key, conversation]));
+  const merged = incoming.map((conversation) => {
+    const current = existingByKey.get(conversation.key);
+    return current
+      ? { ...conversation, messages: mergeUniqueMessages(current.messages, conversation.messages) }
+      : conversation;
+  });
+  const incomingKeys = new Set(incoming.map((conversation) => conversation.key));
+  return [...merged, ...existing.filter((conversation) => !incomingKeys.has(conversation.key))].sort((a, b) =>
+    a.lastMessageAt && b.lastMessageAt ? b.lastMessageAt.localeCompare(a.lastMessageAt) : 0,
+  );
 }
 
 function normalizeId(value: number | string | null | undefined): string | null {
@@ -2800,6 +2823,9 @@ function MovieDetailPageContent() {
   const [directReplySubmitting, setDirectReplySubmitting] = useState<Record<string, boolean>>({});
   const [directReplyErrors, setDirectReplyErrors] = useState<Record<string, string>>({});
   const directReplySubmittingRef = useRef(new Set<string>());
+  const directedConversationsRef = useRef<DirectedConversation[]>([]);
+  const directedPollingInFlightRef = useRef(false);
+  const processedDirectedNotificationIdsRef = useRef(new Set<string>());
   const [publicSearchQuery, setPublicSearchQuery] = useState("");
   const [directedSearchQuery, setDirectedSearchQuery] = useState("");
   const [selectedPublicFilterUser, setSelectedPublicFilterUser] = useState<CommentFilterUser | null>(null);
@@ -3311,6 +3337,138 @@ function MovieDetailPageContent() {
       setExpandedConversationKey(null);
     }
   }, [directedConversations, expandedConversationKey]);
+
+  useEffect(() => {
+    directedConversationsRef.current = directedConversations;
+  }, [directedConversations]);
+
+  useEffect(() => {
+    const isTrailerDirectedView = trailerCompanionOpen && trailerCompanionView === "directed-comments";
+    if (!expandedConversationKey || (commentInputMode !== "text-comment" && !isTrailerDirectedView)) return;
+
+    const isDirectedSectionVisible = () =>
+      activeCommentsTab === "directed" ||
+      window.matchMedia("(min-width: 1024px)").matches ||
+      isTrailerDirectedView;
+
+    let cancelled = false;
+
+    const markVisibleReceivedMessagesAsRead = async (conversation: DirectedConversation) => {
+      const receivedMessageIds = new Set(
+        conversation.messages
+          .filter((message) => message.direction === "received")
+          .map((message) => String(message.id)),
+      );
+      if (receivedMessageIds.size === 0 || cancelled || document.visibilityState !== "visible") return;
+
+      try {
+        const summary = await getMyNotificationsSummary();
+        if (cancelled) return;
+        const matchingIds = summary.items
+          .filter(
+            (notification) =>
+              notification.type === "private_message" &&
+              notification.movieId !== null &&
+              String(notification.movieId) === movieId &&
+              notification.directedCommentId !== null &&
+              receivedMessageIds.has(String(notification.directedCommentId)) &&
+              isRealNotificationId(notification.id) &&
+              !processedDirectedNotificationIdsRef.current.has(String(notification.id)),
+          )
+          .map((notification) => notification.id);
+        if (matchingIds.length === 0) return;
+
+        matchingIds.forEach((id) => processedDirectedNotificationIdsRef.current.add(String(id)));
+        try {
+          await markNotificationsAsReadBatch(matchingIds);
+        } catch {
+          matchingIds.forEach((id) => processedDirectedNotificationIdsRef.current.delete(String(id)));
+        }
+      } catch {
+        // Notification refresh is best-effort and must not disturb the open conversation.
+      }
+    };
+
+    const refreshExpandedConversation = async () => {
+      if (
+        cancelled ||
+        directedPollingInFlightRef.current ||
+        document.visibilityState !== "visible" ||
+        !isDirectedSectionVisible()
+      ) return;
+
+      const target = directedConversationsRef.current.find((conversation) => conversation.key === expandedConversationKey);
+      if (!target) return;
+
+      directedPollingInFlightRef.current = true;
+      try {
+        let refreshedTarget = target;
+        if (target.messagesEndpoint) {
+          const payload = await apiFetch(target.messagesEndpoint, { cache: "no-store" });
+          const parsed = parseCommentsPage(payload, "directed");
+          if (cancelled) return;
+          const polledMessages = parsed.comments.map((message) => ({
+            ...message,
+            direction:
+              message.direction ??
+              (normalizeUsername(message.authorUsername)?.toLowerCase() === normalizeUsername(authenticatedUsername)?.toLowerCase()
+                ? "sent"
+                : "received"),
+          } satisfies SocialComment));
+          refreshedTarget = {
+            ...target,
+            messages: mergeUniqueMessages(target.messages, polledMessages),
+            next: normalizeEndpointPath(parsed.next) ?? target.next,
+          };
+          setDirectedConversations((current) =>
+            current.map((conversation) => {
+              if (conversation.key !== expandedConversationKey) return conversation;
+              return {
+                ...conversation,
+                messages: mergeUniqueMessages(conversation.messages, polledMessages),
+                next: normalizeEndpointPath(parsed.next) ?? conversation.next,
+              };
+            }),
+          );
+        } else {
+          const result = await fetchWithFallbacks<unknown>(buildMovieDirectedFetchEndpoints(movieId), "[movie-detail-debug]");
+          if (cancelled) return;
+          const snapshots = groupDirectedConversations(result.payload, authenticatedUsername, movieId);
+          const incomingTarget = snapshots.find((conversation) => conversation.key === expandedConversationKey);
+          if (incomingTarget) {
+            refreshedTarget = { ...incomingTarget, messages: mergeUniqueMessages(target.messages, incomingTarget.messages) };
+            setDirectedConversations((current) => mergeDirectedConversationSnapshots(current, snapshots));
+          }
+        }
+        await markVisibleReceivedMessagesAsRead(refreshedTarget);
+      } catch {
+        // Polling is intentionally silent; preserve history and retry on the next interval.
+      } finally {
+        directedPollingInFlightRef.current = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshExpandedConversation();
+    };
+    void refreshExpandedConversation();
+    const intervalId = window.setInterval(() => void refreshExpandedConversation(), 4_000);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [
+    activeCommentsTab,
+    authenticatedUsername,
+    commentInputMode,
+    expandedConversationKey,
+    movieId,
+    trailerCompanionOpen,
+    trailerCompanionView,
+  ]);
 
   const handleAuthorNavigation = useCallback(
     (username: string) => {
@@ -3824,10 +3982,25 @@ function MovieDetailPageContent() {
 
       const parsedSubmittedComment = parseComments([submitResponse.body], "directed")[0];
       setDirectReplyDrafts((current) => ({ ...current, [conversationKey]: "" }));
+      if (parsedSubmittedComment) {
+        const nextMessage: SocialComment = { ...parsedSubmittedComment, direction: "sent" };
+        setDirectedConversations((current) =>
+          current.map((item) =>
+            item.key === conversationKey
+              ? {
+                  ...item,
+                  messages: mergeUniqueMessages(item.messages, [nextMessage]),
+                  lastMessageAt: nextMessage.createdAt,
+                }
+              : item,
+          ),
+        );
+      }
 
       try {
         const refreshed = await fetchWithFallbacks<unknown>(buildMovieDirectedFetchEndpoints(movieId), "[movie-detail-debug]");
-        setDirectedConversations(groupDirectedConversations(refreshed.payload, authenticatedUsername, movieId));
+        const snapshots = groupDirectedConversations(refreshed.payload, authenticatedUsername, movieId);
+        setDirectedConversations((current) => mergeDirectedConversationSnapshots(current, snapshots));
         setLoadingFullHistoryByConversationKey({});
         setFullLoadedByConversationKey({});
         setDirectedError("");
