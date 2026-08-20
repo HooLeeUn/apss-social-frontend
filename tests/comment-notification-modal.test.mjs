@@ -46,3 +46,21 @@ test("directed reaction notifications enable controls from the recovered comment
   assert.match(feedSource, /const fallbackType = isPublicCommentReaction \? "public" : "directed"/);
   assert.match(feedSource, /String\(comment\.id\) !== commentId/);
 });
+
+test("directed notification modal replies through the existing directed-comment contract", () => {
+  assert.match(modalSource, /displayedComment\.authorUsername\.trim\(\)\.replace/);
+  assert.match(modalSource, /displayedComment\.authorId !== null/);
+  assert.match(modalSource, /const payload = \{ body, mentioned_username: recipientUsername, movie_id: String\(movieId\) \}/);
+  assert.match(modalSource, /buildMovieDirectedSubmitEndpoints\(movieId\)/);
+  assert.match(modalSource, /replyingRef\.current \|\| !body/);
+  assert.match(modalSource, /setReplyText\(""\)[\s\S]*setReplyStatus\("sent"\)/);
+  assert.doesNotMatch(modalSource, /body:\s*`@\$\{recipientUsername\}/);
+});
+
+test("directed reply controls are localized, responsive, and keep the modal open", () => {
+  assert.match(modalSource, /notificationReplyPlaceholder/);
+  assert.match(modalSource, /notificationReplyButton/);
+  assert.match(modalSource, /flex flex-col gap-2 sm:flex-row/);
+  assert.doesNotMatch(modalSource, /setNotificationComment/);
+  assert.match(modalSource, /setReplyStatus\("error"\)/);
+});

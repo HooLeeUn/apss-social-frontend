@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiFetch } from "../lib/api";
+import { ApiError, apiFetch } from "../lib/api";
+import { t as translate } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
-import { buildReactionEndpoint, formatSocialDate, type ReactionType, type SocialComment } from "../lib/social";
+import { buildMovieDirectedSubmitEndpoints, buildReactionEndpoint, formatSocialDate, type ReactionType, type SocialComment } from "../lib/social";
 import ReactionButtons from "./social/ReactionButtons";
 
 interface NotificationCommentViewerProps {
@@ -19,7 +20,10 @@ interface NotificationCommentViewerProps {
 export default function NotificationCommentViewer({ comment, movie, movieTitle, locale, allowReactions = false, onClose, onMovieOpen }: NotificationCommentViewerProps) {
   const [displayedComment, setDisplayedComment] = useState(comment);
   const [reacting, setReacting] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replyStatus, setReplyStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const reactingRef = useRef(false);
+  const replyingRef = useRef(false);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -60,9 +64,45 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
   };
 
   const authorLabel = displayedComment.authorName || displayedComment.authorUsername;
+  const recipientUsername = displayedComment.authorUsername.trim().replace(/^@+/, "");
+  const canReply = displayedComment.type === "directed" && displayedComment.authorId !== null && recipientUsername.length > 0;
   const badge = displayedComment.type === "public"
     ? (locale === "en" ? "Public comment" : "Comentario público")
     : (locale === "en" ? "Directed comment" : "Comentario dirigido");
+
+  const handleReply = async () => {
+    const body = replyText.trim();
+    if (replyingRef.current || !body) return;
+    if (!canReply) {
+      setReplyStatus("error");
+      return;
+    }
+
+    replyingRef.current = true;
+    setReplyStatus("sending");
+    const movieId = displayedComment.movieId ?? movie.id;
+    const payload = { body, mentioned_username: recipientUsername, movie_id: String(movieId) };
+
+    try {
+      const endpoints = buildMovieDirectedSubmitEndpoints(movieId);
+      for (let index = 0; index < endpoints.length; index += 1) {
+        try {
+          await apiFetch(endpoints[index], { method: "POST", body: JSON.stringify(payload) });
+          setReplyText("");
+          setReplyStatus("sent");
+          return;
+        } catch (error) {
+          if (error instanceof ApiError && [404, 405].includes(error.status) && index < endpoints.length - 1) continue;
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error("Directed reply request failed in notification comment modal", error);
+      setReplyStatus("error");
+    } finally {
+      replyingRef.current = false;
+    }
+  };
 
   return (
     <div
@@ -103,6 +143,26 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
           <div className="mt-5 flex items-center gap-4 border-t border-white/10 pt-4 text-sm text-zinc-300 [&_button]:cursor-pointer" aria-label={locale === "en" ? "Reaction counts" : "Contadores de reacciones"}>
             {allowReactions ? <ReactionButtons comment={displayedComment} onReact={handleReact} disabled={reacting} /> : <><span>👍 {displayedComment.likesCount}</span><span>👎 {displayedComment.dislikesCount}</span></>}
           </div>
+          {displayedComment.type === "directed" ? (
+            <form className="mt-4 border-t border-white/10 pt-4" onSubmit={(event) => { event.preventDefault(); void handleReply(); }}>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <textarea
+                  value={replyText}
+                  onChange={(event) => { setReplyText(event.target.value); setReplyStatus("idle"); }}
+                  disabled={replyStatus === "sending"}
+                  rows={2}
+                  placeholder={translate(locale, "notificationReplyPlaceholder").replace("{username}", recipientUsername)}
+                  aria-label={translate(locale, "notificationReplyPlaceholder").replace("{username}", recipientUsername)}
+                  className="min-h-12 min-w-0 flex-1 resize-none rounded-xl border border-white/15 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-blue-300 disabled:opacity-60"
+                />
+                <button type="submit" disabled={!canReply || !replyText.trim() || replyStatus === "sending"} className="min-h-11 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
+                  {replyStatus === "sending" ? translate(locale, "notificationReplySending") : translate(locale, "notificationReplyButton")}
+                </button>
+              </div>
+              {replyStatus === "sent" ? <p role="status" className="mt-2 text-xs text-emerald-300">{translate(locale, "notificationReplySent")}</p> : null}
+              {replyStatus === "error" ? <p role="alert" className="mt-2 text-xs text-rose-300">{translate(locale, "notificationReplyError")}</p> : null}
+            </form>
+          ) : null}
         </div>
       </article>
     </div>

@@ -455,6 +455,12 @@ export function buildCommentDetailEndpoint(commentId: number | string): string {
   return COMMENT_DETAIL_ENDPOINT_TEMPLATE.replace("{id}", encodeURIComponent(String(commentId)));
 }
 
+/** Uses the same compatibility order as the directed composer on Movie Detail. */
+export function buildMovieDirectedSubmitEndpoints(movieId: number | string): string[] {
+  const encodedMovieId = encodeURIComponent(String(movieId));
+  return [`/comments/directed/?movie_id=${encodedMovieId}`, `/movies/${encodedMovieId}/comments/directed/`];
+}
+
 export function formatSocialDate(date: string | null, locale: "es" | "en" = "es", noDateLabel = "Sin fecha"): string {
   if (!date) return noDateLabel;
 
