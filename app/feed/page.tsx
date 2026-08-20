@@ -694,12 +694,14 @@ export default function FeedPage() {
       const isDirectedCommentReaction =
         (item.type === "private_comment_reaction" || item.type === "directed_comment_reaction") &&
         item.directedCommentId !== null;
+      const isNewDirectedMessage = item.type === "private_message" && item.directedCommentId !== null;
       const isReceivedCommentReaction =
         (item.reactionType === "like" || item.reactionType === "dislike") &&
         item.movieId !== null &&
         (isPublicCommentReaction || isDirectedCommentReaction);
+      const shouldOpenCommentModal = item.movieId !== null && (isReceivedCommentReaction || isNewDirectedMessage);
 
-      if (isReceivedCommentReaction) {
+      if (shouldOpenCommentModal) {
         try {
           const movieId = String(item.movieId);
           const commentId = String(isPublicCommentReaction ? item.commentId : item.directedCommentId);

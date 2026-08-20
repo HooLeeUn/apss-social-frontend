@@ -21,3 +21,10 @@ test("comment notification modal preserves Feed on close and only opens Detail f
   assert.match(feedSource, /onClose=\{\(\) => setNotificationComment\(null\)\}/);
   assert.match(feedSource, /router\.push\(`\/movies\/\$\{encodeURIComponent\(movieId\)\}`\)/);
 });
+
+test("a new private-message notification reuses the exact directed-comment modal", () => {
+  assert.match(feedSource, /item\.type === "private_message" && item\.directedCommentId !== null/);
+  assert.match(feedSource, /item\.movieId !== null && \(isReceivedCommentReaction \|\| isNewDirectedMessage\)/);
+  assert.match(feedSource, /String\(isPublicCommentReaction \? item\.commentId : item\.directedCommentId\)/);
+  assert.ok(feedSource.indexOf("if (shouldOpenCommentModal)") < feedSource.indexOf("if (isReceivedVideoReaction)"));
+});
