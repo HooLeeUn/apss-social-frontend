@@ -818,6 +818,7 @@ function ProfileFeedContent() {
                 avatarHref="/settings/personal-data"
                 avatarLinkLabel={t("profileFeedPersonalDataAvatarLink")}
                 constrainDesktopAvatar
+                fitDesktopPersonalDataRow
                 firstName={profileUser?.firstName}
                 lastName={profileUser?.lastName}
                 age={profileUser?.age}

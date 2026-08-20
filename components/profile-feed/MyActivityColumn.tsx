@@ -47,7 +47,7 @@ function isIOSWebKitEnvironment(): boolean {
 }
 
 function getActivityRelativeDate(item: SocialActivityItem): string {
-  if (isReactionSummary(item)) return item.objectCreatedAt ?? item.createdAt;
+  if (isReactionSummary(item)) return item.latestReactionAt ?? item.activityAt ?? item.updatedAt ?? item.createdAt;
   return item.activityAt ?? item.updatedAt ?? item.createdAt;
 }
 

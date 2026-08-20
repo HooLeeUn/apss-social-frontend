@@ -13,6 +13,7 @@ import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholde
 import StreamingCountrySelector from "../../components/StreamingCountrySelector";
 import AppLogo from "../../components/AppLogo";
 import VideoReactionViewer from "../../components/VideoReactionViewer";
+import NotificationCommentViewer from "../../components/NotificationCommentViewer";
 import { FEED_GENRE_OPTIONS, movieMatchesSelectedGenres } from "../../lib/genres";
 import { getPersonalData } from "../../lib/personal-data";
 import {
@@ -47,6 +48,7 @@ import {
   normalizeMovie,
 } from "../../lib/movies";
 import { resolveVideoReactionComment, type VideoReactionComment, type VideoReactionKind } from "../../lib/video-reactions";
+import { buildCommentDetailEndpoint, parseComments, type SocialComment } from "../../lib/social";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
@@ -224,6 +226,7 @@ export default function FeedPage() {
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
+  const [notificationComment, setNotificationComment] = useState<{ comment: SocialComment; movie: Movie; allowReactions: boolean } | null>(null);
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
@@ -686,6 +689,51 @@ export default function FeedPage() {
         });
       }
       const targetRoute = buildNotificationTargetRoute(item);
+
+      const isPublicCommentReaction = item.type === "public_comment_reaction" && item.commentId !== null;
+      const isDirectedCommentReaction =
+        (item.type === "private_comment_reaction" || item.type === "directed_comment_reaction") &&
+        item.directedCommentId !== null;
+      const isNewDirectedMessage = item.type === "private_message" && item.directedCommentId !== null;
+      const isReceivedCommentReaction =
+        (item.reactionType === "like" || item.reactionType === "dislike") &&
+        item.movieId !== null &&
+        (isPublicCommentReaction || isDirectedCommentReaction);
+      const shouldOpenCommentModal = item.movieId !== null && (isReceivedCommentReaction || isNewDirectedMessage);
+
+      if (shouldOpenCommentModal) {
+        try {
+          const movieId = String(item.movieId);
+          const commentId = String(isPublicCommentReaction ? item.commentId : item.directedCommentId);
+          const fallbackType = isPublicCommentReaction ? "public" : "directed";
+          const [rawComment, rawMovie] = await Promise.all([
+            apiFetch(buildCommentDetailEndpoint(commentId)),
+            apiFetch(buildMovieDetailEndpoint(movieId, MOVIE_DETAIL_ENDPOINT_TEMPLATE)),
+          ]);
+          const rawCommentRecord = rawComment && typeof rawComment === "object" && !Array.isArray(rawComment)
+            ? rawComment as Record<string, unknown>
+            : null;
+          const rawCommentData = rawCommentRecord?.data && typeof rawCommentRecord.data === "object" && !Array.isArray(rawCommentRecord.data)
+            ? rawCommentRecord.data as Record<string, unknown>
+            : null;
+          const commentRecord = rawCommentData?.comment ?? rawCommentRecord?.comment ?? rawCommentData ?? rawComment;
+          const comment = parseComments([commentRecord], fallbackType)[0];
+          if (!comment || String(comment.id) !== commentId || !rawMovie || typeof rawMovie !== "object") throw new Error("notification-comment-not-found");
+          setNotificationComment({
+            comment,
+            movie: normalizeMovie(rawMovie as Record<string, unknown>, 0),
+            allowReactions: fallbackType === "directed" && comment.type === "directed" && item.directedCommentId !== null,
+          });
+          if (isRealNotificationId(item.id)) await markNotificationsAsReadBatch([item.id]);
+          setNotificationItems((current) => current.filter((notificationItem) => notificationItem.id !== item.id));
+          setUnreadNotificationsCount((current) => Math.max(0, current - 1));
+          void refreshNotifications();
+          return;
+        } catch (error) {
+          console.warn("No se pudo abrir el comentario de la notificación en el Feed.", error);
+          return;
+        }
+      }
 
       const isReceivedVideoReaction =
         item.type === "video_comment_reaction" &&
@@ -1261,6 +1309,21 @@ export default function FeedPage() {
           onMovieOpen={() => {
             const movieId = String(notificationVideo.movie.id);
             setNotificationVideo(null);
+            router.push(`/movies/${encodeURIComponent(movieId)}`);
+          }}
+        />
+      ) : null}
+      {notificationComment ? (
+        <NotificationCommentViewer
+          comment={notificationComment.comment}
+          movie={notificationComment.movie}
+          movieTitle={resolveMovieTitles(locale, notificationComment.movie.titleSpanish, notificationComment.movie.titleEnglish, notificationComment.movie.displayTitle).primary}
+          locale={locale}
+          allowReactions={notificationComment.allowReactions}
+          onClose={() => setNotificationComment(null)}
+          onMovieOpen={() => {
+            const movieId = String(notificationComment.movie.id);
+            setNotificationComment(null);
             router.push(`/movies/${encodeURIComponent(movieId)}`);
           }}
         />
