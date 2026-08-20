@@ -104,7 +104,7 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
       const endpoints = buildMovieDirectedSubmitEndpoints(movieId);
       for (let index = 0; index < endpoints.length; index += 1) {
         try {
-          await apiFetch(endpoints[index], { method: "POST", body: JSON.stringify(payload) });
+          await apiFetch(endpoints[index], { method: "POST", body: JSON.stringify(payload), expectJson: false });
           setReplyText("");
           setReplyStatus("sent");
           closeTimerRef.current = window.setTimeout(onClose, 650);

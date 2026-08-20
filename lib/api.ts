@@ -59,6 +59,11 @@ export class ApiError extends Error {
   }
 }
 
+export interface ApiFetchOptions extends RequestInit {
+  /** Skip successful-response body parsing when the caller only needs HTTP success. */
+  expectJson?: boolean;
+}
+
 function normalizeHeaders(h?: HeadersInit): Record<string, string> {
   if (!h) return {};
   if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -71,10 +76,11 @@ function hasHeader(headers: Record<string, string>, name: string): boolean {
   return Object.keys(headers).some((headerName) => headerName.toLowerCase() === normalizedName);
 }
 
-export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+export async function apiFetch(endpoint: string, options: ApiFetchOptions = {}) {
+  const { expectJson = true, ...requestOptions } = options;
   const token = getToken();
-  const normalizedIncomingHeaders = normalizeHeaders(options.headers);
-  const isFormDataBody = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const normalizedIncomingHeaders = normalizeHeaders(requestOptions.headers);
+  const isFormDataBody = typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
 
   const headers: Record<string, string> = {
     ...normalizedIncomingHeaders,
@@ -89,7 +95,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   }
 
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
+    ...requestOptions,
     headers,
   });
 
@@ -115,8 +121,12 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
     throw new ApiError(res.status, message, code);
   }
 
+  if (!expectJson || res.status === 204 || res.status === 205) return null;
+
   const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) return null;
 
-  return res.json();
+  const text = await res.text();
+  if (!text.trim()) return null;
+  return JSON.parse(text) as unknown;
 }

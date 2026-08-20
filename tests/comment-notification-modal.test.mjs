@@ -54,7 +54,7 @@ test("directed notification modal replies through the existing directed-comment 
   assert.match(modalSource, /const payload = \{ body, mentioned_username: recipientUsername, movie_id: String\(movieId\) \}/);
   assert.match(modalSource, /buildMovieDirectedSubmitEndpoints\(movieId\)/);
   assert.match(modalSource, /replyingRef\.current \|\| !body/);
-  assert.match(modalSource, /await apiFetch\(endpoints\[index\], \{ method: "POST", body: JSON\.stringify\(payload\) \}\)/);
+  assert.match(modalSource, /await apiFetch\(endpoints\[index\], \{ method: "POST", body: JSON\.stringify\(payload\), expectJson: false \}\)/);
   assert.doesNotMatch(modalSource, /getCreatedCommentId/);
   assert.doesNotMatch(modalSource, /directed-reply-missing-created-id/);
   assert.doesNotMatch(modalSource, /buildCommentDetailEndpoint\(createdCommentId\)/);
