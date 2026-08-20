@@ -226,7 +226,13 @@ export default function FeedPage() {
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
-  const [notificationComment, setNotificationComment] = useState<{ comment: SocialComment; movie: Movie; allowReactions: boolean } | null>(null);
+  const [notificationComment, setNotificationComment] = useState<{
+    comment: SocialComment;
+    movie: Movie;
+    allowReactions: boolean;
+    canDirectReply: boolean;
+    replyRecipient: { id: string | number; username: string } | null;
+  } | null>(null);
 
   const [weeklyMovies, setWeeklyMovies] = useState<Movie[]>([]);
   const [personalizedMovies, setPersonalizedMovies] = useState<Movie[]>([]);
@@ -723,6 +729,10 @@ export default function FeedPage() {
             comment,
             movie: normalizeMovie(rawMovie as Record<string, unknown>, 0),
             allowReactions: fallbackType === "directed" && comment.type === "directed" && item.directedCommentId !== null,
+            canDirectReply: isNewDirectedMessage,
+            replyRecipient: isNewDirectedMessage && item.actorId !== null && item.actorUsername
+              ? { id: item.actorId, username: item.actorUsername }
+              : null,
           });
           if (isRealNotificationId(item.id)) await markNotificationsAsReadBatch([item.id]);
           setNotificationItems((current) => current.filter((notificationItem) => notificationItem.id !== item.id));
@@ -1320,6 +1330,9 @@ export default function FeedPage() {
           movieTitle={resolveMovieTitles(locale, notificationComment.movie.titleSpanish, notificationComment.movie.titleEnglish, notificationComment.movie.displayTitle).primary}
           locale={locale}
           allowReactions={notificationComment.allowReactions}
+          canDirectReply={notificationComment.canDirectReply}
+          replyRecipient={notificationComment.replyRecipient}
+          authenticatedUserId={currentUserId}
           onClose={() => setNotificationComment(null)}
           onMovieOpen={() => {
             const movieId = String(notificationComment.movie.id);
