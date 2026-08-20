@@ -265,6 +265,94 @@ textarea,
   filter: brightness(0) saturate(100%) invert(45%) sepia(96%) saturate(2107%) hue-rotate(196deg) brightness(101%) contrast(101%);
 }
 
+/* The weekly desktop composition uses real layout dimensions (rather than a
+   visual transform) so its cards and hit targets stay aligned at 100% zoom. */
+@media (min-width: 1024px) {
+  .feed-shell {
+    gap: 1.5rem;
+    padding-top: 1rem;
+  }
+
+  .feed-header {
+    padding-block: 0.5rem;
+  }
+
+  .weekly-recommendations__desktop {
+    width: 100%;
+    min-width: 0;
+    height: clamp(29rem, calc(100vh - 17.5rem), 33rem);
+  }
+
+  .weekly-hero-card > div > div:first-child {
+    max-width: 12rem;
+    padding-inline: 0.625rem;
+    padding-top: 0.5rem;
+  }
+
+  .weekly-hero-card > div > div:first-child > div:first-child {
+    aspect-ratio: 2 / 3;
+  }
+
+  .weekly-hero-card > div > div:last-child {
+    padding: 0.625rem;
+  }
+
+  .weekly-hero-card h3 {
+    font-size: 1rem;
+  }
+
+  .weekly-hero-card h3 + p,
+  .weekly-hero-card h3 ~ p {
+    font-size: 0.6875rem;
+  }
+
+  .weekly-hero-card .interaction-icon--hero-lg {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .weekly-hero-card [class*="grid-cols-3"] {
+    gap: 0.25rem;
+    padding-top: 0.375rem;
+  }
+
+  .weekly-hero-card [class*="grid-cols-3"] > div {
+    padding: 0.375rem;
+  }
+
+  .weekly-hero-card [class*="grid-cols-3"] p {
+    font-size: 0.625rem;
+  }
+
+  .weekly-mini-card > .interaction-icons {
+    left: 2rem;
+  }
+
+  .weekly-mini-card .interaction-icon--mini-lg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .weekly-mini-card > a,
+  .weekly-mini-card > div[aria-label^="Top user"] {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .weekly-mini-card h4 {
+    font-size: 0.75rem;
+  }
+
+  .weekly-mini-card > div:last-of-type > div > div:first-child {
+    padding: 0.4rem;
+  }
+
+  .weekly-mini-card > div:last-of-type > div > div:last-child {
+    min-width: 4rem;
+    max-width: 4.75rem;
+  }
+}
+
 .synopsis-popover-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #4a4a4a #121212;

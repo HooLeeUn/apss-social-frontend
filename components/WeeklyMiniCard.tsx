@@ -95,7 +95,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const tagIconClassName = `interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
-    <article className="relative h-full pl-3 lg:pl-4">
+    <article className="weekly-mini-card relative h-full min-w-0 pl-3 lg:pl-3">
       <div className="interaction-icons absolute left-9 bottom-[2.85rem] z-20 lg:z-10 lg:left-10 lg:bottom-auto lg:top-[59%]">
         <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
           <img src="/icons/tag.png" alt="" className={tagIconClassName} />

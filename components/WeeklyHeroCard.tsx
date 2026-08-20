@@ -90,7 +90,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const tagIconClassName = `interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
-    <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
+    <article className="weekly-hero-card relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
         <div className="mx-auto w-full max-w-[270px] px-4 pt-3 sm:max-w-[270px] lg:max-w-[288px]">
           <div className="relative h-[318px] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900 lg:aspect-[2/3] lg:h-auto" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave} {...trailerLongPress.posterProps}>
