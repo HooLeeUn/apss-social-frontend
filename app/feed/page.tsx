@@ -719,7 +719,11 @@ export default function FeedPage() {
           const commentRecord = rawCommentData?.comment ?? rawCommentRecord?.comment ?? rawCommentData ?? rawComment;
           const comment = parseComments([commentRecord], fallbackType)[0];
           if (!comment || String(comment.id) !== commentId || !rawMovie || typeof rawMovie !== "object") throw new Error("notification-comment-not-found");
-          setNotificationComment({ comment, movie: normalizeMovie(rawMovie as Record<string, unknown>, 0), allowReactions: isNewDirectedMessage });
+          setNotificationComment({
+            comment,
+            movie: normalizeMovie(rawMovie as Record<string, unknown>, 0),
+            allowReactions: fallbackType === "directed" && comment.type === "directed" && item.directedCommentId !== null,
+          });
           if (isRealNotificationId(item.id)) await markNotificationsAsReadBatch([item.id]);
           setNotificationItems((current) => current.filter((notificationItem) => notificationItem.id !== item.id));
           setUnreadNotificationsCount((current) => Math.max(0, current - 1));
