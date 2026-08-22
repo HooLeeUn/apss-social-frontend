@@ -1487,8 +1487,8 @@ export default function MyActivityColumn({
         </header>
       ) : (
         <div>
+          <div className="sticky top-0 z-30 -mx-4 space-y-3 bg-black/90 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md md:static md:z-auto md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
           <h2 className="text-base font-semibold text-zinc-100">{resolvedTitle}</h2>
-          <div className="sticky top-0 z-30 -mx-4 mt-3 bg-black/90 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md md:static md:z-auto md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
           <div ref={visitedTabsRef} className="flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 md:flex-wrap md:overflow-x-visible md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
               type="button"
@@ -1582,7 +1582,7 @@ export default function MyActivityColumn({
       <div
         className={`my-activity-scroll-area activity-scrollbar mt-3 pr-1 ${
           !isOwnProfile && visitedActivityTab === "video_reactions"
-            ? "h-auto overflow-y-visible"
+            ? "h-auto min-h-[calc(100dvh-max(6.5rem,calc(env(safe-area-inset-top)+5.5rem)))] overflow-y-visible md:min-h-[425px]"
             : !isOwnProfile
               ? "h-[calc(100dvh-max(5.5rem,calc(env(safe-area-inset-top)+4.5rem)))] overflow-y-auto md:h-[425px]"
               : "h-[425px] overflow-y-auto"

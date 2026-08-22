@@ -24,12 +24,17 @@ test("visited tabs and video carousel use independent native horizontal scroller
 });
 
 test("visited profile layout uses sticky mobile tabs and a vertical mobile video list", () => {
-  assert.match(activityColumn, /sticky top-0.*env\(safe-area-inset-top\)/);
-  assert.match(activityColumn, /visitedActivityTab === "video_reactions"[\s\S]*h-auto overflow-y-visible/);
+  assert.match(activityColumn, /sticky top-0.*env\(safe-area-inset-top\)[\s\S]*<h2[^>]*>\{resolvedTitle\}<\/h2>[\s\S]*ref=\{visitedTabsRef\}/);
+  assert.match(activityColumn, /visitedActivityTab === "video_reactions"[\s\S]*h-auto min-h-\[calc\(100dvh-[\s\S]*overflow-y-visible md:min-h-\[425px\]/);
   assert.match(activityColumn, /h-\[calc\(100dvh-/);
   assert.match(videoCarousel, /space-y-8 overflow-x-visible/);
   assert.match(videoCarousel, /md:\[scrollbar-width:thin\]/);
   assert.match(videoCarousel, /md:h-\[clamp\(260px,calc\(100dvh-16rem\),520px\)\]/);
+});
+
+test("first video-reaction loading mount preserves activity geometry without global scroll restoration", () => {
+  assert.match(activityColumn, /video_reactions"[\s\S]*min-h-\[calc\(100dvh-[\s\S]*md:min-h-\[425px\]/);
+  assert.doesNotMatch(activityColumn, /window\.scrollTo|window\.scrollBy/);
 });
 
 test("video reactions stay in the visited-profile branch and do not enter Profile Feed", () => {
