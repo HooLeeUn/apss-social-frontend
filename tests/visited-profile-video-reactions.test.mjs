@@ -18,8 +18,18 @@ test("visited profile video reactions exhaust backend next links with loop prote
 test("visited tabs and video carousel use independent native horizontal scrollers", () => {
   assert.match(activityColumn, /flex-nowrap gap-2 overflow-x-auto scroll-smooth/);
   assert.match(activityColumn, /tabBar\.scrollTo/);
-  assert.match(videoCarousel, /snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth/);
+  assert.match(videoCarousel, /md:flex md:snap-x md:snap-mandatory md:gap-4/);
+  assert.match(videoCarousel, /md:overflow-x-auto md:scroll-smooth/);
   assert.match(videoCarousel, /carousel\.scrollBy/);
+});
+
+test("visited profile layout uses sticky mobile tabs and a vertical mobile video list", () => {
+  assert.match(activityColumn, /sticky top-0.*env\(safe-area-inset-top\)/);
+  assert.match(activityColumn, /visitedActivityTab === "video_reactions"[\s\S]*h-auto overflow-y-visible/);
+  assert.match(activityColumn, /h-\[calc\(100dvh-/);
+  assert.match(videoCarousel, /space-y-8 overflow-x-visible/);
+  assert.match(videoCarousel, /md:\[scrollbar-width:thin\]/);
+  assert.match(videoCarousel, /md:h-\[clamp\(260px,calc\(100dvh-16rem\),520px\)\]/);
 });
 
 test("video reactions stay in the visited-profile branch and do not enter Profile Feed", () => {

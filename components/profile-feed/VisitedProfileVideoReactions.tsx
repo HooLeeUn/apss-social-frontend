@@ -121,9 +121,9 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
   return (
     <div className="relative">
       <button type="button" onClick={() => scrollCarousel(-1)} disabled={!canScrollLeft} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 md:flex">←</button>
-      <div ref={carouselRef} onScroll={updateNavigation} className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-1 pb-3 md:px-14 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div ref={carouselRef} onScroll={updateNavigation} className="space-y-8 overflow-x-visible px-1 pb-4 md:flex md:snap-x md:snap-mandatory md:gap-4 md:space-y-0 md:overflow-x-auto md:scroll-smooth md:px-14 md:pb-4 md:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] md:[scrollbar-width:thin] md:[&::-webkit-scrollbar]:h-2 md:[&::-webkit-scrollbar-thumb]:rounded-full md:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 md:[&::-webkit-scrollbar-track]:rounded-full md:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
         {cards.map(({ item, title, timestamp }) => (
-          <article key={item.id} className="w-[min(82vw,330px)] shrink-0 snap-center space-y-3 md:w-[280px] md:snap-start">
+          <article key={item.id} className="mx-auto w-[min(100%,calc((100dvh-12rem)*9/16))] space-y-3 md:mx-0 md:w-auto md:shrink-0 md:snap-start">
             <div className="flex min-h-14 items-center gap-3">
               <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -134,7 +134,7 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
                 <time dateTime={timestamp} className="mt-0.5 block text-xs text-zinc-500">{formatProfileFeedRelativeDate(locale, timestamp)}</time>
               </div>
             </div>
-            <div className="aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)]">
+            <div className="aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)] md:h-[clamp(260px,calc(100dvh-16rem),520px)] md:w-auto">
               <video src={item.payload.video_url} preload="metadata" playsInline controls controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" />
             </div>
           </article>
