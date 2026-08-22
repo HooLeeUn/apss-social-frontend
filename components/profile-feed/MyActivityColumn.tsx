@@ -1581,11 +1581,13 @@ export default function MyActivityColumn({
 
       <div
         className={`my-activity-scroll-area activity-scrollbar mt-3 pr-1 ${
-          !isOwnProfile && visitedActivityTab === "video_reactions"
-            ? "h-auto min-h-[calc(100dvh-max(6.5rem,calc(env(safe-area-inset-top)+5.5rem)))] overflow-y-visible md:min-h-[425px]"
-            : !isOwnProfile
-              ? "h-[calc(100dvh-max(5.5rem,calc(env(safe-area-inset-top)+4.5rem)))] overflow-y-auto md:h-[425px]"
-              : "h-[425px] overflow-y-auto"
+          !isOwnProfile
+            ? `h-[calc(100dvh-max(6rem,calc(env(safe-area-inset-top)+5rem)))] overflow-y-auto overscroll-y-contain ${
+                visitedActivityTab === "video_reactions"
+                  ? "md:h-auto md:min-h-[425px] md:overflow-y-visible"
+                  : "md:h-[425px] md:overscroll-y-auto"
+              }`
+            : "h-[425px] overflow-y-auto"
         }`}
         onScroll={handleScroll}
         onTouchStart={handleActivityTouchStart}

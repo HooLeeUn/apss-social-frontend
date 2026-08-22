@@ -25,16 +25,22 @@ test("visited tabs and video carousel use independent native horizontal scroller
 
 test("visited profile layout uses sticky mobile tabs and a vertical mobile video list", () => {
   assert.match(activityColumn, /sticky top-0.*env\(safe-area-inset-top\)[\s\S]*<h2[^>]*>\{resolvedTitle\}<\/h2>[\s\S]*ref=\{visitedTabsRef\}/);
-  assert.match(activityColumn, /visitedActivityTab === "video_reactions"[\s\S]*h-auto min-h-\[calc\(100dvh-[\s\S]*overflow-y-visible md:min-h-\[425px\]/);
-  assert.match(activityColumn, /h-\[calc\(100dvh-/);
+  assert.match(activityColumn, /!isOwnProfile[\s\S]*h-\[calc\(100dvh-max\(6rem,[\s\S]*overflow-y-auto overscroll-y-contain/);
+  assert.match(activityColumn, /visitedActivityTab === "video_reactions"[\s\S]*md:h-auto md:min-h-\[425px\] md:overflow-y-visible/);
   assert.match(videoCarousel, /space-y-8 overflow-x-visible/);
   assert.match(videoCarousel, /md:\[scrollbar-width:thin\]/);
   assert.match(videoCarousel, /md:h-\[clamp\(260px,calc\(100dvh-16rem\),520px\)\]/);
 });
 
-test("first video-reaction loading mount preserves activity geometry without global scroll restoration", () => {
-  assert.match(activityColumn, /video_reactions"[\s\S]*min-h-\[calc\(100dvh-[\s\S]*md:min-h-\[425px\]/);
+test("all visited tabs share one mobile viewport without global scroll restoration", () => {
+  assert.match(activityColumn, /!isOwnProfile[\s\S]*h-\[calc\(100dvh-[\s\S]*overflow-y-auto/);
   assert.doesNotMatch(activityColumn, /window\.scrollTo|window\.scrollBy/);
+});
+
+test("mobile video geometry is stable when the dynamic viewport changes", () => {
+  assert.match(videoCarousel, /w-full max-w-\[22rem\]/);
+  assert.match(videoCarousel, /aspect-\[9\/16\] w-full/);
+  assert.doesNotMatch(videoCarousel, /w-\[min\(100%,calc\(\(100dvh/);
 });
 
 test("video reactions stay in the visited-profile branch and do not enter Profile Feed", () => {
