@@ -1,0 +1,30 @@
+export type TourId = "feed" | "profile_feed" | "detail_movie";
+export type OnboardingStatus = "pending" | "in_progress" | "completed" | "skipped";
+
+export interface OnboardingState {
+  tour: TourId;
+  status: OnboardingStatus;
+  version: number;
+  currentStep: number | null;
+}
+
+export interface TourStepDefinition {
+  target: string;
+  mobileTarget?: string;
+  title: string;
+  body: string;
+  mobileBody?: string;
+  optional?: boolean;
+  placement?: "top" | "bottom" | "left" | "right";
+}
+
+export interface TourDefinition {
+  id: TourId;
+  path: (pathname: string) => boolean;
+  readyTargets: string[];
+  welcomeTitle: string;
+  welcomeBody: string;
+  finalTitle: string;
+  finalBody: string;
+  steps: TourStepDefinition[];
+}

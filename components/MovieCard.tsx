@@ -1343,7 +1343,7 @@ function MovieCard({
 
 
   const desktopCardContent = (
-    <article
+    <article data-tour="feed-card"
       className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
       } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}

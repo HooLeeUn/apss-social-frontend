@@ -809,7 +809,7 @@ function ProfileFeedContent() {
       <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 md:px-8 md:pb-8">
         <section className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
           <div className="grid min-w-0 items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
-            <div className="mx-auto flex w-full min-w-0 max-w-full">
+            <div data-tour="profile-info" className="mx-auto flex w-full min-w-0 max-w-full">
               <ProfileIdentityCard
                 username={profileUser?.username || "usuario"}
                 isLoading={loadingProfileUser || !profileUser}
@@ -836,14 +836,14 @@ function ProfileFeedContent() {
               />
             </div>
 
-            <div className="flex min-h-[220px] flex-col justify-center gap-5">
+            <div data-tour="profile-favorites" className="flex min-h-[220px] flex-col justify-center gap-5">
               <p className="text-center text-lg font-semibold text-zinc-100 md:text-left">{t("profileFeedFavoriteMovies")}</p>
               <FavoriteMoviesBlock />
             </div>
           </div>
         </section>
 
-        <section ref={(node) => { userSearchContainerRef.current = node; connectionsSearchSectionRef.current = node; }} className="profile-feed-connections-search relative z-30 mx-auto mt-4 w-full max-w-2xl scroll-mt-4 md:mt-5" aria-label={t("profileFeedSearchUser")}>
+        <section data-tour="profile-connections" ref={(node) => { userSearchContainerRef.current = node; connectionsSearchSectionRef.current = node; }} className="profile-feed-connections-search relative z-30 mx-auto mt-4 w-full max-w-2xl scroll-mt-4 md:mt-5" aria-label={t("profileFeedSearchUser")}>
           <div className="flex w-full rounded-full border border-white/55 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
             <div className="relative min-w-0 flex-1">
               <svg
@@ -972,7 +972,7 @@ function ProfileFeedContent() {
                 ))}
               </div>
             </div>
-            <div className="hidden md:block">
+            <div data-tour="profile-activity" className="hidden md:block">
               <MyActivityColumn
                 key={`my-activity-${initialActivityTab}`}
                 isOwnProfile
@@ -984,7 +984,7 @@ function ProfileFeedContent() {
           </div>
         </section>
 
-        <div ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 md:mt-4">
+        <div data-tour="profile-following-activity" ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 md:mt-4">
           <SocialActivityTabsBlock />
         </div>
       </div>

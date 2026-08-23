@@ -1143,14 +1143,14 @@ export default function FeedPage() {
           </div>
 
           <div className="feed-header__search-row feed-desktop-only hidden items-center justify-between gap-3 lg:block">
-            <SearchBar
+            <div data-tour="feed-search"><SearchBar
               locale={locale}
               className="feed-header__search mx-0 w-[52%] min-w-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5 sm:w-[58%] lg:mx-auto lg:w-full lg:max-w-2xl"
               inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
               showSearchIcon
               inlineAutocomplete
-            />
-            <div className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] lg:absolute lg:right-4 lg:top-[5.75rem] lg:[&>div]:w-[198px]">
+            /></div>
+            <div data-tour="feed-menu" className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] lg:absolute lg:right-4 lg:top-[5.75rem] lg:[&>div]:w-[198px]">
               <DirectorBoardMenu
                 locale={locale}
                 isOpen={isDirectorBoardOpen}
@@ -1164,7 +1164,7 @@ export default function FeedPage() {
             </div>
           </div>
 
-          <GenreChips
+          <div data-tour="feed-genres"><GenreChips
             locale={locale}
             genres={FEED_GENRE_OPTIONS}
             selectedGenres={selectedGenres}
@@ -1178,7 +1178,7 @@ export default function FeedPage() {
             unselectedChipClassName="border-white/70 bg-zinc-900 text-zinc-200 hover:border-white"
             disabledChipClassName="border-zinc-700 bg-zinc-900/80 text-zinc-500"
             isGenreDisabled={shouldDisableGenreChip}
-          />
+          /></div>
 
           <p className="feed-header__genre-note text-center text-xs text-zinc-500">{translate(locale, "chooseGenres")}</p>
         </div>

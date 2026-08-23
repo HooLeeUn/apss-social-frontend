@@ -4414,7 +4414,7 @@ function MovieDetailPageContent() {
             <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">{movieError}</div>
           ) : null}
           {!movieLoading && !movieError && movie ? (
-            <MovieCard
+            <div data-tour="detail-info"><MovieCard
               movie={movie}
               variant="feed"
               linkToDetail={false}
@@ -4429,7 +4429,7 @@ function MovieDetailPageContent() {
               preloadPersonDetails
               enableMobileDetailCarousel
               branding={branding}
-            />
+            /></div>
           ) : null}
 
           <div data-mobile-comment-tabs className="relative flex items-center justify-between gap-4 md:hidden" role="tablist" aria-label={composerTitle}>
