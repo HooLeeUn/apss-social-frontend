@@ -25,7 +25,7 @@ test("visited tabs and video carousel use independent native horizontal scroller
 
 test("visited profile layout uses sticky mobile tabs and a vertical mobile video list", () => {
   assert.match(activityColumn, /sticky top-0.*env\(safe-area-inset-top\)[\s\S]*<h2[^>]*>\{resolvedTitle\}<\/h2>[\s\S]*ref=\{visitedTabsRef\}/);
-  assert.match(activityColumn, /!isOwnProfile[\s\S]*h-\[calc\(100dvh-max\(6rem,[\s\S]*overflow-y-auto overscroll-y-contain/);
+  assert.match(activityColumn, /!isOwnProfile[\s\S]*h-\[calc\(100dvh-max\(6rem,[\s\S]*overflow-y-auto/);
   assert.match(activityColumn, /visitedActivityTab === "video_reactions"[\s\S]*md:h-auto md:min-h-\[425px\] md:overflow-y-visible/);
   assert.match(videoCarousel, /space-y-8 overflow-x-visible/);
   assert.match(videoCarousel, /md:\[scrollbar-width:thin\]/);
@@ -34,7 +34,13 @@ test("visited profile layout uses sticky mobile tabs and a vertical mobile video
 
 test("all visited tabs share one mobile viewport without global scroll restoration", () => {
   assert.match(activityColumn, /!isOwnProfile[\s\S]*h-\[calc\(100dvh-[\s\S]*overflow-y-auto/);
+  assert.doesNotMatch(activityColumn, /overscroll-y-contain/);
   assert.doesNotMatch(activityColumn, /window\.scrollTo|window\.scrollBy/);
+});
+
+test("the shared sticky header is bounded by the complete activity section", () => {
+  assert.match(activityColumn, /\) : \(\s*<>\s*<div className="sticky top-0/);
+  assert.doesNotMatch(activityColumn, /\) : \(\s*<div>\s*<div className="sticky top-0/);
 });
 
 test("mobile video geometry is stable when the dynamic viewport changes", () => {
