@@ -85,6 +85,29 @@ test("every onboarding ready target exists in its route markup", () => {
     ["app/movies/[id]/page.tsx", "detail-info"],
   ];
   for (const [file, target] of targets) {
-    assert.match(fs.readFileSync(file, "utf8"), new RegExp(`data-tour=["']${target}["']`));
+    assert.match(fs.readFileSync(file, "utf8"), new RegExp(`(?:data-tour|tourTarget)=["']${target}["']`));
   }
+});
+
+test("desktop Feed exposes every exact tour control and ten conceptual steps", () => {
+  const feed = fs.readFileSync("app/feed/page.tsx", "utf8");
+  const card = fs.readFileSync("components/MovieCard.tsx", "utf8");
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  for (const target of ["feed-profile", "feed-notifications", "feed-search", "feed-genres"]) {
+    assert.match(feed, new RegExp(target));
+  }
+  for (const target of ["feed-card", "feed-card-poster", "feed-card-title", "feed-card-synopsis", "feed-card-tag", "feed-card-ticket", "feed-card-rating-overall", "feed-card-rating-following", "feed-card-rating-mine"]) {
+    assert.match(card, new RegExp(target));
+  }
+  assert.match(tours, /for \(let index = 5; index < steps\.length/);
+  assert.match(tours, /steps\[9\]\.callouts/);
+});
+
+test("tour navigation keeps a locked Feed card and has a dedicated final screen", () => {
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  assert.match(provider, /lockedCardRef/);
+  assert.match(provider, /resolveVisible\(selector, lockedCardRef\.current\)/);
+  assert.match(provider, /isFeedFinal/);
+  assert.match(provider, /move\(available\.length - 1\)/);
+  assert.doesNotMatch(provider, /useEffect\([^]*\}, \[tour\]\)/);
 });

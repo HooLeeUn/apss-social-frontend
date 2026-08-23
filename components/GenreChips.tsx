@@ -18,6 +18,7 @@ interface GenreChipsProps {
   unselectedChipClassName?: string;
   disabledChipClassName?: string;
   isGenreDisabled?: (genre: string) => boolean;
+  tourTarget?: string;
 }
 
 interface NormalizedGenreChip {
@@ -43,6 +44,7 @@ export default function GenreChips({
   unselectedChipClassName,
   disabledChipClassName,
   isGenreDisabled,
+  tourTarget,
 }: GenreChipsProps) {
   const genreLabelMap: Record<string, { es: string; en: string }> = {
     Action: { es: "Acción", en: "Action" },
@@ -70,7 +72,7 @@ export default function GenreChips({
 
   return (
     <div className={`flex items-center gap-2 ${className ?? ""}`.trim()}>
-      <div className={`flex flex-1 gap-2 overflow-x-auto pb-1 ${chipsContainerClassName ?? ""}`.trim()}>
+      <div data-tour={tourTarget} className={`flex flex-1 gap-2 overflow-x-auto pb-1 ${chipsContainerClassName ?? ""}`.trim()}>
         {chips.map((chip) => {
           const selected = !chip.isAll && selectedValues.includes(chip.value);
           const disabled = !chip.isAll && !selected && (isGenreDisabled?.(chip.value) ?? false);

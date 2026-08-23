@@ -32,6 +32,7 @@ interface SearchBarProps {
   inlineAutocomplete?: boolean;
   autocompletePlacement?: "above" | "below";
   locale?: "es" | "en";
+  tourTarget?: string;
 }
 
 function buildAutocompleteEndpoint(query: string, page: number): string {
@@ -105,6 +106,7 @@ export default function SearchBar({
   inlineAutocomplete = false,
   autocompletePlacement = "below",
   locale = "es",
+  tourTarget,
 }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Movie[]>([]);
@@ -305,7 +307,7 @@ export default function SearchBar({
 
   return (
     <div ref={containerRef} className={rootClassName}>
-      <form onSubmit={handleSubmit} className={formClassName}>
+      <form data-tour={tourTarget} onSubmit={handleSubmit} className={formClassName}>
         <div className="relative min-w-0 flex-1">
           {showSearchIcon ? (
             <svg

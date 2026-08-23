@@ -10,6 +10,7 @@ interface CommentDetailButtonProps {
   synopsisEs?: string | null;
   className?: string;
   popoverClassName?: string;
+  tourTarget?: string;
 }
 
 function resolveLocalizedSynopsis(
@@ -22,7 +23,7 @@ function resolveLocalizedSynopsis(
   return synopsisEs?.trim() || synopsis?.trim() || fallback;
 }
 
-export default function CommentDetailButton({ title, synopsis, synopsisEs, className = "", popoverClassName = "" }: CommentDetailButtonProps) {
+export default function CommentDetailButton({ title, synopsis, synopsisEs, className = "", popoverClassName = "", tourTarget }: CommentDetailButtonProps) {
   const { locale } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -83,6 +84,7 @@ export default function CommentDetailButton({ title, synopsis, synopsisEs, class
   return (
     <>
       <button
+        data-tour={tourTarget}
         ref={buttonRef}
         type="button"
         aria-label={`Ver sinopsis de ${title}`}
