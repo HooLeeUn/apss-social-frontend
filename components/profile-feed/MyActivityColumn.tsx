@@ -13,6 +13,7 @@ import { formatProfileFeedRelativeDate, Locale, resolveMovieTitles, translateVis
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 import EmptyStatePanel from "./EmptyStatePanel";
 import { apiFetch } from "../../lib/api";
+import VisitedProfileVideoReactions from "./VisitedProfileVideoReactions";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
@@ -1018,9 +1019,10 @@ export default function MyActivityColumn({
   const [activeReactionSummary, setActiveReactionSummary] = useState<ReactionSummaryState | null>(null);
   const closeReactionSummary = useCallback(() => setActiveReactionSummary(null), []);
 
-  const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations">(
+  const [visitedActivityTab, setVisitedActivityTab] = useState<"public_comments" | "ratings" | "reactions" | "recommendations" | "video_reactions">(
     "recommendations",
   );
+  const [hasOpenedVisitedVideoReactions, setHasOpenedVisitedVideoReactions] = useState(false);
   const [senderQuery, setSenderQuery] = useState("");
   const [myUsername, setMyUsername] = useState<string | null>(null);
   const [authorCanVisitByUsername, setAuthorCanVisitByUsername] = useState<Record<string, boolean>>({});
@@ -1032,10 +1034,17 @@ export default function MyActivityColumn({
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
   const activityTouchGestureRef = useRef<ActivityTouchGesture | null>(null);
   const swipeIntentRef = useRef<SwipeIntent>({ count: 0, direction: null, endedAt: 0, armedDirection: null });
+  const visitedTabsRef = useRef<HTMLDivElement | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
   const canShowPrivateInbox = isOwnProfile && hidePrivateInbox === false;
   const shouldBlockPrivateInbox = isOwnProfile && !canShowPrivateInbox;
+  const scrollVisitedTabIntoView = useCallback((button: HTMLButtonElement) => {
+    const tabBar = visitedTabsRef.current;
+    if (!tabBar || window.matchMedia("(min-width: 768px)").matches) return;
+    const left = button.offsetLeft - (tabBar.clientWidth - button.offsetWidth) / 2;
+    tabBar.scrollTo({ left, behavior: "smooth" });
+  }, []);
   useEffect(() => {
     if (!activeTabRequest) return;
     setActiveTab(shouldBlockPrivateInbox && activeTabRequest.tab === "messages" ? "activity" : activeTabRequest.tab);
@@ -1204,7 +1213,7 @@ export default function MyActivityColumn({
   ]);
 
   useEffect(() => {
-    if (isOwnProfile || effectiveActiveTab !== "activity" || visitedActivityTab === "recommendations") {
+    if (isOwnProfile || effectiveActiveTab !== "activity" || visitedActivityTab === "recommendations" || visitedActivityTab === "video_reactions") {
       autoLoadAttemptsRef.current = 0;
       return;
     }
@@ -1327,6 +1336,10 @@ export default function MyActivityColumn({
   }, [isOwnProfile, normalizedViewedUsername]);
 
   useEffect(() => {
+    setHasOpenedVisitedVideoReactions(false);
+  }, [normalizedViewedUsername]);
+
+  useEffect(() => {
     setActiveTab(shouldBlockPrivateInbox && initialActiveTab === "messages" ? "activity" : initialActiveTab);
   }, [initialActiveTab, shouldBlockPrivateInbox]);
 
@@ -1366,7 +1379,7 @@ export default function MyActivityColumn({
       if (remainingDistance >= 160) return;
 
       if (effectiveActiveTab === "activity") {
-        if (!isOwnProfile && visitedActivityTab === "recommendations") return;
+        if (!isOwnProfile && (visitedActivityTab === "recommendations" || visitedActivityTab === "video_reactions")) return;
         if (!activity.hasMore || activity.loading || activity.loadingMore || activity.error) return;
         void activity.loadMore();
         return;
@@ -1473,13 +1486,17 @@ export default function MyActivityColumn({
           ))}
         </header>
       ) : (
-        <div className="space-y-3">
+        <>
+          <div className="sticky top-0 z-30 -mx-4 space-y-3 bg-black/90 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md md:static md:z-auto md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
           <h2 className="text-base font-semibold text-zinc-100">{resolvedTitle}</h2>
-          <div className="flex flex-wrap gap-2">
+          <div ref={visitedTabsRef} className="flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 md:flex-wrap md:overflow-x-visible md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
               type="button"
-              onClick={() => setVisitedActivityTab("recommendations")}
-              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
+              onClick={(event) => {
+                setVisitedActivityTab("recommendations");
+                scrollVisitedTabIntoView(event.currentTarget);
+              }}
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "recommendations"
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
@@ -1489,8 +1506,26 @@ export default function MyActivityColumn({
             </button>
             <button
               type="button"
-              onClick={() => setVisitedActivityTab("public_comments")}
-              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
+              onClick={(event) => {
+                setVisitedActivityTab("video_reactions");
+                setHasOpenedVisitedVideoReactions(true);
+                scrollVisitedTabIntoView(event.currentTarget);
+              }}
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-base font-medium transition ${
+                visitedActivityTab === "video_reactions"
+                  ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
+                  : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
+              }`}
+            >
+              {t("visitedProfileVideoReactions")}
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                setVisitedActivityTab("public_comments");
+                scrollVisitedTabIntoView(event.currentTarget);
+              }}
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "public_comments"
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
@@ -1500,8 +1535,11 @@ export default function MyActivityColumn({
             </button>
             <button
               type="button"
-              onClick={() => setVisitedActivityTab("ratings")}
-              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
+              onClick={(event) => {
+                setVisitedActivityTab("ratings");
+                scrollVisitedTabIntoView(event.currentTarget);
+              }}
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "ratings"
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
@@ -1511,8 +1549,11 @@ export default function MyActivityColumn({
             </button>
             <button
               type="button"
-              onClick={() => setVisitedActivityTab("reactions")}
-              className={`rounded-full border px-3 py-1.5 text-base font-medium transition ${
+              onClick={(event) => {
+                setVisitedActivityTab("reactions");
+                scrollVisitedTabIntoView(event.currentTarget);
+              }}
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-base font-medium transition ${
                 visitedActivityTab === "reactions"
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"
                   : "border-white/20 bg-zinc-900 text-zinc-300 hover:border-white/40"
@@ -1521,7 +1562,8 @@ export default function MyActivityColumn({
               {t("visitedProfileLikesDislikes")}
             </button>
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       {canShowPrivateInbox && effectiveActiveTab === "messages" ? (
@@ -1538,7 +1580,15 @@ export default function MyActivityColumn({
       ) : null}
 
       <div
-        className="my-activity-scroll-area activity-scrollbar mt-3 h-[425px] overflow-y-auto pr-1"
+        className={`my-activity-scroll-area activity-scrollbar mt-3 pr-1 ${
+          !isOwnProfile
+            ? `h-[calc(100dvh-max(6rem,calc(env(safe-area-inset-top)+5rem)))] overflow-y-auto ${
+                visitedActivityTab === "video_reactions"
+                  ? "md:h-auto md:min-h-[425px] md:overflow-y-visible"
+                  : "md:h-[425px] md:overscroll-y-auto"
+              }`
+            : "h-[425px] overflow-y-auto"
+        }`}
         onScroll={handleScroll}
         onTouchStart={handleActivityTouchStart}
         onTouchMove={handleActivityTouchMove}
@@ -1551,9 +1601,9 @@ export default function MyActivityColumn({
               <p className="text-sm text-zinc-500">No se pudo resolver el usuario para cargar actividad.</p>
             ) : null}
 
-            {activity.loading ? <MyActivitySkeleton /> : null}
+            {activity.loading && (isOwnProfile || visitedActivityTab !== "video_reactions") ? <MyActivitySkeleton /> : null}
 
-            {!activity.loading && activity.error ? (
+            {!activity.loading && activity.error && (isOwnProfile || visitedActivityTab !== "video_reactions") ? (
               <div className="rounded-2xl border border-red-300/30 bg-red-950/20 px-3 py-2 text-xs text-red-100">
                 <p>{activity.error || resolvedErrorCopy}</p>
                 <button
@@ -1604,9 +1654,15 @@ export default function MyActivityColumn({
               </>
             ) : null}
 
+            {!isOwnProfile && hasOpenedVisitedVideoReactions ? (
+              <div className={visitedActivityTab === "video_reactions" ? "block" : "hidden"}>
+                <VisitedProfileVideoReactions username={normalizedViewedUsername} />
+              </div>
+            ) : null}
+
             {!activity.loading &&
             !activity.error &&
-            (isOwnProfile ? ownActivityItems.length === 0 : visitedActivityTab !== "recommendations" && filteredActivityItems.length === 0) ? (
+            (isOwnProfile ? ownActivityItems.length === 0 : visitedActivityTab !== "recommendations" && visitedActivityTab !== "video_reactions" && filteredActivityItems.length === 0) ? (
               isOwnProfile ? (
                 <EmptyStatePanel
                   title={resolvedEmptyCopy}
@@ -1624,7 +1680,7 @@ export default function MyActivityColumn({
                     key={item.id}
                     item={item}
                     isOwnProfile={isOwnProfile}
-                    visitedActivityTab={isOwnProfile ? undefined : visitedActivityTab}
+                    visitedActivityTab={isOwnProfile || visitedActivityTab === "video_reactions" ? undefined : visitedActivityTab}
                     viewedUsername={normalizedViewedUsername}
                     myUsername={myUsername}
                     authorCanVisitByUsername={authorCanVisitByUsername}
