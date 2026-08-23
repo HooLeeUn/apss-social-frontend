@@ -1,7 +1,7 @@
 import { apiFetch } from "../api";
 import type { OnboardingState, OnboardingStatus, TourId } from "./types";
 
-const ENDPOINT = "/onboarding/";
+const ENDPOINT = "/me/onboarding/";
 
 function normalize(raw: unknown, fallbackTour?: TourId): OnboardingState | null {
   if (!raw || typeof raw !== "object") return null;
@@ -20,9 +20,13 @@ export async function getOnboardingStates(): Promise<OnboardingState[]> {
   return values.map((value) => normalize(value)).filter((value): value is OnboardingState => Boolean(value));
 }
 
-export async function updateOnboardingState(tour: TourId, status: OnboardingStatus, currentStep: number | null): Promise<OnboardingState | null> {
-  const payload = await apiFetch(`${ENDPOINT}${tour}/`, { method: "PATCH", body: JSON.stringify({ status, current_step: currentStep }) });
-  return normalize(payload, tour);
+export async function updateOnboardingState(tour: TourId, status: OnboardingStatus, currentStep: number | null, version: number): Promise<OnboardingState | null> {
+  const payload = await apiFetch(ENDPOINT, {
+    method: "PATCH",
+    body: JSON.stringify({ tour, status, version, current_step: currentStep }),
+  });
+  const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : null;
+  return normalize(record?.[tour], tour);
 }
 
 export const onboardingQueueKey = (user: string, tour: TourId, version: number) => `qnext:onboarding:${encodeURIComponent(user)}:${tour}:v${version}`;
