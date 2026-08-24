@@ -1932,6 +1932,7 @@ export async function getSocialActivity(
   tab: SocialActivityScope,
   nextEndpoint: string | null = null,
   signal?: AbortSignal,
+  activityType?: "rating" | "public_comment" | "public_comment_reaction",
 ): Promise<PaginatedSocialActivity> {
   const usernameScope = parseUserScope(tab);
   const isMyActivityScope = tab === "me";
@@ -1980,6 +1981,17 @@ export async function getSocialActivity(
   }
 
   if (usernameScope && !nextEndpoint) {
+    if (activityType) {
+      const endpoint = `${buildUserActivityEndpoint(usernameScope)}?${new URLSearchParams({ activity_type: activityType }).toString()}`;
+      const payload = await apiFetch(endpoint, { signal });
+      const parsed = parseSocialActivity(payload);
+
+      return {
+        items: filterUsernameScopedActivity(parsed.items, usernameScope),
+        next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+      };
+    }
+
     const attempts = [
       buildUserActivityEndpoint(usernameScope),
       `${PROFILE_FEED_ACTIVITY_ENDPOINT}?${new URLSearchParams({ username: usernameScope }).toString()}`,

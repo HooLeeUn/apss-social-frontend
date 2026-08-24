@@ -603,19 +603,6 @@ function isVisitedActorItem(item: SocialActivityItem, viewedUsername: string): b
   return normalizeUsername(item.user.username) === expected;
 }
 
-function isVisitedPublicCommentItem(item: SocialActivityItem): boolean {
-  return normalizeActivityType(item) === "public_comment";
-}
-
-function isVisitedRatingItem(item: SocialActivityItem): boolean {
-  return normalizeActivityType(item) === "rating";
-}
-
-function isVisitedPublicReactionItem(item: SocialActivityItem): boolean {
-  const type = normalizeActivityType(item);
-  return type === "public_comment_reaction" || type === "public_comment_like" || type === "public_comment_dislike";
-}
-
 function ActivityRow({
   item,
   isOwnProfile,
@@ -1050,7 +1037,16 @@ export default function MyActivityColumn({
     setActiveTab(shouldBlockPrivateInbox && activeTabRequest.tab === "messages" ? "activity" : activeTabRequest.tab);
   }, [activeTabRequest, shouldBlockPrivateInbox]);
   const effectiveActiveTab = shouldBlockPrivateInbox && activeTab === "messages" ? "activity" : activeTab;
-  const activityEnabled = !isOwnProfile || effectiveActiveTab === "activity" || effectiveActiveTab === "rated";
+  const visitedActivityType = visitedActivityTab === "public_comments"
+    ? "public_comment" as const
+    : visitedActivityTab === "ratings"
+      ? "rating" as const
+      : visitedActivityTab === "reactions"
+        ? "public_comment_reaction" as const
+        : undefined;
+  const activityEnabled = isOwnProfile
+    ? effectiveActiveTab === "activity" || effectiveActiveTab === "rated"
+    : effectiveActiveTab === "activity" && visitedActivityType !== undefined;
   const messagesEnabled = canShowPrivateInbox && effectiveActiveTab === "messages";
   const ownProfileTabs: Array<{ value: "activity" | "messages" | "rated"; label: string }> = [
     { value: "activity", label: t("profileFeedMyActivity") },
@@ -1068,7 +1064,7 @@ export default function MyActivityColumn({
       : t("visitedProfileNoSocialActivity");
   const resolvedErrorCopy = errorCopy ?? (locale === "en" ? "Activity could not be loaded." : "No se pudo cargar la actividad.");
 
-  const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled);
+  const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled, visitedActivityType);
   const messages = useInfiniteMyMessages(messagesEnabled);
   const reloadMessages = messages.reload;
 
@@ -1153,20 +1149,8 @@ export default function MyActivityColumn({
     const sortedItems = [...activity.items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
     const actorScopedItems = sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
 
-    if (visitedActivityTab === "public_comments") {
-      return actorScopedItems.filter((item) => isVisitedPublicCommentItem(item));
-    }
-
-    if (visitedActivityTab === "ratings") {
-      return actorScopedItems.filter((item) => isVisitedRatingItem(item));
-    }
-
-    if (visitedActivityTab === "reactions") {
-      return actorScopedItems.filter((item) => isVisitedPublicReactionItem(item));
-    }
-
-    return [];
-  }, [activity.items, isOwnProfile, normalizedViewedUsername, visitedActivityTab]);
+    return visitedActivityType ? actorScopedItems : [];
+  }, [activity.items, isOwnProfile, normalizedViewedUsername, visitedActivityType]);
 
   const ownActivityItems = useMemo(() => {
     return activity.items
