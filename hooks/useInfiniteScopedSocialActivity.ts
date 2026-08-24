@@ -14,7 +14,19 @@ interface UseInfiniteScopedSocialActivityResult {
   reload: () => void;
 }
 
-export function useInfiniteScopedSocialActivity(scope: SocialActivityScope, enabled: boolean = true): UseInfiniteScopedSocialActivityResult {
+type VisitedActivityType = "rating" | "public_comment" | "public_comment_reaction";
+
+interface ActivityCacheEntry {
+  items: SocialActivityItem[];
+  next: string | null;
+  error: string | null;
+}
+
+export function useInfiniteScopedSocialActivity(
+  scope: SocialActivityScope,
+  enabled: boolean = true,
+  activityType?: VisitedActivityType,
+): UseInfiniteScopedSocialActivityResult {
   const [items, setItems] = useState<SocialActivityItem[]>([]);
   const [next, setNext] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -26,6 +38,14 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope, enab
   const loadingRef = useRef(false);
   const loadingMoreRef = useRef(false);
   const errorRef = useRef<string | null>(null);
+  const itemsRef = useRef<SocialActivityItem[]>([]);
+  const cacheRef = useRef<Map<string, ActivityCacheEntry>>(new Map());
+  const cacheKey = `${scope}:${activityType ?? "all"}`;
+  const stateCacheKeyRef = useRef(cacheKey);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   useEffect(() => {
     nextRef.current = next;
@@ -69,15 +89,20 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope, enab
       }
 
       try {
-        const response = await getSocialActivity(scope, mode === "append" ? currentNext : null, abortController.signal);
+        const response = await getSocialActivity(scope, mode === "append" ? currentNext : null, abortController.signal, activityType);
         if (requestId !== requestIdRef.current) return;
+        stateCacheKeyRef.current = cacheKey;
 
         setItems((current) => {
-          if (mode === "reset") return response.items;
+          const nextItems = (() => {
+            if (mode === "reset") return response.items;
 
-          const existingIds = new Set(current.map((item) => item.id));
-          const uniqueNewItems = response.items.filter((item) => !existingIds.has(item.id));
-          return [...current, ...uniqueNewItems];
+            const existingIds = new Set(current.map((item) => item.id));
+            const uniqueNewItems = response.items.filter((item) => !existingIds.has(item.id));
+            return [...current, ...uniqueNewItems];
+          })();
+          cacheRef.current.set(cacheKey, { items: nextItems, next: response.next, error: null });
+          return nextItems;
         });
         setNext(response.next);
         nextRef.current = response.next;
@@ -87,6 +112,7 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope, enab
         const nextError = "No se pudo cargar tu actividad.";
         setError(nextError);
         errorRef.current = nextError;
+        cacheRef.current.set(cacheKey, { items: mode === "append" ? itemsRef.current : [], next: currentNext, error: nextError });
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
@@ -97,13 +123,17 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope, enab
         }
       }
     },
-    [scope],
+    [activityType, cacheKey, scope],
   );
 
   useEffect(() => {
+    requestIdRef.current += 1;
+    abortControllerRef.current?.abort();
+
     if (!enabled) {
-      abortControllerRef.current?.abort();
+      stateCacheKeyRef.current = cacheKey;
       setItems([]);
+      itemsRef.current = [];
       setNext(null);
       nextRef.current = null;
       setError(null);
@@ -115,13 +145,31 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope, enab
       return;
     }
 
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      stateCacheKeyRef.current = cacheKey;
+      setItems(cached.items);
+      itemsRef.current = cached.items;
+      setNext(cached.next);
+      nextRef.current = cached.next;
+      setError(cached.error);
+      errorRef.current = cached.error;
+      setLoading(false);
+      setLoadingMore(false);
+      loadingRef.current = false;
+      loadingMoreRef.current = false;
+      return;
+    }
+
     setItems([]);
+    stateCacheKeyRef.current = cacheKey;
+    itemsRef.current = [];
     setNext(null);
     nextRef.current = null;
     setError(null);
     errorRef.current = null;
     void loadPage("reset");
-  }, [enabled, loadPage, scope]);
+  }, [cacheKey, enabled, loadPage]);
 
   useEffect(
     () => () => {
@@ -146,8 +194,8 @@ export function useInfiniteScopedSocialActivity(scope: SocialActivityScope, enab
   }, [enabled, loadPage]);
 
   return {
-    items,
-    loading,
+    items: stateCacheKeyRef.current === cacheKey ? items : [],
+    loading: enabled && stateCacheKeyRef.current !== cacheKey ? true : loading,
     loadingMore,
     error,
     hasMore: Boolean(next),
