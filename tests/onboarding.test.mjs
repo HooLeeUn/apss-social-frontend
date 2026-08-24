@@ -147,3 +147,27 @@ test("completion and skip suppress resume until their optimistic state is settle
   assert.match(provider, /closeWithStatus\("skipped"\)/);
   assert.match(provider, /closeWithStatus\("completed"\)/);
 });
+
+test("desktop Feed fades in only its initial spotlight without resetting geometry", () => {
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  assert.match(provider, /initialSpotlightRevealedRef/);
+  assert.match(provider, /index === 0/);
+  assert.match(provider, /background-color 420ms ease-out/);
+  assert.match(provider, /requestAnimationFrame\(\(\) => setInitialSpotlightVisible\(true\)\)/);
+  assert.doesNotMatch(provider.match(/initialSpotlightRevealedRef[^]*?return <div className="fixed inset-0 z-\[10000\]"/)?.[0] ?? "", /setRect\(null\)/);
+});
+
+test("desktop Feed provides six decorative step icons and updated localized copy", () => {
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  for (const icon of ["search", "filter", "profile", "notifications", "menu", "productions"]) {
+    assert.match(tours, new RegExp(`"${icon}"`));
+  }
+  assert.match(provider, /function TourStepIcon/);
+  assert.match(provider, /"aria-hidden": true/);
+  assert.match(tours, /acceder a tu Perfil personal/);
+  assert.match(tours, /abrir el detalle de la producción/);
+  assert.match(tours, /hará parte del promedio en Calificación general/);
+  assert.match(tours, /contribute to the Overall Rating average/);
+  assert.match(tours, /access your Profile Feed/);
+});

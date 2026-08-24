@@ -10,6 +10,7 @@ export interface OnboardingState {
 
 export interface TourStepDefinition {
   target: string;
+  icon?: "search" | "filter" | "profile" | "notifications" | "menu" | "productions";
   /** Keep the spotlight on a parent while callouts point at controls inside it. */
   spotlightTarget?: string;
   callouts?: Array<{
