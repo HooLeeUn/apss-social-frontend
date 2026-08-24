@@ -1,5 +1,7 @@
 export type TourId = "feed" | "profile_feed" | "detail_movie";
 export type OnboardingStatus = "pending" | "in_progress" | "completed" | "skipped";
+export type OnboardingPrepareAction = "profile-activity" | "profile-inbox" | "profile-ratings" | "profile-list" | "profile-recommendations";
+export const onboardingPrepareStepEventName = "qnext:onboarding:prepare-step";
 
 export interface OnboardingState {
   tour: TourId;
@@ -10,7 +12,8 @@ export interface OnboardingState {
 
 export interface TourStepDefinition {
   target: string;
-  icon?: "search" | "filter" | "profile" | "notifications" | "menu" | "productions";
+  icon?: "search" | "filter" | "profile" | "notifications" | "menu" | "productions" | "favorite" | "connections" | "activity" | "inbox" | "ratings" | "list" | "recommendations";
+  prepare?: OnboardingPrepareAction;
   /** Keep the spotlight on a parent while callouts point at controls inside it. */
   spotlightTarget?: string;
   callouts?: Array<{

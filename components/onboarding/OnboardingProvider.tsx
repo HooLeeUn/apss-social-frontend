@@ -6,6 +6,7 @@ import { useI18n } from "../../hooks/useI18n";
 import { getMyProfile } from "../../lib/profile-feed/adapters";
 import { getOnboardingStates, onboardingQueueKey, updateOnboardingState } from "../../lib/onboarding/api";
 import { commonTourCopy, getTourDefinitions } from "../../lib/onboarding/tours";
+import { onboardingPrepareStepEventName } from "../../lib/onboarding/types";
 import type { OnboardingState, OnboardingStatus, TourDefinition, TourStepDefinition } from "../../lib/onboarding/types";
 
 type PendingUpdate = { status: OnboardingStatus; currentStep: number | null };
@@ -119,7 +120,14 @@ function TourStepIcon({ icon }: { icon: NonNullable<TourStepDefinition["icon"]> 
   if (icon === "profile") return <svg {...commonProps}><circle cx="12" cy="8" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" strokeLinecap="round" /></svg>;
   if (icon === "notifications") return <svg {...commonProps}><path d="M6 17h12l-2-3V9a4 4 0 0 0-8 0v5l-2 3Z" strokeLinejoin="round" /><path d="M10 20h4" strokeLinecap="round" /></svg>;
   if (icon === "menu") return <svg {...commonProps}><path d="M4 8h16v11H4zM4 8l3-4h4L8 8m3 0 3-4h4l-3 4" strokeLinejoin="round" /><path d="m10 12 5 2.5-5 2.5v-5Z" strokeLinejoin="round" /></svg>;
-  return <svg {...commonProps}><circle cx="9" cy="12" r="6" /><circle cx="9" cy="12" r="2" /><path d="M15 12h6v6h-9" strokeLinecap="round" strokeLinejoin="round" /><circle cx="7" cy="9" r=".7" fill="currentColor" stroke="none" /><circle cx="11" cy="10" r=".7" fill="currentColor" stroke="none" /><circle cx="10" cy="14" r=".7" fill="currentColor" stroke="none" /></svg>;
+  if (icon === "productions") return <svg {...commonProps}><circle cx="9" cy="12" r="6" /><circle cx="9" cy="12" r="2" /><path d="M15 12h6v6h-9" strokeLinecap="round" strokeLinejoin="round" /><circle cx="7" cy="9" r=".7" fill="currentColor" stroke="none" /><circle cx="11" cy="10" r=".7" fill="currentColor" stroke="none" /><circle cx="10" cy="14" r=".7" fill="currentColor" stroke="none" /></svg>;
+  if (icon === "favorite") return <svg {...commonProps}><path d="M20 8.5c0 5-8 10-8 10s-8-5-8-10a4.5 4.5 0 0 1 8-2.8 4.5 4.5 0 0 1 8 2.8Z" strokeLinejoin="round" /></svg>;
+  if (icon === "connections") return <svg {...commonProps}><circle cx="9" cy="8" r="3" /><circle cx="17" cy="10" r="2.5" /><path d="M3.5 20c.4-4 2.2-6 5.5-6s5.1 2 5.5 6M14 15c3.5-.7 5.7 1 6.5 4" strokeLinecap="round" /></svg>;
+  if (icon === "activity") return <svg {...commonProps}><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>;
+  if (icon === "inbox") return <svg {...commonProps}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" strokeLinejoin="round" /></svg>;
+  if (icon === "ratings") return <svg {...commonProps}><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z" strokeLinejoin="round" /></svg>;
+  if (icon === "list") return <svg {...commonProps}><path d="M4 4h11l5 5-10 11-6-6V4Z" strokeLinejoin="round" /><circle cx="9" cy="9" r="1.5" /></svg>;
+  return <svg {...commonProps}><path d="M4 6h16l-2 13H6L4 6Z" strokeLinejoin="round" /><path d="m7 6 2-3h6l2 3M8 11h8M9 15h6" strokeLinecap="round" /></svg>;
 }
 
 function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: TourDefinition; initialStep: number; onStep: (n: number) => void; onSkip: () => void; onFinish: () => void }) {
@@ -150,44 +158,54 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
 
   useEffect(() => {
     if (!step || isFeedFinal) return;
+    let cancelled = false;
+    let firstFrame = 0;
+    let secondFrame = 0;
+    let timer = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    let update: (() => void) | null = null;
     const lockToCard = tour.id === "feed" && index >= 5;
-    const target = resolveStepElement(step.spotlightTarget ?? step.target, lockToCard);
-    if (!target) {
-      const timer = window.setTimeout(() => index < available.length - 1 ? setIndex((current) => current + 1) : onFinish(), 0);
-      return () => window.clearTimeout(timer);
-    }
-    target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-    const update = () => {
-      const targetRect = target.getBoundingClientRect();
-      setRect(targetRect);
-      if (tour.id === "feed" && !mobile && index === 0 && !initialSpotlightRevealedRef.current) {
-        initialSpotlightRevealedRef.current = true;
-        setInitialSpotlightVisible(false);
-        initialRevealFrameRef.current = window.requestAnimationFrame(() => setInitialSpotlightVisible(true));
-      }
-      const tooltipRect = tooltipRef.current?.getBoundingClientRect();
-      setTooltipPosition(chooseTooltipPosition(targetRect, tooltipRect?.width ?? 420, tooltipRect?.height ?? 250));
-      setCallouts(buildCalloutGeometries(step.callouts ?? [], (selector) => resolveStepElement(selector, lockToCard), tour.id === "feed" && !mobile));
+    const setupTarget = () => {
+      if (cancelled) return;
+      const target = resolveStepElement(step.spotlightTarget ?? step.target, lockToCard);
+      if (!target) { timer = window.setTimeout(() => index < available.length - 1 ? setIndex((current) => current + 1) : onFinish(), 0); return; }
+      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      update = () => {
+        const targetRect = target.getBoundingClientRect();
+        setRect(targetRect);
+        if ((tour.id === "feed" || tour.id === "profile_feed") && !mobile && index === 0 && !initialSpotlightRevealedRef.current) {
+          initialSpotlightRevealedRef.current = true;
+          setInitialSpotlightVisible(false);
+          initialRevealFrameRef.current = window.requestAnimationFrame(() => setInitialSpotlightVisible(true));
+        }
+        const tooltipRect = tooltipRef.current?.getBoundingClientRect();
+        setTooltipPosition(chooseTooltipPosition(targetRect, tooltipRect?.width ?? 420, tooltipRect?.height ?? 250));
+        setCallouts(buildCalloutGeometries(step.callouts ?? [], (selector) => resolveStepElement(selector, lockToCard), tour.id === "feed" && !mobile));
+      };
+      timer = window.setTimeout(update, 350);
+      resizeObserver = new ResizeObserver(update);
+      resizeObserver.observe(target);
+      if (tooltipRef.current) resizeObserver.observe(tooltipRef.current);
+      window.addEventListener("resize", update);
+      window.addEventListener("scroll", update, true);
     };
-    const timer = window.setTimeout(update, 350);
-    const resizeObserver = new ResizeObserver(update);
-    resizeObserver.observe(target);
-    if (tooltipRef.current) resizeObserver.observe(tooltipRef.current);
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    return () => { window.clearTimeout(timer); if (initialRevealFrameRef.current !== null) window.cancelAnimationFrame(initialRevealFrameRef.current); resizeObserver.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
+    if (tour.id === "profile_feed" && !mobile && step.prepare) {
+      window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: step.prepare } }));
+      firstFrame = window.requestAnimationFrame(() => { secondFrame = window.requestAnimationFrame(setupTarget); });
+    } else setupTarget();
+    return () => { cancelled = true; window.clearTimeout(timer); window.cancelAnimationFrame(firstFrame); window.cancelAnimationFrame(secondFrame); if (initialRevealFrameRef.current !== null) window.cancelAnimationFrame(initialRevealFrameRef.current); resizeObserver?.disconnect(); if (update) { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); } };
   }, [available.length, index, isFeedFinal, mobile, onFinish, resolveStepElement, step, tour.id]);
 
   const move = (next: number) => { setCallouts([]); setIndex(next); if (next < available.length) onStep(next); };
   if (isFeedFinal) return <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-2xl border border-white/20 bg-zinc-950 p-6 shadow-2xl"><h2 className="text-xl font-bold">{tour.finalTitle}</h2><p className="mt-3 text-zinc-300">{tour.finalBody}</p><div className="mt-6 flex justify-between"><button type="button" onClick={() => move(available.length - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm">{labels.back}</button><button type="button" onClick={onFinish} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{labels.finish}</button></div></div></div>;
   if (!step || !rect) return null;
-  const isInitialFeedSpotlight = tour.id === "feed" && !mobile && index === 0;
+  const isInitialFeedSpotlight = (tour.id === "feed" || tour.id === "profile_feed") && !mobile && index === 0;
   return <div className="fixed inset-0 z-[10000]" role="dialog" aria-modal="true">
     <div className="fixed rounded-xl" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, backgroundColor: isInitialFeedSpotlight && !initialSpotlightVisible ? "rgba(0,0,0,.82)" : "rgba(0,0,0,0)", boxShadow: "0 0 0 9999px rgba(0,0,0,.82)", pointerEvents: "none", transition: "left 450ms ease-in-out, top 450ms ease-in-out, width 450ms ease-in-out, height 450ms ease-in-out, background-color 420ms ease-out" }} />
     <div className="fixed inset-0" onClick={(event) => event.preventDefault()} />
     {callouts.map((geometry, calloutIndex) => <TourCallout key={`${step.target}-${calloutIndex}`} geometry={geometry} markerId={`tour-callout-arrow-${index}-${calloutIndex}`} />)}
     <div ref={tooltipRef} className="fixed z-[10004] w-[min(92vw,420px)] rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-2xl" style={tooltipPosition}>
-      <button type="button" aria-label={labels.close} onClick={onSkip} className="absolute right-4 top-3 text-xl">×</button><p className="text-xs text-blue-300">{index + 1} / {available.length}</p><div className="mt-1 flex items-center gap-2 pr-7">{tour.id === "feed" && !mobile && step.icon ? <TourStepIcon icon={step.icon} /> : null}<h2 className="text-lg font-bold">{step.title}</h2></div><p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{mobile && step.mobileBody ? step.mobileBody : step.body}</p>
+      <button type="button" aria-label={labels.close} onClick={onSkip} className="absolute right-4 top-3 text-xl">×</button><p className="text-xs text-blue-300">{index + 1} / {available.length}</p><div className="mt-1 flex items-center gap-2 pr-7">{(tour.id === "feed" || tour.id === "profile_feed") && !mobile && step.icon ? <TourStepIcon icon={step.icon} /> : null}<h2 className="text-lg font-bold">{step.title}</h2></div><p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{mobile && step.mobileBody ? step.mobileBody : step.body}</p>
       <div className="mt-5 flex justify-between"><button type="button" disabled={index === 0} onClick={() => move(index - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm disabled:invisible">{labels.back}</button><button type="button" onClick={() => index === available.length - 1 && !hasDedicatedFinalScreen ? onFinish() : move(index + 1)} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{index === available.length - 1 && !hasDedicatedFinalScreen ? labels.finish : labels.next}</button></div>
     </div>
   </div>;

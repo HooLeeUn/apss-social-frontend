@@ -171,3 +171,39 @@ test("desktop Feed provides six decorative step icons and updated localized copy
   assert.match(tours, /contribute to the Overall Rating average/);
   assert.match(tours, /access your Profile Feed/);
 });
+
+test("desktop Profile Feed exposes all nine structural targets", () => {
+  const page = fs.readFileSync("app/profile-feed/page.tsx", "utf8");
+  const activity = fs.readFileSync("components/profile-feed/MyActivityColumn.tsx", "utf8");
+  const connections = fs.readFileSync("components/profile-feed/TopUsersSection.tsx", "utf8");
+  for (const target of ["profile-info", "profile-favorites", "profile-list", "profile-recommendations", "profile-following-activity"]) assert.match(page, new RegExp(target));
+  for (const target of ["profile-inbox", "profile-ratings"]) assert.match(activity, new RegExp(target));
+  assert.match(connections, /data-tour=\{tourTarget\}/);
+  assert.match(page, /tourTarget="profile-connections"/);
+  assert.doesNotMatch(page, /<section data-tour="profile-connections"[^>]+profile-feed-connections-search/);
+});
+
+test("Profile Feed prepares React view state before resolving each controlled step", () => {
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  const page = fs.readFileSync("app/profile-feed/page.tsx", "utf8");
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  assert.match(provider, /onboardingPrepareStepEventName/);
+  assert.match(provider, /requestAnimationFrame\(\(\) => \{ secondFrame = window\.requestAnimationFrame\(setupTarget\)/);
+  assert.doesNotMatch(provider, /querySelector\([^)]*\)\.click\(/);
+  for (const action of ["profile-activity", "profile-inbox", "profile-ratings", "profile-list", "profile-recommendations"]) {
+    assert.match(tours, new RegExp(`"${action}"`));
+    assert.match(page, new RegExp(`action === "${action}"`));
+  }
+  assert.match(page, /activeTabRequest=\{activityTabRequest\}/);
+});
+
+test("Profile Feed has nine icons, complete copy, and no optional structural steps", () => {
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  assert.match(tours, /"profile", "favorite", "connections", "activity", "inbox", "ratings", "list", "recommendations", "menu"/);
+  assert.match(tours, /step\.optional = false/);
+  assert.match(tours, /Buzón privado/);
+  assert.match(tours, /Private Inbox/);
+  assert.match(tours, /descubre qué están viendo, calificando, comentando o recomendando/);
+  assert.match(provider, /tour\.id === "profile_feed"/);
+});

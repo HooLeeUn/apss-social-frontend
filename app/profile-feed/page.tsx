@@ -28,6 +28,7 @@ import { getPersonalData } from "../../lib/personal-data";
 import { getProfilePrivacySettings } from "../../lib/privacy";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { useI18n } from "../../hooks/useI18n";
+import { onboardingPrepareStepEventName, type OnboardingPrepareAction } from "../../lib/onboarding/types";
 import { interpolate, resolveMovieTitles } from "../../lib/i18n";
 import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../../lib/movies";
 
@@ -183,7 +184,7 @@ function ProfileFeedContent() {
   const [activeFriendsView, setActiveFriendsView] = useState<"friends" | "pending">("friends");
   const navigationRequestId = useRef(0);
   const observedFriendsTab = useRef<string | null>(null);
-  const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity"; id: number } | null>(null);
+  const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity" | "messages" | "rated"; id: number } | null>(null);
   const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
   const initialConnectionView = "friends";
   const canRenderPrivateInbox = profileUser?.friendRequestsRestricted === false;
@@ -194,6 +195,21 @@ function ProfileFeedContent() {
     () => pendingRequests.filter((request) => request.direction === "received").length,
     [pendingRequests],
   );
+
+  useEffect(() => {
+    const prepareOnboardingStep = (event: Event) => {
+      if (window.matchMedia("(max-width: 767px)").matches) return;
+      const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
+      const requestId = ++navigationRequestId.current;
+      if (action === "profile-activity") setActivityTabRequest({ tab: "activity", id: requestId });
+      if (action === "profile-inbox") setActivityTabRequest({ tab: "messages", id: requestId });
+      if (action === "profile-ratings") setActivityTabRequest({ tab: "rated", id: requestId });
+      if (action === "profile-list") setActiveListView("my-list");
+      if (action === "profile-recommendations") setActiveListView("recommended");
+    };
+    window.addEventListener(onboardingPrepareStepEventName, prepareOnboardingStep);
+    return () => window.removeEventListener(onboardingPrepareStepEventName, prepareOnboardingStep);
+  }, []);
 
   useEffect(() => {
     if (requestedFriendsTab === "pending" && observedFriendsTab.current !== requestedFriendsTab) {
@@ -726,6 +742,7 @@ function ProfileFeedContent() {
           className="rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         />
         <select
+          data-tour={activeListView === "recommended" ? "profile-recommendations" : "profile-list"}
           aria-label={t("profileFeedMyList")}
           value={activeListView}
           onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
@@ -843,7 +860,7 @@ function ProfileFeedContent() {
           </div>
         </section>
 
-        <section data-tour="profile-connections" ref={(node) => { userSearchContainerRef.current = node; connectionsSearchSectionRef.current = node; }} className="profile-feed-connections-search relative z-30 mx-auto mt-4 w-full max-w-2xl scroll-mt-4 md:mt-5" aria-label={t("profileFeedSearchUser")}>
+        <section ref={(node) => { userSearchContainerRef.current = node; connectionsSearchSectionRef.current = node; }} className="profile-feed-connections-search relative z-30 mx-auto mt-4 w-full max-w-2xl scroll-mt-4 md:mt-5" aria-label={t("profileFeedSearchUser")}>
           <div className="flex w-full rounded-full border border-white/55 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
             <div className="relative min-w-0 flex-1">
               <svg
@@ -916,6 +933,7 @@ function ProfileFeedContent() {
         <section className="mt-4 w-full md:mt-5">
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(260px,1fr)]">
             <TopUsersSection
+              tourTarget="profile-connections"
               friends={friends}
               following={following}
               pendingRequests={pendingRequests}
@@ -978,6 +996,7 @@ function ProfileFeedContent() {
                 isOwnProfile
                 initialActiveTab={initialActivityTab}
                 hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
+                activeTabRequest={activityTabRequest}
               />
             </div>
             {renderMovieListPanel("hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:bg-zinc-950/55 xl:p-4")}

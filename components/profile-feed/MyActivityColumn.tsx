@@ -1472,6 +1472,7 @@ export default function MyActivityColumn({
         <header className="flex flex-wrap gap-2">
           {ownProfileTabs.map((tab) => (
             <button
+              data-tour={tab.value === "messages" ? "profile-inbox" : tab.value === "rated" ? "profile-ratings" : undefined}
               key={tab.value}
               type="button"
               onClick={() => setActiveTab(tab.value)}
