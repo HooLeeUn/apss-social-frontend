@@ -103,6 +103,18 @@ test("desktop Feed exposes every exact tour control and ten conceptual steps", (
   assert.match(tours, /steps\[9\]\.callouts/);
 });
 
+test("Profile Feed completion returns only its desktop tour to the document top", () => {
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  assert.match(tours, /Aquí puedes seleccionar y dar a conocer tus tres producciones favoritas \+/);
+  assert.match(provider, /await closeWithStatus\("completed"\)/);
+  assert.match(provider, /tourId !== "profile_feed"/);
+  assert.match(provider, /matchMedia\("\(min-width: 768px\)"\)/);
+  assert.match(provider, /requestAnimationFrame\(\(\) => window\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)\)/);
+  const skipBody = provider.match(/const handleSkip = useCallback\(\(\) => \{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(skipBody, /scrollTo/);
+});
+
 test("tour navigation keeps a locked Feed card and has a dedicated final screen", () => {
   const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
   assert.match(provider, /lockedCardRef/);

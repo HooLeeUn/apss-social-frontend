@@ -272,7 +272,13 @@ export default function OnboardingProvider() {
     setIsClosing(false);
   }, [persist]);
   const handleSkip = useCallback(() => { void closeWithStatus("skipped"); }, [closeWithStatus]);
-  const handleFinish = useCallback(() => { void closeWithStatus("completed"); }, [closeWithStatus]);
+  const handleFinish = useCallback(() => {
+    void (async () => {
+      await closeWithStatus("completed");
+      if (tourId !== "profile_feed" || !window.matchMedia("(min-width: 768px)").matches) return;
+      window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+    })();
+  }, [closeWithStatus, tourId]);
   const handleStart = useCallback(() => { if (state?.status === "pending") void persist("in_progress", 0); setRunning(true); }, [persist, state?.status]);
 
   if (!tour || !state || !ready || !["pending", "in_progress"].includes(state.status)) return null;
