@@ -6,12 +6,18 @@ const activityColumn = readFileSync("components/profile-feed/MyActivityColumn.ts
 const videoCarousel = readFileSync("components/profile-feed/VisitedProfileVideoReactions.tsx", "utf8");
 const profileFeedPage = readFileSync("app/profile-feed/page.tsx", "utf8");
 
-test("visited profile video reactions exhaust backend next links with loop protection", () => {
+test("visited profile video reactions use the dedicated endpoint and progressively append next pages", () => {
+  assert.match(videoCarousel, /\/users\/\$\{encodeURIComponent\(username\)\}\/video-reactions\//);
+  assert.doesNotMatch(videoCarousel, /\/users\/\$\{encodeURIComponent\(username\)\}\/activity\//);
+  assert.match(videoCarousel, /setItems\(firstPage\.results\);\s*setState\("ready"\)/);
+  assert.match(videoCarousel, /requestAnimationFrame/);
   assert.match(videoCarousel, /while \(nextEndpoint\)/);
   assert.match(videoCarousel, /visitedEndpoints\.has\(endpoint\)/);
   assert.match(videoCarousel, /nextEndpoint = typeof page\.next/);
-  assert.match(videoCarousel, /activity_type === "video_reaction_created"/);
-  assert.match(videoCarousel, /new Date\(getTimestamp\(right\)\).*new Date\(getTimestamp\(left\)\)/s);
+  assert.match(videoCarousel, /setItems\(\(currentItems\) => \[\.\.\.currentItems, \.\.\.page\.results\]\)/);
+  assert.doesNotMatch(videoCarousel, /activity_type === "video_reaction_created"/);
+  assert.doesNotMatch(videoCarousel, /actor\?\.username/);
+  assert.doesNotMatch(videoCarousel, /\.sort\(/);
   assert.doesNotMatch(videoCarousel, /[?&]page=\d/);
 });
 
