@@ -29,7 +29,7 @@ export interface TourStepDefinition {
   mobileBody?: string;
   optional?: boolean;
   placement?: "top" | "bottom" | "left" | "right";
-  mobileScroll?: "below-tooltip";
+  mobileScroll?: "below-tooltip" | "minimal-sticky";
 }
 
 export interface TourDefinition {

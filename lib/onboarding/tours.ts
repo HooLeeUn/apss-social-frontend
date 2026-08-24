@@ -129,13 +129,14 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
     })) : undefined;
     if (id === "detail_movie") {
       mobileSteps = detailDesktopSelectors.map((target, index): TourStepDefinition => ({
-        target: `[data-tour-mobile="${(["detail-info-mobile", "detail-poster-mobile", "detail-video-tab-mobile", "detail-rec-mobile", "detail-comment-tab-mobile", "detail-public-comments-mobile", "detail-directed-comments-mobile", "detail-profile-avatar-mobile"] as const)[index]}"]`,
+        target: `[data-tour-mobile="${(["detail-info-mobile", "detail-poster-mobile", "detail-video-tab-mobile", "detail-rec-mobile", "detail-comment-tab-mobile", "detail-public-comments-section-mobile", "detail-directed-comments-section-mobile", "detail-profile-avatar-mobile"] as const)[index]}"]`,
         title: detailDesktopCopy[locale][index][0],
         body: detailDesktopCopy[locale][index][1],
         mobileBody: index === 1 ? (locale === "en" ? "Press and hold the poster to play the production's trailer." : "Mantén presionado el póster para reproducir el tráiler de la producción.") : undefined,
         icon: (["information", "play", "video", "rec", "conversation", "comments", "directed", "profile"] as const)[index],
         mobilePrepare: ([undefined, undefined, "detail-mobile-video", "detail-mobile-video", "detail-mobile-comments-public", "detail-mobile-comments-public", "detail-mobile-comments-directed", undefined] as const)[index],
         callouts: index === 0 ? [{ target: '[data-tour-mobile="detail-more-mobile"]', label: locale === "en" ? "Swipe left for more details" : "Desliza a la izquierda para ver más detalles", placement: "top" }] : undefined,
+        mobileScroll: index === 3 ? "minimal-sticky" : index === 5 || index === 6 ? "below-tooltip" : undefined,
         optional: false,
       }));
     }

@@ -70,6 +70,13 @@ function resolveVisible(selector: string, root: ParentNode = document): HTMLElem
 
 function measureSpotlightRect(target: HTMLElement, selector: string, tourId: TourDefinition["id"], mobile: boolean): DOMRect {
   const targetRect = target.getBoundingClientRect();
+  if (tourId === "detail_movie" && mobile && selector.includes("comments-section-mobile")) {
+    const viewport = window.visualViewport;
+    const viewportBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
+    const visibleHeight = Math.max(1, viewportBottom - targetRect.top - 16);
+    const height = Math.min(targetRect.height, visibleHeight, (viewport?.height ?? window.innerHeight) * 0.48);
+    return new DOMRect(targetRect.left, targetRect.top, targetRect.width, height);
+  }
   if (tourId !== "detail_movie" || mobile || selector !== '[data-tour-desktop="detail-info"]') return targetRect;
   const poster = resolveVisible('[data-tour-desktop="detail-trailer"]');
   if (!poster) return targetRect;
@@ -213,11 +220,23 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
         const bottomMargin = Math.max(72, viewportHeight * 0.1) + safeAreaBottom;
         const desiredTop = viewportTop + Math.max(12, viewportHeight - targetRect.height - bottomMargin);
         window.scrollBy({ top: targetRect.top - desiredTop, behavior: "smooth" });
-      } else if (mobile && tour.id === "profile_feed" && step.mobileScroll === "below-tooltip") {
+      } else if (mobile && tour.id === "detail_movie" && step.mobileScroll === "minimal-sticky") {
+        const targetRect = target.getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const viewportTop = viewport?.offsetTop ?? 0;
+        const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
+        const stickyBottom = document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? viewportTop;
+        const safeTop = Math.max(viewportTop, stickyBottom) + 12;
+        const safeBottom = viewportBottom - 12;
+        if (targetRect.top < safeTop) window.scrollBy({ top: targetRect.top - safeTop, behavior: "smooth" });
+        else if (targetRect.bottom > safeBottom) window.scrollBy({ top: targetRect.bottom - safeBottom, behavior: "smooth" });
+      } else if (mobile && (tour.id === "profile_feed" || tour.id === "detail_movie") && step.mobileScroll === "below-tooltip") {
         const targetRect = target.getBoundingClientRect();
         const viewportTop = window.visualViewport?.offsetTop ?? 0;
         const tooltipHeight = tooltipRef.current?.getBoundingClientRect().height ?? 250;
-        window.scrollBy({ top: targetRect.top - (viewportTop + tooltipHeight + 36), behavior: "smooth" });
+        const stickyBottom = tour.id === "detail_movie" ? document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? viewportTop : viewportTop;
+        const desiredTop = Math.max(viewportTop + tooltipHeight + 36, stickyBottom + 16);
+        window.scrollBy({ top: targetRect.top - desiredTop, behavior: "smooth" });
       } else {
         target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       }
@@ -230,7 +249,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
           initialRevealFrameRef.current = window.requestAnimationFrame(() => setInitialSpotlightVisible(true));
         }
         const tooltipRect = tooltipRef.current?.getBoundingClientRect();
-        const fixedMobileTooltip = mobile && (tour.id === "feed" && lockToCard || tour.id === "profile_feed" && step.mobileScroll === "below-tooltip");
+        const fixedMobileTooltip = mobile && (tour.id === "feed" && lockToCard || (tour.id === "profile_feed" || tour.id === "detail_movie") && step.mobileScroll === "below-tooltip");
         setTooltipPosition(fixedMobileTooltip ? { left: 16, top: (window.visualViewport?.offsetTop ?? 0) + 12 } : chooseTooltipPosition(targetRect, tooltipRect?.width ?? 420, tooltipRect?.height ?? 250));
         setCallouts(buildCalloutGeometries(step.callouts ?? [], (selector) => resolveStepElement(selector, lockToCard), tour.id === "feed" || mobile && (tour.id === "profile_feed" || tour.id === "detail_movie")));
       };
@@ -244,13 +263,14 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
       if (tooltipRef.current) resizeObserver.observe(tooltipRef.current);
       window.addEventListener("resize", update);
       window.addEventListener("scroll", update, true);
+      if (mobile && tour.id === "detail_movie" && step.mobileScroll === "below-tooltip") window.visualViewport?.addEventListener("resize", update);
     };
     const prepareAction = mobile ? step.mobilePrepare : step.prepare;
     if (prepareAction) {
       window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: prepareAction } }));
       firstFrame = window.requestAnimationFrame(() => { secondFrame = window.requestAnimationFrame(setupTarget); });
     } else setupTarget();
-    return () => { cancelled = true; window.clearTimeout(timer); window.cancelAnimationFrame(firstFrame); window.cancelAnimationFrame(secondFrame); window.cancelAnimationFrame(retryFrame); if (initialRevealFrameRef.current !== null) window.cancelAnimationFrame(initialRevealFrameRef.current); resizeObserver?.disconnect(); if (update) { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); } };
+    return () => { cancelled = true; window.clearTimeout(timer); window.cancelAnimationFrame(firstFrame); window.cancelAnimationFrame(secondFrame); window.cancelAnimationFrame(retryFrame); if (initialRevealFrameRef.current !== null) window.cancelAnimationFrame(initialRevealFrameRef.current); resizeObserver?.disconnect(); if (update) { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); window.visualViewport?.removeEventListener("resize", update); } };
   }, [available.length, index, isFeedFinal, mobile, onFinish, resolveStepElement, step, tour.id]);
 
   const move = (next: number) => { setCallouts([]); setIndex(next); if (next < available.length) onStep(next); };

@@ -4521,7 +4521,11 @@ function MovieDetailPageContent() {
 
         {commentInputMode === "text-comment" && reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
 
-        <div data-comment-history className={`${commentInputMode === "text-comment" ? "grid" : "hidden"} relative grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}>
+        <div
+          data-comment-history
+          data-tour-mobile={commentInputMode === "text-comment" ? `detail-${activeCommentsTab}-comments-section-mobile` : undefined}
+          className={`${commentInputMode === "text-comment" ? "grid" : "hidden"} relative grid-cols-1 gap-6 ${shouldRenderDirectedComments ? "lg:grid-cols-2 lg:gap-10" : ""}`}
+        >
           {shouldRenderDirectedComments ? (
             <>
               <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 top-12 hidden w-px -translate-x-1/2 bg-[#2d3a4f] lg:block" />

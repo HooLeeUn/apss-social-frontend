@@ -266,6 +266,13 @@ test("mobile Detail Movie exposes and prepares eight structural steps plus its f
   assert.match(tours, /Desliza a la izquierda para ver más detalles/);
   assert.match(tours, /¡Ya conoces el detalle de una producción!/);
   assert.match(provider, /shouldResetDetailMobile/);
+  assert.match(page, /detail-\$\{activeCommentsTab\}-comments-section-mobile/);
+  assert.match(tours, /index === 3 \? "minimal-sticky"/);
+  assert.match(tours, /index === 5 \|\| index === 6 \? "below-tooltip"/);
+  assert.match(provider, /targetRect\.top < safeTop/);
+  assert.match(provider, /targetRect\.bottom > safeBottom/);
+  assert.match(provider, /selector\.includes\("comments-section-mobile"\)/);
+  assert.match(provider, /window\.visualViewport\?\.addEventListener\("resize", update\)/);
 });
 
 test("desktop Detail Movie exposes precise structural targets and prepares React view state", () => {
