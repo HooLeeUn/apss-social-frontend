@@ -108,7 +108,7 @@ test("Profile Feed completion returns only its desktop tour to the document top"
   const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
   assert.match(tours, /Aquí puedes seleccionar y dar a conocer tus tres producciones favoritas \+/);
   assert.match(provider, /await closeWithStatus\("completed"\)/);
-  assert.match(provider, /tourId !== "profile_feed"/);
+  assert.match(provider, /shouldResetProfileDesktop/);
   assert.match(provider, /matchMedia\("\(min-width: 768px\)"\)/);
   assert.match(provider, /requestAnimationFrame\(\(\) => window\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)\)/);
   const skipBody = provider.match(/const handleSkip = useCallback\(\(\) => \{([^}]*)\}/)?.[1] ?? "";
@@ -241,9 +241,37 @@ test("desktop Detail Movie exposes precise structural targets and prepares React
   assert.match(page + card, /data-tour-desktop/);
   assert.match(provider, /measureSpotlightRect/);
   assert.match(provider, /posterRect\.bottom, targetRect\.bottom/);
-  assert.match(provider, /tour\.id === "feed" \|\| tour\.id === "detail_movie"/);
+  assert.match(provider, /tour\.id === "feed" \|\| \(tour\.id === "detail_movie" && !mobile\)/);
   for (const action of ["detail-video", "detail-comments-public", "detail-comments-directed", "detail-restore"]) {
     assert.match(page + provider, new RegExp(`"${action}"`));
   }
   assert.doesNotMatch(provider, /querySelector\([^)]*\)\.click\(/);
+});
+
+test("mobile Feed has ten breakpoint-specific targets without replacing desktop targets", () => {
+  const feed = fs.readFileSync("app/feed/page.tsx", "utf8");
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  for (const target of ["feed-search-mobile", "feed-profile-mobile", "feed-notifications-mobile", "feed-menu-mobile"]) assert.match(feed, new RegExp(target));
+  assert.match(tours, /const mobileTargets = \["feed-search-mobile", "feed-genres", "feed-profile-mobile", "feed-notifications-mobile", "feed-menu-mobile", "feed-card", "feed-card", "feed-card", "feed-card", "feed-card"\]/);
+  assert.match(tours, /mobileSteps = steps\.map/);
+  assert.match(provider, /mobile && tour\.mobileSteps \? tour\.mobileSteps/);
+  assert.match(provider, /tour\.id === "feed" \? "\(max-width: 1023px\)" : "\(max-width: 767px\)"/);
+  for (const desktopTarget of ["feed-search", "feed-profile", "feed-notifications", "feed-menu"]) assert.match(feed, new RegExp(desktopTarget));
+});
+
+test("mobile Feed forces and restores its dock and has adaptive card positioning and final screen", () => {
+  const feed = fs.readFileSync("app/feed/page.tsx", "utf8");
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  assert.match(feed, /isMobileBottomNavVisible \|\| isMobileOnboardingNavForced/);
+  assert.match(feed, /action === "feed-mobile-panel-show"/);
+  assert.match(feed, /action === "feed-mobile-panel-release"/);
+  assert.match(tours, /feed-mobile-panel-show/);
+  assert.match(provider, /window\.visualViewport/);
+  assert.match(provider, /safe-area-inset-bottom/);
+  assert.match(provider, /viewportHeight - targetRect\.height - bottomMargin/);
+  assert.match(provider, /tour\.id === "feed" \|\| \(tour\.id === "detail_movie" && !mobile\)/);
+  assert.match(provider, /shouldResetFeedMobile/);
+  assert.match(provider, /restoreFeedMobilePanel/);
 });

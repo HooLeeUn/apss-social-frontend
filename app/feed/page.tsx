@@ -49,6 +49,8 @@ import {
 } from "../../lib/movies";
 import { resolveVideoReactionComment, type VideoReactionComment, type VideoReactionKind } from "../../lib/video-reactions";
 import { buildCommentDetailEndpoint, parseComments, type SocialComment } from "../../lib/social";
+import { onboardingPrepareStepEventName } from "../../lib/onboarding/types";
+import type { OnboardingPrepareAction } from "../../lib/onboarding/types";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
@@ -252,6 +254,7 @@ export default function FeedPage() {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isMobileBottomNavVisible, setIsMobileBottomNavVisible] = useState(true);
+  const [isMobileOnboardingNavForced, setIsMobileOnboardingNavForced] = useState(false);
   const { country: streamingCountry, locale, setCountry: setStreamingCountry } = useI18n(null);
   const [isSavingStreamingCountry, setIsSavingStreamingCountry] = useState(false);
   const [streamingCountryError, setStreamingCountryError] = useState("");
@@ -311,6 +314,17 @@ export default function FeedPage() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isMobileSearchOpen, isNotificationPanelOpen]);
+
+  useEffect(() => {
+    const prepareMobileFeedStep = (event: Event) => {
+      if (!window.matchMedia("(max-width: 1023px)").matches) return;
+      const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
+      if (action === "feed-mobile-panel-show") setIsMobileOnboardingNavForced(true);
+      if (action === "feed-mobile-panel-release") setIsMobileOnboardingNavForced(false);
+    };
+    window.addEventListener(onboardingPrepareStepEventName, prepareMobileFeedStep);
+    return () => window.removeEventListener(onboardingPrepareStepEventName, prepareMobileFeedStep);
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -1041,6 +1055,7 @@ export default function FeedPage() {
               <DirectorBoardMenu
                 locale={locale}
                 mobileIconOnly
+                mobileTourTarget="feed-menu-mobile"
                 isOpen={isDirectorBoardOpen}
                 onToggle={handleDirectorBoardToggle}
                 onClose={handleDirectorBoardClose}
@@ -1252,8 +1267,9 @@ export default function FeedPage() {
         </div>
       ) : null}
 
-      <nav ref={mobileNavRef} className={`feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-all duration-300 ease-out lg:hidden ${isMobileBottomNavVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[calc(100%+1.5rem)] opacity-0"}`} aria-label="Acciones principales del feed">
+      <nav ref={mobileNavRef} className={`feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-all duration-300 ease-out lg:hidden ${isMobileBottomNavVisible || isMobileOnboardingNavForced ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[calc(100%+1.5rem)] opacity-0"}`} aria-label="Acciones principales del feed">
         <button
+          data-tour-mobile="feed-search-mobile"
           type="button"
           aria-label="Buscar películas"
           onClick={handleMobileSearchToggle}
@@ -1265,6 +1281,7 @@ export default function FeedPage() {
           </svg>
         </button>
         <UserProfilePlaceholderButton
+          mobileTourTarget="feed-profile-mobile"
           onClick={() => router.push("/profile-feed")}
           avatarUrl={profileAvatarUrl}
           avatarAlt="Ir a perfil"
@@ -1272,6 +1289,7 @@ export default function FeedPage() {
         />
         <div className="relative">
           <button
+            data-tour-mobile="feed-notifications-mobile"
             type="button"
             aria-label="Ver notificaciones"
             onClick={handleBellClick}

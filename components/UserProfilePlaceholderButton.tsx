@@ -5,6 +5,7 @@ interface UserProfilePlaceholderButtonProps {
   avatarAlt?: string;
   avatarVersion?: string | number | null;
   tourTarget?: string;
+  mobileTourTarget?: string;
 }
 
 export default function UserProfilePlaceholderButton({
@@ -14,6 +15,7 @@ export default function UserProfilePlaceholderButton({
   avatarAlt = "Avatar de perfil",
   avatarVersion = null,
   tourTarget,
+  mobileTourTarget,
 }: UserProfilePlaceholderButtonProps) {
   const normalizedAvatarUrl = (() => {
     if (!avatarUrl) return null;
@@ -25,6 +27,7 @@ export default function UserProfilePlaceholderButton({
   return (
     <button
       data-tour={tourTarget}
+      data-tour-mobile={mobileTourTarget}
       type="button"
       aria-label={label}
       onClick={onClick}

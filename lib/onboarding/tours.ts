@@ -64,6 +64,7 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
       const item = stepCopy[locale][id][index];
       return { target: `[data-tour="${target}"]`, title: item[0], body: item[1], mobileBody: item[2], optional };
     });
+    let mobileSteps: TourStepDefinition[] | undefined;
     if (id === "feed") {
       const icons: NonNullable<TourStepDefinition["icon"]>[] = ["search", "filter", "profile", "notifications", "menu", "productions"];
       icons.forEach((icon, index) => { steps[index].icon = icon; });
@@ -77,6 +78,19 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
       steps[7].callouts = [{ target: `[data-tour="feed-card-synopsis"]` }];
       steps[8].callouts = [{ target: `[data-tour="feed-card-tag"]`, label: locale === "en" ? "My List" : "Mi Lista", placement: "top" }, { target: `[data-tour="feed-card-ticket"]`, label: locale === "en" ? "Recommend" : "Recomendar", placement: "bottom" }];
       steps[9].callouts = [{ target: `[data-tour="feed-card-rating-overall"]`, label: locale === "en" ? "Overall" : "General", placement: "top" }, { target: `[data-tour="feed-card-rating-following"]`, label: locale === "en" ? "Following" : "Seguidos", placement: "bottom" }, { target: `[data-tour="feed-card-rating-mine"]`, label: locale === "en" ? "Your rating" : "Tu calificación", placement: "top" }];
+      const mobileTargets = ["feed-search-mobile", "feed-genres", "feed-profile-mobile", "feed-notifications-mobile", "feed-menu-mobile", "feed-card", "feed-card", "feed-card", "feed-card", "feed-card"] as const;
+      const mobilePreparations: TourStepDefinition["mobilePrepare"][] = ["feed-mobile-panel-show", "feed-mobile-panel-release", "feed-mobile-panel-show", "feed-mobile-panel-show", "feed-mobile-panel-release", "feed-mobile-panel-release", "feed-mobile-panel-release", "feed-mobile-panel-release", "feed-mobile-panel-release", "feed-mobile-panel-release"];
+      mobileSteps = steps.map((step, index) => ({
+        ...step,
+        target: index === 1 || index >= 5 ? `[data-tour="${mobileTargets[index]}"]` : `[data-tour-mobile="${mobileTargets[index]}"]`,
+        spotlightTarget: index >= 5 ? `[data-tour="feed-card"]` : undefined,
+        callouts: step.callouts?.map((callout) => ({ ...callout })),
+        mobilePrepare: mobilePreparations[index],
+        optional: false,
+      }));
+      mobileSteps[6].callouts = [{ target: `[data-tour="feed-card-poster"]` }, { target: `[data-tour="feed-card-title"]`, anchor: "start" }];
+      mobileSteps[8].callouts = [{ target: `[data-tour="feed-card-tag"]`, label: locale === "en" ? "My List" : "Mi Lista", placement: "top" }, { target: `[data-tour="feed-card-ticket"]`, label: locale === "en" ? "Recommend" : "Recomendar", placement: "bottom" }];
+      mobileSteps[9].callouts = [{ target: `[data-tour="feed-card-rating-overall"]`, label: locale === "en" ? "Overall" : "General", placement: "top" }, { target: `[data-tour="feed-card-rating-following"]`, label: locale === "en" ? "Following" : "Seguidos", placement: "bottom" }, { target: `[data-tour="feed-card-rating-mine"]`, label: locale === "en" ? "Your rating" : "Tu calificación", placement: "top" }];
     }
     if (id === "profile_feed") {
       const icons: NonNullable<TourStepDefinition["icon"]>[] = ["profile", "favorite", "connections", "activity", "inbox", "ratings", "list", "recommendations", "menu"];
@@ -91,7 +105,7 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
       prepare: ([undefined, "detail-video", "detail-video", "detail-video", "detail-comments-public", "detail-comments-public", "detail-comments-directed", undefined] as const)[index],
       optional: false,
     })) : undefined;
-    return { id, path: id === "feed" ? (p) => p === "/feed" : id === "profile_feed" ? (p) => p === "/profile-feed" : (p) => /^\/movies\/[^/]+\/?$/.test(p), readyTargets: [`[data-tour="${selectors[id][0][0]}"]`], welcomeTitle, welcomeBody, finalTitle, finalBody, steps, desktopSteps };
+    return { id, path: id === "feed" ? (p) => p === "/feed" : id === "profile_feed" ? (p) => p === "/profile-feed" : (p) => /^\/movies\/[^/]+\/?$/.test(p), readyTargets: [`[data-tour="${selectors[id][0][0]}"]`], welcomeTitle, welcomeBody, finalTitle, finalBody, steps, desktopSteps, mobileSteps };
   });
 }
 

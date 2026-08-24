@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 interface DirectorBoardMenuProps {
   locale?: "es" | "en";
   mobileIconOnly?: boolean;
+  mobileTourTarget?: string;
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
@@ -16,12 +17,14 @@ interface DirectorBoardToggleProps {
   isOpen: boolean;
   onClick: () => void;
   mobileIconOnly?: boolean;
+  mobileTourTarget?: string;
 }
 
-function DirectorBoardToggle({ isOpen, onClick, mobileIconOnly = false }: DirectorBoardToggleProps) {
+function DirectorBoardToggle({ isOpen, onClick, mobileIconOnly = false, mobileTourTarget }: DirectorBoardToggleProps) {
   return (
     <button
       type="button"
+      data-tour-mobile={mobileTourTarget}
       onClick={onClick}
       aria-expanded={isOpen}
       aria-controls="director-board-panel"
@@ -64,6 +67,7 @@ export default function DirectorBoardMenu({
   onPoliciesClick,
   locale = "es",
   mobileIconOnly = false,
+  mobileTourTarget,
 }: DirectorBoardMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -117,7 +121,7 @@ export default function DirectorBoardMenu({
 
   return (
     <div ref={menuRef} data-director-board-menu-root className={`relative ${mobileIconOnly ? "w-[4.25rem] lg:w-[198px]" : "w-[198px]"}`}>
-      <DirectorBoardToggle isOpen={isOpen} onClick={onToggle} mobileIconOnly={mobileIconOnly} />
+      <DirectorBoardToggle isOpen={isOpen} onClick={onToggle} mobileIconOnly={mobileIconOnly} mobileTourTarget={mobileTourTarget} />
 
       <div
         id="director-board-panel"

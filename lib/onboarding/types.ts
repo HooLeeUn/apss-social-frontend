@@ -1,6 +1,6 @@
 export type TourId = "feed" | "profile_feed" | "detail_movie";
 export type OnboardingStatus = "pending" | "in_progress" | "completed" | "skipped";
-export type OnboardingPrepareAction = "profile-activity" | "profile-inbox" | "profile-ratings" | "profile-list" | "profile-recommendations" | "detail-video" | "detail-comments-public" | "detail-comments-directed" | "detail-restore";
+export type OnboardingPrepareAction = "profile-activity" | "profile-inbox" | "profile-ratings" | "profile-list" | "profile-recommendations" | "detail-video" | "detail-comments-public" | "detail-comments-directed" | "detail-restore" | "feed-mobile-panel-show" | "feed-mobile-panel-release";
 export const onboardingPrepareStepEventName = "qnext:onboarding:prepare-step";
 
 export interface OnboardingState {
@@ -14,6 +14,7 @@ export interface TourStepDefinition {
   target: string;
   icon?: "search" | "filter" | "profile" | "notifications" | "menu" | "productions" | "favorite" | "connections" | "activity" | "inbox" | "ratings" | "list" | "recommendations" | "information" | "play" | "video" | "rec" | "conversation" | "comments" | "directed";
   prepare?: OnboardingPrepareAction;
+  mobilePrepare?: OnboardingPrepareAction;
   /** Keep the spotlight on a parent while callouts point at controls inside it. */
   spotlightTarget?: string;
   callouts?: Array<{
@@ -41,4 +42,6 @@ export interface TourDefinition {
   steps: TourStepDefinition[];
   /** Desktop can use a focused sequence without changing the existing mobile tour. */
   desktopSteps?: TourStepDefinition[];
+  /** Mobile-only targets and placements leave the approved desktop sequence unchanged. */
+  mobileSteps?: TourStepDefinition[];
 }
