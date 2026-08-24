@@ -47,42 +47,47 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
     const abortController = new AbortController();
     let active = true;
 
-    const loadEveryPage = async () => {
+    const loadVideoReactions = async () => {
       setState("loading");
       setItems([]);
-      const collected: VideoReactionActivity[] = [];
       const visitedEndpoints = new Set<string>();
-      let nextEndpoint: string | null = `/users/${encodeURIComponent(username)}/activity/`;
+      const initialEndpoint = `/users/${encodeURIComponent(username)}/video-reactions/`;
 
       try {
+        visitedEndpoints.add(initialEndpoint);
+        const firstPage = await apiFetch(initialEndpoint, { cache: "no-store", signal: abortController.signal }) as ActivityPage;
+        if (!Array.isArray(firstPage?.results)) throw new Error("Invalid video reactions response.");
+
+        if (!active) return;
+        setItems(firstPage.results);
+        setState("ready");
+
+        let nextEndpoint = typeof firstPage.next === "string" && firstPage.next ? firstPage.next : null;
+        if (!nextEndpoint) return;
+
+        // Give React an opportunity to paint the first page before fetching more results.
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
         while (nextEndpoint) {
           const endpoint: string = normalizeNextEndpoint(nextEndpoint);
-          if (visitedEndpoints.has(endpoint)) throw new Error("Activity pagination returned a repeated URL.");
+          if (visitedEndpoints.has(endpoint)) throw new Error("Video reactions pagination returned a repeated URL.");
           visitedEndpoints.add(endpoint);
 
           const page = await apiFetch(endpoint, { cache: "no-store", signal: abortController.signal }) as ActivityPage;
-          if (!Array.isArray(page?.results)) throw new Error("Invalid activity response.");
+          if (!Array.isArray(page?.results)) throw new Error("Invalid video reactions response.");
 
-          collected.push(...page.results.filter((item) =>
-            item.activity_type === "video_reaction_created" &&
-            item.actor?.username?.trim().toLocaleLowerCase() === username.trim().toLocaleLowerCase(),
-          ));
+          if (!active) return;
+          setItems((currentItems) => [...currentItems, ...page.results]);
           nextEndpoint = typeof page.next === "string" && page.next ? page.next : null;
         }
-
-        if (!active) return;
-        collected.sort((left, right) => new Date(getTimestamp(right)).getTime() - new Date(getTimestamp(left)).getTime());
-        setItems(collected);
-        setState("ready");
       } catch (error) {
         if (!active || (error as Error).name === "AbortError") return;
-        console.error("No se pudieron cargar todas las video reacciones del perfil visitado.", error);
-        setItems([]);
-        setState("error");
+        console.error("No se pudieron cargar las video reacciones del perfil visitado.", error);
+        setState((currentState) => currentState === "loading" ? "error" : currentState);
       }
     };
 
-    void loadEveryPage();
+    void loadVideoReactions();
     return () => {
       active = false;
       abortController.abort();
