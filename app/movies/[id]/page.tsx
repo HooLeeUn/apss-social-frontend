@@ -48,6 +48,8 @@ import {
 } from "../../../lib/profile-feed/adapters";
 import { SocialUser } from "../../../lib/profile-feed/types";
 import { resolveMovieTitles, t as translate } from "../../../lib/i18n";
+import { onboardingPrepareStepEventName } from "../../../lib/onboarding/types";
+import type { OnboardingPrepareAction } from "../../../lib/onboarding/types";
 
 type CommentInputMode = "text-comment" | "video-comment";
 type TrailerCompanionView = "reaction" | "public-comments" | "directed-comments";
@@ -114,9 +116,9 @@ function waitForNotificationScroll(target: Window | HTMLElement, reducedMotion: 
 
 type NotificationDiagnosticLogger = (event: string, details?: Record<string, unknown>) => void;
 
-function AuthenticatedProfileAvatar({ user, label, className }: { user: SocialUser | null; label: string; className: string }) {
+function AuthenticatedProfileAvatar({ user, label, className, tourTarget }: { user: SocialUser | null; label: string; className: string; tourTarget?: string }) {
   const initials = (user?.username || "U").slice(0, 2).toUpperCase();
-  return <Link href="/profile-feed" aria-label={label} className={`block overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${className}`}>
+  return <Link data-tour-desktop={tourTarget} href="/profile-feed" aria-label={label} className={`block overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${className}`}>
     {user?.avatarUrl ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={user.avatarUrl} alt="" className="block h-full w-full object-cover" />
@@ -2662,7 +2664,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const reactionContent = <section data-mobile-video-reaction data-recording-overlay={isRecordingOverlay} data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
     <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : "max-h-[50dvh] overflow-y-auto overscroll-contain md:contents"}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:mx-auto md:max-w-2xl">
-      <div ref={menuRef} data-video-reaction-rec className="relative flex justify-center">
+      <div ref={menuRef} data-video-reaction-rec data-tour-desktop="detail-rec" className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] md:h-20 md:w-20 md:transition md:hover:border-[#86ADE0] md:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
         {showMenu && optionsMenuPosition ? createPortal(<div ref={optionsMenuRef} data-rec-options-menu className="fixed z-[100] w-52 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl" style={optionsMenuPosition}>
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoRecord")} onClick={beginRecordingFlow}><span className="h-2.5 w-2.5 rounded-full bg-red-500" />{t("movieDetailVideoRecord")}</button>
@@ -2839,6 +2841,7 @@ function MovieDetailPageContent() {
   const companionTouchAxisRef = useRef<"horizontal" | "vertical" | null>(null);
   const companionTransitionTimerRef = useRef<number | null>(null);
   const [commentInputMode, setCommentInputMode] = useState<CommentInputMode>("video-comment");
+  const onboardingInitialDetailViewRef = useRef<{ commentInputMode: CommentInputMode; activeCommentsTab: "public" | "directed" } | null>(null);
   const [pendingDirectedNotificationTarget, setPendingDirectedNotificationTarget] =
     useState<PendingDirectedNotificationTarget | null>(null);
   const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -2852,6 +2855,34 @@ function MovieDetailPageContent() {
   const processedDirectedTargetRef = useRef<string | null>(null);
   const processedPublicTargetRef = useRef<string | null>(null);
   const publicMainTabRequestedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const prepareDetailStep = (event: Event) => {
+      if (!window.matchMedia("(min-width: 768px)").matches) return;
+      const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
+      if (!action?.startsWith("detail-")) return;
+      if (action === "detail-restore") {
+        const initial = onboardingInitialDetailViewRef.current;
+        if (!initial) return;
+        setCommentInputMode(initial.commentInputMode);
+        setActiveCommentsTab(initial.activeCommentsTab);
+        onboardingInitialDetailViewRef.current = null;
+        return;
+      }
+      onboardingInitialDetailViewRef.current ??= { commentInputMode, activeCommentsTab };
+      if (action === "detail-video") setCommentInputMode("video-comment");
+      if (action === "detail-comments-public") {
+        setCommentInputMode("text-comment");
+        setActiveCommentsTab("public");
+      }
+      if (action === "detail-comments-directed") {
+        setCommentInputMode("text-comment");
+        setActiveCommentsTab("directed");
+      }
+    };
+    window.addEventListener(onboardingPrepareStepEventName, prepareDetailStep);
+    return () => window.removeEventListener(onboardingPrepareStepEventName, prepareDetailStep);
+  }, [activeCommentsTab, commentInputMode]);
 
   const notificationTarget = useMemo(() => {
     const section = searchParams.get("section");
@@ -4455,7 +4486,7 @@ function MovieDetailPageContent() {
         </div>
 
         <div data-desktop-comment-tabs className="relative hidden items-center justify-center gap-16 md:flex" role="tablist" aria-label={composerTitle}>
-          <AuthenticatedProfileAvatar user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-10 w-10 -translate-y-1/2 cursor-pointer" />
+          <AuthenticatedProfileAvatar tourTarget="detail-profile" user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-10 w-10 -translate-y-1/2 cursor-pointer" />
           {(["video-comment", "text-comment"] as const).map((mode) => {
             const isActiveMode = commentInputMode === mode;
             return (
@@ -4464,6 +4495,7 @@ function MovieDetailPageContent() {
                 type="button"
                 role="tab"
                 aria-selected={isActiveMode}
+                data-tour-desktop={mode === "video-comment" ? "detail-video-reactions" : "detail-comment-composer"}
                 className={`min-h-11 px-3 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActiveMode ? "text-xl font-bold text-[#86ADE0]" : "text-base font-medium text-zinc-400 hover:text-zinc-300"}`}
                 data-comment-input-mode={mode}
                 onClick={() => handleCommentInputTabClick(mode)}
@@ -4516,7 +4548,7 @@ function MovieDetailPageContent() {
               </div>
             </>
           ) : null}
-          <section ref={publicCommentsSectionRef} data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
+          <section data-tour-desktop="detail-public-comments" ref={publicCommentsSectionRef} data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden lg:block" : ""}`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               {!trailerCompanionOpen ? <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden lg:block" : ""}`}>{t("movieDetailPublicComments")}</h2> : null}
               <CommentUserSearch
@@ -4567,7 +4599,7 @@ function MovieDetailPageContent() {
           </section>
 
           {shouldRenderDirectedComments ? (
-            <section data-trailer-directed-comments ref={directedCommentsSectionRef} className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
+            <section data-tour-desktop="detail-directed-comments" data-trailer-directed-comments ref={directedCommentsSectionRef} className={`space-y-3 ${activeCommentsTab !== "directed" ? "hidden lg:block" : ""}`}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="hidden text-xl font-bold text-[#86ADE0] lg:block">{t("movieDetailDirectedComments")}</h2>
                 <CommentUserSearch

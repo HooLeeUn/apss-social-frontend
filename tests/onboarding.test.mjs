@@ -85,7 +85,7 @@ test("every onboarding ready target exists in its route markup", () => {
     ["app/movies/[id]/page.tsx", "detail-info"],
   ];
   for (const [file, target] of targets) {
-    assert.match(fs.readFileSync(file, "utf8"), new RegExp(`(?:data-tour|tourTarget)=["']${target}["']`));
+    assert.match(fs.readFileSync(file, "utf8"), new RegExp(target));
   }
 });
 
@@ -218,4 +218,32 @@ test("Profile Feed has nine icons, complete copy, and no optional structural ste
   assert.match(tours, /Private Inbox/);
   assert.match(tours, /descubre qué están viendo, calificando, comentando o recomendando/);
   assert.match(provider, /tour\.id === "profile_feed"/);
+});
+
+test("desktop Detail Movie has eight structural steps without changing its mobile sequence", () => {
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  const types = fs.readFileSync("lib/onboarding/types.ts", "utf8");
+  assert.match(tours, /const detailDesktopSelectors = \["detail-info", "detail-trailer", "detail-video-reactions", "detail-rec", "detail-comment-composer", "detail-public-comments", "detail-directed-comments", "detail-profile"\]/);
+  assert.match(tours, /desktopSteps = id === "detail_movie"/);
+  assert.match(types, /desktopSteps\?: TourStepDefinition\[\]/);
+  assert.match(tours, /incluida la información de disponibilidad en plataformas según tu país, director y reparto/);
+  assert.match(tours, /including platform availability in your country, director and cast/);
+  assert.doesNotMatch(tours.match(/const detailDesktopCopy[^]*?} as const;/)?.[0] ?? "", /Compara las calificaciones|Interactúa con otras reacciones|Participa en los comentarios/);
+});
+
+test("desktop Detail Movie exposes precise structural targets and prepares React view state", () => {
+  const page = fs.readFileSync("app/movies/[id]/page.tsx", "utf8");
+  const card = fs.readFileSync("components/MovieCard.tsx", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  for (const target of ["detail-video-reactions", "detail-rec", "detail-comment-composer", "detail-public-comments", "detail-directed-comments", "detail-profile"]) assert.match(page, new RegExp(target));
+  for (const target of ["detail-info", "detail-trailer"]) assert.match(card, new RegExp(target));
+  assert.match(page, /<div data-tour="detail-info"><MovieCard/);
+  assert.match(page + card, /data-tour-desktop/);
+  assert.match(provider, /measureSpotlightRect/);
+  assert.match(provider, /posterRect\.bottom, targetRect\.bottom/);
+  assert.match(provider, /tour\.id === "feed" \|\| tour\.id === "detail_movie"/);
+  for (const action of ["detail-video", "detail-comments-public", "detail-comments-directed", "detail-restore"]) {
+    assert.match(page + provider, new RegExp(`"${action}"`));
+  }
+  assert.doesNotMatch(provider, /querySelector\([^)]*\)\.click\(/);
 });

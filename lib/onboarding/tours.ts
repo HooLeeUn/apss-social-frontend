@@ -33,6 +33,30 @@ const selectors: Record<TourId, Array<[string, boolean?]>> = {
   detail_movie: [["detail-info"],["detail-ratings"],["detail-trailer"],["detail-video-reactions",true],["detail-rec"],["detail-video-actions",true],["detail-comment-composer"],["detail-public-comments",true],["detail-directed-comments"],["detail-comment-reactions",true],["detail-profile"]],
 };
 
+const detailDesktopSelectors = ["detail-info", "detail-trailer", "detail-video-reactions", "detail-rec", "detail-comment-composer", "detail-public-comments", "detail-directed-comments", "detail-profile"] as const;
+const detailDesktopCopy = {
+  es: [
+    ["Información de la producción", "Consulta aquí la información principal de la película o serie, incluida la información de disponibilidad en plataformas según tu país, director y reparto."],
+    ["Mira el tráiler", "Pasa el cursor sobre el póster para reproducir el tráiler de la producción."],
+    ["Video reacciones", "Mira las reacciones en video que otros usuarios han compartido sobre esta producción."],
+    ["Comparte tu Video reacción", "Usa REC para grabar una reacción de hasta 20 segundos o cargar un video desde tu dispositivo."],
+    ["Participa en la conversación", "Desde aquí puedes compartir tu opinión pública sobre la producción o enviar un comentario dirigido a un Amigo sobre la misma."],
+    ["Comentarios públicos", "Consulta lo que tú y la comunidad piensan sobre esta producción."],
+    ["Comentarios dirigidos", "Envía y consulta los comentarios intercambiados con tus Amigos acerca de sus opiniones sobre la producción."],
+    ["Vuelve a tu perfil", "Haz clic en tu avatar cuando quieras regresar directamente a tu Perfil personal."],
+  ],
+  en: [
+    ["Production information", "Here you can view the main information about the movie or series, including platform availability in your country, director and cast."],
+    ["Watch the trailer", "Hover over the poster to play the production's trailer."],
+    ["Video reactions", "Watch the video reactions other users have shared about this production."],
+    ["Share your Video Reaction", "Use REC to record a reaction of up to 20 seconds or upload a video from your device."],
+    ["Join the conversation", "From here you can share your public opinion about the production or send a directed comment about it to a Friend."],
+    ["Public Comments", "See what you and the community think about this production."],
+    ["Directed Comments", "Send and view comments exchanged with your Friends about their opinions on the production."],
+    ["Return to your profile", "Click your avatar whenever you want to return directly to your Profile Feed."],
+  ],
+} as const;
+
 export function getTourDefinitions(locale: Locale): TourDefinition[] {
   return (["feed", "profile_feed", "detail_movie"] as TourId[]).map((id) => {
     const [welcomeTitle, welcomeBody, finalTitle, finalBody] = copy[locale][id];
@@ -59,7 +83,15 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
       const preparations: Array<TourStepDefinition["prepare"]> = [undefined, undefined, undefined, "profile-activity", "profile-inbox", "profile-ratings", "profile-list", "profile-recommendations", undefined];
       steps.forEach((step, index) => { step.icon = icons[index]; step.prepare = preparations[index]; step.optional = false; });
     }
-    return { id, path: id === "feed" ? (p) => p === "/feed" : id === "profile_feed" ? (p) => p === "/profile-feed" : (p) => /^\/movies\/[^/]+\/?$/.test(p), readyTargets: [`[data-tour="${selectors[id][0][0]}"]`], welcomeTitle, welcomeBody, finalTitle, finalBody, steps };
+    const desktopSteps = id === "detail_movie" ? detailDesktopSelectors.map((target, index): TourStepDefinition => ({
+      target: `[data-tour-desktop="${target}"]`,
+      title: detailDesktopCopy[locale][index][0],
+      body: detailDesktopCopy[locale][index][1],
+      icon: (["information", "play", "video", "rec", "conversation", "comments", "directed", "profile"] as const)[index],
+      prepare: ([undefined, "detail-video", "detail-video", "detail-video", "detail-comments-public", "detail-comments-public", "detail-comments-directed", undefined] as const)[index],
+      optional: false,
+    })) : undefined;
+    return { id, path: id === "feed" ? (p) => p === "/feed" : id === "profile_feed" ? (p) => p === "/profile-feed" : (p) => /^\/movies\/[^/]+\/?$/.test(p), readyTargets: [`[data-tour="${selectors[id][0][0]}"]`], welcomeTitle, welcomeBody, finalTitle, finalBody, steps, desktopSteps };
   });
 }
 

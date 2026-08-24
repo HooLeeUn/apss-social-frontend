@@ -852,6 +852,7 @@ function MovieCard({
   const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
   const posterSrc = movie.image || movie.posterUrl;
   const shouldRoundDesktopPosterLeft = isLarge || (isFeed && showExtendedMetadata);
+  const isDetailMovieCard = isFeed && showExtendedMetadata && !linkToDetail;
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const [mobileCarouselIndex, setMobileCarouselIndex] = useState(0);
   const [trailerOpen, setTrailerOpen] = useState(false);
@@ -1344,13 +1345,14 @@ function MovieCard({
 
 
   const desktopCardContent = (
-    <article data-tour="feed-card"
+    <article data-tour={isDetailMovieCard ? undefined : "feed-card"}
       className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
       } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}
     >
       <div
-        data-tour="feed-card-poster"
+        data-tour={isDetailMovieCard ? undefined : "feed-card-poster"}
+        data-tour-desktop={isDetailMovieCard ? "detail-trailer" : undefined}
         {...trailerTouchHandlers}
         onMouseEnter={hoverTrailer.onMouseEnter}
         onMouseLeave={hoverTrailer.onMouseLeave}
@@ -1410,6 +1412,8 @@ function MovieCard({
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
         <div
+          data-tour-desktop={isDetailMovieCard ? "detail-info" : undefined}
+          data-tour-detail-metadata={isDetailMovieCard ? "true" : undefined}
           className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${
             showExtendedMetadata
               ? extendedMetadataMiddleSlot
