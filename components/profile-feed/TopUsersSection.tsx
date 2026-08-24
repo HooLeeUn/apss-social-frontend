@@ -36,6 +36,7 @@ interface TopUsersSectionProps {
   connectionViewRequest?: { view: "friends" | "pending"; id: number } | null;
   onConnectionViewRequestComplete?: (requestId: number) => void;
   onConnectionViewChange?: (view: "friends" | "pending") => void;
+  tourTarget?: string;
 }
 
 function FollowingGroupIcon() {
@@ -332,6 +333,7 @@ export default function TopUsersSection({
   connectionViewRequest,
   onConnectionViewRequestComplete,
   onConnectionViewChange,
+  tourTarget,
 }: TopUsersSectionProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -709,7 +711,7 @@ export default function TopUsersSection({
     );
 
   return (
-    <section className="w-full max-w-full overflow-hidden md:max-w-[640px] lg:max-w-[680px]">
+    <section data-tour={tourTarget} className="w-full max-w-full overflow-hidden md:max-w-[640px] lg:max-w-[680px]">
       <div
         ref={mobileCarouselRef}
         className="profile-feed-mobile-slider md:hidden"
@@ -724,7 +726,7 @@ export default function TopUsersSection({
         onTouchCancelCapture={handleMobileTouchCancel}
       >
         <div className="profile-feed-mobile-slider__stage">
-          <div className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(0)}>
+          <div data-tour-mobile="profile-connections-mobile" className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(0)}>
             {followingBlock}
           </div>
           <div className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(1)}>

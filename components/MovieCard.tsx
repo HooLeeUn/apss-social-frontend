@@ -852,6 +852,7 @@ function MovieCard({
   const isInMyRecommendations = localIsInMyRecommendations ?? Boolean(isInMyRecommendationsOverride ?? movie.isInMyRecommendations);
   const posterSrc = movie.image || movie.posterUrl;
   const shouldRoundDesktopPosterLeft = isLarge || (isFeed && showExtendedMetadata);
+  const isDetailMovieCard = isFeed && showExtendedMetadata && !linkToDetail;
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const [mobileCarouselIndex, setMobileCarouselIndex] = useState(0);
   const [trailerOpen, setTrailerOpen] = useState(false);
@@ -1156,13 +1157,13 @@ function MovieCard({
       </div>
       <div className="relative z-30 shrink-0 justify-self-center">{ratingsActionsTmdbSlot}</div>
       <div className="flex min-w-0 flex-nowrap items-center justify-self-end gap-2">
-        <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
+        <CommentDetailButton tourTarget="feed-card-synopsis" title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
         {showBottomInteractionIcons ? (
           <div className="interaction-icons static z-10 flex flex-nowrap items-center gap-1">
-            <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+            <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
               <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
             </button>
-            <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+            <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
               <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
             </button>
           </div>
@@ -1179,7 +1180,7 @@ function MovieCard({
           : "grid grid-cols-3 gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-center text-gray-700"
       }`}
     >
-      <div className={isFeed ? `${splitFeedRatingClassName} items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
+      <div data-tour="feed-card-rating-overall" className={isFeed ? `${splitFeedRatingClassName} items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
         {isFeed ? (
           <>
             <span aria-hidden="true">⭐</span>
@@ -1192,7 +1193,7 @@ function MovieCard({
           </>
         )}
       </div>
-      <div className={isFeed ? `${splitFeedRatingClassName} items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
+      <div data-tour="feed-card-rating-following" className={isFeed ? `${splitFeedRatingClassName} items-center text-sm font-semibold ${compactRatingsRow ? "gap-1.5" : "gap-1"}` : ""}>
         {isFeed ? (
           <div className="flex leading-tight" title={formatFollowingRatingsCount(movie.followingRatingsCount) || undefined}>
             <span className="font-semibold" aria-label="Calificación de seguidos">
@@ -1213,6 +1214,7 @@ function MovieCard({
         )}
       </div>
       <div
+        data-tour="feed-card-rating-mine"
         className={
           isFeed
             ? `${splitFeedRatingClassName} items-center ${compactRatingsRow ? "gap-1.5" : "gap-1"} rounded-md px-1.5 py-1 text-sm font-semibold transition-all duration-150 ${
@@ -1278,7 +1280,7 @@ function MovieCard({
           ) : null}
           <div className={`relative ${splitFeedActions ? "ml-0 flex min-w-fit items-center justify-self-end gap-2 md:ml-auto" : highlightMyRatingSlot ? "ml-auto min-w-[9rem]" : "ml-auto"}`}>
             {splitFeedActions ? (
-              <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
+              <CommentDetailButton tourTarget="feed-card-synopsis" title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
             ) : null}
             {showBottomInteractionIcons ? (
               <div
@@ -1288,26 +1290,26 @@ function MovieCard({
                     : `absolute ${highlightMyRatingSlot ? (showExtendedMetadata ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2" : "hidden") : "right-10 -top-7"}`
                 }`}
               >
-                <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                   <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
                 </button>
-                <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                   <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
                 </button>
               </div>
             ) : null}
             {!splitFeedActions ? (
-              <CommentDetailButton title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
+              <CommentDetailButton tourTarget="feed-card-synopsis" title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
             ) : null}
           </div>
         </>
       ) : (
         <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
           <div className="interaction-icons">
-            <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+            <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
               <img src="/icons/tag.png" alt="" className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
             </button>
-            <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+            <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
               <img src="/icons/Ticket.png" alt="" className={`${compactInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
             </button>
           </div>
@@ -1343,12 +1345,14 @@ function MovieCard({
 
 
   const desktopCardContent = (
-    <article
+    <article data-tour={isDetailMovieCard ? undefined : "feed-card"}
       className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
       } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}
     >
       <div
+        data-tour={isDetailMovieCard ? undefined : "feed-card-poster"}
+        data-tour-desktop={isDetailMovieCard ? "detail-trailer" : undefined}
         {...trailerTouchHandlers}
         onMouseEnter={hoverTrailer.onMouseEnter}
         onMouseLeave={hoverTrailer.onMouseLeave}
@@ -1408,6 +1412,8 @@ function MovieCard({
 
       <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
         <div
+          data-tour-desktop={isDetailMovieCard ? "detail-info" : undefined}
+          data-tour-detail-metadata={isDetailMovieCard ? "true" : undefined}
           className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${
             showExtendedMetadata
               ? extendedMetadataMiddleSlot
@@ -1418,7 +1424,7 @@ function MovieCard({
         >
           <div className="min-w-0 space-y-1.5">
             <div className="min-w-0">
-              <h3 className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
+              <h3 data-tour="feed-card-title" className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
                 {canNavigateToDetail ? (
                   <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className={titleLinkClassName}>
                     {displayTitle}
@@ -1467,10 +1473,10 @@ function MovieCard({
             <div
               className="interaction-icons absolute right-2 top-[4.85rem] z-10"
             >
-              <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+              <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                 <img src="/icons/tag.png" alt="" className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
               </button>
-              <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+              <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                 <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
               </button>
             </div>
@@ -1510,8 +1516,8 @@ function MovieCard({
 
   const mobileDetailCardContent = enableMobileDetailCarousel && isFeed && showExtendedMetadata ? (
     <>
-      <article className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors md:hidden">
-        <div className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]" {...trailerTouchHandlers}>
+      <article data-tour-mobile={isDetailMovieCard ? "detail-info-mobile" : undefined} className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors md:hidden">
+        <div data-tour-mobile={isDetailMovieCard ? "detail-poster-mobile" : undefined} className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]" {...trailerTouchHandlers}>
           {posterSrc ? (
             <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
               <PosterImage posterSrc={posterSrc} title={displayTitle} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-3" loading="lazy" decoding="async" />
@@ -1525,7 +1531,7 @@ function MovieCard({
         </div>
         <div className="relative min-w-0 flex-1 overflow-hidden">
           {mobileCarouselIndex > 0 ? <span aria-hidden="true" className="pointer-events-none absolute left-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">‹</span> : null}
-          {mobileCarouselIndex < 2 ? <span aria-hidden="true" className="pointer-events-none absolute right-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">›</span> : null}
+          {mobileCarouselIndex < 2 ? <span data-tour-mobile={isDetailMovieCard ? "detail-more-mobile" : undefined} aria-hidden="true" className="pointer-events-none absolute right-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">›</span> : null}
           <div
             ref={mobileCarouselRef}
             className="flex h-[164px] snap-x snap-mandatory overflow-x-auto scroll-smooth overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[172px]"

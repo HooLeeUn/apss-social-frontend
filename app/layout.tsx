@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import IOSPinchZoomGuard from "@/components/IOSPinchZoomGuard";
 import DisableNativeContextMenu from "@/components/DisableNativeContextMenu";
+import OnboardingProvider from "@/components/onboarding/OnboardingProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,6 +40,7 @@ export default function RootLayout({
         <IOSPinchZoomGuard />
         <DisableNativeContextMenu />
         {children}
+        <OnboardingProvider />
       </body>
     </html>
   );

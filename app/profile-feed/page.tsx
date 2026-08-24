@@ -28,6 +28,7 @@ import { getPersonalData } from "../../lib/personal-data";
 import { getProfilePrivacySettings } from "../../lib/privacy";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { useI18n } from "../../hooks/useI18n";
+import { onboardingPrepareStepEventName, type OnboardingPrepareAction } from "../../lib/onboarding/types";
 import { interpolate, resolveMovieTitles } from "../../lib/i18n";
 import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../../lib/movies";
 
@@ -183,7 +184,9 @@ function ProfileFeedContent() {
   const [activeFriendsView, setActiveFriendsView] = useState<"friends" | "pending">("friends");
   const navigationRequestId = useRef(0);
   const observedFriendsTab = useRef<string | null>(null);
-  const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity"; id: number } | null>(null);
+  const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity" | "messages" | "rated"; id: number } | null>(null);
+  const [forceMobileQuickNavigation, setForceMobileQuickNavigation] = useState(false);
+  const mobileOnboardingSnapshotRef = useRef<{ listView: "my-list" | "recommended"; slide: number } | null>(null);
   const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
   const initialConnectionView = "friends";
   const canRenderPrivateInbox = profileUser?.friendRequestsRestricted === false;
@@ -194,6 +197,21 @@ function ProfileFeedContent() {
     () => pendingRequests.filter((request) => request.direction === "received").length,
     [pendingRequests],
   );
+
+  useEffect(() => {
+    const prepareOnboardingStep = (event: Event) => {
+      if (window.matchMedia("(max-width: 767px)").matches) return;
+      const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
+      const requestId = ++navigationRequestId.current;
+      if (action === "profile-activity") setActivityTabRequest({ tab: "activity", id: requestId });
+      if (action === "profile-inbox") setActivityTabRequest({ tab: "messages", id: requestId });
+      if (action === "profile-ratings") setActivityTabRequest({ tab: "rated", id: requestId });
+      if (action === "profile-list") setActiveListView("my-list");
+      if (action === "profile-recommendations") setActiveListView("recommended");
+    };
+    window.addEventListener(onboardingPrepareStepEventName, prepareOnboardingStep);
+    return () => window.removeEventListener(onboardingPrepareStepEventName, prepareOnboardingStep);
+  }, []);
 
   useEffect(() => {
     if (requestedFriendsTab === "pending" && observedFriendsTab.current !== requestedFriendsTab) {
@@ -547,6 +565,40 @@ function ProfileFeedContent() {
     setActiveMobileProfileFeedSlide(slide);
   }, []);
 
+  useEffect(() => {
+    const prepareMobileOnboardingStep = (event: Event) => {
+      if (!window.matchMedia("(max-width: 767px)").matches) return;
+      const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
+      if (!action?.startsWith("profile-mobile-")) return;
+      const requestId = ++navigationRequestId.current;
+      if (action === "profile-mobile-release") {
+        setForceMobileQuickNavigation(false);
+        const snapshot = mobileOnboardingSnapshotRef.current;
+        if (snapshot) {
+          setActiveListView(snapshot.listView);
+          selectMobileContentSlide(snapshot.slide === 1 ? 1 : 0);
+          mobileOnboardingSnapshotRef.current = null;
+        }
+        return;
+      }
+      if (!mobileOnboardingSnapshotRef.current) mobileOnboardingSnapshotRef.current = { listView: activeListView, slide: activeMobileProfileFeedSlide };
+      const forceQuickNavigation = ["profile-mobile-connections", "profile-mobile-activity", "profile-mobile-list", "profile-mobile-recommendations", "profile-mobile-following-activity"].includes(action);
+      setForceMobileQuickNavigation(forceQuickNavigation);
+      if (action === "profile-mobile-connections") setConnectionBlockRequest({ block: 0, id: requestId });
+      if (action === "profile-mobile-activity" || action === "profile-mobile-inbox" || action === "profile-mobile-ratings") {
+        const tab = action === "profile-mobile-inbox" ? "messages" : action === "profile-mobile-ratings" ? "rated" : "activity";
+        setActivityTabRequest({ tab, id: requestId });
+        selectMobileContentSlide(0);
+      }
+      if (action === "profile-mobile-list" || action === "profile-mobile-recommendations") {
+        setActiveListView(action === "profile-mobile-list" ? "my-list" : "recommended");
+        selectMobileContentSlide(1);
+      }
+    };
+    window.addEventListener(onboardingPrepareStepEventName, prepareMobileOnboardingStep);
+    return () => window.removeEventListener(onboardingPrepareStepEventName, prepareMobileOnboardingStep);
+  }, [activeListView, activeMobileProfileFeedSlide, selectMobileContentSlide]);
+
   const navigateToFriends = useCallback((options?: { pendingTab?: boolean }) => {
     const requestId = ++navigationRequestId.current;
     setConnectionBlockRequest({ block: 1, id: requestId });
@@ -712,8 +764,8 @@ function ProfileFeedContent() {
     };
   }, [activeListView, connectionBlockRequest, connectionViewRequest, pendingFriendRequestNavigation, pendingNavigationTarget, router, searchParams]);
 
-  const renderMovieListPanel = (className: string) => (
-    <section className={className}>
+  const renderMovieListPanel = (className: string, mobile = false) => (
+    <section data-tour-mobile={mobile ? `profile-${activeListView === "recommended" ? "recommendations" : "list"}-mobile` : undefined} className={className}>
       <div className="relative mx-auto w-fit">
         <MobileDarkSelect
           ariaLabel={t("profileFeedMyList")}
@@ -726,6 +778,7 @@ function ProfileFeedContent() {
           className="rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         />
         <select
+          data-tour={activeListView === "recommended" ? "profile-recommendations" : "profile-list"}
           aria-label={t("profileFeedMyList")}
           value={activeListView}
           onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
@@ -809,7 +862,7 @@ function ProfileFeedContent() {
       <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 md:px-8 md:pb-8">
         <section className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
           <div className="grid min-w-0 items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
-            <div className="mx-auto flex w-full min-w-0 max-w-full">
+            <div data-tour="profile-info" className="mx-auto flex w-full min-w-0 max-w-full">
               <ProfileIdentityCard
                 username={profileUser?.username || "usuario"}
                 isLoading={loadingProfileUser || !profileUser}
@@ -836,7 +889,7 @@ function ProfileFeedContent() {
               />
             </div>
 
-            <div className="flex min-h-[220px] flex-col justify-center gap-5">
+            <div data-tour="profile-favorites" className="flex min-h-[220px] flex-col justify-center gap-5">
               <p className="text-center text-lg font-semibold text-zinc-100 md:text-left">{t("profileFeedFavoriteMovies")}</p>
               <FavoriteMoviesBlock />
             </div>
@@ -916,6 +969,7 @@ function ProfileFeedContent() {
         <section className="mt-4 w-full md:mt-5">
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(260px,1fr)]">
             <TopUsersSection
+              tourTarget="profile-connections"
               friends={friends}
               following={following}
               pendingRequests={pendingRequests}
@@ -960,7 +1014,7 @@ function ProfileFeedContent() {
                   />
                 </div>
                 <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start">
-                  {renderMovieListPanel("profile-feed-mobile-list-panel flex min-w-0 flex-col rounded-none bg-zinc-950/55 p-4")}
+                  {renderMovieListPanel("profile-feed-mobile-list-panel flex min-w-0 flex-col rounded-none bg-zinc-950/55 p-4", true)}
                 </div>
               </div>
               <div className="profile-feed-mobile-carousel-dots mb-2 mt-1 py-0.5" aria-hidden="true">
@@ -972,32 +1026,34 @@ function ProfileFeedContent() {
                 ))}
               </div>
             </div>
-            <div className="hidden md:block">
+            <div data-tour="profile-activity" className="hidden md:block">
               <MyActivityColumn
                 key={`my-activity-${initialActivityTab}`}
                 isOwnProfile
                 initialActiveTab={initialActivityTab}
                 hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
+                activeTabRequest={activityTabRequest}
               />
             </div>
             {renderMovieListPanel("hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:bg-zinc-950/55 xl:p-4")}
           </div>
         </section>
 
-        <div ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 md:mt-4">
+        <div data-tour="profile-following-activity" data-tour-mobile="profile-following-activity-mobile" ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 md:mt-4">
           <SocialActivityTabsBlock />
         </div>
       </div>
       <ProfileQuickNavigation
         ariaLabel={t("profileFeedQuickNavigation")}
         pendingFriendRequestsCount={receivedPendingRequestsCount}
+        forceVisible={forceMobileQuickNavigation}
         items={[
-          { label: t("profileFeedFollowing"), icon: profileQuickNavigationIcons.following, onNavigate: () => requestQuickNavigation("following") },
-          { label: t("profileFeedFriends"), icon: profileQuickNavigationIcons.friends, onNavigate: () => requestQuickNavigation("friends") },
-          { label: t("profileFeedMyActivity"), icon: profileQuickNavigationIcons.activity, onNavigate: () => requestQuickNavigation("activity") },
-          { label: t("profileFeedMyList"), icon: profileQuickNavigationIcons.list, onNavigate: () => requestQuickNavigation("my-list") },
-          { label: t("profileFeedMyRecommendations"), icon: profileQuickNavigationIcons.recommendations, onNavigate: () => requestQuickNavigation("recommended") },
-          { label: t("profileFeedFollowingActivityTitle"), icon: profileQuickNavigationIcons.followingActivity, onNavigate: () => requestQuickNavigation("following-activity") },
+          { label: t("profileFeedFollowing"), icon: profileQuickNavigationIcons.following, tourTarget: "profile-quick-following", onNavigate: () => requestQuickNavigation("following") },
+          { label: t("profileFeedFriends"), icon: profileQuickNavigationIcons.friends, tourTarget: "profile-quick-friends", onNavigate: () => requestQuickNavigation("friends") },
+          { label: t("profileFeedMyActivity"), icon: profileQuickNavigationIcons.activity, tourTarget: "profile-quick-activity", onNavigate: () => requestQuickNavigation("activity") },
+          { label: t("profileFeedMyList"), icon: profileQuickNavigationIcons.list, tourTarget: "profile-quick-list", onNavigate: () => requestQuickNavigation("my-list") },
+          { label: t("profileFeedMyRecommendations"), icon: profileQuickNavigationIcons.recommendations, tourTarget: "profile-quick-recommendations", onNavigate: () => requestQuickNavigation("recommended") },
+          { label: t("profileFeedFollowingActivityTitle"), icon: profileQuickNavigationIcons.followingActivity, tourTarget: "profile-quick-following-activity", onNavigate: () => requestQuickNavigation("following-activity") },
         ]}
       />
     </main>

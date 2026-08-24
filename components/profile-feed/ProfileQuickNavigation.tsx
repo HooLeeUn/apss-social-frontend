@@ -6,12 +6,14 @@ type QuickNavigationItem = {
   label: string;
   icon: ReactNode;
   onNavigate: () => void;
+  tourTarget?: string;
 };
 
 interface ProfileQuickNavigationProps {
   ariaLabel: string;
   items: QuickNavigationItem[];
   pendingFriendRequestsCount: number;
+  forceVisible?: boolean;
 }
 
 const MOVE_THRESHOLD = 10;
@@ -53,7 +55,7 @@ export const profileQuickNavigationIcons = {
   followingActivity: <LineIcon><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M3 10h18M6 3l2 3m3-3 2 3m3-3 2 3" /></LineIcon>,
 };
 
-export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriendRequestsCount }: ProfileQuickNavigationProps) {
+export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriendRequestsCount, forceVisible = false }: ProfileQuickNavigationProps) {
   const [visible, setVisible] = useState(true);
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
   const lastScrollY = useRef(0);
@@ -214,7 +216,7 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
   };
 
   return (
-    <nav aria-label={ariaLabel} className={`fixed inset-x-4 z-[60] md:hidden bottom-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
+    <nav aria-label={ariaLabel} className={`fixed inset-x-4 z-[60] md:hidden bottom-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
       {tooltipIndex !== null ? (
         <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
           {items[tooltipIndex]?.label}
@@ -225,6 +227,7 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
           <div className="flex w-full min-w-[264px] justify-between">
           {items.map((item, index) => (
             <button key={item.label} type="button" aria-label={item.label} title={item.label}
+              data-tour-mobile={item.tourTarget}
               className="relative flex h-11 min-h-11 min-w-11 flex-1 shrink-0 items-center justify-center rounded-full text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-300"
               onClick={() => {
                 if (suppressClick.current) {
