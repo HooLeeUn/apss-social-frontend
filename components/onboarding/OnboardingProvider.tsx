@@ -95,8 +95,9 @@ function buildCalloutGeometries(callouts: NonNullable<TourStepDefinition["callou
     const placement = useDesktopPlacement ? (callout.placement ?? "top") : "top";
     const anchorX = callout.anchor === "start" ? rect.left + Math.min(rect.width * 0.2, 30) : rect.left + rect.width / 2;
     if (!callout.label) return [{ rect, label: undefined, placement, anchorX, labelBox: null }];
-    const width = Math.min(128, Math.max(54, callout.label.length * 7 + 18));
-    const height = 26;
+    const longLabel = callout.label.length > 22;
+    const width = longLabel ? Math.min(220, window.innerWidth - margin * 2) : Math.min(128, Math.max(54, callout.label.length * 7 + 18));
+    const height = longLabel ? 42 : 26;
     let left = anchorX - width / 2;
     let top = placement === "bottom" ? rect.bottom + 28 : rect.top - height - 28;
     if (placement === "left") { left = rect.left - width - 28; top = rect.top + rect.height / 2 - height / 2; }
@@ -122,7 +123,7 @@ function TourCallout({ geometry, markerId }: { geometry: CalloutGeometry; marker
   const bendY = startY + (targetY - startY) * 0.55;
   return <>
     <svg aria-hidden="true" className="pointer-events-none fixed inset-0 z-[10002] h-full w-full overflow-visible text-blue-300"><defs><marker id={markerId} markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7z" fill="currentColor" /></marker></defs><path d={`M ${startX} ${startY} Q ${startX} ${bendY} ${anchorX} ${targetY}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" markerEnd={`url(#${markerId})`} /></svg>
-    <span className="pointer-events-none fixed z-[10003] whitespace-nowrap rounded-full border border-blue-300/70 bg-blue-950/95 px-2 py-1 text-center text-[11px] font-semibold text-blue-300 shadow-lg" style={{ left: labelBox.left, top: labelBox.top, width: labelBox.width }}>{label}</span>
+    <span className="pointer-events-none fixed z-[10003] rounded-full border border-blue-300/70 bg-blue-950/95 px-2 py-1 text-center text-[11px] font-semibold leading-tight text-blue-300 shadow-lg" style={{ left: labelBox.left, top: labelBox.top, width: labelBox.width }}>{label}</span>
   </>;
 }
 
@@ -164,7 +165,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
   const initialSpotlightRevealedRef = useRef(false);
   const initialRevealFrameRef = useRef<number | null>(null);
   const [initialSpotlightVisible, setInitialSpotlightVisible] = useState(false);
-  const hasDedicatedFinalScreen = tour.id === "feed" || (tour.id === "detail_movie" && !mobile) || (tour.id === "profile_feed" && mobile);
+  const hasDedicatedFinalScreen = tour.id === "feed" || (tour.id === "detail_movie" && !mobile) || (tour.id === "detail_movie" && mobile) || (tour.id === "profile_feed" && mobile);
   const isFeedFinal = hasDedicatedFinalScreen && index === available.length;
   const step = available[index] as TourStepDefinition | undefined;
 
@@ -191,7 +192,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
       if (cancelled) return;
       const target = resolveStepElement(step.spotlightTarget ?? step.target, lockToCard);
       if (!target) {
-        if (mobile && tour.id === "profile_feed") {
+        if (mobile && (tour.id === "profile_feed" || tour.id === "detail_movie")) {
           if (targetRetries < 12) { targetRetries += 1; retryFrame = window.requestAnimationFrame(setupTarget); }
           else console.error(`Onboarding target not found after preparation: ${step.target}`);
           return;
@@ -223,7 +224,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
       update = () => {
         const targetRect = measureSpotlightRect(target, step.spotlightTarget ?? step.target, tour.id, mobile);
         setRect(targetRect);
-        if ((tour.id === "feed" || tour.id === "profile_feed" || !mobile && tour.id === "detail_movie") && index === 0 && !initialSpotlightRevealedRef.current) {
+        if ((tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && index === 0 && !initialSpotlightRevealedRef.current) {
           initialSpotlightRevealedRef.current = true;
           setInitialSpotlightVisible(false);
           initialRevealFrameRef.current = window.requestAnimationFrame(() => setInitialSpotlightVisible(true));
@@ -231,7 +232,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
         const tooltipRect = tooltipRef.current?.getBoundingClientRect();
         const fixedMobileTooltip = mobile && (tour.id === "feed" && lockToCard || tour.id === "profile_feed" && step.mobileScroll === "below-tooltip");
         setTooltipPosition(fixedMobileTooltip ? { left: 16, top: (window.visualViewport?.offsetTop ?? 0) + 12 } : chooseTooltipPosition(targetRect, tooltipRect?.width ?? 420, tooltipRect?.height ?? 250));
-        setCallouts(buildCalloutGeometries(step.callouts ?? [], (selector) => resolveStepElement(selector, lockToCard), tour.id === "feed" || mobile && tour.id === "profile_feed"));
+        setCallouts(buildCalloutGeometries(step.callouts ?? [], (selector) => resolveStepElement(selector, lockToCard), tour.id === "feed" || mobile && (tour.id === "profile_feed" || tour.id === "detail_movie")));
       };
       timer = window.setTimeout(update, 350);
       resizeObserver = new ResizeObserver(update);
@@ -253,15 +254,15 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
   }, [available.length, index, isFeedFinal, mobile, onFinish, resolveStepElement, step, tour.id]);
 
   const move = (next: number) => { setCallouts([]); setIndex(next); if (next < available.length) onStep(next); };
-  if (isFeedFinal) return <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-2xl border border-white/20 bg-zinc-950 p-6 shadow-2xl"><h2 className="text-xl font-bold">{tour.finalTitle}</h2><p className="mt-3 text-zinc-300">{tour.finalBody}</p><div className="mt-6 flex justify-between"><button type="button" onClick={() => move(available.length - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm">{labels.back}</button><button type="button" onClick={onFinish} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{labels.finish}</button></div></div></div>;
+  if (isFeedFinal) return <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-2xl border border-white/20 bg-zinc-950 p-6 shadow-2xl"><h2 className="text-xl font-bold">{mobile && tour.mobileFinalTitle ? tour.mobileFinalTitle : tour.finalTitle}</h2><p className="mt-3 text-zinc-300">{mobile && tour.mobileFinalBody ? tour.mobileFinalBody : tour.finalBody}</p><div className="mt-6 flex justify-between"><button type="button" onClick={() => move(available.length - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm">{labels.back}</button><button type="button" onClick={onFinish} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{labels.finish}</button></div></div></div>;
   if (!step || !rect) return null;
-  const isInitialFeedSpotlight = (tour.id === "feed" || tour.id === "profile_feed" || !mobile && tour.id === "detail_movie") && index === 0;
+  const isInitialFeedSpotlight = (tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && index === 0;
   return <div className="fixed inset-0 z-[10000]" role="dialog" aria-modal="true">
     <div className="fixed rounded-xl" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, backgroundColor: isInitialFeedSpotlight && !initialSpotlightVisible ? "rgba(0,0,0,.82)" : "rgba(0,0,0,0)", boxShadow: "0 0 0 9999px rgba(0,0,0,.82)", pointerEvents: "none", transition: "left 450ms ease-in-out, top 450ms ease-in-out, width 450ms ease-in-out, height 450ms ease-in-out, background-color 420ms ease-out" }} />
     <div className="fixed inset-0" onClick={(event) => event.preventDefault()} />
     {callouts.map((geometry, calloutIndex) => <TourCallout key={`${step.target}-${calloutIndex}`} geometry={geometry} markerId={`tour-callout-arrow-${index}-${calloutIndex}`} />)}
     <div ref={tooltipRef} className="fixed z-[10004] w-[min(92vw,420px)] rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-2xl" style={tooltipPosition}>
-      <button type="button" aria-label={labels.close} onClick={onSkip} className="absolute right-4 top-3 text-xl">×</button><p className="text-xs text-blue-300">{index + 1} / {available.length}</p><div className="mt-1 flex items-center gap-2 pr-7">{(!mobile || tour.id === "feed" || tour.id === "profile_feed") && step.icon ? <TourStepIcon icon={step.icon} /> : null}<h2 className="text-lg font-bold">{step.title}</h2></div><p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{mobile && step.mobileBody ? step.mobileBody : step.body}</p>
+      <button type="button" aria-label={labels.close} onClick={onSkip} className="absolute right-4 top-3 text-xl">×</button><p className="text-xs text-blue-300">{index + 1} / {available.length}</p><div className="mt-1 flex items-center gap-2 pr-7">{(!mobile || tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && step.icon ? <TourStepIcon icon={step.icon} /> : null}<h2 className="text-lg font-bold">{step.title}</h2></div><p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{mobile && step.mobileBody ? step.mobileBody : step.body}</p>
       <div className="mt-5 flex justify-between"><button type="button" disabled={index === 0} onClick={() => move(index - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm disabled:invisible">{labels.back}</button><button type="button" onClick={() => index === available.length - 1 && !hasDedicatedFinalScreen ? onFinish() : move(index + 1)} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{index === available.length - 1 && !hasDedicatedFinalScreen ? labels.finish : labels.next}</button></div>
     </div>
   </div>;
@@ -331,6 +332,10 @@ export default function OnboardingProvider() {
     if (tourId !== "detail_movie" || !window.matchMedia("(min-width: 768px)").matches) return;
     window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "detail-restore" } }));
   }, [tourId]);
+  const restoreDetailMobileView = useCallback(() => {
+    if (tourId !== "detail_movie" || !window.matchMedia("(max-width: 767px)").matches) return;
+    window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "detail-mobile-restore" } }));
+  }, [tourId]);
   const restoreFeedMobilePanel = useCallback(() => {
     if (tourId !== "feed" || !window.matchMedia("(max-width: 1023px)").matches) return;
     window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "feed-mobile-panel-release" } }));
@@ -343,22 +348,25 @@ export default function OnboardingProvider() {
     void (async () => {
       await closeWithStatus("skipped");
       restoreDetailView();
+      restoreDetailMobileView();
       restoreFeedMobilePanel();
       restoreProfileMobileView();
     })();
-  }, [closeWithStatus, restoreDetailView, restoreFeedMobilePanel, restoreProfileMobileView]);
+  }, [closeWithStatus, restoreDetailMobileView, restoreDetailView, restoreFeedMobilePanel, restoreProfileMobileView]);
   const handleFinish = useCallback(() => {
     void (async () => {
       await closeWithStatus("completed");
       restoreDetailView();
+      restoreDetailMobileView();
       restoreFeedMobilePanel();
       restoreProfileMobileView();
       const shouldResetProfileDesktop = tourId === "profile_feed" && window.matchMedia("(min-width: 768px)").matches;
       const shouldResetProfileMobile = tourId === "profile_feed" && window.matchMedia("(max-width: 767px)").matches;
       const shouldResetFeedMobile = tourId === "feed" && window.matchMedia("(max-width: 1023px)").matches;
-      if (shouldResetProfileDesktop || shouldResetProfileMobile || shouldResetFeedMobile) window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+      const shouldResetDetailMobile = tourId === "detail_movie" && window.matchMedia("(max-width: 767px)").matches;
+      if (shouldResetProfileDesktop || shouldResetProfileMobile || shouldResetFeedMobile || shouldResetDetailMobile) window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
     })();
-  }, [closeWithStatus, restoreDetailView, restoreFeedMobilePanel, restoreProfileMobileView, tourId]);
+  }, [closeWithStatus, restoreDetailMobileView, restoreDetailView, restoreFeedMobilePanel, restoreProfileMobileView, tourId]);
   const handleStart = useCallback(() => { if (state?.status === "pending") void persist("in_progress", 0); setRunning(true); }, [persist, state?.status]);
 
   if (!tour || !state || !ready || !["pending", "in_progress"].includes(state.status)) return null;

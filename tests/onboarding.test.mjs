@@ -243,7 +243,7 @@ test("Profile Feed has nine icons, complete copy, and no optional structural ste
   assert.match(provider, /tour\.id === "profile_feed"/);
 });
 
-test("desktop Detail Movie has eight structural steps without changing its mobile sequence", () => {
+test("desktop Detail Movie keeps its approved independent eight-step sequence", () => {
   const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
   const types = fs.readFileSync("lib/onboarding/types.ts", "utf8");
   assert.match(tours, /const detailDesktopSelectors = \["detail-info", "detail-trailer", "detail-video-reactions", "detail-rec", "detail-comment-composer", "detail-public-comments", "detail-directed-comments", "detail-profile"\]/);
@@ -252,6 +252,20 @@ test("desktop Detail Movie has eight structural steps without changing its mobil
   assert.match(tours, /incluida la información de disponibilidad en plataformas según tu país, director y reparto/);
   assert.match(tours, /including platform availability in your country, director and cast/);
   assert.doesNotMatch(tours.match(/const detailDesktopCopy[^]*?} as const;/)?.[0] ?? "", /Compara las calificaciones|Interactúa con otras reacciones|Participa en los comentarios/);
+});
+
+test("mobile Detail Movie exposes and prepares eight structural steps plus its final screen", () => {
+  const page = fs.readFileSync("app/movies/[id]/page.tsx", "utf8");
+  const card = fs.readFileSync("components/MovieCard.tsx", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  for (const target of ["detail-info-mobile", "detail-poster-mobile", "detail-more-mobile"]) assert.match(card, new RegExp(target));
+  for (const target of ["detail-video-tab-mobile", "detail-rec-mobile", "detail-comment-tab-mobile", "detail-public-comments-mobile", "detail-directed-comments-mobile", "detail-profile-avatar-mobile"]) assert.match(page, new RegExp(target));
+  for (const action of ["detail-mobile-video", "detail-mobile-comments-public", "detail-mobile-comments-directed", "detail-mobile-restore"]) assert.match(page + tours + provider, new RegExp(action));
+  assert.match(tours, /Mantén presionado el póster para reproducir el tráiler de la producción/);
+  assert.match(tours, /Desliza a la izquierda para ver más detalles/);
+  assert.match(tours, /¡Ya conoces el detalle de una producción!/);
+  assert.match(provider, /shouldResetDetailMobile/);
 });
 
 test("desktop Detail Movie exposes precise structural targets and prepares React view state", () => {

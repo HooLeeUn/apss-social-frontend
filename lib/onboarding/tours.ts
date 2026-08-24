@@ -57,6 +57,11 @@ const detailDesktopCopy = {
   ],
 } as const;
 
+const detailMobileFinalCopy = {
+  es: ["¡Ya conoces el detalle de una producción!", "Ahora sabes cómo explorar la información, ver el tráiler, compartir Video reacciones y participar en las conversaciones sobre una película o serie."],
+  en: ["You know how to explore a production!", "You now know how to explore information, watch the trailer, share Video Reactions and join conversations about a movie or series."],
+} as const;
+
 export function getTourDefinitions(locale: Locale): TourDefinition[] {
   return (["feed", "profile_feed", "detail_movie"] as TourId[]).map((id) => {
     const [welcomeTitle, welcomeBody, finalTitle, finalBody] = copy[locale][id];
@@ -122,7 +127,19 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
       prepare: ([undefined, "detail-video", "detail-video", "detail-video", "detail-comments-public", "detail-comments-public", "detail-comments-directed", undefined] as const)[index],
       optional: false,
     })) : undefined;
-    return { id, path: id === "feed" ? (p) => p === "/feed" : id === "profile_feed" ? (p) => p === "/profile-feed" : (p) => /^\/movies\/[^/]+\/?$/.test(p), readyTargets: [`[data-tour="${selectors[id][0][0]}"]`], welcomeTitle, welcomeBody, finalTitle, finalBody, steps, desktopSteps, mobileSteps };
+    if (id === "detail_movie") {
+      mobileSteps = detailDesktopSelectors.map((target, index): TourStepDefinition => ({
+        target: `[data-tour-mobile="${(["detail-info-mobile", "detail-poster-mobile", "detail-video-tab-mobile", "detail-rec-mobile", "detail-comment-tab-mobile", "detail-public-comments-mobile", "detail-directed-comments-mobile", "detail-profile-avatar-mobile"] as const)[index]}"]`,
+        title: detailDesktopCopy[locale][index][0],
+        body: detailDesktopCopy[locale][index][1],
+        mobileBody: index === 1 ? (locale === "en" ? "Press and hold the poster to play the production's trailer." : "Mantén presionado el póster para reproducir el tráiler de la producción.") : undefined,
+        icon: (["information", "play", "video", "rec", "conversation", "comments", "directed", "profile"] as const)[index],
+        mobilePrepare: ([undefined, undefined, "detail-mobile-video", "detail-mobile-video", "detail-mobile-comments-public", "detail-mobile-comments-public", "detail-mobile-comments-directed", undefined] as const)[index],
+        callouts: index === 0 ? [{ target: '[data-tour-mobile="detail-more-mobile"]', label: locale === "en" ? "Swipe left for more details" : "Desliza a la izquierda para ver más detalles", placement: "top" }] : undefined,
+        optional: false,
+      }));
+    }
+    return { id, path: id === "feed" ? (p) => p === "/feed" : id === "profile_feed" ? (p) => p === "/profile-feed" : (p) => /^\/movies\/[^/]+\/?$/.test(p), readyTargets: [`[data-tour="${selectors[id][0][0]}"]`], welcomeTitle, welcomeBody, finalTitle, finalBody, mobileFinalTitle: id === "detail_movie" ? detailMobileFinalCopy[locale][0] : undefined, mobileFinalBody: id === "detail_movie" ? detailMobileFinalCopy[locale][1] : undefined, steps, desktopSteps, mobileSteps };
   });
 }
 

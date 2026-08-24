@@ -116,9 +116,9 @@ function waitForNotificationScroll(target: Window | HTMLElement, reducedMotion: 
 
 type NotificationDiagnosticLogger = (event: string, details?: Record<string, unknown>) => void;
 
-function AuthenticatedProfileAvatar({ user, label, className, tourTarget }: { user: SocialUser | null; label: string; className: string; tourTarget?: string }) {
+function AuthenticatedProfileAvatar({ user, label, className, tourTarget, mobileTourTarget }: { user: SocialUser | null; label: string; className: string; tourTarget?: string; mobileTourTarget?: string }) {
   const initials = (user?.username || "U").slice(0, 2).toUpperCase();
-  return <Link data-tour-desktop={tourTarget} href="/profile-feed" aria-label={label} className={`block overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${className}`}>
+  return <Link data-tour-desktop={tourTarget} data-tour-mobile={mobileTourTarget} href="/profile-feed" aria-label={label} className={`block overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${className}`}>
     {user?.avatarUrl ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={user.avatarUrl} alt="" className="block h-full w-full object-cover" />
@@ -2664,7 +2664,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const reactionContent = <section data-mobile-video-reaction data-recording-overlay={isRecordingOverlay} data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
     <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : "max-h-[50dvh] overflow-y-auto overscroll-contain md:contents"}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] md:mx-auto md:max-w-2xl">
-      <div ref={menuRef} data-video-reaction-rec data-tour-desktop="detail-rec" className="relative flex justify-center">
+      <div ref={menuRef} data-video-reaction-rec data-tour-desktop="detail-rec" data-tour-mobile="detail-rec-mobile" className="relative flex justify-center">
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] md:h-20 md:w-20 md:transition md:hover:border-[#86ADE0] md:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
         {showMenu && optionsMenuPosition ? createPortal(<div ref={optionsMenuRef} data-rec-options-menu className="fixed z-[100] w-52 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl" style={optionsMenuPosition}>
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoRecord")} onClick={beginRecordingFlow}><span className="h-2.5 w-2.5 rounded-full bg-red-500" />{t("movieDetailVideoRecord")}</button>
@@ -2858,10 +2858,12 @@ function MovieDetailPageContent() {
 
   useEffect(() => {
     const prepareDetailStep = (event: Event) => {
-      if (!window.matchMedia("(min-width: 768px)").matches) return;
       const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
       if (!action?.startsWith("detail-")) return;
-      if (action === "detail-restore") {
+      const mobile = window.matchMedia("(max-width: 767px)").matches;
+      const isMobileAction = action.startsWith("detail-mobile-");
+      if (mobile !== isMobileAction) return;
+      if (action === "detail-restore" || action === "detail-mobile-restore") {
         const initial = onboardingInitialDetailViewRef.current;
         if (!initial) return;
         setCommentInputMode(initial.commentInputMode);
@@ -2870,12 +2872,12 @@ function MovieDetailPageContent() {
         return;
       }
       onboardingInitialDetailViewRef.current ??= { commentInputMode, activeCommentsTab };
-      if (action === "detail-video") setCommentInputMode("video-comment");
-      if (action === "detail-comments-public") {
+      if (action === "detail-video" || action === "detail-mobile-video") setCommentInputMode("video-comment");
+      if (action === "detail-comments-public" || action === "detail-mobile-comments-public") {
         setCommentInputMode("text-comment");
         setActiveCommentsTab("public");
       }
-      if (action === "detail-comments-directed") {
+      if (action === "detail-comments-directed" || action === "detail-mobile-comments-directed") {
         setCommentInputMode("text-comment");
         setActiveCommentsTab("directed");
       }
@@ -4464,7 +4466,7 @@ function MovieDetailPageContent() {
           ) : null}
 
           <div data-mobile-comment-tabs className="relative flex items-center justify-between gap-4 md:hidden" role="tablist" aria-label={composerTitle}>
-            <AuthenticatedProfileAvatar user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-y-1/2 cursor-pointer" />
+            <AuthenticatedProfileAvatar mobileTourTarget="detail-profile-avatar-mobile" user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-y-1/2 cursor-pointer" />
             {(["video-comment", "text-comment"] as const).map((mode) => {
               const isActiveMode = commentInputMode === mode;
 
@@ -4474,6 +4476,7 @@ function MovieDetailPageContent() {
                   type="button"
                   role="tab"
                   aria-selected={isActiveMode}
+                  data-tour-mobile={mode === "video-comment" ? "detail-video-tab-mobile" : "detail-comment-tab-mobile"}
                   className={`flex min-h-11 flex-1 items-center justify-center py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "pl-6 pr-2" : "px-2"} ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
                   data-comment-input-mode={mode}
                   onClick={() => handleCommentInputTabClick(mode)}
@@ -4527,6 +4530,7 @@ function MovieDetailPageContent() {
                   type="button"
                   role="tab"
                   aria-selected={activeCommentsTab === "public"}
+                  data-tour-mobile="detail-public-comments-mobile"
                   className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
                     activeCommentsTab === "public" ? "border border-[#86ADE0]/45 bg-zinc-950/50 text-[#c7dcf6] shadow-[0_0_16px_rgba(134,173,224,0.16)]" : "border border-transparent text-zinc-300 hover:bg-white/10 hover:text-white"
                   }`}
@@ -4538,6 +4542,7 @@ function MovieDetailPageContent() {
                   type="button"
                   role="tab"
                   aria-selected={activeCommentsTab === "directed"}
+                  data-tour-mobile="detail-directed-comments-mobile"
                   className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
                     activeCommentsTab === "directed" ? "border border-[#86ADE0]/45 bg-zinc-950/50 text-[#c7dcf6] shadow-[0_0_16px_rgba(134,173,224,0.16)]" : "border border-transparent text-zinc-300 hover:bg-white/10 hover:text-white"
                   }`}
