@@ -124,3 +124,26 @@ test("spotlight navigation preserves its previous rectangle and animates to the 
   assert.match(provider, /width 450ms ease-in-out/);
   assert.match(provider, /height 450ms ease-in-out/);
 });
+
+test("desktop Feed callouts use a start anchor and alternating placements", () => {
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  assert.match(tours, /feed-card-title[^}]+anchor: "start"/);
+  assert.match(tours, /feed-card-tag[^}]+placement: "top"/);
+  assert.match(tours, /feed-card-ticket[^}]+placement: "bottom"/);
+  assert.match(tours, /feed-card-rating-following[^}]+placement: "bottom"/);
+  assert.match(provider, /Math\.min\(rect\.width \* 0\.2, 30\)/);
+  assert.match(provider, /boxesOverlap/);
+  assert.match(provider, /placedBoxes\.some/);
+});
+
+test("completion and skip suppress resume until their optimistic state is settled", () => {
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  const closingBody = provider.match(/const closeWithStatus[^]*?\}, \[persist\]\);/)?.[0] ?? "";
+  assert.ok(closingBody.indexOf("setIsClosing(true)") < closingBody.indexOf("await persist"));
+  assert.ok(closingBody.indexOf("await persist") < closingBody.indexOf("setRunning(false)"));
+  assert.match(provider, /if \(isClosing\) return null/);
+  assert.match(provider, /resume=\{state\.status === "in_progress"\}/);
+  assert.match(provider, /closeWithStatus\("skipped"\)/);
+  assert.match(provider, /closeWithStatus\("completed"\)/);
+});

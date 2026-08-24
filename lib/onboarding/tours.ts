@@ -47,10 +47,10 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
         steps[index].spotlightTarget = cardTarget;
         steps[index].optional = false;
       }
-      steps[6].callouts = [{ target: `[data-tour="feed-card-poster"]` }, { target: `[data-tour="feed-card-title"]` }];
+      steps[6].callouts = [{ target: `[data-tour="feed-card-poster"]` }, { target: `[data-tour="feed-card-title"]`, anchor: "start" }];
       steps[7].callouts = [{ target: `[data-tour="feed-card-synopsis"]` }];
-      steps[8].callouts = [{ target: `[data-tour="feed-card-tag"]`, label: locale === "en" ? "My List" : "Mi Lista" }, { target: `[data-tour="feed-card-ticket"]`, label: locale === "en" ? "Recommend" : "Recomendar" }];
-      steps[9].callouts = [{ target: `[data-tour="feed-card-rating-overall"]`, label: locale === "en" ? "Overall" : "General" }, { target: `[data-tour="feed-card-rating-following"]`, label: locale === "en" ? "Following" : "Seguidos" }, { target: `[data-tour="feed-card-rating-mine"]`, label: locale === "en" ? "Your rating" : "Tu calificación" }];
+      steps[8].callouts = [{ target: `[data-tour="feed-card-tag"]`, label: locale === "en" ? "My List" : "Mi Lista", placement: "top" }, { target: `[data-tour="feed-card-ticket"]`, label: locale === "en" ? "Recommend" : "Recomendar", placement: "bottom" }];
+      steps[9].callouts = [{ target: `[data-tour="feed-card-rating-overall"]`, label: locale === "en" ? "Overall" : "General", placement: "top" }, { target: `[data-tour="feed-card-rating-following"]`, label: locale === "en" ? "Following" : "Seguidos", placement: "bottom" }, { target: `[data-tour="feed-card-rating-mine"]`, label: locale === "en" ? "Your rating" : "Tu calificación", placement: "top" }];
     }
     return { id, path: id === "feed" ? (p) => p === "/feed" : id === "profile_feed" ? (p) => p === "/profile-feed" : (p) => /^\/movies\/[^/]+\/?$/.test(p), readyTargets: [`[data-tour="${selectors[id][0][0]}"]`], welcomeTitle, welcomeBody, finalTitle, finalBody, steps };
   });
