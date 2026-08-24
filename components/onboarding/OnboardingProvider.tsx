@@ -164,7 +164,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
   const initialSpotlightRevealedRef = useRef(false);
   const initialRevealFrameRef = useRef<number | null>(null);
   const [initialSpotlightVisible, setInitialSpotlightVisible] = useState(false);
-  const hasDedicatedFinalScreen = tour.id === "feed" || (tour.id === "detail_movie" && !mobile);
+  const hasDedicatedFinalScreen = tour.id === "feed" || (tour.id === "detail_movie" && !mobile) || (tour.id === "profile_feed" && mobile);
   const isFeedFinal = hasDedicatedFinalScreen && index === available.length;
   const step = available[index] as TourStepDefinition | undefined;
 

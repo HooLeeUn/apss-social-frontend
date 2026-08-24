@@ -122,6 +122,7 @@ test("mobile Profile Feed has nine prepared structural steps and six dock target
   const quickNavigation = fs.readFileSync("components/profile-feed/ProfileQuickNavigation.tsx", "utf8");
   const connections = fs.readFileSync("components/profile-feed/TopUsersSection.tsx", "utf8");
   const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
   for (const target of ["profile-connections-mobile", "profile-activity-mobile", "profile-inbox-mobile", "profile-ratings-mobile", "profile-list-mobile", "profile-recommendations-mobile", "profile-following-activity-mobile"]) {
     assert.match(`${page}\n${activity}\n${connections}\n${tours}`, new RegExp(target));
   }
@@ -132,6 +133,9 @@ test("mobile Profile Feed has nine prepared structural steps and six dock target
   assert.match(tours, /mobileSteps = steps\.map/);
   assert.match(tours, /profile-mobile-following-activity/);
   assert.match(tours, /mobileScroll: index >= 2 \? "below-tooltip"/);
+  assert.match(provider, /tour\.id === "profile_feed" && mobile/);
+  assert.match(tours, /¡Tu Profile Feed está listo!/);
+  assert.match(tours, /Your Profile Feed is ready!/);
 });
 
 test("tour navigation keeps a locked Feed card and has a dedicated final screen", () => {
