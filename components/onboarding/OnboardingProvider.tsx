@@ -11,6 +11,7 @@ import type { OnboardingState, OnboardingStatus, TourDefinition, TourStepDefinit
 type PendingUpdate = { status: OnboardingStatus; currentStep: number | null };
 type TooltipPosition = { left: number; top: number };
 type CalloutGeometry = { rect: DOMRect; label?: string };
+const FEED_CARD_SELECTOR = '[data-tour="feed-card"]';
 
 function TourWelcomeModal({ title, body, resume, onSkip, onStart }: { title: string; body: string; resume: boolean; onSkip: () => void; onStart: () => void }) {
   const { locale } = useI18n();
@@ -84,8 +85,10 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
 
   const resolveStepElement = useCallback((selector: string, lockToCard: boolean) => {
     if (!lockToCard) return resolveVisible(selector);
-    if (!lockedCardRef.current?.isConnected || !isVisible(lockedCardRef.current)) lockedCardRef.current = resolveVisible('[data-tour="feed-card"]');
-    return lockedCardRef.current ? resolveVisible(selector, lockedCardRef.current) : null;
+    if (!lockedCardRef.current?.isConnected || !isVisible(lockedCardRef.current)) lockedCardRef.current = resolveVisible(FEED_CARD_SELECTOR);
+    if (!lockedCardRef.current) return null;
+    if (selector === FEED_CARD_SELECTOR) return lockedCardRef.current;
+    return resolveVisible(selector, lockedCardRef.current);
   }, []);
 
   useEffect(() => {
@@ -116,11 +119,11 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
     return () => { window.clearTimeout(timer); resizeObserver.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
   }, [available.length, index, isFeedFinal, onFinish, resolveStepElement, step, tour.id]);
 
-  const move = (next: number) => { setRect(null); setCallouts([]); setIndex(next); if (next < available.length) onStep(next); };
+  const move = (next: number) => { setCallouts([]); setIndex(next); if (next < available.length) onStep(next); };
   if (isFeedFinal) return <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-2xl border border-white/20 bg-zinc-950 p-6 shadow-2xl"><h2 className="text-xl font-bold">{tour.finalTitle}</h2><p className="mt-3 text-zinc-300">{tour.finalBody}</p><div className="mt-6 flex justify-between"><button type="button" onClick={() => move(available.length - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm">{labels.back}</button><button type="button" onClick={onFinish} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{labels.finish}</button></div></div></div>;
   if (!step || !rect) return null;
   return <div className="fixed inset-0 z-[10000]" role="dialog" aria-modal="true">
-    <div className="fixed rounded-xl transition-all duration-200" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, boxShadow: "0 0 0 9999px rgba(0,0,0,.82)", pointerEvents: "none" }} />
+    <div className="fixed rounded-xl" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, boxShadow: "0 0 0 9999px rgba(0,0,0,.82)", pointerEvents: "none", transition: "left 450ms ease-in-out, top 450ms ease-in-out, width 450ms ease-in-out, height 450ms ease-in-out" }} />
     <div className="fixed inset-0" onClick={(event) => event.preventDefault()} />
     {callouts.map((geometry, calloutIndex) => <TourCallout key={`${step.target}-${calloutIndex}`} geometry={geometry} />)}
     <div ref={tooltipRef} className="fixed z-[10004] w-[min(92vw,420px)] rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-2xl" style={tooltipPosition}>

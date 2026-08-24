@@ -107,7 +107,20 @@ test("tour navigation keeps a locked Feed card and has a dedicated final screen"
   const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
   assert.match(provider, /lockedCardRef/);
   assert.match(provider, /resolveVisible\(selector, lockedCardRef\.current\)/);
+  assert.match(provider, /selector === FEED_CARD_SELECTOR/);
+  assert.match(provider, /return lockedCardRef\.current/);
   assert.match(provider, /isFeedFinal/);
   assert.match(provider, /move\(available\.length - 1\)/);
   assert.doesNotMatch(provider, /useEffect\([^]*\}, \[tour\]\)/);
+});
+
+test("spotlight navigation preserves its previous rectangle and animates to the next target", () => {
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  const moveBody = provider.match(/const move = \(next: number\) => \{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(moveBody, /setRect\(null\)/);
+  assert.match(moveBody, /setCallouts\(\[\]\)/);
+  assert.match(provider, /left 450ms ease-in-out/);
+  assert.match(provider, /top 450ms ease-in-out/);
+  assert.match(provider, /width 450ms ease-in-out/);
+  assert.match(provider, /height 450ms ease-in-out/);
 });
