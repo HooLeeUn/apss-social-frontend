@@ -42,7 +42,7 @@ const detailDesktopCopy = {
     ["Comparte tu Video reacción", "Usa REC para grabar una reacción de hasta 20 segundos o cargar un video desde tu dispositivo."],
     ["Participa en la conversación", "Desde aquí puedes compartir tu opinión pública sobre la producción o enviar un comentario dirigido a un Amigo sobre la misma."],
     ["Comentarios públicos", "Consulta lo que tú y la comunidad piensan sobre esta producción."],
-    ["Comentarios dirigidos", "Envía y consulta los comentarios intercambiados con tus Amigos acerca de sus opiniones sobre la producción."],
+    ["Comentarios dirigidos", "Envía y consulta los comentarios intercambiados con tus Amigos acerca de sus opiniones sobre la producción. Estos mensajes son privados."],
     ["Vuelve a tu perfil", "Haz clic en tu avatar cuando quieras regresar directamente a tu Perfil personal."],
   ],
   en: [
@@ -52,7 +52,7 @@ const detailDesktopCopy = {
     ["Share your Video Reaction", "Use REC to record a reaction of up to 20 seconds or upload a video from your device."],
     ["Join the conversation", "From here you can share your public opinion about the production or send a directed comment about it to a Friend."],
     ["Public Comments", "See what you and the community think about this production."],
-    ["Directed Comments", "Send and view comments exchanged with your Friends about their opinions on the production."],
+    ["Directed Comments", "Send and view comments exchanged with your Friends about their opinions on the production. These messages are private."],
     ["Return to your profile", "Click your avatar whenever you want to return directly to your Profile Feed."],
   ],
 } as const;
