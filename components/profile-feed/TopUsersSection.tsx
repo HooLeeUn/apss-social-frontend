@@ -726,7 +726,7 @@ export default function TopUsersSection({
         onTouchCancelCapture={handleMobileTouchCancel}
       >
         <div className="profile-feed-mobile-slider__stage">
-          <div className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(0)}>
+          <div data-tour-mobile="profile-connections-mobile" className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(0)}>
             {followingBlock}
           </div>
           <div className="profile-feed-mobile-slider__slide" style={getMobileSlideStyle(1)}>

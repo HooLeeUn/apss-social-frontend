@@ -96,6 +96,23 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
       const icons: NonNullable<TourStepDefinition["icon"]>[] = ["profile", "favorite", "connections", "activity", "inbox", "ratings", "list", "recommendations", "menu"];
       const preparations: Array<TourStepDefinition["prepare"]> = [undefined, undefined, undefined, "profile-activity", "profile-inbox", "profile-ratings", "profile-list", "profile-recommendations", undefined];
       steps.forEach((step, index) => { step.icon = icons[index]; step.prepare = preparations[index]; step.optional = false; });
+      const mobileTargets = ["profile-info", "profile-favorites", "profile-connections-mobile", "profile-activity-mobile", "profile-inbox-mobile", "profile-ratings-mobile", "profile-list-mobile", "profile-recommendations-mobile", "profile-following-activity-mobile"] as const;
+      const mobilePreparations: NonNullable<TourStepDefinition["mobilePrepare"]>[] = ["profile-mobile-release", "profile-mobile-release", "profile-mobile-connections", "profile-mobile-activity", "profile-mobile-inbox", "profile-mobile-ratings", "profile-mobile-list", "profile-mobile-recommendations", "profile-mobile-following-activity"];
+      mobileSteps = steps.map((step, index) => ({
+        ...step,
+        target: index < 2 ? step.target : `[data-tour-mobile="${mobileTargets[index]}"]`,
+        mobilePrepare: mobilePreparations[index],
+        mobileScroll: index >= 2 ? "below-tooltip" : undefined,
+        optional: false,
+      }));
+      mobileSteps[2].callouts = [
+        { target: '[data-tour-mobile="profile-quick-following"]', label: locale === "en" ? "Following" : "Seguidos", placement: "top" },
+        { target: '[data-tour-mobile="profile-quick-friends"]', label: locale === "en" ? "Friends" : "Amigos", placement: "top" },
+      ];
+      mobileSteps[3].callouts = [{ target: '[data-tour-mobile="profile-quick-activity"]', label: locale === "en" ? "My Activity" : "Mi Actividad", placement: "top" }];
+      mobileSteps[6].callouts = [{ target: '[data-tour-mobile="profile-quick-list"]', label: locale === "en" ? "My List" : "Mi Lista", placement: "top" }];
+      mobileSteps[7].callouts = [{ target: '[data-tour-mobile="profile-quick-recommendations"]', label: locale === "en" ? "My Recommendations" : "Mis Recomendadas", placement: "top" }];
+      mobileSteps[8].callouts = [{ target: '[data-tour-mobile="profile-quick-following-activity"]', label: locale === "en" ? "Following activity" : "Actividad de seguidos", placement: "top" }];
     }
     const desktopSteps = id === "detail_movie" ? detailDesktopSelectors.map((target, index): TourStepDefinition => ({
       target: `[data-tour-desktop="${target}"]`,

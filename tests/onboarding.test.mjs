@@ -103,16 +103,35 @@ test("desktop Feed exposes every exact tour control and ten conceptual steps", (
   assert.match(tours, /steps\[9\]\.callouts/);
 });
 
-test("Profile Feed completion returns only its desktop tour to the document top", () => {
+test("Profile Feed completion returns both responsive tours to the document top", () => {
   const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
   const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
   assert.match(tours, /Aquí puedes seleccionar y dar a conocer tus tres producciones favoritas \+/);
   assert.match(provider, /await closeWithStatus\("completed"\)/);
   assert.match(provider, /shouldResetProfileDesktop/);
+  assert.match(provider, /shouldResetProfileMobile/);
   assert.match(provider, /matchMedia\("\(min-width: 768px\)"\)/);
   assert.match(provider, /requestAnimationFrame\(\(\) => window\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)\)/);
   const skipBody = provider.match(/const handleSkip = useCallback\(\(\) => \{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(skipBody, /scrollTo/);
+});
+
+test("mobile Profile Feed has nine prepared structural steps and six dock targets", () => {
+  const page = fs.readFileSync("app/profile-feed/page.tsx", "utf8");
+  const activity = fs.readFileSync("components/profile-feed/MyActivityColumn.tsx", "utf8");
+  const quickNavigation = fs.readFileSync("components/profile-feed/ProfileQuickNavigation.tsx", "utf8");
+  const connections = fs.readFileSync("components/profile-feed/TopUsersSection.tsx", "utf8");
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  for (const target of ["profile-connections-mobile", "profile-activity-mobile", "profile-inbox-mobile", "profile-ratings-mobile", "profile-list-mobile", "profile-recommendations-mobile", "profile-following-activity-mobile"]) {
+    assert.match(`${page}\n${activity}\n${connections}\n${tours}`, new RegExp(target));
+  }
+  for (const target of ["profile-quick-following", "profile-quick-friends", "profile-quick-activity", "profile-quick-list", "profile-quick-recommendations", "profile-quick-following-activity"]) {
+    assert.match(page, new RegExp(target));
+  }
+  assert.match(quickNavigation, /visible \|\| forceVisible/);
+  assert.match(tours, /mobileSteps = steps\.map/);
+  assert.match(tours, /profile-mobile-following-activity/);
+  assert.match(tours, /mobileScroll: index >= 2 \? "below-tooltip"/);
 });
 
 test("tour navigation keeps a locked Feed card and has a dedicated final screen", () => {
