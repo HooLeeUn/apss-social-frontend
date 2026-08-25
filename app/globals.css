@@ -279,6 +279,7 @@ textarea,
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 @media (min-width: 1024px) {
