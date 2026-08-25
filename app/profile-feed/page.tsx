@@ -202,7 +202,7 @@ function ProfileFeedContent() {
 
   useEffect(() => {
     const prepareOnboardingStep = (event: Event) => {
-      if (window.matchMedia("(max-width: 767px)").matches) return;
+      if (window.matchMedia("(max-width: 1279px)").matches) return;
       const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
       const requestId = ++navigationRequestId.current;
       if (action === "profile-activity") setActivityTabRequest({ tab: "activity", id: requestId });
@@ -569,7 +569,7 @@ function ProfileFeedContent() {
 
   useEffect(() => {
     const prepareMobileOnboardingStep = (event: Event) => {
-      if (!window.matchMedia("(max-width: 767px)").matches) return;
+      if (!window.matchMedia("(max-width: 1279px)").matches) return;
       const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
       if (!action?.startsWith("profile-mobile-")) return;
       const requestId = ++navigationRequestId.current;
@@ -782,7 +782,7 @@ function ProfileFeedContent() {
             : <Image src="/icons/Ticket.png" alt="" width={22} height={18} className="pointer-events-none h-[18px] w-[22px] shrink-0 object-contain" />}
           className="rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         />
-        <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 md:block">
+        <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 xl:block">
           {activeListView === "my-list"
             ? <MyListIcon className="h-[18px] w-[18px]" />
             : <Image src="/icons/Ticket.png" alt="" width={22} height={18} className="h-[18px] w-[22px] object-contain" />}
@@ -792,12 +792,12 @@ function ProfileFeedContent() {
           aria-label={t("profileFeedMyList")}
           value={activeListView}
           onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
-          className={`hidden appearance-none overflow-hidden rounded-xl border md:block md:w-56 border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center ${activeListView === "recommended" ? "text-sm" : "text-lg"} font-semibold leading-7 text-zinc-100 [text-indent:1.25rem] shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0`}
+          className={`hidden appearance-none overflow-hidden rounded-xl border xl:block xl:w-56 border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center ${activeListView === "recommended" ? "text-sm" : "text-lg"} font-semibold leading-7 text-zinc-100 [text-indent:1.25rem] shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0`}
         >
           <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyList")}</option>
           <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyRecommendations")}</option>
         </select>
-        <span aria-hidden="true" className="pointer-events-none absolute right-3 hidden md:block top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
+        <span aria-hidden="true" className="pointer-events-none absolute right-3 hidden xl:block top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
       </div>
       <div className="profile-feed-mobile-list-scroll activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
         {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
@@ -869,9 +869,9 @@ function ProfileFeedContent() {
 
   return (
     <main className="profile-feed-mobile-framing min-h-screen overflow-x-clip bg-black text-zinc-100">
-      <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 md:px-8 md:pb-8">
-        <section className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
-          <div className="grid min-w-0 items-stretch gap-6 lg:grid-cols-[1fr_3fr]">
+      <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 xl:px-8 xl:pb-8">
+        <section className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">
+          <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-[1fr_3fr]">
             <div data-tour="profile-info" className="mx-auto flex w-full min-w-0 max-w-full">
               <ProfileIdentityCard
                 username={profileUser?.username || "usuario"}
@@ -900,13 +900,13 @@ function ProfileFeedContent() {
             </div>
 
             <div data-tour="profile-favorites" className="flex min-h-[220px] flex-col justify-center gap-5">
-              <p className="text-center text-lg font-semibold text-zinc-100 md:text-left">{t("profileFeedFavoriteMovies")}</p>
+              <p className="text-center text-lg font-semibold text-zinc-100 xl:text-left">{t("profileFeedFavoriteMovies")}</p>
               <FavoriteMoviesBlock />
             </div>
           </div>
         </section>
 
-        <section ref={(node) => { userSearchContainerRef.current = node; connectionsSearchSectionRef.current = node; }} className="profile-feed-connections-search relative z-30 mx-auto mt-4 w-full max-w-2xl scroll-mt-4 md:mt-5" aria-label={t("profileFeedSearchUser")}>
+        <section ref={(node) => { userSearchContainerRef.current = node; connectionsSearchSectionRef.current = node; }} className="profile-feed-connections-search relative z-30 mx-auto mt-4 w-full max-w-2xl scroll-mt-4 xl:mt-5" aria-label={t("profileFeedSearchUser")}>
           <div className="flex w-full rounded-full border border-white/55 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
             <div className="relative min-w-0 flex-1">
               <svg
@@ -976,7 +976,7 @@ function ProfileFeedContent() {
           ) : null}
         </section>
 
-        <section className="mt-4 w-full md:mt-5">
+        <section className="mt-4 w-full xl:mt-5">
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,680px)_minmax(296px,360px)_minmax(260px,1fr)]">
             <TopUsersSection
               tourTarget="profile-connections"
@@ -1008,7 +1008,7 @@ function ProfileFeedContent() {
               onConnectionViewRequestComplete={completeConnectionViewRequest}
               onConnectionViewChange={handleFriendsViewChange}
             />
-            <div ref={activityAndListsPanelRef} className="profile-feed-mobile-content-row w-full max-w-full scroll-mt-4 overflow-hidden md:hidden">
+            <div ref={activityAndListsPanelRef} className="profile-feed-mobile-content-row w-full max-w-full scroll-mt-4 overflow-hidden xl:hidden">
               <div
                 ref={mobileProfileFeedCarouselRef}
                 className="profile-feed-mobile-content-track flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -1036,7 +1036,7 @@ function ProfileFeedContent() {
                 ))}
               </div>
             </div>
-            <div data-tour="profile-activity" className="hidden md:block">
+            <div data-tour="profile-activity" className="hidden xl:block">
               <MyActivityColumn
                 key={`my-activity-${initialActivityTab}`}
                 isOwnProfile
@@ -1049,7 +1049,7 @@ function ProfileFeedContent() {
           </div>
         </section>
 
-        <div data-tour="profile-following-activity" data-tour-mobile="profile-following-activity-mobile" ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 md:mt-4">
+        <div data-tour="profile-following-activity" data-tour-mobile="profile-following-activity-mobile" ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 xl:mt-4">
           <SocialActivityTabsBlock />
         </div>
       </div>

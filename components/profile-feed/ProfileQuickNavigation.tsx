@@ -136,7 +136,7 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
   }, []);
 
   useEffect(() => {
-    const mobileViewport = window.matchMedia("(max-width: 767px)");
+    const mobileViewport = window.matchMedia("(max-width: 1279px)");
 
     const handlePointerDown = (event: globalThis.PointerEvent) => {
       if (!mobileViewport.matches || event.pointerType === "mouse" || !event.isPrimary) return;
@@ -224,7 +224,7 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
   };
 
   return (
-    <nav aria-label={ariaLabel} className={`fixed inset-x-4 z-[60] md:hidden bottom-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
+    <nav aria-label={ariaLabel} className={`fixed inset-x-4 z-[60] xl:hidden bottom-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
       {tooltipIndex !== null ? (
         <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
           {items[tooltipIndex]?.label}

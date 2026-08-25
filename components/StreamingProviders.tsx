@@ -464,7 +464,7 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const mediaQuery = window.matchMedia("(max-width: 1279px)");
     const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
     syncViewport();
     mediaQuery.addEventListener("change", syncViewport);
@@ -641,13 +641,13 @@ function ProviderRow({
 
   return (
     <div className="space-y-1.5 overflow-visible">
-      <div className="flex flex-nowrap items-center justify-center gap-2 overflow-visible md:hidden">
+      <div className="flex flex-nowrap items-center justify-center gap-2 overflow-visible xl:hidden">
         {mobileVisibleProviders.map((provider) => (
           <ProviderLogo key={provider.id} provider={provider} locale={locale} />
         ))}
         <ProviderOverflowMenu providers={mobileHiddenProviders} locale={locale} />
       </div>
-      <div className="hidden flex-nowrap items-center justify-center gap-2 overflow-visible md:flex md:flex-wrap">
+      <div className="hidden flex-nowrap items-center justify-center gap-2 overflow-visible xl:flex xl:flex-wrap">
         {desktopVisibleProviders.map((provider) => (
           <ProviderLogo key={provider.id} provider={provider} locale={locale} />
         ))}
@@ -717,7 +717,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
   const hasProviders = subscriptionProviders.length > 0 || rentBuyProviders.length > 0;
 
   return (
-    <aside className="relative z-30 min-w-0 overflow-visible md:min-w-[150px] md:max-w-[220px]">
+    <aside className="relative z-30 min-w-0 overflow-visible xl:min-w-[150px] xl:max-w-[220px]">
       <div className="mb-2 inline-flex items-center gap-1.5 align-middle">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">{labels.title}</p>
         <AvailabilityCountryWarning country={country} locale={locale} />
@@ -737,7 +737,7 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
       {!loading && !hasLoadError && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
 
       {!loading && !hasLoadError && hasProviders ? (
-        <div className="space-y-2 md:space-y-3">
+        <div className="space-y-2 xl:space-y-3">
           <ProviderRow providers={subscriptionProviders} label={labels.subscription} locale={locale} />
           <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} mobileMaxVisibleProviders={3} />
         </div>

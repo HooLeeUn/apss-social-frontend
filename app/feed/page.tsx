@@ -121,7 +121,7 @@ function MobileFeedDefaultLogo({ branding, onClick }: { branding: MobileLogoBran
         type="button"
         onClick={onClick}
         aria-label="Ir al inicio del feed"
-        className="block cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 lg:hidden"
+        className="block cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 xl:hidden"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -142,7 +142,7 @@ function MobileFeedDefaultLogo({ branding, onClick }: { branding: MobileLogoBran
       type="button"
       onClick={onClick}
       aria-label="Ir al inicio del feed"
-      className="cursor-pointer rounded-md bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 lg:hidden"
+      className="cursor-pointer rounded-md bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text text-xl font-bold uppercase tracking-[0.18em] text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 xl:hidden"
     >
       QNext
     </button>
@@ -285,7 +285,7 @@ export default function FeedPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const mediaQuery = window.matchMedia("(max-width: 1279px)");
     lastMobileScrollYRef.current = window.scrollY;
 
     const handleScroll = () => {
@@ -317,7 +317,7 @@ export default function FeedPage() {
 
   useEffect(() => {
     const prepareMobileFeedStep = (event: Event) => {
-      if (!window.matchMedia("(max-width: 1023px)").matches) return;
+      if (!window.matchMedia("(max-width: 1279px)").matches) return;
       const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
       if (action === "feed-mobile-panel-show") setIsMobileOnboardingNavForced(true);
       if (action === "feed-mobile-panel-release") setIsMobileOnboardingNavForced(false);
@@ -1037,21 +1037,21 @@ export default function FeedPage() {
         <FeedDebugSearchParamsBridge onChange={setDebugNotificationTarget} />
       </Suspense>
       <div className="feed-shell mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
-        <div className="feed-header sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 lg:space-y-3 lg:px-0 relative">
-          <div className="flex items-center gap-3 lg:block">
-            <div className="feed-header__brand relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 lg:absolute lg:left-0 lg:top-2 lg:h-20 lg:w-[280px] lg:justify-center lg:pl-8">
+        <div className="feed-header sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 xl:space-y-3 xl:px-0 relative">
+          <div className="flex items-center gap-3 xl:block">
+            <div className="feed-header__brand relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 xl:absolute xl:left-0 xl:top-2 xl:h-20 xl:w-[280px] xl:justify-center xl:pl-8">
               <MobileFeedDefaultLogo branding={branding} onClick={handleMobileLogoClick} />
               <AppLogo
                 branding={branding}
                 slot="feed_logo_url"
                 alt="QNext"
-                className="feed-header__logo hidden h-24 w-auto max-w-[260px] translate-y-1 object-contain object-left lg:block"
-                textClassName="hidden bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text font-bold uppercase tracking-[0.18em] text-transparent lg:block lg:text-xs"
+                className="feed-header__logo hidden h-24 w-auto max-w-[260px] translate-y-1 object-contain object-left xl:block"
+                textClassName="hidden bg-gradient-to-r from-sky-100 via-blue-300 to-slate-200 bg-clip-text font-bold uppercase tracking-[0.18em] text-transparent xl:block xl:text-xs"
                 eager
                 fallbackText="QNext"
               />
             </div>
-            <div className="feed-mobile-only relative z-50 flex flex-1 justify-center lg:hidden [&>div]:w-[4.25rem]">
+            <div className="feed-mobile-only relative z-50 flex flex-1 justify-center xl:hidden [&>div]:w-[4.25rem]">
               <DirectorBoardMenu
                 locale={locale}
                 mobileIconOnly
@@ -1065,7 +1065,7 @@ export default function FeedPage() {
                 onPoliciesClick={() => router.push("/policies")}
               />
             </div>
-            <div className="feed-mobile-only relative z-50 flex flex-none justify-end lg:hidden">
+            <div className="feed-mobile-only relative z-50 flex flex-none justify-end xl:hidden">
               <StreamingCountrySelector
                 country={streamingCountry}
                 onCountryChange={handleStreamingCountryChange}
@@ -1075,8 +1075,8 @@ export default function FeedPage() {
                 iconOnly
               />
             </div>
-            <div className={`feed-header__account feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 lg:pointer-events-none lg:absolute lg:right-4 lg:top-6 lg:block lg:pr-1 ${isNotificationPanelOpen ? "lg:z-[90]" : ""}`}>
-              <div className="pointer-events-auto relative flex w-auto flex-col items-end lg:w-[198px] lg:items-center">
+            <div className={`feed-header__account feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 xl:pointer-events-none xl:absolute xl:right-4 xl:top-6 xl:block xl:pr-1 ${isNotificationPanelOpen ? "xl:z-[90]" : ""}`}>
+              <div className="pointer-events-auto relative flex w-auto flex-col items-end xl:w-[198px] xl:items-center">
                 <div className="flex items-center gap-2">
                 <button
                   data-tour="feed-notifications"
@@ -1159,16 +1159,16 @@ export default function FeedPage() {
           </div>
           </div>
 
-          <div className="feed-header__search-row feed-desktop-only hidden items-center justify-between gap-3 lg:block">
+          <div className="feed-header__search-row feed-desktop-only hidden items-center justify-between gap-3 xl:block">
             <SearchBar
               tourTarget="feed-search"
               locale={locale}
-              className="feed-header__search mx-0 w-[52%] min-w-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5 sm:w-[58%] lg:mx-auto lg:w-full lg:max-w-2xl"
+              className="feed-header__search mx-0 w-[52%] min-w-0 rounded-full border-2 border-white/70 bg-zinc-900/80 p-1.5 sm:w-[58%] xl:mx-auto xl:w-full xl:max-w-2xl"
               inputClassName="rounded-full border-2 border-white/60 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
               showSearchIcon
               inlineAutocomplete
             />
-            <div data-tour="feed-menu" className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] lg:absolute lg:right-4 lg:top-[5.75rem] lg:[&>div]:w-[198px]">
+            <div data-tour="feed-menu" className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] xl:absolute xl:right-4 xl:top-[5.75rem] xl:[&>div]:w-[198px]">
               <DirectorBoardMenu
                 locale={locale}
                 isOpen={isDirectorBoardOpen}
@@ -1190,8 +1190,8 @@ export default function FeedPage() {
             onToggleGenre={toggleGenreSelection}
             onClearSelection={() => setSelectedGenres([])}
             showAllChip={selectedGenres.length > 0}
-            className="feed-header__genres w-full justify-start overflow-hidden lg:justify-center"
-            chipsContainerClassName="w-full flex-none justify-start overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:w-auto lg:flex-initial lg:justify-center lg:overflow-visible"
+            className="feed-header__genres w-full justify-start overflow-hidden xl:justify-center"
+            chipsContainerClassName="w-full flex-none justify-start overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:flex-initial xl:justify-center xl:overflow-visible"
             chipClassName="border-2"
             selectedChipClassName="border-blue-300/90 bg-gradient-to-b from-blue-300/25 to-blue-600/40 text-blue-50 shadow-[0_4px_14px_rgba(56,189,248,0.35)]"
             unselectedChipClassName="border-white/70 bg-zinc-900 text-zinc-200 hover:border-white"
@@ -1255,7 +1255,7 @@ export default function FeedPage() {
       </div>
 
       {isMobileSearchOpen ? (
-        <div ref={mobileSearchContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[65] rounded-3xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.65)] backdrop-blur-xl lg:hidden">
+        <div ref={mobileSearchContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[65] rounded-3xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.65)] backdrop-blur-xl xl:hidden">
           <SearchBar
             locale={locale}
             className="w-full rounded-full border-2 border-white/60 bg-zinc-900/90 p-1.5"
@@ -1267,7 +1267,7 @@ export default function FeedPage() {
         </div>
       ) : null}
 
-      <nav ref={mobileNavRef} className={`feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-all duration-300 ease-out lg:hidden ${isMobileBottomNavVisible || isMobileOnboardingNavForced ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[calc(100%+1.5rem)] opacity-0"}`} aria-label="Acciones principales del feed">
+      <nav ref={mobileNavRef} className={`feed-mobile-only fixed inset-x-4 bottom-4 z-[60] flex items-center justify-around rounded-full border border-white/10 bg-zinc-900/85 px-5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-all duration-300 ease-out xl:hidden ${isMobileBottomNavVisible || isMobileOnboardingNavForced ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[calc(100%+1.5rem)] opacity-0"}`} aria-label="Acciones principales del feed">
         <button
           data-tour-mobile="feed-search-mobile"
           type="button"
@@ -1309,7 +1309,7 @@ export default function FeedPage() {
       </nav>
 
       {isNotificationPanelOpen ? (
-        <div ref={mobileNotificationContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[70] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md lg:hidden">
+        <div ref={mobileNotificationContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[70] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md xl:hidden">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">{translate(locale, "notificationsTitle")}</p>
             {notificationItems.length > 0 ? (

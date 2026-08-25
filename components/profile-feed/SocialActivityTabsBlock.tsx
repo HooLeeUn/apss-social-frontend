@@ -153,17 +153,17 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
 
   return (
     <article
-      className="relative grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[72px_minmax(10rem,1fr)_minmax(12rem,1.15fr)_minmax(7rem,auto)] lg:items-start"
+      className="relative grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-2xl border border-white/10 bg-zinc-950/70 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] sm:grid-cols-[72px_minmax(0,1fr)] xl:grid-cols-[72px_minmax(10rem,1fr)_minmax(12rem,1.15fr)_minmax(7rem,auto)] xl:items-start"
       role="option"
       aria-selected="false"
     >
       <div
-        className="pointer-events-none absolute right-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-sky-200/35 bg-gradient-to-br from-sky-300/30 via-blue-500/25 to-zinc-700/30 text-[13px] text-sky-200 shadow-[0_0_14px_rgba(56,189,248,0.22)] md:hidden"
+        className="pointer-events-none absolute right-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-sky-200/35 bg-gradient-to-br from-sky-300/30 via-blue-500/25 to-zinc-700/30 text-[13px] text-sky-200 shadow-[0_0_14px_rgba(56,189,248,0.22)] xl:hidden"
         aria-hidden="true"
       >
         ←
       </div>
-      <div className="col-span-full md:hidden">
+      <div className="col-span-full xl:hidden">
         <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 sm:grid-cols-[72px_minmax(0,1fr)]">
           <div className="relative z-10">{poster}</div>
           <div className="min-w-0 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [touch-action:pan-x_pan-y] [&::-webkit-scrollbar]:hidden">
@@ -178,11 +178,11 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
         </div>
       </div>
 
-      <div className="hidden md:contents">
+      <div className="hidden xl:contents">
         {poster}
         <div className="min-w-0">{metadataColumn}</div>
-        <div className="col-start-2 min-w-0 lg:col-start-auto lg:-ml-4 lg:pr-4">{creditsColumn}</div>
-        <div className="col-start-2 lg:col-start-auto lg:justify-self-end">{ratingsColumn}</div>
+        <div className="col-start-2 min-w-0 xl:col-start-auto xl:-ml-4 xl:pr-4">{creditsColumn}</div>
+        <div className="col-start-2 xl:col-start-auto xl:justify-self-end">{ratingsColumn}</div>
       </div>
     </article>
   );
@@ -468,9 +468,9 @@ export default function SocialActivityTabsBlock() {
   ];
 
   return (
-    <section className="profile-feed-following-activity-panel ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 pt-4 [overflow-anchor:none] md:pt-6">
-      <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 md:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
-      <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md md:mt-4" style={activityTabsLayoutStyle}>
+    <section className="profile-feed-following-activity-panel ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 pt-4 [overflow-anchor:none] xl:pt-6">
+      <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 xl:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
+      <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md xl:mt-4" style={activityTabsLayoutStyle}>
         <div className="grid grid-cols-[max-content_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
           <button
             type="button"

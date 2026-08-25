@@ -705,12 +705,12 @@ export default function FavoriteMoviesBlock({
 
   return (
     <section className="favorite-movies-block rounded-3xl bg-zinc-950/65 p-6 shadow-[0_24px_45px_rgba(0,0,0,0.38)]">
-      {title ? <h2 className="mb-4 text-lg font-semibold text-zinc-100 md:text-left">{title}</h2> : null}
+      {title ? <h2 className="mb-4 text-lg font-semibold text-zinc-100 xl:text-left">{title}</h2> : null}
       {loading ? <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p> : null}
       {!loading && error ? <p className="mb-3 text-xs text-zinc-400">{error}</p> : null}
 
       <div
-        className="favorite-movies-mobile-cube md:hidden"
+        className="favorite-movies-mobile-cube xl:hidden"
         onTouchStart={handleMobileTouchStart}
         onTouchMove={handleMobileTouchMove}
         onTouchEnd={handleMobileTouchEnd}
@@ -750,7 +750,7 @@ export default function FavoriteMoviesBlock({
           })}
         </div>
         {mobileSlots.length > 1 ? (
-          <div className="profile-feed-mobile-carousel-dots favorite-movies-mobile-cube__dots md:hidden" aria-hidden="true">
+          <div className="profile-feed-mobile-carousel-dots favorite-movies-mobile-cube__dots xl:hidden" aria-hidden="true">
             {mobileSlots.map((movie, index) => (
               <span
                 key={movie?.id ?? `mobile-dot-${index}`}
@@ -761,7 +761,7 @@ export default function FavoriteMoviesBlock({
         ) : null}
       </div>
 
-      <div className="hidden gap-3 md:grid lg:grid-cols-2 xl:grid-cols-3 xl:gap-2.5">
+      <div className="hidden gap-3 xl:grid xl:grid-cols-2 xl:grid-cols-3 xl:gap-2.5">
         {slots.map((movie, index) => (
           <FavoriteMovieItem
             key={movie?.id ?? `placeholder-${index}`}

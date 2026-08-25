@@ -13,7 +13,7 @@ test("own Profile Feed avatar links to Personal Data with a localized label", ()
 });
 
 test("avatar containment adjustment is desktop-only and opt-in", () => {
-  assert.match(card, /constrainDesktopAvatar \? "lg:absolute lg:right-1 lg:top-20 lg:h-\[72px\] lg:w-\[72px\]" : ""/);
+  assert.match(card, /constrainDesktopAvatar \? "xl:absolute xl:right-1 xl:top-20 xl:h-\[72px\] xl:w-\[72px\]" : ""/);
   assert.match(card, /top-24 z-10 block h-20 w-20/);
   assert.match(page, /constrainDesktopAvatar/);
   assert.doesNotMatch(visitedProfile, /constrainDesktopAvatar|avatarHref/);

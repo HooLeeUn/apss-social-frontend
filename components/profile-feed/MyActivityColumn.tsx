@@ -19,7 +19,7 @@ const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
 const MAX_AUTO_LOAD_MORE_ATTEMPTS = 12;
 const VISITED_PROFILE_METADATA_LABEL_CLASSNAME = "font-medium text-blue-200/85";
-const VISITED_PROFILE_ACTIVITY_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[15px] md:text-base`;
+const VISITED_PROFILE_ACTIVITY_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[15px] xl:text-base`;
 const VISITED_PROFILE_RECOMMENDATION_METADATA_LABEL_CLASSNAME = `${VISITED_PROFILE_METADATA_LABEL_CLASSNAME} text-[13px]`;
 const SWIPE_INTENT_MAX_GAP_MS = 520;
 const SWIPE_INTENT_MIN_DISTANCE_PX = 42;
@@ -263,12 +263,12 @@ function ExpandableMobileText({
 
   return (
     <div className="min-w-0 flex-1">
-      <p className={`${isExpanded ? "" : "line-clamp-2 md:line-clamp-none"} ${className}`}>{text}</p>
+      <p className={`${isExpanded ? "" : "line-clamp-2 xl:line-clamp-none"} ${className}`}>{text}</p>
       {canToggle ? (
         <button
           type="button"
           onClick={toggleExpanded}
-          className="mt-0.5 text-xs font-medium text-blue-200 transition hover:text-blue-100 md:hidden"
+          className="mt-0.5 text-xs font-medium text-blue-200 transition hover:text-blue-100 xl:hidden"
           aria-expanded={isExpanded}
         >
           {isExpanded ? (locale === "en" ? "less" : "menos") : (locale === "en" ? "more" : "más")}
@@ -695,7 +695,7 @@ function ActivityRow({
     <article
       className={`grid gap-3 py-3 last:border-b-0 ${isOwnProfile ? "relative" : ""} ${
         isVisitedProfile
-          ? "grid-cols-[52px_minmax(0,1fr)] border-b-2 border-white/15 md:grid-cols-[52px_minmax(0,1fr)_minmax(260px,1fr)] md:gap-x-9"
+          ? "grid-cols-[52px_minmax(0,1fr)] border-b-2 border-white/15 xl:grid-cols-[52px_minmax(0,1fr)_minmax(260px,1fr)] xl:gap-x-9"
           : "grid-cols-[52px_minmax(0,1fr)] border-b border-white/5"
       }`}
     >
@@ -730,18 +730,18 @@ function ActivityRow({
           href={movieHref}
           aria-label={`Ver detalle de ${item.movieTitle}`}
           className={`mt-1 block cursor-pointer font-semibold text-zinc-100 transition hover:text-blue-100 ${
-            isVisitedProfile ? "text-base leading-snug md:text-lg" : "truncate text-sm"
+            isVisitedProfile ? "text-base leading-snug xl:text-lg" : "truncate text-sm"
           }`}
         >
           {localizedTitle}
         </Link>
         ) : (
-          <p className={`mt-1 block font-semibold text-zinc-100 ${isVisitedProfile ? "text-base leading-snug md:text-lg" : "truncate text-sm"}`}>
+          <p className={`mt-1 block font-semibold text-zinc-100 ${isVisitedProfile ? "text-base leading-snug xl:text-lg" : "truncate text-sm"}`}>
             {localizedTitle || t("profileFeedUnknownTitle")}
           </p>
         )}
         {!isOwnProfile && item.movieSecondaryTitle ? (
-          <p className={`mt-0.5 text-blue-200/75 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
+          <p className={`mt-0.5 text-blue-200/75 ${isVisitedProfile ? "text-sm xl:text-[15px]" : "truncate text-[11px]"}`}>
             {movieHref ? (
               <Link
               href={movieHref}
@@ -757,7 +757,7 @@ function ActivityRow({
             )}
           </p>
         ) : null}
-        <p className={`mt-1 text-zinc-500 ${isVisitedProfile ? "text-sm md:text-[15px]" : "truncate text-[11px]"}`}>
+        <p className={`mt-1 text-zinc-500 ${isVisitedProfile ? "text-sm xl:text-[15px]" : "truncate text-[11px]"}`}>
           {formatMetadata(item.movieType, item.movieGenre, item.movieYear, locale, isVisitedProfile)}
         </p>
         {isOwnProfile && activityDetail ? <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p> : null}
@@ -765,7 +765,7 @@ function ActivityRow({
       </div>
 
       {isVisitedProfile ? (
-        <div className="col-span-2 min-w-0 md:col-span-1 md:pt-1">
+        <div className="col-span-2 min-w-0 xl:col-span-1 xl:pt-1">
           {visitedActivityTab === "public_comments" && activityDetail ? (
             <div className="flex w-full items-start gap-2.5">
               <CommentBubbleIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-100/90" />
@@ -773,7 +773,7 @@ function ActivityRow({
                 text={activityDetail}
                 item={item}
                 type="public-comment"
-                className="text-sm leading-relaxed text-zinc-200 md:text-base"
+                className="text-sm leading-relaxed text-zinc-200 xl:text-base"
               />
             </div>
           ) : null}
@@ -781,7 +781,7 @@ function ActivityRow({
           {visitedActivityTab === "ratings" && visitedActionMessage ? (
             <div className="flex w-full items-start gap-2.5">
               <StarIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
-              <p className="min-w-0 flex-1 text-sm leading-relaxed text-blue-100 md:text-base">{visitedActionMessage}</p>
+              <p className="min-w-0 flex-1 text-sm leading-relaxed text-blue-100 xl:text-base">{visitedActionMessage}</p>
             </div>
           ) : null}
 
@@ -794,7 +794,7 @@ function ActivityRow({
                   <ThumbsUpIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
                 )}
                 <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-sm leading-relaxed text-blue-100 md:text-base">
+                  <p className="text-sm leading-relaxed text-blue-100 xl:text-base">
                     {reactionMessage}
                     {!authorIsCurrentUser && item.likedCommentAuthorUsername ? (
                       <>
@@ -818,10 +818,10 @@ function ActivityRow({
                       text={item.likedCommentSnippet}
                       item={item}
                       type="reaction-comment"
-                      className="text-sm leading-relaxed text-zinc-200 md:text-base"
+                      className="text-sm leading-relaxed text-zinc-200 xl:text-base"
                     />
                   ) : null}
-                  <p className="text-xs text-zinc-500 md:text-sm">{formatProfileFeedRelativeDate(locale, getActivityRelativeDate(item))}</p>
+                  <p className="text-xs text-zinc-500 xl:text-sm">{formatProfileFeedRelativeDate(locale, getActivityRelativeDate(item))}</p>
                 </div>
               </div>
             </div>
@@ -1029,7 +1029,7 @@ export default function MyActivityColumn({
   const shouldBlockPrivateInbox = isOwnProfile && !canShowPrivateInbox;
   const scrollVisitedTabIntoView = useCallback((button: HTMLButtonElement) => {
     const tabBar = visitedTabsRef.current;
-    if (!tabBar || window.matchMedia("(min-width: 768px)").matches) return;
+    if (!tabBar || window.matchMedia("(min-width: 1280px)").matches) return;
     const left = button.offsetLeft - (tabBar.clientWidth - button.offsetWidth) / 2;
     tabBar.scrollTo({ left, behavior: "smooth" });
   }, []);
@@ -1381,7 +1381,7 @@ export default function MyActivityColumn({
 
   const handleActivityTouchStart = useCallback(
     (event: TouchEvent<HTMLDivElement>) => {
-      if (effectiveActiveTab === "messages" || !window.matchMedia("(max-width: 767px)").matches) return;
+      if (effectiveActiveTab === "messages" || !window.matchMedia("(max-width: 1279px)").matches) return;
       const startY = event.touches[0]?.clientY;
       if (startY === undefined) return;
       if (event.timeStamp - swipeIntentRef.current.endedAt > SWIPE_INTENT_MAX_GAP_MS) {
@@ -1451,7 +1451,7 @@ export default function MyActivityColumn({
   return (
     <section
       data-tour-mobile={isOwnProfile ? `profile-${effectiveActiveTab === "messages" ? "inbox" : effectiveActiveTab === "rated" ? "ratings" : "activity"}-mobile` : undefined}
-      className={`my-activity-column w-full min-w-0 max-w-full ${isOwnProfile ? "md:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
+      className={`my-activity-column w-full min-w-0 max-w-full ${isOwnProfile ? "xl:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
     >
       {isOwnProfile ? (
         <header className="flex flex-wrap gap-2">
@@ -1473,9 +1473,9 @@ export default function MyActivityColumn({
         </header>
       ) : (
         <>
-          <div className="sticky top-0 z-30 -mx-4 space-y-3 bg-black/90 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md md:static md:z-auto md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+          <div className="sticky top-0 z-30 -mx-4 space-y-3 bg-black/90 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md xl:static xl:z-auto xl:mx-0 xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
           <h2 className="text-base font-semibold text-zinc-100">{resolvedTitle}</h2>
-          <div ref={visitedTabsRef} className="flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 md:flex-wrap md:overflow-x-visible md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div ref={visitedTabsRef} className="flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 xl:flex-wrap xl:overflow-x-visible xl:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
               type="button"
               onClick={(event) => {
@@ -1570,8 +1570,8 @@ export default function MyActivityColumn({
           !isOwnProfile
             ? `h-[calc(100dvh-max(6rem,calc(env(safe-area-inset-top)+5rem)))] overflow-y-auto ${
                 visitedActivityTab === "video_reactions"
-                  ? "md:h-auto md:min-h-[425px] md:overflow-y-visible"
-                  : "md:h-[425px] md:overscroll-y-auto"
+                  ? "xl:h-auto xl:min-h-[425px] xl:overflow-y-visible"
+                  : "xl:h-[425px] xl:overscroll-y-auto"
               }`
             : "h-[425px] overflow-y-auto"
         }`}

@@ -116,7 +116,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   );
 
   const poster = (
-    <Link href={movieHref} className="mx-auto flex w-fit shrink-0 items-center justify-center self-center transition hover:opacity-90 lg:justify-self-center" aria-label={`Ver ${item.movieTitle}`}>
+    <Link href={movieHref} className="mx-auto flex w-fit shrink-0 items-center justify-center self-center transition hover:opacity-90 xl:justify-self-center" aria-label={`Ver ${item.movieTitle}`}>
       <div className="flex h-28 w-[84px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-zinc-900/75 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
         {item.moviePosterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -160,7 +160,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
 
   return (
     <article className="rounded-2xl border border-white/15 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.32)]">
-      <div className="space-y-4 lg:hidden">
+      <div className="space-y-4 xl:hidden">
         {userHeader}
         <div className="grid grid-cols-[minmax(0,1fr)_84px_minmax(3.25rem,auto)] items-center gap-3">
           <div className="min-w-0">{renderMetadata(true)}</div>
@@ -169,7 +169,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
         </div>
       </div>
 
-      <div className="hidden items-center gap-6 lg:grid lg:grid-cols-[minmax(0,1.2fr)_96px_minmax(260px,0.95fr)]">
+      <div className="hidden items-center gap-6 xl:grid xl:grid-cols-[minmax(0,1.2fr)_96px_minmax(260px,0.95fr)]">
         {userHeader}
         {poster}
         <div className="min-w-0 w-full">

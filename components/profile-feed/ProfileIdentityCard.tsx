@@ -76,8 +76,8 @@ export default function ProfileIdentityCard({
   const shouldRenderPersonalData = autoHeight ? hasVisiblePersonalData : true;
   const cardHeightClass = autoHeight ? "h-fit min-h-0 self-start" : "min-h-[220px]";
   const personalDataSpacingClass = autoHeight ? "mt-0" : "mt-auto";
-  const stableMobileHeightClass = stabilizeMobileHeight ? "min-h-[264px] md:min-h-[220px]" : "";
-  const avatarClassName = `relative top-24 z-10 block h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${constrainDesktopAvatar ? "lg:absolute lg:right-1 lg:top-20 lg:h-[72px] lg:w-[72px]" : ""}`;
+  const stableMobileHeightClass = stabilizeMobileHeight ? "min-h-[264px] xl:min-h-[220px]" : "";
+  const avatarClassName = `relative top-24 z-10 block h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${constrainDesktopAvatar ? "xl:absolute xl:right-1 xl:top-20 xl:h-[72px] xl:w-[72px]" : ""}`;
   const cardClassName = `relative mx-auto flex w-full min-w-0 max-w-full box-border flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass} ${stableMobileHeightClass}`;
 
   if (isLoading) {
@@ -105,14 +105,14 @@ export default function ProfileIdentityCard({
       <div className="relative flex min-w-0 items-start justify-between gap-4">
         <Link
           href="/feed"
-          className="inline-flex min-h-[68px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100 md:min-w-[188px] md:flex-initial"
+          className="inline-flex min-h-[68px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100 xl:min-w-[188px] xl:flex-initial"
           aria-label="Ir al feed principal"
         >
           <AppLogo
             branding={appBranding}
             slot={logoSlot}
             alt={appTitle}
-            className="block h-12 min-w-0 w-auto max-w-full object-contain object-center md:max-w-[184px]"
+            className="block h-12 min-w-0 w-auto max-w-full object-contain object-center xl:max-w-[184px]"
             textClassName="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100"
           />
         </Link>
@@ -153,14 +153,14 @@ export default function ProfileIdentityCard({
       </div>
 
       {shouldRenderPersonalData ? (
-        <div className={`relative flex flex-wrap items-center gap-2 ${fitDesktopPersonalDataRow ? "lg:flex-nowrap lg:gap-1" : ""} ${personalDataSpacingClass}`}>
+        <div className={`relative flex flex-wrap items-center gap-2 ${fitDesktopPersonalDataRow ? "xl:flex-nowrap xl:gap-1" : ""} ${personalDataSpacingClass}`}>
           {canShowGender ? (
-            <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "lg:shrink-0 lg:whitespace-nowrap lg:px-1.5 lg:text-[11px]" : ""}`}>
+            <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:shrink-0 xl:whitespace-nowrap xl:px-1.5 xl:text-[11px]" : ""}`}>
               {formatGender(genderIdentity as string)}
             </span>
           ) : null}
           {canShowAge ? (
-            <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "lg:shrink-0 lg:whitespace-nowrap lg:px-1.5 lg:text-[11px]" : ""}`}>
+            <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:shrink-0 xl:whitespace-nowrap xl:px-1.5 xl:text-[11px]" : ""}`}>
               {formatAge(age)}
             </span>
           ) : null}
@@ -170,7 +170,7 @@ export default function ProfileIdentityCard({
             </span>
           ) : null}
           {fitDesktopPersonalDataRow && canShowFollowers && canShowAge ? (
-            <span className="hidden min-w-0 shrink-0 whitespace-nowrap rounded-full border border-white/15 bg-zinc-950/70 px-1.5 py-1 text-[11px] text-zinc-300 lg:inline-block">
+            <span className="hidden min-w-0 shrink-0 whitespace-nowrap rounded-full border border-white/15 bg-zinc-950/70 px-1.5 py-1 text-[11px] text-zinc-300 xl:inline-block">
               {followersCopy}
             </span>
           ) : null}
@@ -178,7 +178,7 @@ export default function ProfileIdentityCard({
       ) : null}
 
       {canShowFollowers && canShowAge ? (
-        <div className={`absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "lg:hidden" : ""}`}>
+        <div className={`absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:hidden" : ""}`}>
           {followersCopy}
         </div>
       ) : null}

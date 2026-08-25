@@ -38,7 +38,7 @@ export default function VideoReactionViewer({ video, movieTitle, moviePoster, re
     <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
       <div className="relative inline-flex max-h-[calc(100dvh-1rem)] max-w-full overflow-hidden">
         <video ref={videoRef} src={video.video_url} autoPlay muted={muted} playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block max-h-[calc(100dvh-1rem)] max-w-full object-contain" onClick={(event) => { if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} />
-        <div className="absolute left-3 top-3 z-20 flex items-center gap-1 bg-transparent text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)] md:flex-col md:items-start md:gap-0">
+        <div className="absolute left-3 top-3 z-20 flex items-center gap-1 bg-transparent text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)] xl:flex-col xl:items-start xl:gap-0">
           {(["like", "dislike"] as const).map((kind) => <button key={kind} type="button" aria-label={kind} aria-pressed={counts.mine === kind} className={`rounded-full px-2 py-2 text-sm font-semibold ${counts.mine === kind ? kind === "like" ? "bg-emerald-500/25" : "bg-rose-500/25" : "bg-transparent"}`} onClick={() => void react(kind)}>{kind === "like" ? "👍" : "👎"} {kind === "like" ? counts.likes : counts.dislikes}</button>)}
         </div>
         <VideoReactionMovieMetadata poster={moviePoster} title={movieTitle} onTitleClick={onMovieOpen} />

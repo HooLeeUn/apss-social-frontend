@@ -392,7 +392,7 @@ export default function PersonalDataPage() {
 
         <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
           <h2 className="mb-4 text-lg font-semibold text-zinc-100">{t("personalDataBasicInfo")}</h2>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="first-name" className={labelClassName}>
                 {t("personalDataFirstName")}
@@ -419,7 +419,7 @@ export default function PersonalDataPage() {
               {errors.last_name ? <p className="text-sm text-red-300">{errors.last_name}</p> : null}
             </div>
 
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 xl:col-span-2">
               <label htmlFor="email" className={labelClassName}>
                 {t("personalDataEmail")}
               </label>
@@ -438,8 +438,8 @@ export default function PersonalDataPage() {
         <section className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
           <h2 className="mb-4 text-lg font-semibold text-zinc-100">{t("personalDataPersonalInfo")}</h2>
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-12">
-              <div className="space-y-2 md:col-span-5">
+            <div className="grid gap-4 xl:grid-cols-12">
+              <div className="space-y-2 xl:col-span-5">
                 <label htmlFor="birth-date" className={labelClassName}>
                   {t("personalDataBirthDate")}
                 </label>
@@ -454,14 +454,14 @@ export default function PersonalDataPage() {
                 {birthDateLocked ? <p className="text-xs text-zinc-400">{t("personalDataLockedBirthDate")}</p> : null}
               </div>
 
-              <div className="space-y-2 md:col-span-3">
+              <div className="space-y-2 xl:col-span-3">
                 <label htmlFor="age" className={labelClassName}>
                   {t("personalDataAge")}
                 </label>
                 <input id="age" value={form.age} readOnly className={`${inputClassName} cursor-default opacity-75`} />
               </div>
 
-              <div className="space-y-2 md:col-span-4">
+              <div className="space-y-2 xl:col-span-4">
                 <label htmlFor="birth-date-visible" className={labelClassName}>
                   {t("personalDataVisible")}
                 </label>
@@ -476,7 +476,7 @@ export default function PersonalDataPage() {
                   id="birth-date-visible"
                   value={form.birth_date_visible}
                   onChange={(event) => updateField("birth_date_visible", event.target.value as VisibilityOption)}
-                  className={`${inputClassName} hidden md:block`}
+                  className={`${inputClassName} hidden xl:block`}
                 >
                   <option value="yes">{t("personalDataYes")}</option>
                   <option value="no">{t("personalDataNo")}</option>
@@ -488,8 +488,8 @@ export default function PersonalDataPage() {
               <div className="rounded-xl border border-red-400/35 bg-red-500/10 px-3 py-2 text-sm text-red-200">{errors.birth_date}</div>
             ) : null}
 
-            <div className="grid gap-4 md:grid-cols-12">
-              <div className="space-y-2 md:col-span-8">
+            <div className="grid gap-4 xl:grid-cols-12">
+              <div className="space-y-2 xl:col-span-8">
                 <label htmlFor="gender-identity" className={labelClassName}>
                   {t("personalDataGenderIdentity")}
                 </label>
@@ -504,7 +504,7 @@ export default function PersonalDataPage() {
                   id="gender-identity"
                   value={form.gender_identity}
                   onChange={(event) => updateField("gender_identity", event.target.value as FormState["gender_identity"])}
-                  className={`${inputClassName} hidden md:block`}
+                  className={`${inputClassName} hidden xl:block`}
                 >
                   <option value="">{t("personalDataSelectOption")}</option>
                   {genderOptions.map((option) => (
@@ -515,7 +515,7 @@ export default function PersonalDataPage() {
                 </select>
               </div>
 
-              <div className="space-y-2 md:col-span-4">
+              <div className="space-y-2 xl:col-span-4">
                 <label htmlFor="gender-visible" className={labelClassName}>
                   {t("personalDataVisible")}
                 </label>
@@ -532,7 +532,7 @@ export default function PersonalDataPage() {
                   value={form.gender_identity_visible}
                   onChange={(event) => updateField("gender_identity_visible", event.target.value as VisibilityOption)}
                   disabled={isGenderVisibilityLocked}
-                  className={`${inputClassName} hidden disabled:cursor-not-allowed disabled:opacity-65 md:block`}
+                  className={`${inputClassName} hidden disabled:cursor-not-allowed disabled:opacity-65 xl:block`}
                 >
                   <option value="yes">{t("personalDataYes")}</option>
                   <option value="no">{t("personalDataNo")}</option>

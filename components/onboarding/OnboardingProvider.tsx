@@ -173,7 +173,7 @@ function TourStepBody({ body, icon }: { body: string; icon?: TourStepDefinition[
 function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: TourDefinition; initialStep: number; onStep: (n: number) => void; onSkip: () => void; onFinish: () => void }) {
   const { locale } = useI18n();
   const labels = commonTourCopy(locale);
-  const mobile = typeof window !== "undefined" && matchMedia(tour.id === "feed" ? "(max-width: 1023px)" : "(max-width: 767px)").matches;
+  const mobile = typeof window !== "undefined" && matchMedia("(max-width: 1279px)").matches;
   const sourceSteps = mobile && tour.mobileSteps ? tour.mobileSteps : !mobile && tour.desktopSteps ? tour.desktopSteps : tour.steps;
   const available = useMemo(() => typeof document === "undefined" ? sourceSteps : sourceSteps.filter((step) => !step.optional || document.querySelector(step.target)), [sourceSteps]);
   const [index, setIndex] = useState(Math.min(initialStep, Math.max(available.length - 1, 0)));
@@ -362,19 +362,19 @@ export default function OnboardingProvider() {
     setIsClosing(false);
   }, [persist]);
   const restoreDetailView = useCallback(() => {
-    if (tourId !== "detail_movie" || !window.matchMedia("(min-width: 768px)").matches) return;
+    if (tourId !== "detail_movie" || !window.matchMedia("(min-width: 1280px)").matches) return;
     window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "detail-restore" } }));
   }, [tourId]);
   const restoreDetailMobileView = useCallback(() => {
-    if (tourId !== "detail_movie" || !window.matchMedia("(max-width: 767px)").matches) return;
+    if (tourId !== "detail_movie" || !window.matchMedia("(max-width: 1279px)").matches) return;
     window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "detail-mobile-restore" } }));
   }, [tourId]);
   const restoreFeedMobilePanel = useCallback(() => {
-    if (tourId !== "feed" || !window.matchMedia("(max-width: 1023px)").matches) return;
+    if (tourId !== "feed" || !window.matchMedia("(max-width: 1279px)").matches) return;
     window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "feed-mobile-panel-release" } }));
   }, [tourId]);
   const restoreProfileMobileView = useCallback(() => {
-    if (tourId !== "profile_feed" || !window.matchMedia("(max-width: 767px)").matches) return;
+    if (tourId !== "profile_feed" || !window.matchMedia("(max-width: 1279px)").matches) return;
     window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "profile-mobile-release" } }));
   }, [tourId]);
   const handleSkip = useCallback(() => {
@@ -393,10 +393,10 @@ export default function OnboardingProvider() {
       restoreDetailMobileView();
       restoreFeedMobilePanel();
       restoreProfileMobileView();
-      const shouldResetProfileDesktop = tourId === "profile_feed" && window.matchMedia("(min-width: 768px)").matches;
-      const shouldResetProfileMobile = tourId === "profile_feed" && window.matchMedia("(max-width: 767px)").matches;
-      const shouldResetFeedMobile = tourId === "feed" && window.matchMedia("(max-width: 1023px)").matches;
-      const shouldResetDetailMobile = tourId === "detail_movie" && window.matchMedia("(max-width: 767px)").matches;
+      const shouldResetProfileDesktop = tourId === "profile_feed" && window.matchMedia("(min-width: 1280px)").matches;
+      const shouldResetProfileMobile = tourId === "profile_feed" && window.matchMedia("(max-width: 1279px)").matches;
+      const shouldResetFeedMobile = tourId === "feed" && window.matchMedia("(max-width: 1279px)").matches;
+      const shouldResetDetailMobile = tourId === "detail_movie" && window.matchMedia("(max-width: 1279px)").matches;
       if (shouldResetProfileDesktop || shouldResetProfileMobile || shouldResetFeedMobile || shouldResetDetailMobile) window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
     })();
   }, [closeWithStatus, restoreDetailMobileView, restoreDetailView, restoreFeedMobilePanel, restoreProfileMobileView, tourId]);

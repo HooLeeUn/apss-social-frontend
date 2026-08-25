@@ -97,8 +97,8 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const tagIconClassName = `interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
 
   return (
-    <article className="weekly-mini-card relative h-full min-w-0 pl-3 lg:pl-3">
-      <div className="interaction-icons absolute left-11 bottom-[2.85rem] z-20 lg:z-10 lg:left-10 lg:bottom-auto lg:top-[59%]">
+    <article className="weekly-mini-card relative h-full min-w-0 pl-3 xl:pl-3">
+      <div className="interaction-icons absolute left-11 bottom-[2.85rem] z-20 xl:z-10 xl:left-10 xl:bottom-auto xl:top-[59%]">
         <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
           <MyListIcon cardSize className={tagIconClassName} />
         </button>
@@ -109,7 +109,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           href={topUserHref}
           aria-label={`Ir al perfil de ${topUsername}`}
           title={topUsername}
-          className="absolute left-0 top-[56%] z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)] lg:top-1/2"
+          className="absolute left-0 top-[56%] z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)] xl:top-1/2"
         >
           {topUserAvatar && !hasAvatarError ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -129,7 +129,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
         <div
           title={topUsername}
           aria-label={`Top user: ${topUsername}`}
-          className="absolute left-0 top-[56%] z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)] lg:top-1/2"
+          className="absolute left-0 top-[56%] z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)] xl:top-1/2"
         >
           {topUserAvatar && !hasAvatarError ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -147,7 +147,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
         </div>
       )}
 
-      <div className="absolute right-[calc(32%+0.45rem)] bottom-[4.25rem] z-20 lg:z-10 lg:right-[calc(34%+0.35rem)] lg:bottom-auto lg:top-[calc(59%+19px)] lg:-translate-y-1/2">
+      <div className="absolute right-[calc(32%+0.45rem)] bottom-[4.25rem] z-20 xl:z-10 xl:right-[calc(34%+0.35rem)] xl:bottom-auto xl:top-[calc(59%+19px)] xl:-translate-y-1/2">
         <CommentDetailButton title={title} synopsisEs={movie?.synopsis_es} synopsis={movie?.synopsis} className="h-[30px] w-[30px]" />
       </div>
 
@@ -187,7 +187,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                   <div className="min-h-[1rem]" aria-hidden="true" />
                 )}
 
-                <div className="mt-1.5 min-h-[2.7rem] lg:w-[calc(100%-2.25rem)]">
+                <div className="mt-1.5 min-h-[2.7rem] xl:w-[calc(100%-2.25rem)]">
                   <DesktopOverflowTicker className="text-[11px] leading-snug text-zinc-400">
                     <span>{genre}</span>
                     <span className="mx-1.5 text-zinc-600">•</span>
@@ -199,12 +199,12 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
               </div>
 
               <div className="pt-2">
-                <div className="grid grid-cols-3 gap-1.5 text-[9px] text-zinc-200 lg:gap-1">
-                  <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-zinc-950/60 px-1.5 py-1 text-center lg:border-white/10 lg:bg-zinc-950/80 lg:px-1">
+                <div className="grid grid-cols-3 gap-1.5 text-[9px] text-zinc-200 xl:gap-1">
+                  <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-zinc-950/60 px-1.5 py-1 text-center xl:border-white/10 xl:bg-zinc-950/80 xl:px-1">
                     <span className="text-[10px] font-semibold text-zinc-100">⭐ {formatAverageRating(movie?.displayRating)}</span>
                   </span>
                   <span
-                    className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-zinc-950/60 px-1.5 py-1 text-center lg:border-white/10 lg:bg-zinc-950/80 lg:px-1"
+                    className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-zinc-950/60 px-1.5 py-1 text-center xl:border-white/10 xl:bg-zinc-950/80 xl:px-1"
                     title={followingRatingsTitle}
                   >
                     <span className="truncate text-[10px] font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating)}</span>
@@ -217,10 +217,10 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                       nullLabel="—"
                       ariaLabel="Mi calificación"
                       icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
-                      className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/35 [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-100 lg:[&_button]:bg-blue-950/45 lg:[&_button]:px-1 lg:[&_button]:shadow-[0_3px_10px_rgba(59,130,246,0.24)] lg:[&_button:hover]:-translate-y-px lg:[&_button:hover]:shadow-[0_7px_15px_rgba(59,130,246,0.3)]"
+                      className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/35 [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-100 xl:[&_button]:bg-blue-950/45 xl:[&_button]:px-1 xl:[&_button]:shadow-[0_3px_10px_rgba(59,130,246,0.24)] xl:[&_button:hover]:-translate-y-px xl:[&_button:hover]:shadow-[0_7px_15px_rgba(59,130,246,0.3)]"
                     />
                   ) : (
-                    <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-blue-950/35 px-1.5 py-1 text-center transition-all duration-150 hover:-translate-y-px lg:bg-blue-950/45 lg:px-1 lg:shadow-[0_3px_10px_rgba(59,130,246,0.24)] lg:hover:shadow-[0_7px_15px_rgba(59,130,246,0.3)]">
+                    <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-blue-950/35 px-1.5 py-1 text-center transition-all duration-150 hover:-translate-y-px xl:bg-blue-950/45 xl:px-1 xl:shadow-[0_3px_10px_rgba(59,130,246,0.24)] xl:hover:shadow-[0_7px_15px_rgba(59,130,246,0.3)]">
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /> {formatMyRating(movie?.myRating)}</span>
                     </span>
                   )}
@@ -229,7 +229,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             </div>
           </div>
 
-          <div className="w-[32%] min-w-[82px] max-w-[110px] border-l border-white/10 bg-zinc-950 lg:w-[34%] lg:min-w-[72px] lg:max-w-[92px]">
+          <div className="w-[32%] min-w-[82px] max-w-[110px] border-l border-white/10 bg-zinc-950 xl:w-[34%] xl:min-w-[72px] xl:max-w-[92px]">
             <div className="relative h-full w-full overflow-hidden" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave} {...trailerLongPress.posterProps}>
               {movie ? (
                 detailHref ? (

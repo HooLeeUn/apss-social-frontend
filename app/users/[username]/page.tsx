@@ -307,7 +307,7 @@ export default function UserProfileFeedPage() {
   if (profileState === "not_found" || profileState === "error") {
     return (
       <main className="min-h-screen bg-black text-zinc-100">
-        <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-8">
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-8 xl:px-8">
           <p className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-sm text-zinc-300">
             {profileState === "not_found" ? "Este usuario no existe." : "No se pudo cargar este perfil."}
           </p>
@@ -329,10 +329,10 @@ export default function UserProfileFeedPage() {
 
   return (
     <main className="min-h-screen bg-black text-zinc-100">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 md:px-8">
-        <section className="rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] md:p-6">
-          <div className="grid items-start gap-6 lg:grid-cols-[1fr_3fr] lg:items-end">
-            <div className="flex flex-col gap-5 lg:self-end">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 xl:px-8">
+        <section className="rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">
+          <div className="grid items-start gap-6 xl:grid-cols-[1fr_3fr] xl:items-end">
+            <div className="flex flex-col gap-5 xl:self-end">
               <Link
                 href="/profile-feed"
                 className="inline-flex w-fit items-center rounded-full border border-white/20 bg-zinc-900/70 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-blue-200/70 hover:text-blue-100"
