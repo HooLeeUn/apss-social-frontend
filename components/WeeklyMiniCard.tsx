@@ -9,6 +9,8 @@ import { formatAverageRating, formatFollowingRating, formatMyRating } from "../l
 import { useTrailerHover } from "../hooks/useTrailerHover";
 import { useTrailerLongPress } from "../hooks/useTrailerLongPress";
 import CommentDetailButton from "./CommentDetailButton";
+import DesktopOverflowTicker from "./DesktopOverflowTicker";
+import MyListIcon from "./MyListIcon";
 import RatingPopover from "./RatingPopover";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import TrailerModal from "./TrailerModal";
@@ -96,9 +98,9 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
 
   return (
     <article className="weekly-mini-card relative h-full min-w-0 pl-3 lg:pl-3">
-      <div className="interaction-icons absolute left-9 bottom-[2.85rem] z-20 lg:z-10 lg:left-10 lg:bottom-auto lg:top-[59%]">
+      <div className="interaction-icons absolute left-11 bottom-[2.85rem] z-20 lg:z-10 lg:left-10 lg:bottom-auto lg:top-[59%]">
         <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-          <img src="/icons/tag.png" alt="" className={tagIconClassName} />
+          <MyListIcon cardSize className={tagIconClassName} />
         </button>
         <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button>
       </div>
@@ -107,7 +109,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           href={topUserHref}
           aria-label={`Ir al perfil de ${topUsername}`}
           title={topUsername}
-          className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]"
+          className="absolute left-0 top-[56%] z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)] lg:top-1/2"
         >
           {topUserAvatar && !hasAvatarError ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -127,7 +129,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
         <div
           title={topUsername}
           aria-label={`Top user: ${topUsername}`}
-          className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)]"
+          className="absolute left-0 top-[56%] z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-gradient-to-br from-zinc-700 to-zinc-900 text-[10px] font-semibold text-zinc-100 shadow-[0_6px_16px_rgba(0,0,0,0.45)] lg:top-1/2"
         >
           {topUserAvatar && !hasAvatarError ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -185,14 +187,14 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                   <div className="min-h-[1rem]" aria-hidden="true" />
                 )}
 
-                <div className="mt-1.5 min-h-[2.7rem]">
-                  <p className="line-clamp-2 text-[11px] leading-snug text-zinc-400">
+                <div className="mt-1.5 min-h-[2.7rem] lg:w-[calc(100%-2.25rem)]">
+                  <DesktopOverflowTicker className="text-[11px] leading-snug text-zinc-400">
                     <span>{genre}</span>
                     <span className="mx-1.5 text-zinc-600">•</span>
                     <span>{type}</span>
                     <span className="mx-1.5 text-zinc-600">•</span>
                     <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
-                  </p>
+                  </DesktopOverflowTicker>
                 </div>
               </div>
 

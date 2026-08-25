@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export interface MobileDarkSelectOption<T extends string> { value: T; label: string }
@@ -12,9 +12,10 @@ interface Props<T extends string> {
   ariaLabel: string;
   disabled?: boolean;
   className?: string;
+  selectedIcon?: ReactNode;
 }
 
-export default function MobileDarkSelect<T extends string>({ value, options, onChange, ariaLabel, disabled = false, className = "" }: Props<T>) {
+export default function MobileDarkSelect<T extends string>({ value, options, onChange, ariaLabel, disabled = false, className = "", selectedIcon }: Props<T>) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -58,7 +59,7 @@ export default function MobileDarkSelect<T extends string>({ value, options, onC
 
   return <>
     <button ref={triggerRef} type="button" disabled={disabled} aria-label={ariaLabel} aria-expanded={open} aria-haspopup="listbox" aria-controls={open ? listboxId : undefined} onClick={() => setOpen(true)} className={`relative md:hidden ${className}`}>
-      <span>{selectedOption?.label}</span><span aria-hidden="true" className="ml-3 text-xs text-zinc-300">▾</span>
+      <span className="inline-flex items-center gap-2">{selectedIcon}<span>{selectedOption?.label}</span></span><span aria-hidden="true" className="ml-3 text-xs text-zinc-300">▾</span>
     </button>
     {open ? createPortal(
       <div className="fixed inset-0 z-[200] flex items-end justify-center md:hidden" role="presentation">

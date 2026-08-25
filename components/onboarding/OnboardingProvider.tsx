@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { useI18n } from "../../hooks/useI18n";
 import { getMyProfile } from "../../lib/profile-feed/adapters";
 import { getOnboardingStates, onboardingQueueKey, updateOnboardingState } from "../../lib/onboarding/api";
 import { commonTourCopy, getTourDefinitions } from "../../lib/onboarding/tours";
 import { onboardingPrepareStepEventName } from "../../lib/onboarding/types";
 import type { OnboardingState, OnboardingStatus, TourDefinition, TourStepDefinition } from "../../lib/onboarding/types";
+import MyListIcon from "../MyListIcon";
 
 type PendingUpdate = { status: OnboardingStatus; currentStep: number | null };
 type TooltipPosition = { left: number; top: number };
@@ -137,6 +139,8 @@ function TourCallout({ geometry, markerId }: { geometry: CalloutGeometry; marker
 }
 
 function TourStepIcon({ icon }: { icon: NonNullable<TourStepDefinition["icon"]> }) {
+  if (icon === "list") return <MyListIcon className="pointer-events-none h-5 w-5 shrink-0 text-blue-300" />;
+  if (icon === "recommendations") return <Image src="/icons/Ticket.png" alt="" width={24} height={20} className="pointer-events-none h-5 w-6 shrink-0 object-contain" />;
   const commonProps = { "aria-hidden": true, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, className: "h-5 w-5 shrink-0 text-blue-300" } as const;
   if (icon === "search") return <svg {...commonProps}><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" strokeLinecap="round" /></svg>;
   if (icon === "filter") return <svg {...commonProps}><path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" strokeLinejoin="round" /></svg>;
@@ -149,14 +153,21 @@ function TourStepIcon({ icon }: { icon: NonNullable<TourStepDefinition["icon"]> 
   if (icon === "activity") return <svg {...commonProps}><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>;
   if (icon === "inbox") return <svg {...commonProps}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" strokeLinejoin="round" /></svg>;
   if (icon === "ratings") return <svg {...commonProps}><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z" strokeLinejoin="round" /></svg>;
-  if (icon === "list") return <svg {...commonProps}><path d="M4 4h11l5 5-10 11-6-6V4Z" strokeLinejoin="round" /><circle cx="9" cy="9" r="1.5" /></svg>;
-  if (icon === "recommendations") return <svg {...commonProps}><path d="M4 6h16l-2 13H6L4 6Z" strokeLinejoin="round" /><path d="m7 6 2-3h6l2 3M8 11h8M9 15h6" strokeLinecap="round" /></svg>;
   if (icon === "information") return <svg {...commonProps}><circle cx="12" cy="12" r="9" /><path d="M12 10v7M12 7h.01" strokeLinecap="round" /></svg>;
   if (icon === "play") return <svg {...commonProps}><circle cx="12" cy="12" r="9" /><path d="m10 8 6 4-6 4V8Z" strokeLinejoin="round" /></svg>;
   if (icon === "video") return <svg {...commonProps}><rect x="3" y="6" width="13" height="12" rx="2" /><path d="m16 10 5-3v10l-5-3" strokeLinejoin="round" /></svg>;
   if (icon === "rec") return <svg {...commonProps}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" /></svg>;
   if (icon === "conversation" || icon === "comments") return <svg {...commonProps}><path d="M4 5h16v11H9l-5 4V5Z" strokeLinejoin="round" />{icon === "comments" ? <path d="M8 9h8M8 12h5" strokeLinecap="round" /> : null}</svg>;
   return <svg {...commonProps}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" strokeLinejoin="round" /><path d="m15 16 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function TourStepBody({ body, icon }: { body: string; icon?: TourStepDefinition["icon"] }) {
+  if (icon !== "list" && icon !== "recommendations") return body;
+  return body.split(/(🏷️|🎟️)/u).map((part, index) => {
+    if (icon === "list" && part === "🏷️") return <MyListIcon key={index} className="pointer-events-none mx-0.5 inline-block h-[1em] w-[1em] align-[-0.125em]" />;
+    if (icon === "recommendations" && part === "🎟️") return <Image key={index} src="/icons/Ticket.png" alt="" width={24} height={20} className="pointer-events-none mx-0.5 inline-block h-[1em] w-[1.2em] object-contain align-[-0.125em]" />;
+    return part;
+  });
 }
 
 function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: TourDefinition; initialStep: number; onStep: (n: number) => void; onSkip: () => void; onFinish: () => void }) {
@@ -284,7 +295,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
     <div className="fixed inset-0" onClick={(event) => event.preventDefault()} />
     {callouts.map((geometry, calloutIndex) => <TourCallout key={`${step.target}-${calloutIndex}`} geometry={geometry} markerId={`tour-callout-arrow-${index}-${calloutIndex}`} />)}
     <div ref={tooltipRef} className="fixed z-[10004] w-[min(92vw,420px)] rounded-2xl border bg-zinc-950 p-5 shadow-2xl" style={{ ...tooltipPosition, borderColor: TOUR_BORDER_COLOR }}>
-      <button type="button" aria-label={labels.close} onClick={onSkip} className="absolute right-4 top-3 text-xl">×</button><p className="text-xs text-blue-300">{index + 1} / {available.length}</p><div className="mt-1 flex items-center gap-2 pr-7">{(!mobile || tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && step.icon ? <TourStepIcon icon={step.icon} /> : null}<h2 className="text-lg font-bold">{step.title}</h2></div><p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{mobile && step.mobileBody ? step.mobileBody : step.body}</p>
+      <button type="button" aria-label={labels.close} onClick={onSkip} className="absolute right-4 top-3 text-xl">×</button><p className="text-xs text-blue-300">{index + 1} / {available.length}</p><div className="mt-1 flex items-center gap-2 pr-7">{(!mobile || tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && step.icon ? <TourStepIcon icon={step.icon} /> : null}<h2 className="text-lg font-bold">{step.title}</h2></div><p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300"><TourStepBody body={mobile && step.mobileBody ? step.mobileBody : step.body} icon={tour.id === "profile_feed" ? step.icon : undefined} /></p>
       <div className="mt-5 flex justify-between"><button type="button" disabled={index === 0} onClick={() => move(index - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm disabled:invisible">{labels.back}</button><button type="button" onClick={() => index === available.length - 1 && !hasDedicatedFinalScreen ? onFinish() : move(index + 1)} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{index === available.length - 1 && !hasDedicatedFinalScreen ? labels.finish : labels.next}</button></div>
     </div>
   </div>;
