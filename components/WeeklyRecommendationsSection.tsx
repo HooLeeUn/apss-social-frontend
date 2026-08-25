@@ -54,10 +54,10 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
   );
 
   return (
-    <section className="weekly-recommendations space-y-4 pt-4 pb-8 lg:space-y-4 lg:pb-0 lg:pt-0">
+    <section className="weekly-recommendations space-y-4 pt-4 pb-8 xl:space-y-4 xl:pb-0 xl:pt-0">
       <h2 className="weekly-recommendations__title text-center text-2xl font-semibold text-zinc-100">{t("weeklyRecs")}</h2>
 
-      <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
+      <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:hidden">
         <div className="min-h-[34.5rem] w-[min(84vw,22rem)] flex-none snap-center">
           {renderHeroCard(heroMovies[0], 0)}
         </div>
@@ -75,8 +75,8 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
         ))}
       </div>
 
-      <div className="weekly-recommendations__desktop hidden gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-stretch lg:gap-4">
-        <div className="grid min-w-0 grid-cols-1 gap-4 lg:h-full lg:grid-cols-2 lg:auto-rows-fr">
+      <div className="weekly-recommendations__desktop hidden gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-stretch xl:gap-4">
+        <div className="grid min-w-0 grid-cols-1 gap-4 xl:h-full xl:grid-cols-2 xl:auto-rows-fr">
           <div className="h-full">
             {renderHeroCard(heroMovies[0], 0)}
           </div>
@@ -85,8 +85,8 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
           </div>
         </div>
 
-        <div className="h-full min-w-0 rounded-2xl border border-transparent bg-zinc-950/50 p-3 md:p-4 lg:w-full lg:max-w-none lg:border-l-2 lg:p-3 lg:pl-4">
-          <div className="grid h-full min-w-0 grid-cols-2 gap-2.5 lg:grid-rows-3 lg:auto-rows-fr">
+        <div className="h-full min-w-0 rounded-2xl border border-transparent bg-zinc-950/50 p-3 md:p-4 xl:w-full xl:max-w-none xl:border-l-2 xl:p-3 xl:pl-4">
+          <div className="grid h-full min-w-0 grid-cols-2 gap-2.5 xl:grid-rows-3 xl:auto-rows-fr">
             {miniMovies.map((movie, index) => (
               <div key={movie?.id ?? `weekly-mini-${index}`} className="h-full">
                 {renderMiniCard(movie, index)}

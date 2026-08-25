@@ -30,6 +30,6 @@ test('private inbox retains native chaining and touch start preserves long press
     activityColumn.indexOf('const handleActivityTouchMove'),
   );
   assert.doesNotMatch(touchStartHandler, /preventDefault/);
-  assert.match(touchStartHandler, /max-width: 767px/);
+  assert.match(touchStartHandler, /max-width: 1279px/);
   assert.match(activityColumn, /if \(event\.cancelable\) event\.preventDefault\(\)/);
 });

@@ -93,8 +93,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   return (
     <article className="weekly-hero-card relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/25 bg-zinc-950 p-[3px] shadow-[0_24px_55px_rgba(0,0,0,0.55)]">
       <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-white/15 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
-        <div className="mx-auto w-full max-w-[270px] px-4 pt-3 sm:max-w-[270px] lg:max-w-[288px]">
-          <div className="relative h-[318px] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900 lg:aspect-[2/3] lg:h-auto" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave} {...trailerLongPress.posterProps}>
+        <div className="mx-auto w-full max-w-[270px] px-4 pt-3 sm:max-w-[270px] xl:max-w-[288px]">
+          <div className="relative h-[318px] w-full overflow-hidden rounded-xl border border-white/20 bg-zinc-900 xl:aspect-[2/3] xl:h-auto" onMouseEnter={trailerHover.onMouseEnter} onMouseLeave={trailerHover.onMouseLeave} {...trailerLongPress.posterProps}>
             {movie ? (
               detailHref ? (
                 <Link href={detailHref} aria-label={`Ver detalle de ${title}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
@@ -120,8 +120,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </div>
 
           <div className="py-2">
-            <div className="relative grid grid-cols-4 items-center gap-2 lg:flex lg:items-start lg:justify-between lg:gap-4">
-              <div className="flex min-w-0 flex-col items-center gap-1 justify-self-start lg:items-start">
+            <div className="relative grid grid-cols-4 items-center gap-2 xl:flex xl:items-start xl:justify-between xl:gap-4">
+              <div className="flex min-w-0 flex-col items-center gap-1 justify-self-start xl:items-start">
                 {topUserHref ? (
                   <Link
                     href={topUserHref}
@@ -166,7 +166,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 )}
                 <span className="sr-only">{topUsername}</span>
               </div>
-              <div className="interaction-icons col-span-2 z-10 flex justify-around justify-self-stretch lg:absolute lg:right-12 lg:top-0.5">
+              <div className="interaction-icons col-span-2 z-10 flex justify-around justify-self-stretch xl:absolute xl:right-12 xl:top-0.5">
                 <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                   <MyListIcon cardSize className={tagIconClassName} />
                 </button>
@@ -177,8 +177,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col border-t border-white/10 bg-zinc-950/80 p-3 text-zinc-100 lg:p-3.5">
-          <h3 className="line-clamp-2 text-lg font-semibold leading-tight text-zinc-50 lg:text-xl">
+        <div className="flex flex-1 flex-col border-t border-white/10 bg-zinc-950/80 p-3 text-zinc-100 xl:p-3.5">
+          <h3 className="line-clamp-2 text-lg font-semibold leading-tight text-zinc-50 xl:text-xl">
             {detailHref ? (
               <Link
                 href={detailHref}
@@ -207,7 +207,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             </p>
           ) : null}
 
-          <p className="mt-1.5 text-xs text-zinc-400 lg:mt-2 lg:text-sm">
+          <p className="mt-1.5 text-xs text-zinc-400 xl:mt-2 xl:text-sm">
             <span>{genre}</span>
             <span className="mx-2 text-zinc-600">•</span>
             <span>{type}</span>
@@ -215,19 +215,19 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
           </p>
 
-          <div className="mt-2 grid grid-cols-3 gap-1.5 pt-1 text-xs lg:mt-auto lg:gap-3 lg:pt-3 lg:text-sm">
-            <div className="weekly-hero-rating weekly-hero-rating--general rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
+          <div className="mt-2 grid grid-cols-3 gap-1.5 pt-1 text-xs xl:mt-auto xl:gap-3 xl:pt-3 xl:text-sm">
+            <div className="weekly-hero-rating weekly-hero-rating--general rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 xl:border-white/10 xl:bg-zinc-900/60 xl:px-3 xl:py-2">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">General</p>
-              <p className="weekly-hero-rating__value whitespace-nowrap text-sm font-semibold text-zinc-100 lg:text-base">⭐ {formatAverageRating(movie?.displayRating)}</p>
+              <p className="weekly-hero-rating__value whitespace-nowrap text-sm font-semibold text-zinc-100 xl:text-base">⭐ {formatAverageRating(movie?.displayRating)}</p>
             </div>
-            <div className="weekly-hero-rating weekly-hero-rating--following rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 lg:border-white/10 lg:bg-zinc-900/60 lg:px-3 lg:py-2">
+            <div className="weekly-hero-rating weekly-hero-rating--following rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 xl:border-white/10 xl:bg-zinc-900/60 xl:px-3 xl:py-2">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("following")}</p>
-              <p className="whitespace-nowrap text-sm font-semibold text-zinc-100 lg:text-base">👥 {formatFollowingRating(movie?.followingAvgRating)}</p>
+              <p className="whitespace-nowrap text-sm font-semibold text-zinc-100 xl:text-base">👥 {formatFollowingRating(movie?.followingAvgRating)}</p>
               {formatFollowingRatingsCount(movie?.followingRatingsCount) ? (
                 <p className="text-[10px] text-zinc-500">{formatFollowingRatingsCount(movie?.followingRatingsCount)}</p>
               ) : null}
             </div>
-            <div className="weekly-hero-rating weekly-hero-rating--mine rounded-lg border border-transparent bg-blue-950/25 px-1.5 py-1.5 transition-all duration-150 hover:-translate-y-px lg:bg-blue-950/35 lg:px-3 lg:py-2 lg:shadow-[0_4px_12px_rgba(59,130,246,0.22)] lg:hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
+            <div className="weekly-hero-rating weekly-hero-rating--mine rounded-lg border border-transparent bg-blue-950/25 px-1.5 py-1.5 transition-all duration-150 hover:-translate-y-px xl:bg-blue-950/35 xl:px-3 xl:py-2 xl:shadow-[0_4px_12px_rgba(59,130,246,0.22)] xl:hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
                 {movie && onRated ? (
@@ -238,7 +238,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     nullLabel="—"
                     ariaLabel="Mi calificación"
                     icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
-                    className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/25 [&_button]:px-1 [&_button]:text-xs [&_button]:text-blue-100 lg:[&_button]:justify-between lg:[&_button]:bg-blue-950/45 lg:[&_button]:text-sm lg:[&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] lg:[&_button:hover]:bg-blue-900/50 lg:[&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
+                    className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/25 [&_button]:px-1 [&_button]:text-xs [&_button]:text-blue-100 xl:[&_button]:justify-between xl:[&_button]:bg-blue-950/45 xl:[&_button]:text-sm xl:[&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] xl:[&_button:hover]:bg-blue-900/50 xl:[&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
                   />
                 ) : (
                   <p className="inline-flex items-center gap-1 text-base font-semibold text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /> {formatMyRating(movie?.myRating)}</p>

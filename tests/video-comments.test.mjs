@@ -210,7 +210,7 @@ test("REC options and the active recorder escape reaction scroll clipping withou
   has(/isRecordingOverlay && typeof document !== "undefined" \? createPortal\(reactionContent, document\.body\)/);
   has(/isRecordingOverlay \? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3"/);
   has(/data-recording-overlay=\{isRecordingOverlay\}/);
-  assert.match(css, /@media \(min-width: 768px\)[\s\S]*\[data-mobile-video-reaction\]\[data-recording-overlay="true"\] \{[\s\S]*?position: fixed;\s*inset: 0;\s*z-index: 50;/);
+  assert.match(css, /@media \(min-width: 1280px\)[\s\S]*\[data-mobile-video-reaction\]\[data-recording-overlay="true"\] \{[\s\S]*?position: fixed;\s*inset: 0;\s*z-index: 50;/);
   has(/VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT = "min\(calc\(100dvh - var\(--video-recording-controls-space, 116px\) - env\(safe-area-inset-bottom\)\), calc\(\(100vw - 24px\) \* 16 \/ 9\)\)"/);
   has(/maxHeight: VIDEO_COMMENT_RECORDING_PREVIEW_HEIGHT/);
   assert.match(css, /data-recording-overlay="true"\] \{\s*--video-recording-controls-space: 104px;/);
@@ -297,8 +297,8 @@ test("desktop Video Reaction ends at its content without changing shared comment
 test("trailer overlay exposes the existing reaction list without duplicating players", () => {
   assert.match(css, /body\.detail-trailer-active \[data-desktop-video-reaction-history\]/);
   assert.match(css, /overscroll-behavior: contain/);
-  assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.detail-trailer-active \.trailer-modal-card/);
-  assert.match(css, /@media \(min-width: 768px\)[\s\S]*transform: translateX\(-13rem\)/);
+  assert.match(css, /@media \(max-width: 1279px\)[\s\S]*\.detail-trailer-active \.trailer-modal-card/);
+  assert.match(css, /@media \(min-width: 1280px\)[\s\S]*transform: translateX\(-13rem\)/);
   assert.equal((page.match(/comments\.map\(\(comment\)/g) ?? []).length, 1);
 });
 

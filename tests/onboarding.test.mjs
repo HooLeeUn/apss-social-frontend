@@ -110,7 +110,7 @@ test("Profile Feed completion returns both responsive tours to the document top"
   assert.match(provider, /await closeWithStatus\("completed"\)/);
   assert.match(provider, /shouldResetProfileDesktop/);
   assert.match(provider, /shouldResetProfileMobile/);
-  assert.match(provider, /matchMedia\("\(min-width: 768px\)"\)/);
+  assert.match(provider, /matchMedia\("\(min-width: 1280px\)"\)/);
   assert.match(provider, /requestAnimationFrame\(\(\) => window\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)\)/);
   const skipBody = provider.match(/const handleSkip = useCallback\(\(\) => \{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(skipBody, /scrollTo/);
@@ -308,7 +308,7 @@ test("mobile Feed has ten breakpoint-specific targets without replacing desktop 
   assert.match(tours, /const mobileTargets = \["feed-search-mobile", "feed-genres", "feed-profile-mobile", "feed-notifications-mobile", "feed-menu-mobile", "feed-card", "feed-card", "feed-card", "feed-card", "feed-card"\]/);
   assert.match(tours, /mobileSteps = steps\.map/);
   assert.match(provider, /mobile && tour\.mobileSteps \? tour\.mobileSteps/);
-  assert.match(provider, /tour\.id === "feed" \? "\(max-width: 1023px\)" : "\(max-width: 767px\)"/);
+  assert.match(provider, /const mobile =[^\n]+"\(max-width: 1279px\)"/);
   for (const desktopTarget of ["feed-search", "feed-profile", "feed-notifications", "feed-menu"]) assert.match(feed, new RegExp(desktopTarget));
 });
 

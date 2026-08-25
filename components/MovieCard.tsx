@@ -189,7 +189,7 @@ function getFloatingPosition(target: HTMLElement, width: number): TooltipPositio
 }
 
 function getCastOverflowPersonPosition(listbox: HTMLElement, target: HTMLElement): TooltipPosition {
-  if (window.matchMedia("(min-width: 768px)").matches) return getFloatingPosition(target, PERSON_CARD_WIDTH_PX);
+  if (window.matchMedia("(min-width: 1280px)").matches) return getFloatingPosition(target, PERSON_CARD_WIDTH_PX);
 
   const rect = listbox.getBoundingClientRect();
   const estimatedHeight = 250;
@@ -1014,7 +1014,7 @@ function MovieCard({
   }, []);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const mediaQuery = window.matchMedia("(min-width: 1280px)");
     const syncDesktopViewport = () => setIsDesktopViewport(mediaQuery.matches);
     syncDesktopViewport();
     mediaQuery.addEventListener("change", syncDesktopViewport);
@@ -1095,14 +1095,14 @@ function MovieCard({
     compactRatingsRow ? "gap-3 sm:gap-4" : "gap-2"
   }`;
 
-  const splitFeedRatingClassName = splitFeedActions ? "hidden md:flex" : "";
+  const splitFeedRatingClassName = splitFeedActions ? "hidden xl:flex" : "";
   const splitFeedTmdbClassName = splitFeedActions
-    ? "contents md:relative md:mx-auto md:grid md:h-8 md:w-[290px] md:min-w-fit md:shrink-0 md:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] md:items-center"
-    : "mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] md:w-[290px]";
+    ? "contents xl:relative xl:mx-auto xl:grid xl:h-8 xl:w-[290px] xl:min-w-fit xl:shrink-0 xl:grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] xl:items-center"
+    : "mx-auto grid w-[210px] min-w-fit shrink-0 grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center sm:w-[250px] xl:w-[290px]";
   const splitFeedTmdbLogoClassName = splitFeedActions
-    ? "inline-flex h-8 w-[82px] shrink-0 items-center justify-center justify-self-start transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black md:justify-self-center"
+    ? "inline-flex h-8 w-[82px] shrink-0 items-center justify-center justify-self-start transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black xl:justify-self-center"
     : "inline-flex h-8 w-[82px] shrink-0 items-center justify-center justify-self-center transition hover:-translate-y-px hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90CEA1]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black";
-  const splitFeedTmdbSlotClassName = splitFeedActions ? "relative z-30 shrink-0 justify-self-center md:justify-self-start md:pl-10" : "relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 md:pl-10";
+  const splitFeedTmdbSlotClassName = splitFeedActions ? "relative z-30 shrink-0 justify-self-center xl:justify-self-start xl:pl-10" : "relative z-30 shrink-0 justify-self-start pl-5 sm:pl-8 xl:pl-10";
   const mobileDetailRatingsRow = splitFeedActions ? (
     <div className="mt-0.5 flex flex-nowrap items-center gap-1.5 text-zinc-200">
       <div className="flex items-center gap-1 text-sm font-semibold">
@@ -1138,7 +1138,7 @@ function MovieCard({
   ) : null;
 
   const mobileSplitFeedActionsRow = splitFeedActions ? (
-    <div className={`${feedRatingsCardClassName} grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:hidden`}>
+    <div className={`${feedRatingsCardClassName} grid grid-cols-[1fr_auto_1fr] items-center gap-2 xl:hidden`}>
       <div className="min-w-0 justify-self-start">
         {tmdbUrl ? (
           <TooltipTarget text={tmdbTooltip}>
@@ -1175,7 +1175,7 @@ function MovieCard({
 
   const ratingsActionsRow = (
     <div
-      className={`${splitFeedActions ? "hidden md:flex" : "mt-2"} ${
+      className={`${splitFeedActions ? "hidden xl:flex" : "mt-2"} ${
         isFeed
           ? `${splitFeedActions ? "flex-wrap items-center justify-start gap-2" : "flex items-center"} ${feedRatingsCardClassName}`
           : "grid grid-cols-3 gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-center text-gray-700"
@@ -1279,7 +1279,7 @@ function MovieCard({
               {ratingsActionsTmdbSlot ? <div className={splitFeedTmdbSlotClassName}>{ratingsActionsTmdbSlot}</div> : null}
             </div>
           ) : null}
-          <div className={`relative ${splitFeedActions ? "ml-0 flex min-w-fit items-center justify-self-end gap-2 md:ml-auto" : highlightMyRatingSlot ? "ml-auto min-w-[9rem]" : "ml-auto"}`}>
+          <div className={`relative ${splitFeedActions ? "ml-0 flex min-w-fit items-center justify-self-end gap-2 xl:ml-auto" : highlightMyRatingSlot ? "ml-auto min-w-[9rem]" : "ml-auto"}`}>
             {splitFeedActions ? (
               <CommentDetailButton tourTarget="feed-card-synopsis" title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
             ) : null}
@@ -1324,7 +1324,7 @@ function MovieCard({
     <button
       type="button"
       onClick={handleTrailerClick}
-      className="absolute inset-0 z-10 hidden items-center justify-center bg-black/30 text-center text-xs font-bold uppercase tracking-[0.14em] text-white opacity-0 transition-opacity duration-200 hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0] md:flex"
+      className="absolute inset-0 z-10 hidden items-center justify-center bg-black/30 text-center text-xs font-bold uppercase tracking-[0.14em] text-white opacity-0 transition-opacity duration-200 hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0] xl:flex"
       aria-label={`${t("trailerTitle")} ${displayTitle}`}
     >
       <span className="rounded-full border border-[#86ADE0]/55 bg-black/65 px-3 py-2 shadow-[0_0_18px_rgba(47,155,255,0.25)]">▶ {t("trailerTitle")}</span>
@@ -1361,7 +1361,7 @@ function MovieCard({
           isFeed
             ? `${stretchPosterColumn ? "h-auto self-stretch" : "h-[164px] sm:h-[172px]"} w-[108px] bg-zinc-900 sm:w-[114px]`
             : "bg-gray-200"
-        } ${isLarge ? "h-72 md:h-auto md:w-48" : isFeed ? "" : "h-56"}`}
+        } ${isLarge ? "h-72 xl:h-auto xl:w-48" : isFeed ? "" : "h-56"}`}
       >
         {posterSrc ? (
           canNavigateToDetail && isFeed ? (
@@ -1418,8 +1418,8 @@ function MovieCard({
           className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${
             showExtendedMetadata
               ? extendedMetadataMiddleSlot
-                ? "md:grid md:grid-cols-[minmax(0,0.72fr)_minmax(132px,auto)_minmax(0,1.2fr)] md:items-start md:gap-x-3 md:gap-y-2 lg:gap-x-7 md:space-y-0"
-                : "md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] md:gap-6 md:space-y-0"
+                ? "xl:grid xl:grid-cols-[minmax(0,0.72fr)_minmax(132px,auto)_minmax(0,1.2fr)] xl:items-start xl:gap-x-3 xl:gap-y-2 lg:gap-x-7 xl:space-y-0"
+                : "xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] xl:gap-6 xl:space-y-0"
               : ""
           }`}
         >
@@ -1454,10 +1454,10 @@ function MovieCard({
             <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
           </div>
           {showExtendedMetadata && extendedMetadataMiddleSlot ? (
-            <div className="relative z-30 min-w-0 overflow-visible md:pt-0.5">{extendedMetadataMiddleSlot}</div>
+            <div className="relative z-30 min-w-0 overflow-visible xl:pt-0.5">{extendedMetadataMiddleSlot}</div>
           ) : null}
           {showExtendedMetadata && (hasDirector || hasCast || creditsLoading) ? (
-            <div className="min-w-0 space-y-1 overflow-visible md:pt-0">
+            <div className="min-w-0 space-y-1 overflow-visible xl:pt-0">
               {hasDirector ? (
                 <CastLine label={t("movieDetailDirector")} people={directorPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={1} maxVisibleCount={2} singleLine />
               ) : null}
@@ -1517,7 +1517,7 @@ function MovieCard({
 
   const mobileDetailCardContent = enableMobileDetailCarousel && isFeed && showExtendedMetadata ? (
     <>
-      <article data-tour-mobile={isDetailMovieCard ? "detail-info-mobile" : undefined} className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors md:hidden">
+      <article data-tour-mobile={isDetailMovieCard ? "detail-info-mobile" : undefined} className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors xl:hidden">
         <div data-tour-mobile={isDetailMovieCard ? "detail-poster-mobile" : undefined} className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]" {...trailerTouchHandlers}>
           {posterSrc ? (
             <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
@@ -1581,7 +1581,7 @@ function MovieCard({
           </div>
         </div>
       </article>
-      <div className="hidden md:block">{desktopCardContent}</div>
+      <div className="hidden xl:block">{desktopCardContent}</div>
       {trailerModal}
     </>
   ) : (

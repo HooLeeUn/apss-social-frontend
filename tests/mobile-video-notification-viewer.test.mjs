@@ -28,25 +28,25 @@ test("shared fullscreen viewer keeps controls, metadata, close-only context and 
   assert.match(viewer, /VideoReactionMovieMetadata/);
   assert.match(viewer, /onClick=\{onClose\}/);
   assert.match(feed, /onClose=\{\(\) => setNotificationVideo\(null\)\}/);
-  assert.doesNotMatch(viewer, /lg:hidden/);
+  assert.doesNotMatch(viewer, /xl:hidden/);
 });
 
 test("Detail Movie adds the same localized fullscreen metadata on mobile and desktop", () => {
   assert.match(detail, /VideoReactionMovieMetadata poster=\{moviePoster\} title=\{movieTitle\}/);
   assert.match(detail, /resolveMovieTitles\(locale, movie\?\.titleSpanish, movie\?\.titleEnglish, movie\?\.displayTitle\)\.primary/);
   assert.match(detail, /closeExpandedVideo\(\); router\.push\(`\/movies\/\$\{encodeURIComponent\(movieId\)\}`\)/);
-  assert.doesNotMatch(readFileSync(new URL("../components/VideoReactionMovieMetadata.tsx", import.meta.url), "utf8"), /lg:hidden/);
+  assert.doesNotMatch(readFileSync(new URL("../components/VideoReactionMovieMetadata.tsx", import.meta.url), "utf8"), /xl:hidden/);
 });
 
 test("expanded reaction controls stack only at the desktop breakpoint", () => {
-  assert.match(viewer, /items-center gap-1[^"]*md:flex-col md:items-start md:gap-0/);
-  assert.match(detail, /VideoCommentReactionButtons[\s\S]*className="absolute left-3 top-3 z-20 bg-transparent md:flex-col md:items-start md:gap-0"/);
+  assert.match(viewer, /items-center gap-1[^"]*xl:flex-col xl:items-start xl:gap-0/);
+  assert.match(detail, /VideoCommentReactionButtons[\s\S]*className="absolute left-3 top-3 z-20 bg-transparent xl:flex-col xl:items-start xl:gap-0"/);
 });
 
 test("mobile expanded swipes wait for loadeddata and preserve a painted frame across the keyed video remount", () => {
   assert.match(detail, /expandedReadyVideoIdsRef[\s\S]*pendingExpandedSwipeDirectionRef/);
   assert.match(detail, /preload="auto"[\s\S]*onLoadedData=/);
   assert.match(detail, /readyState >= HTMLMediaElement\.HAVE_CURRENT_DATA[\s\S]*drawImage\(preparedVideo/);
-  assert.match(detail, /expandedTransitionCanvasRef[\s\S]*md:hidden[\s\S]*showExpandedTransitionFrame/);
+  assert.match(detail, /expandedTransitionCanvasRef[\s\S]*xl:hidden[\s\S]*showExpandedTransitionFrame/);
   assert.match(detail, /onLoadedData=\{\(\) => setShowExpandedTransitionFrame\(false\)\}/);
 });

@@ -178,7 +178,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
 
   return (
     <section className="rounded-2xl bg-zinc-950/55 p-4">
-      <h3 className={`mb-3 text-xl font-bold text-[#86ADE0] ${hideTitleOnMobile ? "hidden md:block" : ""}`}>{title ?? t("movieDetailCommentTitle")}</h3>
+      <h3 className={`mb-3 text-xl font-bold text-[#86ADE0] ${hideTitleOnMobile ? "hidden xl:block" : ""}`}>{title ?? t("movieDetailCommentTitle")}</h3>
 
       <div className="relative">
         <textarea

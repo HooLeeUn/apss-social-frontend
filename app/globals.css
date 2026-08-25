@@ -41,7 +41,7 @@ textarea,
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1279px) {
   input,
   select,
   textarea {
@@ -135,7 +135,7 @@ textarea,
   background: #3a3a3a;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1280px) {
   .desktop-dark-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: #4a4a4a #111111;
@@ -282,7 +282,7 @@ textarea,
   line-clamp: 2;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .desktop-overflow-ticker {
     white-space: nowrap;
   }
@@ -309,7 +309,7 @@ textarea,
 
 /* The weekly desktop composition uses real layout dimensions (rather than a
    visual transform) so its cards and hit targets stay aligned at 100% zoom. */
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .feed-shell {
     gap: 0.875rem;
     padding-top: 0.5rem;
@@ -587,7 +587,7 @@ textarea,
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1279px) {
   .profile-feed-mobile-framing {
     --mobile-profile-safe-bottom: env(safe-area-inset-bottom, 0px);
     --mobile-profile-nav-clearance: calc(5rem + var(--mobile-profile-safe-bottom));
@@ -808,7 +808,7 @@ textarea,
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1279px) {
   .profile-feed-mobile-slider {
     width: 100%;
     max-width: 100%;
@@ -943,7 +943,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   display: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1279px) {
   .detail-trailer-active .trailer-modal-overlay {
     align-items: flex-start;
     padding-top: max(3.25rem, calc(env(safe-area-inset-top) + 2.25rem));
@@ -1056,7 +1056,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1280px) {
   body:not(.detail-trailer-active) [data-mobile-video-reaction] {
     position: relative;
     padding-inline: 0;

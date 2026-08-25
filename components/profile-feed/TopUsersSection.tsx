@@ -203,7 +203,7 @@ function Block({
 }) {
   const { t } = useI18n();
   return (
-    <section className="profile-feed-connections-panel flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
+    <section className="profile-feed-connections-panel flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 xl:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot ?? <h2 className="text-base font-semibold text-zinc-100">{title}</h2>}
       </header>
@@ -278,7 +278,7 @@ function PendingRequestsBlock({
 }) {
   const { t } = useI18n();
   return (
-    <section className="profile-feed-connections-panel flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 md:p-4">
+    <section className="profile-feed-connections-panel flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 xl:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot}
       </header>
@@ -711,10 +711,10 @@ export default function TopUsersSection({
     );
 
   return (
-    <section data-tour={tourTarget} className="w-full max-w-full overflow-hidden md:max-w-[640px] lg:max-w-[680px]">
+    <section data-tour={tourTarget} className="w-full max-w-full overflow-hidden xl:max-w-[640px] xl:max-w-[680px]">
       <div
         ref={mobileCarouselRef}
-        className="profile-feed-mobile-slider md:hidden"
+        className="profile-feed-mobile-slider xl:hidden"
         onPointerDownCapture={handleMobilePointerDown}
         onPointerMoveCapture={handleMobilePointerMove}
         onPointerUpCapture={handleMobilePointerUp}
@@ -733,7 +733,7 @@ export default function TopUsersSection({
             {connectionsBlock}
           </div>
         </div>
-        <div className="profile-feed-mobile-carousel-dots profile-feed-mobile-slider__dots md:hidden" aria-hidden="true">
+        <div className="profile-feed-mobile-carousel-dots profile-feed-mobile-slider__dots xl:hidden" aria-hidden="true">
           {[0, 1].map((blockIndex) => (
             <span
               key={blockIndex}
@@ -743,7 +743,7 @@ export default function TopUsersSection({
         </div>
       </div>
 
-      <div className="hidden gap-3 md:grid md:grid-cols-2">
+      <div className="hidden gap-3 xl:grid xl:grid-cols-2">
         {followingBlock}
         {connectionsBlock}
       </div>
