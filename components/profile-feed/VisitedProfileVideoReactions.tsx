@@ -61,6 +61,14 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
   const activeVideoId = useRef<string | null>(null);
   const reactingIds = useRef(new Set<string>());
   const [reacting, setReacting] = useState<Record<string, boolean>>({});
+  const [isMuted, setIsMuted] = useState(true);
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const expandedIndexRef = useRef<number | null>(expandedIndex);
+  expandedIndexRef.current = expandedIndex;
+  const expandedVideoRef = useRef<HTMLVideoElement | null>(null);
+  const swipeStartX = useRef<number | null>(null);
 
   const pauseAllExcept = useCallback((id: string | null) => {
     videoRefs.current.forEach((video, videoId) => {
@@ -69,6 +77,10 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
   }, []);
 
   const playMostVisibleVideo = useCallback(() => {
+    if (expandedIndexRef.current !== null) {
+      pauseAllExcept(null);
+      return;
+    }
     let nextId: string | null = null;
     let nextRatio = MIN_AUTOPLAY_VISIBILITY;
     visibilityRatios.current.forEach((ratio, id) => {
@@ -83,13 +95,19 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
     if (!nextId) return;
     const video = videoRefs.current.get(nextId);
     if (!video) return;
-    // All observer-driven playback starts muted, which is required by WebKit/iOS.
-    video.muted = true;
+    video.muted = isMutedRef.current;
     const playPromise = video.play();
     if (playPromise) void playPromise.catch(() => {
       // Autoplay can still be denied by browser/user policy; native controls remain available.
     });
   }, [pauseAllExcept]);
+
+  useEffect(() => {
+    videoRefs.current.forEach((video) => {
+      video.muted = isMuted;
+    });
+    if (expandedVideoRef.current) expandedVideoRef.current.muted = isMuted;
+  }, [isMuted]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -227,6 +245,58 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
     return { item, title, timestamp };
   }), [items, locale]);
 
+  const openExpandedViewer = useCallback((index: number) => {
+    pauseAllExcept(null);
+    expandedIndexRef.current = index;
+    setExpandedIndex(index);
+  }, [pauseAllExcept]);
+
+  const closeExpandedViewer = useCallback(() => {
+    expandedVideoRef.current?.pause();
+    expandedVideoRef.current = null;
+    expandedIndexRef.current = null;
+    setExpandedIndex(null);
+    requestAnimationFrame(() => playMostVisibleVideo());
+  }, [playMostVisibleVideo]);
+
+  const navigateExpandedViewer = useCallback((direction: -1 | 1) => {
+    setExpandedIndex((current) => {
+      if (current === null) return null;
+      const next = current + direction;
+      if (next < 0 || next >= itemsRef.current.length) return current;
+      expandedVideoRef.current?.pause();
+      expandedIndexRef.current = next;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (expandedIndex === null) return;
+    pauseAllExcept(null);
+    const video = expandedVideoRef.current;
+    if (video) {
+      video.muted = isMutedRef.current;
+      const playPromise = video.play();
+      if (playPromise) void playPromise.catch(() => {});
+    }
+  }, [expandedIndex, pauseAllExcept]);
+
+  useEffect(() => {
+    if (expandedIndex === null) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeExpandedViewer();
+      else if (event.key === "ArrowLeft") navigateExpandedViewer(-1);
+      else if (event.key === "ArrowRight") navigateExpandedViewer(1);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [closeExpandedViewer, expandedIndex, navigateExpandedViewer]);
+
   if (state === "loading") return <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p>;
   if (state === "error") return <p className="text-sm text-red-200">{t("visitedProfileVideoReactionsError")}</p>;
   if (cards.length === 0) return <p className="text-sm text-zinc-500">{t("visitedProfileNoVideoReactions")}</p>;
@@ -235,7 +305,7 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
     <div className="relative">
       <button type="button" onClick={() => scrollCarousel(-1)} disabled={!canScrollLeft} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">←</button>
       <div ref={carouselRef} onScroll={updateNavigation} className="space-y-8 overflow-x-visible px-1 pb-4 xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
-        {cards.map(({ item, title, timestamp }) => {
+        {cards.map(({ item, title, timestamp }, index) => {
           const commentId = item.payload.video_comment_id;
           const videoId = String(commentId ?? item.id);
           const reactionButtons = commentId !== undefined ? (
@@ -262,14 +332,47 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
               <div className="xl:hidden">{reactionButtons}</div>
             </div>
             <div className="group relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)] xl:h-[clamp(260px,calc(100dvh-16rem),520px)] xl:w-auto">
-              <video ref={(video) => setVideoRef(videoId, video)} data-visited-profile-video-id={videoId} src={item.payload.video_url} preload="auto" muted playsInline controls controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onPlay={() => { activeVideoId.current = videoId; pauseAllExcept(videoId); }} />
+              <video ref={(video) => setVideoRef(videoId, video)} data-visited-profile-video-id={videoId} src={item.payload.video_url} preload="auto" muted={isMuted} playsInline controls controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="h-full w-full object-contain" onPlay={() => { activeVideoId.current = videoId; pauseAllExcept(videoId); }} onVolumeChange={(event) => setIsMuted(event.currentTarget.muted)} />
               <div className="pointer-events-none absolute left-2 top-2 z-10 hidden opacity-0 transition-opacity xl:flex xl:group-hover:pointer-events-auto xl:group-hover:opacity-100">{reactionButtons}</div>
+              <button type="button" aria-label={t("movieDetailVideoExpand")} className="absolute right-2 top-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white opacity-90 hover:bg-black/80" onClick={(event) => { event.stopPropagation(); openExpandedViewer(index); }}>⛶</button>
             </div>
           </article>
           );
         })}
       </div>
       <button type="button" onClick={() => scrollCarousel(1)} disabled={!canScrollRight} aria-label={t("visitedProfileNextVideoReaction")} className="absolute right-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">→</button>
+      {expandedIndex !== null && cards[expandedIndex] ? (() => {
+        const { item, title } = cards[expandedIndex];
+        const commentId = item.payload.video_comment_id;
+        const videoId = String(commentId ?? item.id);
+        const expandedReactions = commentId !== undefined ? (["like", "dislike"] as const).map((reaction) => {
+          const selected = item.payload.my_reaction === reaction;
+          return <button key={reaction} type="button" disabled={!!reacting[videoId]} aria-label={t(reaction === "like" ? "movieDetailLike" : "movieDetailDislike")} aria-pressed={selected} className={`min-h-10 rounded-full px-2.5 py-2 text-sm font-semibold leading-none disabled:opacity-50 ${selected ? reaction === "like" ? "bg-emerald-500/25 text-emerald-100" : "bg-rose-500/25 text-rose-100" : "bg-white/10 text-white hover:bg-white/20"}`} onClick={() => void reactToVideo(item.id, commentId, reaction)}><span aria-hidden="true">{reaction === "like" ? "👍" : "👎"}</span> {reaction === "like" ? Number(item.payload.likes_count ?? 0) : Number(item.payload.dislikes_count ?? 0)}</button>;
+        }) : null;
+        return <div role="dialog" aria-modal="true" aria-label={title} data-visited-profile-expanded-viewer className="fixed inset-0 z-[120] flex flex-col bg-black p-3 text-white xl:p-5" onTouchStart={(event) => { swipeStartX.current = event.changedTouches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
+          const start = swipeStartX.current;
+          swipeStartX.current = null;
+          if (start === null) return;
+          const distance = (event.changedTouches[0]?.clientX ?? start) - start;
+          if (Math.abs(distance) < 50) return;
+          navigateExpandedViewer(distance < 0 ? 1 : -1);
+        }}>
+          <header className="relative z-10 flex min-h-14 w-full items-center gap-2 rounded-xl bg-zinc-950/90 p-2 xl:mx-auto xl:max-w-5xl xl:gap-4 xl:p-3">
+            <div className="flex shrink-0 gap-1 xl:flex-col">{expandedReactions}</div>
+            <div className="flex min-w-0 flex-1 items-center gap-2 xl:gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.movie.image || "/brand/qnext-poster-placeholder.png"} alt="" className="h-12 w-9 shrink-0 rounded-md object-cover xl:h-14 xl:w-10" />
+              <span className="line-clamp-2 min-w-0 text-xs font-semibold sm:text-sm xl:text-base">{title}</span>
+            </div>
+            <button type="button" aria-label={t("movieDetailVideoCloseExpanded")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-2xl hover:bg-white/20" onClick={closeExpandedViewer}>×</button>
+          </header>
+          <div className="relative flex min-h-0 flex-1 items-center justify-center py-3 xl:px-16">
+            <button type="button" disabled={expandedIndex === 0} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-2 z-10 hidden h-12 w-12 items-center justify-center rounded-full bg-zinc-900/85 text-2xl disabled:invisible xl:flex" onClick={() => navigateExpandedViewer(-1)}>←</button>
+            <video key={videoId} ref={expandedVideoRef} src={item.payload.video_url} autoPlay muted={isMuted} playsInline controls controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="max-h-full max-w-full object-contain" onVolumeChange={(event) => setIsMuted(event.currentTarget.muted)} />
+            <button type="button" disabled={expandedIndex === cards.length - 1} aria-label={t("visitedProfileNextVideoReaction")} className="absolute right-2 z-10 hidden h-12 w-12 items-center justify-center rounded-full bg-zinc-900/85 text-2xl disabled:invisible xl:flex" onClick={() => navigateExpandedViewer(1)}>→</button>
+          </div>
+        </div>;
+      })() : null}
     </div>
   );
 }
