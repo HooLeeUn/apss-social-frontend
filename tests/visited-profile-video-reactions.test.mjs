@@ -68,7 +68,7 @@ test("visited profile autoplay selects one sufficiently visible muted inline vid
   assert.match(videoCarousel, /const \[isMuted, setIsMuted\] = useState\(true\)/);
   assert.match(videoCarousel, /video\.muted = isMuted/);
   assert.match(videoCarousel, /video\.play\(\)[\s\S]*\.catch/);
-  assert.match(videoCarousel, /preload="auto" muted=\{isMuted\} playsInline controls/);
+  assert.match(videoCarousel, /preload="auto" muted=\{muted\} playsInline controls=\{false\}/);
   assert.match(videoCarousel, /onPlay=\{\(\) => \{ activeVideoId\.current = videoId; activeVideoIndex\.current = index; pauseAllExcept\(videoId\); \}\}/);
   assert.match(videoCarousel, /observer\.disconnect\(\)[\s\S]*video\.pause\(\)/);
 });
@@ -107,7 +107,9 @@ test("expanded viewer navigates in source order with bounded desktop arrows and 
   assert.match(videoCarousel, /next < 0 \|\| next >= itemsRef\.current\.length/);
   assert.match(videoCarousel, /const deltaX = touch\.clientX - start\.x/);
   assert.match(videoCarousel, /const deltaY = touch\.clientY - start\.y/);
-  assert.match(videoCarousel, /navigateExpandedViewer\(deltaY < 0 \? 1 : -1\)/);
+  assert.match(videoCarousel, /setSwipeOffset\(canMove \?/);
+  assert.match(videoCarousel, /translateY\(\$\{swipeOffset\}px\)/);
+  assert.match(videoCarousel, /navigateExpandedViewer\(direction\)/);
   assert.match(videoCarousel, /Math\.abs\(deltaY\) < 60/);
   assert.match(videoCarousel, /Math\.abs\(deltaY\) <= Math\.abs\(deltaX\) \* 1\.25/);
   assert.match(videoCarousel, /bottom - 72/);
@@ -119,8 +121,10 @@ test("expanded viewer navigates in source order with bounded desktop arrows and 
 test("each card exposes only the enriched top expand action and suppresses native lower fullscreen", () => {
   assert.equal((videoCarousel.match(/openExpandedViewer\(index\)/g) ?? []).length, 1);
   assert.match(videoCarousel, /absolute right-2 top-2[\s\S]*openExpandedViewer\(index\)/);
-  assert.match(videoCarousel, /controlsList="nodownload noplaybackrate nofullscreen"/);
-  assert.doesNotMatch(videoCarousel, /requestFullscreen|webkitEnterFullscreen/);
+  assert.match(videoCarousel, /controls=\{false\}/);
+  assert.doesNotMatch(videoCarousel, /controlsList=|nofullscreen/);
+  assert.match(videoCarousel, /data-custom-video-controls/);
+  assert.match(videoCarousel, /className="ml-auto flex h-9 w-9/);
 });
 
 test("expanded movie metadata is the only header link and targets the canonical movie id", () => {
@@ -129,12 +133,23 @@ test("expanded movie metadata is the only header link and targets the canonical 
   assert.equal((expandedHeader.match(/<Link /g) ?? []).length, 1);
 });
 
-test("desktop expanded viewer overlays metadata on a large 90dvh video", () => {
-  assert.match(videoCarousel, /xl:h-\[90dvh\] xl:max-h-\[90dvh\]/);
+test("desktop expanded viewer overlays compact metadata on a full-height video", () => {
+  assert.match(videoCarousel, /xl:h-\[100dvh\] xl:max-h-full/);
   assert.match(videoCarousel, /xl:absolute xl:inset-x-0 xl:top-0/);
-  assert.match(videoCarousel, /xl:bg-gradient-to-b xl:from-black\/90 xl:to-transparent/);
+  assert.match(videoCarousel, /xl:bg-transparent/);
+  assert.doesNotMatch(videoCarousel, /xl:bg-gradient-to-b|xl:from-black\/90/);
   assert.match(videoCarousel, /flex shrink-0 gap-1 xl:flex-col/);
-  assert.match(videoCarousel, /object-contain xl:h-\[90dvh\]/);
+  assert.match(videoCarousel, /object-contain xl:h-\[100dvh\]/);
+  assert.match(videoCarousel, /xl:h-11 xl:w-8/);
+});
+
+test("desktop enriched viewer owns real fullscreen and synchronizes native exit", () => {
+  assert.match(videoCarousel, /ref=\{fullscreenViewerRef\}/);
+  assert.match(videoCarousel, /flushSync\(\(\) => setExpandedIndex\(index\)\)/);
+  assert.match(videoCarousel, /viewer\.requestFullscreen\(\)/);
+  assert.match(videoCarousel, /document\.addEventListener\("fullscreenchange"/);
+  assert.match(videoCarousel, /document\.fullscreenElement !== fullscreenViewerRef\.current/);
+  assert.match(videoCarousel, /document\.exitFullscreen\(\)/);
 });
 
 test("desktop minimized autoplay starts at zero and advances once on ended without looping", () => {
@@ -151,7 +166,7 @@ test("desktop minimized autoplay starts at zero and advances once on ended witho
 test("all minimized and expanded players share one mute state", () => {
   assert.match(videoCarousel, /const \[isMuted, setIsMuted\] = useState\(true\)/);
   assert.ok((videoCarousel.match(/muted=\{isMuted\}/g) ?? []).length >= 2);
-  assert.ok((videoCarousel.match(/setIsMuted\(event\.currentTarget\.muted\)/g) ?? []).length >= 2);
+  assert.ok((videoCarousel.match(/onMutedChange=\{setIsMuted\}/g) ?? []).length >= 2);
   assert.match(videoCarousel, /videoRefs\.current\.forEach[\s\S]*video\.muted = isMuted/);
   assert.match(videoCarousel, /expandedVideoRef\.current\.muted = isMuted/);
 });
@@ -161,5 +176,13 @@ test("expanded playback pauses cards, pauses between items, and restores visibil
   assert.match(videoCarousel, /navigateExpandedViewer[\s\S]*expandedVideoRef\.current\?\.pause\(\)/);
   assert.match(videoCarousel, /closeExpandedViewer[\s\S]*expandedVideoRef\.current\?\.pause\(\)/);
   assert.match(videoCarousel, /requestAnimationFrame\(\(\) => playMostVisibleVideo\(\)\)/);
-  assert.match(videoCarousel, /key=\{videoId\}[\s\S]*autoPlay muted=\{isMuted\}/);
+  assert.match(videoCarousel, /VisitedProfileVideoPlayer src=\{item\.payload\.video_url\} autoPlay muted=\{isMuted\}/);
+});
+
+test("mobile swipe previews adjacent videos and snaps or cancels in 260ms", () => {
+  assert.match(videoCarousel, /previousItem[\s\S]*bottom-full/);
+  assert.match(videoCarousel, /nextItem[\s\S]*top-full/);
+  assert.match(videoCarousel, /transition: swipeAnimating \? "transform 260ms ease-out" : "none"/);
+  assert.match(videoCarousel, /setSwipeOffset\(0\)[\s\S]*return/);
+  assert.match(videoCarousel, /window\.setTimeout\([\s\S]*260/);
 });
