@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+const TICKER_SPEED_PX_PER_SECOND = 72;
+
 type DesktopOverflowTickerProps = {
   children: ReactNode;
   className?: string;
@@ -20,6 +22,7 @@ export default function DesktopOverflowTicker({ children, className = "" }: Desk
     const measure = () => {
       const distance = Math.max(content.scrollWidth - viewport.clientWidth, 0);
       viewport.style.setProperty("--ticker-distance", `${distance}px`);
+      viewport.style.setProperty("--ticker-duration", `${distance / TICKER_SPEED_PX_PER_SECOND}s`);
       setOverflow(distance > 1);
     };
     measure();

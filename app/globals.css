@@ -300,7 +300,7 @@ textarea,
     overflow: visible;
     text-overflow: clip;
     transform: translateX(calc(-1 * var(--ticker-distance)));
-    transition-duration: 4s;
+    transition-duration: var(--ticker-duration);
     transition-delay: 300ms;
     transition-timing-function: linear;
   }

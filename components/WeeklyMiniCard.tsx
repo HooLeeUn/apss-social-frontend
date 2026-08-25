@@ -187,7 +187,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                   <div className="min-h-[1rem]" aria-hidden="true" />
                 )}
 
-                <div className="mt-1.5 min-h-[2.7rem] lg:w-[calc(100%-4.25rem)]">
+                <div className="mt-1.5 min-h-[2.7rem] lg:w-[calc(100%-2.25rem)]">
                   <DesktopOverflowTicker className="text-[11px] leading-snug text-zinc-400">
                     <span>{genre}</span>
                     <span className="mx-1.5 text-zinc-600">•</span>
