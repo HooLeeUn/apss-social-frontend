@@ -59,3 +59,33 @@ test("video reactions stay in the visited-profile branch and do not enter Profil
   assert.match(activityColumn, /!isOwnProfile && hasOpenedVisitedVideoReactions/);
   assert.doesNotMatch(profileFeedPage, /VisitedProfileVideoReactions|visitedProfileVideoReactions/);
 });
+
+test("visited profile autoplay selects one sufficiently visible muted inline video", () => {
+  assert.match(videoCarousel, /const VISIBILITY_THRESHOLDS = \[0, 0\.25, 0\.5, 0\.75, 1\]/);
+  assert.match(videoCarousel, /new IntersectionObserver/);
+  assert.match(videoCarousel, /entry\.intersectionRatio/);
+  assert.match(videoCarousel, /pauseAllExcept\(nextId\)/);
+  assert.match(videoCarousel, /video\.muted = true/);
+  assert.match(videoCarousel, /video\.play\(\)[\s\S]*\.catch/);
+  assert.match(videoCarousel, /preload="auto" muted playsInline controls/);
+  assert.match(videoCarousel, /onPlay=\{\(\) => \{ activeVideoId\.current = videoId; pauseAllExcept\(videoId\); \}\}/);
+  assert.match(videoCarousel, /observer\.disconnect\(\)[\s\S]*video\.pause\(\)/);
+});
+
+test("visited profile reactions reuse canonical counts, current reaction and PUT contract", () => {
+  assert.match(videoCarousel, /item\.payload\.my_reaction === reaction/);
+  assert.match(videoCarousel, /item\.payload\.likes_count \?\? 0/);
+  assert.match(videoCarousel, /item\.payload\.dislikes_count \?\? 0/);
+  assert.match(videoCarousel, /\/video-comments\/\$\{encodeURIComponent\(key\)\}\/reaction\//);
+  assert.match(videoCarousel, /method: "PUT"/);
+  assert.match(videoCarousel, /mine === reaction \? null : reaction/);
+  assert.match(videoCarousel, /result\.my_reaction[\s\S]*result\.likes_count[\s\S]*result\.dislikes_count/);
+  assert.match(videoCarousel, /if \(previous\) setItems/);
+  assert.doesNotMatch(videoCarousel, /video_owner[\s\S]*(filter|exclude)/);
+});
+
+test("visited profile reaction controls are touch-visible and desktop-hover-only", () => {
+  assert.match(videoCarousel, /<div className="xl:hidden">\{reactionButtons\}<\/div>/);
+  assert.match(videoCarousel, /hidden opacity-0[\s\S]*xl:flex xl:group-hover:pointer-events-auto xl:group-hover:opacity-100/);
+  assert.match(videoCarousel, /event\.preventDefault\(\); event\.stopPropagation\(\)/);
+});
