@@ -9,6 +9,7 @@ import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount
 import { useTrailerHover } from "../hooks/useTrailerHover";
 import { useTrailerLongPress } from "../hooks/useTrailerLongPress";
 import CommentDetailButton from "./CommentDetailButton";
+import MyListIcon from "./MyListIcon";
 import RatingPopover from "./RatingPopover";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import TrailerModal from "./TrailerModal";
@@ -167,7 +168,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
               </div>
               <div className="interaction-icons col-span-2 z-10 flex justify-around justify-self-stretch lg:absolute lg:right-12 lg:top-0.5">
                 <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-                  <img src="/icons/tag.png" alt="" className={tagIconClassName} />
+                  <MyListIcon className={tagIconClassName} />
                 </button>
                 <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button>
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { type PointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import MyListIcon from "../MyListIcon";
 
 type QuickNavigationItem = {
   label: string;
@@ -50,7 +51,7 @@ export const profileQuickNavigationIcons = {
   following: <LineIcon><circle cx="9" cy="8" r="3" /><circle cx="16.5" cy="9" r="2.5" /><path d="M3.5 20c.4-4.2 2.2-6.4 5.5-6.4s5.1 2.2 5.5 6.4M14 14.2c3.6-.7 5.8 1.3 6.4 4.8" /></LineIcon>,
   friends: <LineIcon><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></LineIcon>,
   activity: <LineIcon><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.8" /></LineIcon>,
-  list: <LineIcon><path d="M20 13 13 20l-9-9V4h7l9 9Z" /><circle cx="8" cy="8" r="1" /></LineIcon>,
+  list: <MyListIcon />,
   recommendations: <LineIcon><path d="M4 5h16v4a3 3 0 0 0 0 6v4H4v-4a3 3 0 0 0 0-6V5Z" /><path d="M12 7v2M12 12v1M12 16v1" /></LineIcon>,
   followingActivity: <LineIcon><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M3 10h18M6 3l2 3m3-3 2 3m3-3 2 3" /></LineIcon>,
 };

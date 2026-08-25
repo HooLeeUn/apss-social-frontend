@@ -9,6 +9,7 @@ import { formatAverageRating, formatFollowingRating, formatMyRating } from "../l
 import { useTrailerHover } from "../hooks/useTrailerHover";
 import { useTrailerLongPress } from "../hooks/useTrailerLongPress";
 import CommentDetailButton from "./CommentDetailButton";
+import MyListIcon from "./MyListIcon";
 import RatingPopover from "./RatingPopover";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import TrailerModal from "./TrailerModal";
@@ -98,7 +99,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
     <article className="weekly-mini-card relative h-full min-w-0 pl-3 lg:pl-3">
       <div className="interaction-icons absolute left-9 bottom-[2.85rem] z-20 lg:z-10 lg:left-10 lg:bottom-auto lg:top-[59%]">
         <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-          <img src="/icons/tag.png" alt="" className={tagIconClassName} />
+          <MyListIcon className={tagIconClassName} />
         </button>
         <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button>
       </div>
