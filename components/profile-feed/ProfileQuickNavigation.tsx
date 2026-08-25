@@ -50,7 +50,7 @@ function LineIcon({ children }: { children: ReactNode }) {
 function RecommendationsIcon() {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src="/icons/Ticket.png" alt="" className="pointer-events-none h-7 w-7 object-contain" />
+    <img src="/icons/Ticket.png" alt="" className="pointer-events-none h-7 w-[34px] object-contain" />
   );
 }
 
