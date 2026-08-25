@@ -1162,7 +1162,7 @@ function MovieCard({
         {showBottomInteractionIcons ? (
           <div className="interaction-icons static z-10 flex flex-nowrap items-center gap-1">
             <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-              <MyListIcon className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+              <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
             </button>
             <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
               <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
@@ -1292,7 +1292,7 @@ function MovieCard({
                 }`}
               >
                 <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-                  <MyListIcon className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+                  <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
                 </button>
                 <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                   <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
@@ -1308,7 +1308,7 @@ function MovieCard({
         <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
           <div className="interaction-icons">
             <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-              <MyListIcon className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
+              <MyListIcon cardSize className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
             </button>
             <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
               <img src="/icons/Ticket.png" alt="" className={`${compactInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
@@ -1475,7 +1475,7 @@ function MovieCard({
               className="interaction-icons absolute right-2 top-[4.85rem] z-10"
             >
               <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-                <MyListIcon className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+                <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
               </button>
               <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                 <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />

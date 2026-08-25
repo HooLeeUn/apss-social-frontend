@@ -265,6 +265,47 @@ textarea,
   filter: brightness(0) saturate(100%) invert(45%) sepia(96%) saturate(2107%) hue-rotate(196deg) brightness(101%) contrast(101%);
 }
 
+.my-list-icon--card {
+  transform: scale(0.82);
+  transform-origin: center;
+}
+
+.desktop-overflow-ticker {
+  overflow: hidden;
+}
+
+.desktop-overflow-ticker__content {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (min-width: 1024px) {
+  .desktop-overflow-ticker {
+    white-space: nowrap;
+  }
+
+  .desktop-overflow-ticker__content {
+    display: inline-block;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    vertical-align: top;
+    white-space: nowrap;
+    transition: transform 350ms ease;
+  }
+
+  .desktop-overflow-ticker--active:hover .desktop-overflow-ticker__content {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    transform: translateX(calc(-1 * var(--ticker-distance)));
+    transition-duration: 4s;
+    transition-delay: 300ms;
+    transition-timing-function: linear;
+  }
+}
+
 /* The weekly desktop composition uses real layout dimensions (rather than a
    visual transform) so its cards and hit targets stay aligned at 100% zoom. */
 @media (min-width: 1024px) {
