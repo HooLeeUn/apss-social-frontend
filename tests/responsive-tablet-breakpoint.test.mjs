@@ -19,3 +19,21 @@ test("tablet widths stay on the mobile branches until the xl desktop breakpoint"
   assert.match(feed, /feed-desktop-only[^\n]+hidden[^\n]+xl:/);
   assert.match(tours, /const mobile =[^\n]+\(max-width: 1279px\)/);
 });
+
+test("tablet presentation centers mobile layouts without changing phone or desktop ranges", () => {
+  const styles = read("app/globals.css");
+  const feed = read("app/feed/page.tsx");
+  const profile = read("app/profile-feed/page.tsx");
+  const mobileSelect = read("components/MobileDarkSelect.tsx");
+
+  assert.match(styles, /@media \(min-width: 768px\) and \(max-width: 1279px\)/);
+  assert.match(styles, /\.feed-tablet-framing \.feed-shell \{[\s\S]*?max-width: 46rem/);
+  assert.match(styles, /\.profile-feed-mobile-framing > div \{[\s\S]*?max-width: 46rem/);
+  assert.match(styles, /\.visited-profile-tablet-framing > div \{[\s\S]*?max-width: 46rem/);
+  assert.match(styles, /\.detail-movie-tablet-framing > div[^\{]+\{[\s\S]*?max-width: 46rem/);
+  assert.match(styles, /section:nth-of-type\(2\) \.grid \{\s*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(feed, /feed-tablet-framing min-h-screen/);
+  assert.match(profile, /profile-feed-mobile-content-track[^\n]+snap-x snap-mandatory overflow-x-auto/);
+  assert.match(mobileSelect, /className=\{`relative xl:hidden/);
+  assert.match(mobileSelect, /fixed inset-0[^\n]+xl:hidden/);
+});

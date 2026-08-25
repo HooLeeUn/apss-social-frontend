@@ -4393,7 +4393,7 @@ function MovieDetailPageContent() {
   };
 
   return (
-    <main className="min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
+    <main className="detail-movie-tablet-framing min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
       {debugNotificationTarget ? (
         <aside data-notification-target-debug className="fixed bottom-2 right-2 z-[2000] max-h-[42dvh] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-lg border border-[#86ADE0]/60 bg-black/90 p-2 font-mono text-[10px] leading-4 text-[#c7dcf6] shadow-2xl pointer-events-none" aria-live="polite">
           <strong className="block text-xs text-white">Notification target debug</strong>

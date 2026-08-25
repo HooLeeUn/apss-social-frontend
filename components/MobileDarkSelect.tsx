@@ -58,11 +58,11 @@ export default function MobileDarkSelect<T extends string>({ value, options, onC
   };
 
   return <>
-    <button ref={triggerRef} type="button" disabled={disabled} aria-label={ariaLabel} aria-expanded={open} aria-haspopup="listbox" aria-controls={open ? listboxId : undefined} onClick={() => setOpen(true)} className={`relative md:hidden ${className}`}>
+    <button ref={triggerRef} type="button" disabled={disabled} aria-label={ariaLabel} aria-expanded={open} aria-haspopup="listbox" aria-controls={open ? listboxId : undefined} onClick={() => setOpen(true)} className={`relative xl:hidden ${className}`}>
       <span className="inline-flex items-center gap-2">{selectedIcon}<span>{selectedOption?.label}</span></span><span aria-hidden="true" className="ml-3 text-xs text-zinc-300">▾</span>
     </button>
     {open ? createPortal(
-      <div className="fixed inset-0 z-[200] flex items-end justify-center md:hidden" role="presentation">
+      <div className="fixed inset-0 z-[200] flex items-end justify-center xl:hidden" role="presentation">
         <button type="button" className="absolute inset-0 cursor-default bg-black/70 backdrop-blur-[2px]" onClick={close} aria-label="Close" />
         <div className="relative z-[201] w-full max-w-lg rounded-t-3xl border border-b-0 border-zinc-700 bg-zinc-950 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-20px_60px_rgba(0,0,0,0.7)]">
           <div aria-hidden="true" className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-600" />

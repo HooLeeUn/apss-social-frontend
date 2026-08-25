@@ -328,7 +328,7 @@ export default function UserProfileFeedPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-zinc-100">
+    <main className="visited-profile-tablet-framing min-h-screen bg-black text-zinc-100">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 xl:px-8">
         <section className="rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">
           <div className="grid items-start gap-6 xl:grid-cols-[1fr_3fr] xl:items-end">

@@ -1032,7 +1032,7 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black">
+    <main className="feed-tablet-framing min-h-screen bg-black">
       <Suspense fallback={null}>
         <FeedDebugSearchParamsBridge onChange={setDebugNotificationTarget} />
       </Suspense>
