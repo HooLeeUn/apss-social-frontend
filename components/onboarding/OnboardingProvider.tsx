@@ -20,12 +20,14 @@ type CalloutGeometry = {
   labelBox: { left: number; top: number; width: number; height: number } | null;
 };
 const FEED_CARD_SELECTOR = '[data-tour="feed-card"]';
+const TOUR_BORDER_COLOR = "#20D98B";
+const TOUR_SPOTLIGHT_COLOR = "rgba(32, 217, 139, 0.12)";
 
 function TourWelcomeModal({ title, body, resume, onSkip, onStart }: { title: string; body: string; resume: boolean; onSkip: () => void; onStart: () => void }) {
   const { locale } = useI18n();
   const labels = commonTourCopy(locale);
   return <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-labelledby="tour-welcome-title">
-    <div className="relative w-full max-w-md rounded-2xl border border-white/20 bg-zinc-950 p-6 shadow-2xl">
+    <div className="relative w-full max-w-md rounded-2xl border bg-zinc-950 p-6 shadow-2xl" style={{ borderColor: TOUR_BORDER_COLOR }}>
       <button type="button" aria-label={labels.close} onClick={onSkip} className="absolute right-4 top-3 text-xl text-zinc-300">×</button>
       <h2 id="tour-welcome-title" className="pr-8 text-xl font-bold text-white">{resume ? labels.resumeTitle : title}</h2>
       <p className="mt-3 leading-6 text-zinc-300">{resume ? labels.resumeBody : body}</p>
@@ -274,14 +276,14 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
   }, [available.length, index, isFeedFinal, mobile, onFinish, resolveStepElement, step, tour.id]);
 
   const move = (next: number) => { setCallouts([]); setIndex(next); if (next < available.length) onStep(next); };
-  if (isFeedFinal) return <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-2xl border border-white/20 bg-zinc-950 p-6 shadow-2xl"><h2 className="text-xl font-bold">{mobile && tour.mobileFinalTitle ? tour.mobileFinalTitle : tour.finalTitle}</h2><p className="mt-3 text-zinc-300">{mobile && tour.mobileFinalBody ? tour.mobileFinalBody : tour.finalBody}</p><div className="mt-6 flex justify-between"><button type="button" onClick={() => move(available.length - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm">{labels.back}</button><button type="button" onClick={onFinish} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{labels.finish}</button></div></div></div>;
+  if (isFeedFinal) return <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-2xl border bg-zinc-950 p-6 shadow-2xl" style={{ borderColor: TOUR_BORDER_COLOR }}><h2 className="text-xl font-bold">{mobile && tour.mobileFinalTitle ? tour.mobileFinalTitle : tour.finalTitle}</h2><p className="mt-3 text-zinc-300">{mobile && tour.mobileFinalBody ? tour.mobileFinalBody : tour.finalBody}</p><div className="mt-6 flex justify-between"><button type="button" onClick={() => move(available.length - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm">{labels.back}</button><button type="button" onClick={onFinish} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{labels.finish}</button></div></div></div>;
   if (!step || !rect) return null;
   const isInitialFeedSpotlight = (tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && index === 0;
   return <div className="fixed inset-0 z-[10000]" role="dialog" aria-modal="true">
-    <div className="fixed rounded-xl" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, backgroundColor: isInitialFeedSpotlight && !initialSpotlightVisible ? "rgba(0,0,0,.82)" : "rgba(0,0,0,0)", boxShadow: "0 0 0 9999px rgba(0,0,0,.82)", pointerEvents: "none", transition: "left 450ms ease-in-out, top 450ms ease-in-out, width 450ms ease-in-out, height 450ms ease-in-out, background-color 420ms ease-out" }} />
+    <div className="fixed rounded-xl" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, backgroundColor: isInitialFeedSpotlight && !initialSpotlightVisible ? "rgba(0,0,0,.82)" : TOUR_SPOTLIGHT_COLOR, boxShadow: "0 0 0 9999px rgba(0,0,0,.82)", pointerEvents: "none", transition: "left 450ms ease-in-out, top 450ms ease-in-out, width 450ms ease-in-out, height 450ms ease-in-out, background-color 420ms ease-out" }} />
     <div className="fixed inset-0" onClick={(event) => event.preventDefault()} />
     {callouts.map((geometry, calloutIndex) => <TourCallout key={`${step.target}-${calloutIndex}`} geometry={geometry} markerId={`tour-callout-arrow-${index}-${calloutIndex}`} />)}
-    <div ref={tooltipRef} className="fixed z-[10004] w-[min(92vw,420px)] rounded-2xl border border-white/20 bg-zinc-950 p-5 shadow-2xl" style={tooltipPosition}>
+    <div ref={tooltipRef} className="fixed z-[10004] w-[min(92vw,420px)] rounded-2xl border bg-zinc-950 p-5 shadow-2xl" style={{ ...tooltipPosition, borderColor: TOUR_BORDER_COLOR }}>
       <button type="button" aria-label={labels.close} onClick={onSkip} className="absolute right-4 top-3 text-xl">×</button><p className="text-xs text-blue-300">{index + 1} / {available.length}</p><div className="mt-1 flex items-center gap-2 pr-7">{(!mobile || tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && step.icon ? <TourStepIcon icon={step.icon} /> : null}<h2 className="text-lg font-bold">{step.title}</h2></div><p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{mobile && step.mobileBody ? step.mobileBody : step.body}</p>
       <div className="mt-5 flex justify-between"><button type="button" disabled={index === 0} onClick={() => move(index - 1)} className="rounded-full border border-white/25 px-4 py-2 text-sm disabled:invisible">{labels.back}</button><button type="button" onClick={() => index === available.length - 1 && !hasDedicatedFinalScreen ? onFinish() : move(index + 1)} className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold">{index === available.length - 1 && !hasDedicatedFinalScreen ? labels.finish : labels.next}</button></div>
     </div>

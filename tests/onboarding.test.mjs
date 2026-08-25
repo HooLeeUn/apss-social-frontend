@@ -160,6 +160,14 @@ test("spotlight navigation preserves its previous rectangle and animates to the 
   assert.match(provider, /height 450ms ease-in-out/);
 });
 
+test("all shared onboarding drawers and spotlights use the emerald tour palette", () => {
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  assert.match(provider, /const TOUR_BORDER_COLOR = "#20D98B"/);
+  assert.match(provider, /const TOUR_SPOTLIGHT_COLOR = "rgba\(32, 217, 139, 0\.12\)"/);
+  assert.equal((provider.match(/borderColor: TOUR_BORDER_COLOR/g) ?? []).length, 3);
+  assert.match(provider, /backgroundColor:[^\n]+TOUR_SPOTLIGHT_COLOR/);
+});
+
 test("desktop Feed callouts use a start anchor and alternating placements", () => {
   const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
   const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
