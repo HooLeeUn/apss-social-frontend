@@ -20,6 +20,31 @@ test("visited activity requests include activity_type and pagination follows bac
   assert.match(adapters, /parsed\.next \? normalizeActivityNextEndpoint\(parsed\.next\) : null/);
 });
 
+test("comment reaction authors use only the canonical user visitability endpoint", () => {
+  assert.match(activityColumn, /getUserVisitabilityByUsername\(username\)/);
+  assert.doesNotMatch(activityColumn, /getUserProfileByUsername\(username\)/);
+  assert.match(adapters, /getUserVisitabilityByUsername[\s\S]*?apiFetch\(`\/users\/\$\{encodeURIComponent\(username\)\}\/`\)/);
+
+  const helperStart = adapters.indexOf("export async function getUserVisitabilityByUsername");
+  const helperSource = adapters.slice(helperStart, adapters.indexOf("\n}\n", helperStart) + 3);
+  assert.doesNotMatch(helperSource, /\/profile\//);
+});
+
+test("comment reaction author resolution is cached by normalized username while preserving URL casing", () => {
+  assert.match(activityColumn, /const username = item\.likedCommentAuthorUsername\?\.trim\(\)/);
+  assert.match(activityColumn, /const cacheKey = normalizeUsername\(username\)/);
+  assert.match(activityColumn, /!resolvedAuthorUsernamesRef\.current\.has\(cacheKey\)/);
+  assert.match(activityColumn, /resolvedAuthorUsernamesRef\.current\.add\(cacheKey\)/);
+  assert.match(activityColumn, /getUserVisitabilityByUsername\(username\)/);
+});
+
+test("comment author links retain visitability policy and safely fall back to non-visitable", () => {
+  assert.match(activityColumn, /isUserProfileVisitable\(profile\?\.profileAccess, profile\?\.canViewFullProfile\)/);
+  assert.match(activityColumn, /catch \{\s*return \[cacheKey, false\]/);
+  assert.match(activityColumn, /shouldRenderAuthorLink[\s\S]*?\? \(\s*<Link/);
+  assert.match(activityColumn, /\) : \(\s*<span[^>]*>@\{item\.likedCommentAuthorUsername\}<\/span>/);
+});
+
 test("visited activity cache is isolated by user scope and type and aborts stale requests", () => {
   assert.match(activityHook, /cacheKey = `\$\{scope\}:\$\{activityType \?\? "all"\}`/);
   assert.match(activityHook, /cacheRef\.current\.get\(cacheKey\)/);

@@ -5,7 +5,7 @@ import { TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState 
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useInfiniteMyMessages } from "../../hooks/useInfiniteMyMessages";
 import { useInfiniteScopedSocialActivity } from "../../hooks/useInfiniteScopedSocialActivity";
-import { getMyProfile, getUserMovieRecommendationsByUsername, getUserProfileByUsername, markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
+import { getMyProfile, getUserMovieRecommendationsByUsername, getUserVisitabilityByUsername, markMyMessagesAsRead } from "../../lib/profile-feed/adapters";
 import { MyMessageItem, SocialActivityItem, UserMovieRecommendation } from "../../lib/profile-feed/types";
 import { formatAverageRating } from "../../lib/rating-format";
 import { useI18n } from "../../hooks/useI18n";
@@ -1013,6 +1013,7 @@ export default function MyActivityColumn({
   const [senderQuery, setSenderQuery] = useState("");
   const [myUsername, setMyUsername] = useState<string | null>(null);
   const [authorCanVisitByUsername, setAuthorCanVisitByUsername] = useState<Record<string, boolean>>({});
+  const resolvedAuthorUsernamesRef = useRef<Set<string>>(new Set());
   const [userRecommendations, setUserRecommendations] = useState<UserMovieRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [recommendationsError, setRecommendationsError] = useState(false);
@@ -1239,45 +1240,42 @@ export default function MyActivityColumn({
   useEffect(() => {
     if (isOwnProfile || visitedActivityTab !== "reactions") return;
 
-    const authorUsernames = Array.from(
-      new Set(
-        filteredActivityItems
-          .map((item) => item.likedCommentAuthorUsername?.trim().toLocaleLowerCase())
-          .filter((value): value is string => Boolean(value)),
-      ),
-    );
-    if (authorUsernames.length === 0) return;
+    const authorsByCacheKey = new Map<string, string>();
+    for (const item of filteredActivityItems) {
+      const username = item.likedCommentAuthorUsername?.trim();
+      const cacheKey = normalizeUsername(username);
+      if (username && cacheKey && !resolvedAuthorUsernamesRef.current.has(cacheKey)) {
+        authorsByCacheKey.set(cacheKey, username);
+      }
+    }
+    if (authorsByCacheKey.size === 0) return;
 
-    let cancelled = false;
+    for (const cacheKey of authorsByCacheKey.keys()) {
+      resolvedAuthorUsernamesRef.current.add(cacheKey);
+    }
 
     const loadAuthorVisitability = async () => {
       const results = await Promise.all(
-        authorUsernames.map(async (username) => {
+        Array.from(authorsByCacheKey, async ([cacheKey, username]) => {
           try {
-            const profile = await getUserProfileByUsername(username);
-            return [username, isUserProfileVisitable(profile?.profileAccess, profile?.canViewFullProfile)] as const;
+            const profile = await getUserVisitabilityByUsername(username);
+            return [cacheKey, isUserProfileVisitable(profile?.profileAccess, profile?.canViewFullProfile)] as const;
           } catch {
-            return [username, false] as const;
+            return [cacheKey, false] as const;
           }
         }),
       );
 
-      if (cancelled) return;
-
       setAuthorCanVisitByUsername((current) => {
         const next = { ...current };
-        for (const [username, isVisitable] of results) {
-          next[username] = isVisitable;
+        for (const [cacheKey, isVisitable] of results) {
+          next[cacheKey] = isVisitable;
         }
         return next;
       });
     };
 
     void loadAuthorVisitability();
-
-    return () => {
-      cancelled = true;
-    };
   }, [filteredActivityItems, isOwnProfile, visitedActivityTab]);
 
   useEffect(() => {

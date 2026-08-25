@@ -1302,6 +1302,25 @@ export async function getUserProfileByUsername(username: string): Promise<Social
   return mergedProfile;
 }
 
+export type UserVisitabilityProfile = Pick<SocialUser, "profileAccess" | "canViewFullProfile">;
+
+export async function getUserVisitabilityByUsername(username: string): Promise<UserVisitabilityProfile | null> {
+  const payload = await apiFetch(`/users/${encodeURIComponent(username)}/`);
+  const record = toRecord(payload);
+  if (!record) return null;
+
+  const data = toRecord(record.data);
+  const user = toRecord(record.user) ?? toRecord(data?.user) ?? data ?? record;
+  const profile = toRecord(record.profile) ?? toRecord(data?.profile) ?? toRecord(user.profile);
+
+  return {
+    profileAccess: safeTrim(pickFirst(user.profile_access, user.profileAccess, profile?.profile_access, profile?.profileAccess)),
+    canViewFullProfile: toBooleanOrNull(
+      pickFirst(user.can_view_full_profile, user.canViewFullProfile, profile?.can_view_full_profile, profile?.canViewFullProfile),
+    ),
+  };
+}
+
 export async function getFavoriteMoviesByUsername(username: string): Promise<FavoriteMovie[]> {
   const attempts = [buildUserFavoritesEndpoint(username)];
 
