@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { UIEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import FavoriteMoviesBlock from "../../components/profile-feed/FavoriteMoviesBlock";
 import MyActivityColumn from "../../components/profile-feed/MyActivityColumn";
 import ProfileIdentityCard from "../../components/profile-feed/ProfileIdentityCard";
@@ -11,6 +12,7 @@ import SocialActivityTabsBlock from "../../components/profile-feed/SocialActivit
 import TopUsersSection from "../../components/profile-feed/TopUsersSection";
 import EmptyStatePanel from "../../components/profile-feed/EmptyStatePanel";
 import MobileDarkSelect from "../../components/MobileDarkSelect";
+import MyListIcon from "../../components/MyListIcon";
 import ProfileQuickNavigation, { profileQuickNavigationIcons } from "../../components/profile-feed/ProfileQuickNavigation";
 import {
   acceptFriendship,
@@ -775,14 +777,22 @@ function ProfileFeedContent() {
             { value: "recommended", label: t("profileFeedMyRecommendations") },
           ]}
           onChange={setActiveListView}
+          selectedIcon={activeListView === "my-list"
+            ? <MyListIcon className="pointer-events-none h-[18px] w-[18px] shrink-0" />
+            : <Image src="/icons/Ticket.png" alt="" width={22} height={18} className="pointer-events-none h-[18px] w-[22px] shrink-0 object-contain" />}
           className="rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         />
+        <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 md:block">
+          {activeListView === "my-list"
+            ? <MyListIcon className="h-[18px] w-[18px]" />
+            : <Image src="/icons/Ticket.png" alt="" width={22} height={18} className="h-[18px] w-[22px] object-contain" />}
+        </span>
         <select
           data-tour={activeListView === "recommended" ? "profile-recommendations" : "profile-list"}
           aria-label={t("profileFeedMyList")}
           value={activeListView}
           onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
-          className="hidden appearance-none overflow-hidden rounded-xl border md:block border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
+          className="hidden appearance-none overflow-hidden rounded-xl border md:block border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 [text-indent:1.25rem] shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
         >
           <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyList")}</option>
           <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyRecommendations")}</option>
