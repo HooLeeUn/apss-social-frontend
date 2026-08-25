@@ -49,6 +49,135 @@ textarea,
   }
 }
 
+/* Tablet presentation keeps the phone interaction model, but frames it instead
+   of allowing phone-sized compositions to stretch across the viewport. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .feed-tablet-framing .feed-shell {
+    max-width: 46rem;
+    padding-inline: 1.5rem;
+  }
+
+  .feed-tablet-framing .feed-header {
+    margin-inline: 0;
+    padding-inline: 1rem;
+  }
+
+  .feed-tablet-framing .feed-header__genres {
+    max-width: 38rem;
+    margin-inline: auto;
+  }
+
+  .feed-tablet-framing .weekly-recommendations,
+  .feed-tablet-framing .feed-shell > section {
+    max-width: 42rem;
+    margin-inline: auto;
+  }
+
+  .feed-tablet-framing .weekly-recommendations > div:first-of-type > div {
+    width: min(78vw, 27rem);
+  }
+
+  .feed-tablet-framing .weekly-recommendations > div:first-of-type > div:nth-child(-n + 2) {
+    min-height: 38rem;
+  }
+
+  .feed-tablet-framing .weekly-hero-card > div > div:first-child {
+    max-width: 19rem;
+  }
+
+  .feed-tablet-framing .feed-shell > section:nth-of-type(2) > div,
+  .feed-tablet-framing .feed-shell > section:nth-of-type(2) > div > div {
+    max-width: 42rem;
+  }
+
+  .feed-tablet-framing .feed-shell > section:nth-of-type(2) .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feed-tablet-framing > .feed-mobile-only,
+  .feed-tablet-framing > .feed-mobile-search-modal {
+    width: min(calc(100vw - 3rem), 42rem);
+    margin-inline: auto;
+    inset-inline: 0;
+  }
+
+  .profile-feed-mobile-framing > div {
+    max-width: 46rem;
+    padding-inline: 1.5rem;
+  }
+
+  .profile-feed-mobile-framing {
+    --mobile-favorite-poster-width: clamp(6.25rem, 15vw, 7.5rem);
+  }
+
+  .profile-feed-mobile-framing .favorite-movies-mobile-cube__stage,
+  .profile-feed-mobile-framing .favorite-movie-card {
+    height: clamp(17rem, 31dvh, 20rem);
+  }
+
+  .profile-feed-mobile-framing .favorite-movie-card__poster {
+    object-fit: contain;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-connections-search,
+  .profile-feed-mobile-framing .profile-feed-mobile-content-row,
+  .profile-feed-mobile-framing .profile-feed-following-activity {
+    max-width: 42rem;
+    margin-inline: auto;
+  }
+
+  .profile-quick-navigation {
+    width: min(calc(100vw - 3rem), 42rem);
+    margin-inline: auto;
+    inset-inline: 0;
+  }
+
+  .profile-quick-navigation > div {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .profile-quick-navigation button {
+    min-width: 3.25rem;
+    min-height: 3.25rem;
+  }
+
+  .visited-profile-tablet-framing > div {
+    max-width: 46rem;
+    gap: 1.5rem;
+    padding-inline: 1.5rem;
+  }
+
+  .visited-profile-tablet-framing .favorite-movies-block,
+  .visited-profile-tablet-framing .my-activity-column {
+    max-width: 42rem;
+    margin-inline: auto;
+  }
+
+  .visited-profile-tablet-framing .favorite-movie-card__poster {
+    aspect-ratio: 2 / 3;
+    object-fit: contain;
+  }
+
+  .detail-movie-tablet-framing > div:not([data-trailer-companion-controls]) {
+    max-width: 46rem;
+    padding-inline: 1.5rem;
+  }
+
+  .detail-movie-tablet-framing [data-mobile-detail-sticky="true"] {
+    margin-inline: -1.5rem;
+    padding-inline: 1.5rem;
+  }
+
+  .detail-movie-tablet-framing [data-tour="detail-info"],
+  .detail-movie-tablet-framing [data-mobile-comment-tabs],
+  .detail-movie-tablet-framing [data-mobile-video-reaction],
+  .detail-movie-tablet-framing [data-mobile-text-comment],
+  .detail-movie-tablet-framing [data-comment-history] {
+    max-width: 42rem;
+    margin-inline: auto;
+  }
+}
+
 .activity-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(161, 161, 170, 0.45) transparent;
