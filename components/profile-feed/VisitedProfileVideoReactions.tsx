@@ -48,17 +48,10 @@ function getTimestamp(activity: VideoReactionActivity): string {
   return activity.timestamp || activity.activity_at || activity.created_at || "";
 }
 
-function formatVideoTime(seconds: number): string {
-  if (!Number.isFinite(seconds)) return "0:00";
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
-}
-
-function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, className, onRegister, onPlay, onEnded, onMutedChange }: { src?: string; muted: boolean; autoPlay?: boolean; className: string; onRegister: (video: HTMLVideoElement | null) => void; onPlay?: () => void; onEnded?: () => void; onMutedChange: (muted: boolean) => void }) {
+function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, className, onRegister, onPlay, onEnded, onMutedChange, onManualToggle, onLoadedData }: { src?: string; muted: boolean; autoPlay?: boolean; className: string; onRegister: (video: HTMLVideoElement | null) => void; onPlay?: () => void; onEnded?: () => void; onMutedChange: (muted: boolean) => void; onManualToggle?: (paused: boolean) => void; onLoadedData?: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [paused, setPaused] = useState(true);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const feedbackTimer = useRef<number | null>(null);
+  const [feedback, setFeedback] = useState<"play" | "pause" | null>(null);
   const registerVideo = useCallback((video: HTMLVideoElement | null) => {
     videoRef.current = video;
     onRegister(video);
@@ -68,15 +61,26 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, className, on
     if (videoRef.current) videoRef.current.muted = muted;
   }, [muted]);
 
+  useEffect(() => () => {
+    if (feedbackTimer.current !== null) window.clearTimeout(feedbackTimer.current);
+  }, []);
+
+  const togglePlayback = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const willPlay = video.paused;
+    if (willPlay) void video.play().catch(() => {});
+    else video.pause();
+    onManualToggle?.(!willPlay);
+    setFeedback(willPlay ? "play" : "pause");
+    if (feedbackTimer.current !== null) window.clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 450);
+  };
+
   return <>
-    <video ref={registerVideo} src={src} autoPlay={autoPlay} preload="auto" muted={muted} playsInline controls={false} disablePictureInPicture disableRemotePlayback className={className} onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)} onDurationChange={(event) => setDuration(event.currentTarget.duration)} onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} onPlay={() => { setPaused(false); onPlay?.(); }} onPause={() => setPaused(true)} onEnded={() => { setPaused(true); onEnded?.(); }} onVolumeChange={(event) => onMutedChange(event.currentTarget.muted)} />
-    <div data-custom-video-controls className="absolute inset-x-2 bottom-2 z-20 flex items-center gap-2 rounded-lg bg-black/65 px-2 py-1.5 text-white shadow-lg">
-      <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15" aria-label={paused ? "Play" : "Pause"} onClick={() => { const video = videoRef.current; if (!video) return; if (video.paused) void video.play().catch(() => {}); else video.pause(); }}>{paused ? "▶" : "❚❚"}</button>
-      <span className="shrink-0 text-[11px] tabular-nums">{formatVideoTime(currentTime)}</span>
-      <input type="range" min={0} max={duration || 0} step={0.05} value={Math.min(currentTime, duration || 0)} aria-label="Video progress" className="min-w-0 flex-1 accent-[#86ADE0]" onChange={(event) => { const video = videoRef.current; if (video) video.currentTime = Number(event.currentTarget.value); }} />
-      <span className="hidden shrink-0 text-[11px] tabular-nums sm:inline">{formatVideoTime(duration)}</span>
-      <button type="button" className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/15" aria-label={muted ? "Unmute" : "Mute"} onClick={() => onMutedChange(!muted)}>{muted ? "🔇" : "🔊"}</button>
-    </div>
+    <video ref={registerVideo} src={src} autoPlay={autoPlay} preload="auto" muted={muted} playsInline controls={false} disablePictureInPicture disableRemotePlayback className={`${className} cursor-pointer`} onClick={togglePlayback} onLoadedData={onLoadedData} onPlay={onPlay} onEnded={onEnded} onVolumeChange={(event) => onMutedChange(event.currentTarget.muted)} />
+    {feedback ? <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 z-20 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-xl text-white transition-opacity">{feedback === "play" ? "▶" : "❚❚"}</span> : null}
+    <button type="button" data-video-mute-control className="absolute bottom-2 left-2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white shadow-md hover:bg-black/70" aria-label={muted ? "Unmute" : "Mute"} onClick={(event) => { event.stopPropagation(); onMutedChange(!muted); }}>{muted ? "🔇" : "🔊"}</button>
   </>;
 }
 
@@ -92,6 +96,7 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const visibilityRatios = useRef(new Map<string, number>());
   const activeVideoId = useRef<string | null>(null);
+  const manuallyPausedVideoId = useRef<string | null>(null);
   const activeVideoIndex = useRef(0);
   const desktopSequenceStarted = useRef(false);
   const desktopAdvancePending = useRef<number | null>(null);
@@ -107,8 +112,10 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
   const fullscreenViewerRef = useRef<HTMLDivElement | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const swipeTimer = useRef<number | null>(null);
+  const adjacentVideoRefs = useRef(new Map<number, HTMLVideoElement>());
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipeAnimating, setSwipeAnimating] = useState(false);
+  const [swipeCoverSrc, setSwipeCoverSrc] = useState<string | null>(null);
 
   const pauseAllExcept = useCallback((id: string | null) => {
     videoRefs.current.forEach((video, videoId) => {
@@ -160,6 +167,8 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
     if (desktop && nextIndex >= 0) activeVideoIndex.current = nextIndex;
     activeVideoId.current = nextId;
     if (!nextId) return;
+    if (manuallyPausedVideoId.current === nextId) return;
+    manuallyPausedVideoId.current = null;
     const video = videoRefs.current.get(nextId);
     if (!video) return;
     video.muted = isMutedRef.current;
@@ -436,10 +445,10 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
             </div>
             <div className="group relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)] xl:h-[clamp(260px,calc(100dvh-16rem),520px)] xl:w-auto">
               <div data-visited-profile-video-id={videoId} className="relative h-full w-full">
-                <VisitedProfileVideoPlayer src={item.payload.video_url} muted={isMuted} className="h-full w-full object-contain" onRegister={(video) => { if (video) video.dataset.visitedProfileVideoId = videoId; setVideoRef(videoId, video); }} onPlay={() => { activeVideoId.current = videoId; activeVideoIndex.current = index; pauseAllExcept(videoId); }} onEnded={() => playNextDesktopVideo(index)} onMutedChange={setIsMuted} />
+                <VisitedProfileVideoPlayer src={item.payload.video_url} muted={isMuted} className="h-full w-full object-contain" onRegister={(video) => { if (video) video.dataset.visitedProfileVideoId = videoId; setVideoRef(videoId, video); }} onPlay={() => { activeVideoId.current = videoId; activeVideoIndex.current = index; pauseAllExcept(videoId); }} onEnded={() => playNextDesktopVideo(index)} onMutedChange={setIsMuted} onManualToggle={(paused) => { manuallyPausedVideoId.current = paused ? videoId : null; }} />
               </div>
               <div className="pointer-events-none absolute left-2 top-2 z-10 hidden opacity-0 transition-opacity xl:flex xl:group-hover:pointer-events-auto xl:group-hover:opacity-100">{reactionButtons}</div>
-              <button type="button" aria-label={t("movieDetailVideoExpand")} className="absolute right-2 top-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white opacity-90 hover:bg-black/80" onClick={(event) => { event.stopPropagation(); openExpandedViewer(index); }}>⛶</button>
+              <button type="button" aria-label={t("movieDetailVideoExpand")} className="absolute bottom-2 right-2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white hover:bg-black/80" onClick={(event) => { event.stopPropagation(); openExpandedViewer(index); }}>⛶</button>
             </div>
           </article>
           );
@@ -459,7 +468,7 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
         return <div ref={fullscreenViewerRef} role="dialog" aria-modal="true" aria-label={title} data-visited-profile-expanded-viewer className="fixed inset-0 z-[120] flex flex-col overflow-hidden bg-black p-3 text-white touch-none xl:p-0" onTouchStart={(event) => {
           const target = event.target as HTMLElement;
           const touch = event.changedTouches[0];
-          if (!touch || target.closest("button, a, [data-custom-video-controls]") || (target instanceof HTMLVideoElement && touch.clientY >= target.getBoundingClientRect().bottom - 72)) {
+          if (!touch || target.closest("button, a") || (target instanceof HTMLVideoElement && touch.clientY >= target.getBoundingClientRect().bottom - 72)) {
             swipeStart.current = null;
             return;
           }
@@ -489,18 +498,31 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
             setSwipeOffset(0);
             return;
           }
-          setSwipeOffset(direction === 1 ? -window.innerHeight : window.innerHeight);
-          swipeTimer.current = window.setTimeout(() => {
-            navigateExpandedViewer(direction);
-            setSwipeAnimating(false);
-            setSwipeOffset(0);
-          }, 260);
+          const targetIndex = expandedIndex + direction;
+          const targetVideo = adjacentVideoRefs.current.get(targetIndex);
+          let snapStarted = false;
+          const startSnap = () => {
+            if (snapStarted) return;
+            snapStarted = true;
+            setSwipeOffset(direction === 1 ? -window.innerHeight : window.innerHeight);
+            swipeTimer.current = window.setTimeout(() => {
+              setSwipeCoverSrc(cards[targetIndex]?.item.payload.video_url ?? null);
+              navigateExpandedViewer(direction);
+              setSwipeAnimating(false);
+              setSwipeOffset(0);
+            }, 260);
+          };
+          if (targetVideo && targetVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) startSnap();
+          else {
+            targetVideo?.addEventListener("loadeddata", startSnap, { once: true });
+            window.setTimeout(startSnap, 600);
+          }
         }}>
           <div className="relative flex min-h-0 flex-1 items-center justify-center py-3 xl:p-0">
             <button type="button" disabled={expandedIndex === 0} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-2 z-10 hidden h-12 w-12 items-center justify-center rounded-full bg-zinc-900/85 text-2xl disabled:invisible xl:flex" onClick={() => navigateExpandedViewer(-1)}>←</button>
             <div className="relative flex max-h-full max-w-full flex-col items-center justify-center xl:h-[100dvh] xl:max-h-full" style={{ transform: `translateY(${swipeOffset}px)`, transition: swipeAnimating ? "transform 260ms ease-out" : "none" }}>
-              {previousItem ? <video aria-hidden="true" src={previousItem.payload.video_url} muted playsInline preload="auto" className="pointer-events-none absolute inset-x-0 bottom-full h-full w-full object-contain xl:hidden" /> : null}
-              {nextItem ? <video aria-hidden="true" src={nextItem.payload.video_url} muted playsInline preload="auto" className="pointer-events-none absolute inset-x-0 top-full h-full w-full object-contain xl:hidden" /> : null}
+              {previousItem ? <video ref={(video) => { if (video) adjacentVideoRefs.current.set(expandedIndex - 1, video); else adjacentVideoRefs.current.delete(expandedIndex - 1); }} aria-hidden="true" src={previousItem.payload.video_url} muted playsInline preload="auto" className="pointer-events-none absolute inset-x-0 bottom-full h-full w-full object-contain xl:hidden" /> : null}
+              {nextItem ? <video ref={(video) => { if (video) adjacentVideoRefs.current.set(expandedIndex + 1, video); else adjacentVideoRefs.current.delete(expandedIndex + 1); }} aria-hidden="true" src={nextItem.payload.video_url} muted playsInline preload="auto" className="pointer-events-none absolute inset-x-0 top-full h-full w-full object-contain xl:hidden" /> : null}
               <header className="relative z-10 flex min-h-14 w-full items-center gap-2 rounded-xl bg-zinc-950/90 p-2 xl:absolute xl:inset-x-0 xl:top-0 xl:min-h-0 xl:rounded-none xl:bg-transparent xl:p-3 xl:[text-shadow:0_1px_4px_rgb(0_0_0/0.95)]">
                 <div className="flex shrink-0 gap-1 xl:flex-col">{expandedReactions}</div>
                 <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300 xl:max-w-md xl:gap-2" onClick={() => { expandedVideoRef.current?.pause(); if (document.fullscreenElement) void document.exitFullscreen().catch(() => {}); }}>
@@ -511,7 +533,8 @@ export default function VisitedProfileVideoReactions({ username }: { username: s
                 <button type="button" aria-label={t("movieDetailVideoCloseExpanded")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-2xl hover:bg-white/20" onClick={closeExpandedViewer}>×</button>
               </header>
               <div className="relative h-full max-h-full w-full max-w-full xl:h-[100dvh]">
-                <VisitedProfileVideoPlayer src={item.payload.video_url} autoPlay muted={isMuted} className="h-full max-h-full w-full object-contain xl:h-[100dvh]" onRegister={(video) => { expandedVideoRef.current = video; }} onMutedChange={setIsMuted} />
+                <VisitedProfileVideoPlayer src={item.payload.video_url} autoPlay muted={isMuted} className="h-full max-h-full w-full object-contain xl:h-[100dvh]" onRegister={(video) => { expandedVideoRef.current = video; }} onLoadedData={() => { if (swipeCoverSrc) requestAnimationFrame(() => requestAnimationFrame(() => setSwipeCoverSrc(null))); }} onMutedChange={setIsMuted} />
+                {swipeCoverSrc ? <video aria-hidden="true" src={swipeCoverSrc} muted playsInline preload="auto" className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain xl:hidden" /> : null}
               </div>
             </div>
             <button type="button" disabled={expandedIndex === cards.length - 1} aria-label={t("visitedProfileNextVideoReaction")} className="absolute right-2 z-10 hidden h-12 w-12 items-center justify-center rounded-full bg-zinc-900/85 text-2xl disabled:invisible xl:flex" onClick={() => navigateExpandedViewer(1)}>→</button>

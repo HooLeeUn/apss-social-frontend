@@ -120,11 +120,12 @@ test("expanded viewer navigates in source order with bounded desktop arrows and 
 
 test("each card exposes only the enriched top expand action and suppresses native lower fullscreen", () => {
   assert.equal((videoCarousel.match(/openExpandedViewer\(index\)/g) ?? []).length, 1);
-  assert.match(videoCarousel, /absolute right-2 top-2[\s\S]*openExpandedViewer\(index\)/);
+  assert.match(videoCarousel, /absolute bottom-2 right-2[\s\S]*openExpandedViewer\(index\)/);
   assert.match(videoCarousel, /controls=\{false\}/);
   assert.doesNotMatch(videoCarousel, /controlsList=|nofullscreen/);
-  assert.match(videoCarousel, /data-custom-video-controls/);
-  assert.match(videoCarousel, /className="ml-auto flex h-9 w-9/);
+  assert.doesNotMatch(videoCarousel, /data-custom-video-controls|type="range"|formatVideoTime|currentTime|duration/);
+  assert.match(videoCarousel, /data-video-mute-control[\s\S]*absolute bottom-2 left-2/);
+  assert.match(videoCarousel, /absolute bottom-2 right-2[\s\S]*openExpandedViewer\(index\)/);
 });
 
 test("expanded movie metadata is the only header link and targets the canonical movie id", () => {
@@ -185,4 +186,17 @@ test("mobile swipe previews adjacent videos and snaps or cancels in 260ms", () =
   assert.match(videoCarousel, /transition: swipeAnimating \? "transform 260ms ease-out" : "none"/);
   assert.match(videoCarousel, /setSwipeOffset\(0\)[\s\S]*return/);
   assert.match(videoCarousel, /window\.setTimeout\([\s\S]*260/);
+  assert.match(videoCarousel, /readyState >= HTMLMediaElement\.HAVE_CURRENT_DATA/);
+  assert.match(videoCarousel, /addEventListener\("loadeddata"/);
+  assert.match(videoCarousel, /swipeCoverSrc[\s\S]*requestAnimationFrame\(\(\) => requestAnimationFrame/);
+});
+
+test("video surface toggles playback without persistent transport controls", () => {
+  assert.match(videoCarousel, /const togglePlayback = \(\) =>/);
+  assert.match(videoCarousel, /if \(willPlay\) void video\.play\(\)\.catch/);
+  assert.match(videoCarousel, /else video\.pause\(\)/);
+  assert.match(videoCarousel, /onClick=\{togglePlayback\}/);
+  assert.match(videoCarousel, /manuallyPausedVideoId\.current === nextId/);
+  assert.match(videoCarousel, /onManualToggle=\{\(paused\)/);
+  assert.match(videoCarousel, /event\.stopPropagation\(\); onMutedChange/);
 });
