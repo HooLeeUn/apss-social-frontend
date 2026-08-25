@@ -69,7 +69,7 @@ test("visited profile autoplay selects one sufficiently visible muted inline vid
   assert.match(videoCarousel, /video\.muted = isMuted/);
   assert.match(videoCarousel, /video\.play\(\)[\s\S]*\.catch/);
   assert.match(videoCarousel, /preload="auto" muted=\{isMuted\} playsInline controls/);
-  assert.match(videoCarousel, /onPlay=\{\(\) => \{ activeVideoId\.current = videoId; pauseAllExcept\(videoId\); \}\}/);
+  assert.match(videoCarousel, /onPlay=\{\(\) => \{ activeVideoId\.current = videoId; activeVideoIndex\.current = index; pauseAllExcept\(videoId\); \}\}/);
   assert.match(videoCarousel, /observer\.disconnect\(\)[\s\S]*video\.pause\(\)/);
 });
 
@@ -102,14 +102,50 @@ test("expanded viewer opens the selected carousel index with shared localized me
   assert.equal((videoCarousel.match(/void reactToVideo\(item\.id, commentId, reaction\)/g) ?? []).length, 2);
 });
 
-test("expanded viewer navigates in source order with bounded desktop arrows and mobile swipe", () => {
+test("expanded viewer navigates in source order with bounded desktop arrows and vertical mobile swipe", () => {
   assert.match(videoCarousel, /const next = current \+ direction/);
   assert.match(videoCarousel, /next < 0 \|\| next >= itemsRef\.current\.length/);
-  assert.match(videoCarousel, /navigateExpandedViewer\(distance < 0 \? 1 : -1\)/);
-  assert.match(videoCarousel, /Math\.abs\(distance\) < 50/);
+  assert.match(videoCarousel, /const deltaX = touch\.clientX - start\.x/);
+  assert.match(videoCarousel, /const deltaY = touch\.clientY - start\.y/);
+  assert.match(videoCarousel, /navigateExpandedViewer\(deltaY < 0 \? 1 : -1\)/);
+  assert.match(videoCarousel, /Math\.abs\(deltaY\) < 60/);
+  assert.match(videoCarousel, /Math\.abs\(deltaY\) <= Math\.abs\(deltaX\) \* 1\.25/);
+  assert.match(videoCarousel, /bottom - 72/);
   assert.match(videoCarousel, /disabled=\{expandedIndex === 0\}/);
   assert.match(videoCarousel, /disabled=\{expandedIndex === cards\.length - 1\}/);
   assert.match(videoCarousel, /hidden h-12[\s\S]*xl:flex/);
+});
+
+test("each card exposes only the enriched top expand action and suppresses native lower fullscreen", () => {
+  assert.equal((videoCarousel.match(/openExpandedViewer\(index\)/g) ?? []).length, 1);
+  assert.match(videoCarousel, /absolute right-2 top-2[\s\S]*openExpandedViewer\(index\)/);
+  assert.match(videoCarousel, /controlsList="nodownload noplaybackrate nofullscreen"/);
+  assert.doesNotMatch(videoCarousel, /requestFullscreen|webkitEnterFullscreen/);
+});
+
+test("expanded movie metadata is the only header link and targets the canonical movie id", () => {
+  assert.match(videoCarousel, /<Link href=\{`\/movies\/\$\{encodeURIComponent\(String\(item\.movie\.id\)\)\}`\}[\s\S]*<img[\s\S]*\{title\}[\s\S]*<\/Link>/);
+  const expandedHeader = videoCarousel.slice(videoCarousel.indexOf("<header className=\"relative z-10"), videoCarousel.indexOf("</header>", videoCarousel.indexOf("<header className=\"relative z-10")));
+  assert.equal((expandedHeader.match(/<Link /g) ?? []).length, 1);
+});
+
+test("desktop expanded viewer overlays metadata on a large 90dvh video", () => {
+  assert.match(videoCarousel, /xl:h-\[90dvh\] xl:max-h-\[90dvh\]/);
+  assert.match(videoCarousel, /xl:absolute xl:inset-x-0 xl:top-0/);
+  assert.match(videoCarousel, /xl:bg-gradient-to-b xl:from-black\/90 xl:to-transparent/);
+  assert.match(videoCarousel, /flex shrink-0 gap-1 xl:flex-col/);
+  assert.match(videoCarousel, /object-contain xl:h-\[90dvh\]/);
+});
+
+test("desktop minimized autoplay starts at zero and advances once on ended without looping", () => {
+  assert.match(videoCarousel, /const activeVideoIndex = useRef\(0\)/);
+  assert.match(videoCarousel, /const desktopSequenceStarted = useRef\(false\)/);
+  assert.match(videoCarousel, /const firstItem = itemsRef\.current\[0\]/);
+  assert.match(videoCarousel, /nextIndex = index \+ 1/);
+  assert.match(videoCarousel, /if \(!nextItem\) return/);
+  assert.match(videoCarousel, /onEnded=\{\(\) => playNextDesktopVideo\(index\)\}/);
+  assert.match(videoCarousel, /pauseAllExcept\(nextId\)/);
+  assert.doesNotMatch(videoCarousel, /nextIndex % itemsRef\.current\.length/);
 });
 
 test("all minimized and expanded players share one mute state", () => {
