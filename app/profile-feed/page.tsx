@@ -792,7 +792,7 @@ function ProfileFeedContent() {
           aria-label={t("profileFeedMyList")}
           value={activeListView}
           onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
-          className="hidden appearance-none overflow-hidden rounded-xl border md:block border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center text-lg font-semibold text-zinc-100 [text-indent:1.25rem] shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0"
+          className={`hidden appearance-none overflow-hidden rounded-xl border md:block border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center ${activeListView === "recommended" ? "text-sm" : "text-lg"} font-semibold leading-7 text-zinc-100 [text-indent:1.25rem] shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0`}
         >
           <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyList")}</option>
           <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyRecommendations")}</option>
