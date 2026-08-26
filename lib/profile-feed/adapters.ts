@@ -1956,6 +1956,20 @@ export async function getSocialActivity(
   const usernameScope = parseUserScope(tab);
   const isMyActivityScope = tab === "me";
 
+  if (isMyActivityScope && activityType && !nextEndpoint) {
+    const myUsername = await getMyUsername();
+    if (!myUsername) return { items: [], next: null };
+
+    const endpoint = `${buildUserActivityEndpoint(myUsername)}?${new URLSearchParams({ activity_type: activityType }).toString()}`;
+    const payload = await apiFetch(endpoint, { signal });
+    const parsed = parseSocialActivity(payload);
+
+    return {
+      items: filterUsernameScopedActivity(parsed.items, myUsername),
+      next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+    };
+  }
+
   if (isMyActivityScope && !nextEndpoint) {
     let myUsername: string | null = null;
     try {
