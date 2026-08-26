@@ -192,6 +192,15 @@ test("mobile swipe previews adjacent videos and snaps or cancels in 260ms", () =
   assert.doesNotMatch(videoCarousel, /swipeCoverSrc/);
 });
 
+test("expanded current slide has a non-collapsing viewport and starts at position zero", () => {
+  assert.match(videoCarousel, /relative flex h-full w-full max-h-full max-w-full flex-col/);
+  assert.match(videoCarousel, /relative min-h-0 w-full max-w-full flex-1 overflow-hidden/);
+  assert.match(videoCarousel, /const slideActive = slideIndex === expandedIndex/);
+  assert.match(videoCarousel, /src=\{slide\.item\.payload\.video_url\}/);
+  assert.match(videoCarousel, /transform: `translateY\(\$\{\(slideIndex - expandedIndex\) \* 100\}%\)`/);
+  assert.doesNotMatch(videoCarousel, /data-expanded-video-slide=\{slideActive[^\n]*(opacity-0|invisible|hidden)/);
+});
+
 test("video surface toggles playback without persistent transport controls", () => {
   assert.match(videoCarousel, /const togglePlayback = \(\) =>/);
   assert.match(videoCarousel, /if \(willPlay\) void video\.play\(\)\.catch/);
