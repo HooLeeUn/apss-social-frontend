@@ -8,6 +8,7 @@ interface UseInfiniteMyMessagesResult {
   items: MyMessageItem[];
   loading: boolean;
   loadingMore: boolean;
+  hasLoaded: boolean;
   error: string | null;
   hasMore: boolean;
   loadMore: () => Promise<void>;
@@ -19,6 +20,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
   const [next, setNext] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -80,6 +82,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
       });
       setNext(response.next);
       nextRef.current = response.next;
+      if (mode === "reset") setHasLoaded(true);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       if (requestId !== requestIdRef.current) return;
@@ -101,6 +104,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
     if (!enabled) {
       abortControllerRef.current?.abort();
       setItems([]);
+      setHasLoaded(false);
       setNext(null);
       nextRef.current = null;
       setError(null);
@@ -113,6 +117,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
     }
 
     setItems([]);
+    setHasLoaded(false);
     setNext(null);
     nextRef.current = null;
     setError(null);
@@ -135,6 +140,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
   const reload = useCallback(() => {
     if (!enabled) return;
     setItems([]);
+    setHasLoaded(false);
     setNext(null);
     nextRef.current = null;
     setError(null);
@@ -146,6 +152,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
     items,
     loading,
     loadingMore,
+    hasLoaded,
     error,
     hasMore: Boolean(next),
     loadMore,

@@ -1020,6 +1020,7 @@ export default function MyActivityColumn({
   const [recommendationsLoadedFor, setRecommendationsLoadedFor] = useState<string | null>(null);
   const autoLoadAttemptsRef = useRef(0);
   const markAsReadAbortControllerRef = useRef<AbortController | null>(null);
+  const hasRequestedMessagesMarkAsReadRef = useRef(false);
   const activityTouchGestureRef = useRef<ActivityTouchGesture | null>(null);
   const swipeIntentRef = useRef<SwipeIntent>({ count: 0, direction: null, endedAt: 0, armedDirection: null });
   const visitedTabsRef = useRef<HTMLDivElement | null>(null);
@@ -1070,7 +1071,6 @@ export default function MyActivityColumn({
 
   const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled, selectedActivityType);
   const messages = useInfiniteMyMessages(messagesEnabled);
-  const reloadMessages = messages.reload;
 
   const openActivityVideo = useCallback(async ({ movieId, activityType, video }: ActivityVideoOpenRequest) => {
     if (resolvingVideoReactionRef.current) return;
@@ -1330,16 +1330,20 @@ export default function MyActivityColumn({
   }, [activeTab, shouldBlockPrivateInbox]);
 
   useEffect(() => {
-    if (!isOwnProfile || !canShowPrivateInbox || effectiveActiveTab !== "messages") return;
+    if (!isOwnProfile || !canShowPrivateInbox || effectiveActiveTab !== "messages") {
+      hasRequestedMessagesMarkAsReadRef.current = false;
+      return;
+    }
+    if (!messages.hasLoaded || messages.loading || messages.error || hasRequestedMessagesMarkAsReadRef.current) return;
 
     markAsReadAbortControllerRef.current?.abort();
     const abortController = new AbortController();
     markAsReadAbortControllerRef.current = abortController;
+    hasRequestedMessagesMarkAsReadRef.current = true;
 
     const markMessagesAsRead = async () => {
       try {
         await markMyMessagesAsRead(abortController.signal);
-        reloadMessages();
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
         console.warn("No se pudieron marcar mensajes como leídos.", error);
@@ -1351,7 +1355,7 @@ export default function MyActivityColumn({
     return () => {
       abortController.abort();
     };
-  }, [canShowPrivateInbox, effectiveActiveTab, isOwnProfile, reloadMessages]);
+  }, [canShowPrivateInbox, effectiveActiveTab, isOwnProfile, messages.error, messages.hasLoaded, messages.loading]);
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
