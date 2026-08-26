@@ -1045,6 +1045,9 @@ export default function MyActivityColumn({
       : visitedActivityTab === "reactions"
         ? "public_comment_reaction" as const
         : undefined;
+  const selectedActivityType = isOwnProfile && effectiveActiveTab === "rated"
+    ? "rating" as const
+    : visitedActivityType;
   const activityEnabled = isOwnProfile
     ? effectiveActiveTab === "activity" || effectiveActiveTab === "rated"
     : effectiveActiveTab === "activity" && visitedActivityType !== undefined;
@@ -1065,7 +1068,7 @@ export default function MyActivityColumn({
       : t("visitedProfileNoSocialActivity");
   const resolvedErrorCopy = errorCopy ?? (locale === "en" ? "Activity could not be loaded." : "No se pudo cargar la actividad.");
 
-  const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled, visitedActivityType);
+  const activity = useInfiniteScopedSocialActivity(resolvedScope || "user:unknown", activityEnabled, selectedActivityType);
   const messages = useInfiniteMyMessages(messagesEnabled);
   const reloadMessages = messages.reload;
 
@@ -1166,21 +1169,18 @@ export default function MyActivityColumn({
   }, [activity.items, activityVideoReactionOverrides, deletedVideoCommentIds, myUsername]);
 
   const ownRatedItems = useMemo(() => {
-    return activity.items
-      .filter((item) => isOwnRatingActivityItem(item, myUsername))
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+    return activity.items.filter((item) => isOwnRatingActivityItem(item, myUsername));
   }, [activity.items, myUsername]);
 
   useEffect(() => {
-    if (!isOwnProfile || (effectiveActiveTab !== "activity" && effectiveActiveTab !== "rated")) {
+    if (!isOwnProfile || effectiveActiveTab !== "activity") {
       autoLoadAttemptsRef.current = 0;
       return;
     }
 
     if (activity.loading || activity.loadingMore) return;
 
-    const visibleItems = effectiveActiveTab === "rated" ? ownRatedItems.length : ownActivityItems.length;
-    if (!activity.hasMore || visibleItems >= MIN_VISIBLE_OWN_ACTIVITY_ITEMS) {
+    if (!activity.hasMore || ownActivityItems.length >= MIN_VISIBLE_OWN_ACTIVITY_ITEMS) {
       autoLoadAttemptsRef.current = 0;
       return;
     }
@@ -1194,7 +1194,6 @@ export default function MyActivityColumn({
     activity,
     isOwnProfile,
     ownActivityItems.length,
-    ownRatedItems.length,
   ]);
 
   useEffect(() => {
