@@ -1638,10 +1638,24 @@ export async function deleteAcceptedFriendship(friendshipId: string | number): P
   await apiFetch(buildFriendshipDeleteEndpoint(friendshipId), { method: "DELETE" });
 }
 
-export async function getTopFriends(): Promise<SocialUser[]> {
-  const payload = await apiFetch(PROFILE_FRIENDS_ENDPOINT);
-  const friends = parseAcceptedFriends(payload);
-  return sortUsersByFollowersDesc(friends);
+let inFlightTopFriendsRequest: Promise<SocialUser[]> | null = null;
+
+export function getTopFriends(): Promise<SocialUser[]> {
+  if (inFlightTopFriendsRequest) return inFlightTopFriendsRequest;
+
+  const request = (async () => {
+    const payload = await apiFetch(PROFILE_FRIENDS_ENDPOINT);
+    const friends = parseAcceptedFriends(payload);
+    return sortUsersByFollowersDesc(friends);
+  })();
+
+  inFlightTopFriendsRequest = request;
+  const clearInFlightRequest = () => {
+    if (inFlightTopFriendsRequest === request) inFlightTopFriendsRequest = null;
+  };
+  void request.then(clearInFlightRequest, clearInFlightRequest);
+
+  return request;
 }
 
 export async function getTopFriendsByUsername(username: string): Promise<SocialUser[]> {
@@ -1663,9 +1677,23 @@ export async function getTopFriendsByUsername(username: string): Promise<SocialU
   return [];
 }
 
-export async function getTopFollowing(): Promise<SocialUser[]> {
-  const results = await tryFollowingEndpoints();
-  return sortUsersByFollowersDesc(results);
+let inFlightTopFollowingRequest: Promise<SocialUser[]> | null = null;
+
+export function getTopFollowing(): Promise<SocialUser[]> {
+  if (inFlightTopFollowingRequest) return inFlightTopFollowingRequest;
+
+  const request = (async () => {
+    const results = await tryFollowingEndpoints();
+    return sortUsersByFollowersDesc(results);
+  })();
+
+  inFlightTopFollowingRequest = request;
+  const clearInFlightRequest = () => {
+    if (inFlightTopFollowingRequest === request) inFlightTopFollowingRequest = null;
+  };
+  void request.then(clearInFlightRequest, clearInFlightRequest);
+
+  return request;
 }
 
 export async function getTopFollowingByUsername(username: string): Promise<SocialUser[]> {
