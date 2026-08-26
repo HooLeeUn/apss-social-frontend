@@ -1450,6 +1450,7 @@ export default function MyActivityColumn({
 
   return (
     <section
+      data-tour={isOwnProfile ? "profile-activity" : undefined}
       data-tour-mobile={isOwnProfile ? `profile-${effectiveActiveTab === "messages" ? "inbox" : effectiveActiveTab === "rated" ? "ratings" : "activity"}-mobile` : undefined}
       className={`my-activity-column w-full min-w-0 max-w-full ${isOwnProfile ? "xl:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
     >

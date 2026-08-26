@@ -10,8 +10,8 @@ test("tablet widths stay on the mobile branches until the xl desktop breakpoint"
   const feed = read("app/feed/page.tsx");
   const tours = read("components/onboarding/OnboardingProvider.tsx");
 
-  assert.match(profile, /profile-feed-mobile-content-row[^\n]+xl:hidden/);
-  assert.match(profile, /data-tour="profile-activity"[^\n]+hidden xl:block/);
+  assert.match(profile, /profile-feed-mobile-content-row[^\n]+xl:contents/);
+  assert.match(profile, /profile-feed-mobile-content-panel[^\n]+xl:contents/);
   assert.match(profile, /renderMovieListPanel\("hidden h-\[30rem\] xl:flex/);
   assert.match(detail, /data-mobile-comment-tabs[^\n]+xl:hidden/);
   assert.match(detail, /data-desktop-comment-tabs[^\n]+hidden[^\n]+xl:flex/);
