@@ -2094,10 +2094,15 @@ export async function getMyMessages(nextEndpoint: string | null = null, signal?:
 
 /** Paginated Profile Feed inbox. Legacy callers must keep using getMyMessages. */
 export async function getMyMessagesPaginated(nextEndpoint: string | null = null, signal?: AbortSignal): Promise<PaginatedMyMessages> {
-  // Cursor URLs are opaque: subsequent requests must use the backend-provided URL verbatim.
-  const endpoint = nextEndpoint || PROFILE_ME_MESSAGES_PAGINATED_ENDPOINT;
+  // apiFetch accepts API-relative endpoints, so retain the opaque path/query while
+  // removing only an absolute origin (and the API base prefix) returned by DRF.
+  const endpoint = nextEndpoint ? normalizeActivityNextEndpoint(nextEndpoint) : PROFILE_ME_MESSAGES_PAGINATED_ENDPOINT;
   const payload = await apiFetch(endpoint, { cache: "no-store", signal });
-  return parseMyMessages(payload, true);
+  const parsed = parseMyMessages(payload, true);
+  return {
+    items: parsed.items,
+    next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+  };
 }
 
 export async function getMyMessagesSummary(signal?: AbortSignal): Promise<MyMessagesSummary> {
