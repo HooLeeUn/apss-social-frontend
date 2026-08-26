@@ -43,6 +43,7 @@ const PROFILE_FRIENDS_ENDPOINT = process.env.NEXT_PUBLIC_SOCIAL_FRIENDS_ENDPOINT
 const PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE =
   process.env.NEXT_PUBLIC_PROFILE_USER_ACTIVITY_ENDPOINT_TEMPLATE || "/users/{username}/activity/";
 const PROFILE_ME_MESSAGES_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_ENDPOINT || "/me/messages/";
+const PROFILE_ME_MESSAGES_PAGINATED_ENDPOINT = `${PROFILE_ME_MESSAGES_ENDPOINT}${PROFILE_ME_MESSAGES_ENDPOINT.includes("?") ? "&" : "?"}paginated=1`;
 const PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT = process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_SUMMARY_ENDPOINT || "/me/messages/summary/";
 const PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT =
   process.env.NEXT_PUBLIC_PROFILE_ME_MESSAGES_MARK_AS_READ_ENDPOINT || "/me/messages/mark-as-read/";
@@ -767,13 +768,14 @@ function getMessageCounterpartUsername(item: MyMessageItem): string {
   return counterpart.username.trim().toLocaleLowerCase();
 }
 
-function toParsedMessageCandidate(item: MyMessageApiItem, index: number): ParsedMessageCandidate | null {
+function toParsedMessageCandidate(item: MyMessageApiItem, index: number, preserveItemId = false): ParsedMessageCandidate | null {
   const text = resolveMessageText(item);
   if (!text) return null;
   if (isReactionOrActivitySummary(item)) return null;
   if (isReactionSummaryText(text)) return null;
+  if (preserveItemId && !((typeof item.id === "string" && item.id.trim() !== "") || (typeof item.id === "number" && Number.isFinite(item.id)))) return null;
 
-  const mapped = toMessageItem(item, index, text);
+  const mapped = toMessageItem(item, index, text, preserveItemId);
   const normalizedContent = normalizeMessageContent(text);
   const messageId = toStringOrNull(item.message_id);
   const commentId = toStringOrNull(item.comment_id);
@@ -799,7 +801,7 @@ function toParsedMessageCandidate(item: MyMessageApiItem, index: number): Parsed
 function dedupeMessageCandidates(candidates: ParsedMessageCandidate[]): MyMessageItem[] {
   const byMessageId = new Map<string, ParsedMessageCandidate>();
   const byCommentId = new Map<string, ParsedMessageCandidate>();
-  const byPrivateId = new Map<string, ParsedMessageCandidate>();
+  const byPrivateId = new Map<MyMessageItem["id"], ParsedMessageCandidate>();
   const byFallback = new Map<string, ParsedMessageCandidate>();
   const deduped: ParsedMessageCandidate[] = [];
 
@@ -821,7 +823,7 @@ function dedupeMessageCandidates(candidates: ParsedMessageCandidate[]): MyMessag
   return deduped.map((candidate) => candidate.item);
 }
 
-function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: string): MyMessageItem {
+function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: string, preserveItemId = false): MyMessageItem {
   const sender = item.author || item.sender || item.counterpart || item.target_user;
   const recipient = item.recipient || item.receiver || item.target_user || item.counterpart;
   const normalizedDirection = safeTrim(item.direction)?.toLocaleLowerCase();
@@ -844,7 +846,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
   const representedUserRestricted = isTrueValue(item.restricted_current_user);
 
   return {
-    id: String(pickFirst(item.id, `message-${index}`)),
+    id: preserveItemId ? resolveMessageEntityId(item.id, `message-${index}`) : String(pickFirst(item.id, `message-${index}`)),
     direction,
     sender: {
       id: String(pickFirst(sender?.id, `sender-${index}`)),
@@ -875,7 +877,7 @@ function toMessageItem(item: MyMessageApiItem, index: number, resolvedText?: str
   };
 }
 
-function parseMyMessages(payload: unknown): PaginatedMyMessages {
+function parseMyMessages(payload: unknown, preserveBackendOrder = false): PaginatedMyMessages {
   const root = toRecord(payload);
   const data = toRecord(root?.data);
   const results = Array.isArray(payload)
@@ -899,15 +901,17 @@ function parseMyMessages(payload: unknown): PaginatedMyMessages {
     .map((entry) => toRecord(entry))
     .filter((entry): entry is Record<string, unknown> => Boolean(entry))
     .map((entry) => entry as MyMessageApiItem)
-    .map((entry, index) => toParsedMessageCandidate(entry, index))
+    .map((entry, index) => toParsedMessageCandidate(entry, index, preserveBackendOrder))
     .filter((entry): entry is ParsedMessageCandidate => Boolean(entry)),
-  )
-    .sort((left, right) => {
+  );
+  if (!preserveBackendOrder) {
+    items.sort((left, right) => {
       const leftTs = new Date(left.createdAt).getTime();
       const rightTs = new Date(right.createdAt).getTime();
       if (Number.isNaN(leftTs) || Number.isNaN(rightTs)) return 0;
       return rightTs - leftTs;
     });
+  }
 
   return {
     items,
@@ -2082,6 +2086,19 @@ export async function getMyMessages(nextEndpoint: string | null = null, signal?:
   const payload = await apiFetch(endpoint, { cache: "no-store", signal });
   const parsed = parseMyMessages(payload);
 
+  return {
+    items: parsed.items,
+    next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
+  };
+}
+
+/** Paginated Profile Feed inbox. Legacy callers must keep using getMyMessages. */
+export async function getMyMessagesPaginated(nextEndpoint: string | null = null, signal?: AbortSignal): Promise<PaginatedMyMessages> {
+  // apiFetch accepts API-relative endpoints, so retain the opaque path/query while
+  // removing only an absolute origin (and the API base prefix) returned by DRF.
+  const endpoint = nextEndpoint ? normalizeActivityNextEndpoint(nextEndpoint) : PROFILE_ME_MESSAGES_PAGINATED_ENDPOINT;
+  const payload = await apiFetch(endpoint, { cache: "no-store", signal });
+  const parsed = parseMyMessages(payload, true);
   return {
     items: parsed.items,
     next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,

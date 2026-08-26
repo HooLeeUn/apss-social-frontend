@@ -175,7 +175,7 @@ export interface PaginatedSocialActivity {
 }
 
 export interface MyMessageItem {
-  id: string;
+  id: string | number;
   direction: "sent" | "received";
   sender: SocialUser;
   recipient: SocialUser | null;

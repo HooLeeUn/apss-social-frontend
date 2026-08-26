@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getMyMessages } from "../lib/profile-feed/adapters";
+import { getMyMessagesPaginated } from "../lib/profile-feed/adapters";
 import { MyMessageItem } from "../lib/profile-feed/types";
+import { mergeMyMessagesPage } from "./myMessagesPagination";
 
 interface UseInfiniteMyMessagesResult {
   items: MyMessageItem[];
@@ -28,6 +29,8 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
   const loadingRef = useRef(false);
   const loadingMoreRef = useRef(false);
   const errorRef = useRef<string | null>(null);
+  const lastRequestedNextRef = useRef<string | null>(null);
+  const itemsRef = useRef<MyMessageItem[]>([]);
 
   useEffect(() => {
     nextRef.current = next;
@@ -48,6 +51,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
   const loadPage = useCallback(async (mode: "reset" | "append") => {
     const currentNext = nextRef.current;
     if (mode === "append" && (!currentNext || loadingRef.current || loadingMoreRef.current || errorRef.current)) return;
+    if (mode === "append" && lastRequestedNextRef.current === currentNext) return;
 
     if (mode === "reset") {
       abortControllerRef.current?.abort();
@@ -65,30 +69,50 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
       setLoading(true);
       loadingRef.current = true;
     } else {
+      lastRequestedNextRef.current = currentNext;
       setLoadingMore(true);
       loadingMoreRef.current = true;
     }
 
     try {
-      const response = await getMyMessages(mode === "append" ? currentNext : null, abortController.signal);
+      const response = await getMyMessagesPaginated(mode === "append" ? currentNext : null, abortController.signal);
       if (requestId !== requestIdRef.current) return;
 
-      setItems((current) => {
-        if (mode === "reset") return response.items;
-
-        const existingIds = new Set(current.map((item) => item.id));
-        const uniqueNewItems = response.items.filter((item) => !existingIds.has(item.id));
-        return [...current, ...uniqueNewItems];
-      });
-      setNext(response.next);
-      nextRef.current = response.next;
-      if (mode === "reset") setHasLoaded(true);
+      if (mode === "reset") {
+        setItems(response.items);
+        itemsRef.current = response.items;
+        setNext(response.next);
+        nextRef.current = response.next;
+        lastRequestedNextRef.current = null;
+        setHasLoaded(true);
+      } else {
+        const merged = mergeMyMessagesPage(itemsRef.current, response, currentNext!);
+        itemsRef.current = merged.items;
+        setItems(merged.items);
+        setNext(merged.next);
+        nextRef.current = merged.next;
+        if (merged.issue) {
+          console.error("Paginación inconsistente del Buzón Privado; se detuvieron cargas adicionales.", {
+            issue: merged.issue,
+            requestedNext: currentNext,
+            responseNext: response.next,
+            resultCount: response.items.length,
+          });
+        }
+      }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       if (requestId !== requestIdRef.current) return;
-      const nextError = "No se pudieron cargar tus mensajes.";
-      setError(nextError);
-      errorRef.current = nextError;
+      // A failed cursor page must not hide or erase pages already rendered.
+      if (mode === "reset") {
+        const nextError = "No se pudieron cargar tus mensajes.";
+        setError(nextError);
+        errorRef.current = nextError;
+      } else {
+        setNext(null);
+        nextRef.current = null;
+        console.error("No se pudo cargar la siguiente página del Buzón Privado; se detuvieron reintentos automáticos.", err);
+      }
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
@@ -103,7 +127,10 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
   useEffect(() => {
     if (!enabled) {
       abortControllerRef.current?.abort();
+      requestIdRef.current += 1;
+      lastRequestedNextRef.current = null;
       setItems([]);
+      itemsRef.current = [];
       setHasLoaded(false);
       setNext(null);
       nextRef.current = null;
@@ -117,9 +144,11 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
     }
 
     setItems([]);
+    itemsRef.current = [];
     setHasLoaded(false);
     setNext(null);
     nextRef.current = null;
+    lastRequestedNextRef.current = null;
     setError(null);
     errorRef.current = null;
     void loadPage("reset");
@@ -140,9 +169,11 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
   const reload = useCallback(() => {
     if (!enabled) return;
     setItems([]);
+    itemsRef.current = [];
     setHasLoaded(false);
     setNext(null);
     nextRef.current = null;
+    lastRequestedNextRef.current = null;
     setError(null);
     errorRef.current = null;
     void loadPage("reset");
