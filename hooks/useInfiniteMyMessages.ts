@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getMyMessages } from "../lib/profile-feed/adapters";
+import { getMyMessagesPaginated } from "../lib/profile-feed/adapters";
 import { MyMessageItem } from "../lib/profile-feed/types";
 
 interface UseInfiniteMyMessagesResult {
@@ -70,7 +70,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
     }
 
     try {
-      const response = await getMyMessages(mode === "append" ? currentNext : null, abortController.signal);
+      const response = await getMyMessagesPaginated(mode === "append" ? currentNext : null, abortController.signal);
       if (requestId !== requestIdRef.current) return;
 
       setItems((current) => {
@@ -86,9 +86,12 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       if (requestId !== requestIdRef.current) return;
-      const nextError = "No se pudieron cargar tus mensajes.";
-      setError(nextError);
-      errorRef.current = nextError;
+      // A failed cursor page must not hide or erase pages already rendered.
+      if (mode === "reset") {
+        const nextError = "No se pudieron cargar tus mensajes.";
+        setError(nextError);
+        errorRef.current = nextError;
+      }
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
@@ -103,6 +106,7 @@ export function useInfiniteMyMessages(enabled: boolean = true): UseInfiniteMyMes
   useEffect(() => {
     if (!enabled) {
       abortControllerRef.current?.abort();
+      requestIdRef.current += 1;
       setItems([]);
       setHasLoaded(false);
       setNext(null);
