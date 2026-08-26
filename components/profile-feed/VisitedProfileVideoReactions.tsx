@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useI18n } from "../../hooks/useI18n";
@@ -592,7 +593,7 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
                   const slide = cards[slideIndex];
                   const slideActive = slideIndex === expandedIndex;
                   const slideId = String(slide.item.payload.video_comment_id ?? slide.item.id);
-                  return <div key={slideId} data-expanded-video-slide={slideActive ? "current" : slideIndex < expandedIndex ? "previous" : "next"} className="absolute inset-0 xl:transition-transform xl:duration-200" style={{ transform: `translateY(${(slideIndex - expandedIndex) * 100}%)` }}>
+                  return <div key={slideId} data-expanded-video-slide={slideActive ? "current" : slideIndex < expandedIndex ? "previous" : "next"} className="absolute inset-0 [transform:translateY(var(--expanded-slide-offset))] xl:transition-transform xl:duration-200 xl:[transform:translateX(var(--expanded-slide-offset))]" style={{ "--expanded-slide-offset": `${(slideIndex - expandedIndex) * 100}%` } as CSSProperties}>
                     <VisitedProfileVideoPlayer src={slide.item.payload.video_url} autoPlay={slideActive} interactive={slideActive} showMuteControl={slideActive} muted={isMuted} className="h-full max-h-full w-full object-contain xl:h-[100dvh]" onRegister={(video) => {
                       if (slideActive) expandedVideoRef.current = video;
                       if (video) adjacentVideoRefs.current.set(slideIndex, video);

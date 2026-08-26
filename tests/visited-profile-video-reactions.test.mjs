@@ -183,7 +183,7 @@ test("mobile swipe previews adjacent videos and snaps or cancels in 260ms", () =
   assert.match(videoCarousel, /expandedSlideIndices\.map/);
   assert.match(videoCarousel, /data-expanded-video-slide=\{slideActive \? "current" : slideIndex < expandedIndex \? "previous" : "next"\}/);
   assert.match(videoCarousel, /key=\{slideId\}/);
-  assert.match(videoCarousel, /translateY\(\$\{\(slideIndex - expandedIndex\) \* 100\}%\)/);
+  assert.match(videoCarousel, /--expanded-slide-offset": `\$\{\(slideIndex - expandedIndex\) \* 100\}%`/);
   assert.match(videoCarousel, /preload="auto"/);
   assert.match(videoCarousel, /transition: swipeAnimating \? "transform 260ms ease-out" : "none"/);
   assert.match(videoCarousel, /setSwipeOffset\(0\)[\s\S]*return/);
@@ -198,8 +198,14 @@ test("expanded current slide has a non-collapsing viewport and starts at positio
   assert.match(videoCarousel, /relative min-h-0 w-full max-w-full flex-1 overflow-hidden/);
   assert.match(videoCarousel, /const slideActive = slideIndex === expandedIndex/);
   assert.match(videoCarousel, /src=\{slide\.item\.payload\.video_url\}/);
-  assert.match(videoCarousel, /transform: `translateY\(\$\{\(slideIndex - expandedIndex\) \* 100\}%\)`/);
+  assert.match(videoCarousel, /\[transform:translateY\(var\(--expanded-slide-offset\)\)\]/);
   assert.doesNotMatch(videoCarousel, /data-expanded-video-slide=\{slideActive[^\n]*(opacity-0|invisible|hidden)/);
+});
+
+test("expanded slides stay vertical on touch layouts and transition horizontally on desktop", () => {
+  assert.match(videoCarousel, /\[transform:translateY\(var\(--expanded-slide-offset\)\)\]/);
+  assert.match(videoCarousel, /xl:\[transform:translateX\(var\(--expanded-slide-offset\)\)\]/);
+  assert.match(videoCarousel, /xl:transition-transform xl:duration-200/);
 });
 
 test("video surface toggles playback without persistent transport controls", () => {
