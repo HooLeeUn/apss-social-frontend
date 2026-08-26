@@ -1008,26 +1008,26 @@ function ProfileFeedContent() {
               onConnectionViewRequestComplete={completeConnectionViewRequest}
               onConnectionViewChange={handleFriendsViewChange}
             />
-            <div ref={activityAndListsPanelRef} className="profile-feed-mobile-content-row w-full max-w-full scroll-mt-4 overflow-hidden xl:hidden">
+            <div ref={activityAndListsPanelRef} className="profile-feed-mobile-content-row w-full max-w-full scroll-mt-4 overflow-hidden xl:contents">
               <div
                 ref={mobileProfileFeedCarouselRef}
-                className="profile-feed-mobile-content-track flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="profile-feed-mobile-content-track flex w-full max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:contents"
                 onScroll={handleMobileProfileFeedCarouselScroll}
               >
-                <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start">
+                <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start xl:contents">
                   <MyActivityColumn
-                    key={`my-activity-mobile-${initialActivityTab}`}
+                    key={`my-activity-${initialActivityTab}`}
                     isOwnProfile
                     initialActiveTab={initialActivityTab}
                     hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
                     activeTabRequest={activityTabRequest}
                   />
                 </div>
-                <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start">
+                <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start xl:hidden">
                   {renderMovieListPanel("profile-feed-mobile-list-panel flex min-w-0 flex-col rounded-none bg-zinc-950/55 p-4", true)}
                 </div>
               </div>
-              <div className="profile-feed-mobile-carousel-dots mb-2 mt-1 py-0.5" aria-hidden="true">
+              <div className="profile-feed-mobile-carousel-dots mb-2 mt-1 py-0.5 xl:hidden" aria-hidden="true">
                 {[0, 1].map((slideIndex) => (
                   <span
                     key={slideIndex}
@@ -1035,15 +1035,6 @@ function ProfileFeedContent() {
                   />
                 ))}
               </div>
-            </div>
-            <div data-tour="profile-activity" className="hidden xl:block">
-              <MyActivityColumn
-                key={`my-activity-${initialActivityTab}`}
-                isOwnProfile
-                initialActiveTab={initialActivityTab}
-                hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
-                activeTabRequest={activityTabRequest}
-              />
             </div>
             {renderMovieListPanel("hidden h-[30rem] xl:flex xl:min-w-[260px] xl:flex-col xl:rounded-none xl:bg-zinc-950/55 xl:p-4")}
           </div>
