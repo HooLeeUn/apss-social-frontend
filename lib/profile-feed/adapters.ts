@@ -1227,24 +1227,38 @@ export async function searchUsers(query: string, nextEndpoint: string | null = n
   return parseUserSearchResults(payload);
 }
 
-export async function getMyProfile(): Promise<SocialUser | null> {
-  const payload = await apiFetch(PROFILE_ME_ENDPOINT);
-  const record = toRecord(payload);
-  if (!record) return null;
+let inFlightMyProfileRequest: Promise<SocialUser | null> | null = null;
 
-  const data = toRecord(record.data);
-  const nestedUser = toRecord(record.user) ?? toRecord(data?.user);
-  const nestedProfile = toRecord(record.profile) ?? toRecord(data?.profile);
-  const nestedPersonalData = toRecord(record.personal_data) ?? toRecord(data?.personal_data);
-  const source = {
-    ...record,
-    ...(data ?? {}),
-    ...(nestedUser ?? {}),
-    profile: nestedProfile,
-    personal_data: nestedPersonalData,
+export function getMyProfile(): Promise<SocialUser | null> {
+  if (inFlightMyProfileRequest) return inFlightMyProfileRequest;
+
+  const request = (async () => {
+    const payload = await apiFetch(PROFILE_ME_ENDPOINT);
+    const record = toRecord(payload);
+    if (!record) return null;
+
+    const data = toRecord(record.data);
+    const nestedUser = toRecord(record.user) ?? toRecord(data?.user);
+    const nestedProfile = toRecord(record.profile) ?? toRecord(data?.profile);
+    const nestedPersonalData = toRecord(record.personal_data) ?? toRecord(data?.personal_data);
+    const source = {
+      ...record,
+      ...(data ?? {}),
+      ...(nestedUser ?? {}),
+      profile: nestedProfile,
+      personal_data: nestedPersonalData,
+    };
+
+    return toSocialUser(source, "me");
+  })();
+
+  inFlightMyProfileRequest = request;
+  const clearInFlightRequest = () => {
+    if (inFlightMyProfileRequest === request) inFlightMyProfileRequest = null;
   };
+  void request.then(clearInFlightRequest, clearInFlightRequest);
 
-  return toSocialUser(source, "me");
+  return request;
 }
 
 export async function getUserProfileByUsername(username: string): Promise<SocialUser | null> {

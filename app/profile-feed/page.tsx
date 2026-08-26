@@ -299,56 +299,71 @@ function ProfileFeedContent() {
   useEffect(() => {
     let isCurrent = true;
 
-    const loadOwnProfileData = async () => {
-      try {
-        const [myProfile, personalData, privacySettings] = await Promise.all([
-          getMyProfile(),
-          getPersonalData(),
-          getProfilePrivacySettings(),
-        ]);
-        if (!isCurrent) return;
-        setProfileUser({
-          id: myProfile?.id ?? "me",
-          username: myProfile?.username ?? "usuario",
-          displayName: myProfile?.displayName ?? null,
-          avatarUrl: personalData.avatar ?? myProfile?.avatarUrl ?? null,
-          followersCount: myProfile?.followersCount ?? null,
-          firstName: personalData.first_name || myProfile?.firstName || null,
-          lastName: personalData.last_name || myProfile?.lastName || null,
-          age: personalData.age ?? myProfile?.age ?? null,
-          ageVisible: personalData.birth_date_visible,
-          genderIdentity: personalData.gender_identity ?? myProfile?.genderIdentity ?? null,
-          genderIdentityVisible: personalData.gender_identity_visible,
-          profileVisibility: privacySettings.visibility ?? myProfile?.profileVisibility ?? null,
-          friendRequestsRestricted: privacySettings.friendRequestsRestricted ?? myProfile?.friendRequestsRestricted ?? null,
+    const loadOwnProfileData = () => {
+      let myProfile: SocialUser | null = null;
+      let personalData: Awaited<ReturnType<typeof getPersonalData>> | null = null;
+      let privacySettings: Awaited<ReturnType<typeof getProfilePrivacySettings>> | null = null;
+      let myProfileSettled = false;
+      let pendingSources = 3;
+
+      const reconcileProfileUser = () => {
+        if (!isCurrent || !myProfileSettled) return;
+
+        if (myProfile || personalData || privacySettings) {
+          setProfileUser({
+            id: myProfile?.id ?? "me",
+            username: myProfile?.username ?? "usuario",
+            displayName: myProfile?.displayName ?? null,
+            avatarUrl: personalData?.avatar ?? myProfile?.avatarUrl ?? null,
+            followersCount: myProfile?.followersCount ?? null,
+            firstName: personalData?.first_name || myProfile?.firstName || null,
+            lastName: personalData?.last_name || myProfile?.lastName || null,
+            age: personalData?.age ?? myProfile?.age ?? null,
+            ageVisible: personalData?.birth_date_visible ?? myProfile?.ageVisible,
+            genderIdentity: personalData?.gender_identity ?? myProfile?.genderIdentity ?? null,
+            genderIdentityVisible: personalData?.gender_identity_visible ?? myProfile?.genderIdentityVisible,
+            profileVisibility: privacySettings?.visibility ?? myProfile?.profileVisibility ?? null,
+            friendRequestsRestricted: privacySettings?.friendRequestsRestricted ?? myProfile?.friendRequestsRestricted ?? null,
+          });
+          setLoadingProfileUser(false);
+        } else if (pendingSources === 0) {
+          setLoadingProfileUser(false);
+        }
+      };
+
+      const sourceSettled = () => {
+        pendingSources -= 1;
+        reconcileProfileUser();
+      };
+
+      void getMyProfile()
+        .then((result) => {
+          myProfile = result;
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          myProfileSettled = true;
+          sourceSettled();
         });
-      } catch {
-        const [myProfile, privacySettings] = await Promise.all([
-          getMyProfile().catch(() => null),
-          getProfilePrivacySettings().catch(() => null),
-        ]);
-        if (!isCurrent) return;
-        setProfileUser(
-          myProfile || privacySettings
-            ? {
-                ...(myProfile ?? {
-                  id: "me",
-                  username: "usuario",
-                  displayName: null,
-                  avatarUrl: null,
-                  followersCount: null,
-                }),
-                profileVisibility: privacySettings?.visibility ?? myProfile?.profileVisibility ?? null,
-                friendRequestsRestricted: privacySettings?.friendRequestsRestricted ?? myProfile?.friendRequestsRestricted ?? null,
-              }
-            : null,
-        );
-      } finally {
-        if (isCurrent) setLoadingProfileUser(false);
-      }
+
+      void getPersonalData()
+        .then((result) => {
+          personalData = result;
+          reconcileProfileUser();
+        })
+        .catch(() => undefined)
+        .finally(sourceSettled);
+
+      void getProfilePrivacySettings()
+        .then((result) => {
+          privacySettings = result;
+          reconcileProfileUser();
+        })
+        .catch(() => undefined)
+        .finally(sourceSettled);
     };
 
-    void loadOwnProfileData();
+    loadOwnProfileData();
     return () => {
       isCurrent = false;
     };
