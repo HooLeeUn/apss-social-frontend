@@ -123,7 +123,7 @@ test("each card exposes only the enriched top expand action and suppresses nativ
   assert.match(videoCarousel, /absolute bottom-2 right-2[\s\S]*openExpandedViewer\(index\)/);
   assert.match(videoCarousel, /controls=\{false\}/);
   assert.doesNotMatch(videoCarousel, /controlsList=|nofullscreen/);
-  assert.doesNotMatch(videoCarousel, /data-custom-video-controls|type="range"|formatVideoTime|currentTime|duration/);
+  assert.doesNotMatch(videoCarousel, /data-custom-video-controls|type="range"|formatVideoTime|setDuration/);
   assert.match(videoCarousel, /data-video-mute-control[\s\S]*absolute bottom-2 left-2/);
   assert.match(videoCarousel, /absolute bottom-2 right-2[\s\S]*openExpandedViewer\(index\)/);
 });
@@ -153,15 +153,13 @@ test("desktop enriched viewer owns real fullscreen and synchronizes native exit"
   assert.match(videoCarousel, /document\.exitFullscreen\(\)/);
 });
 
-test("desktop minimized autoplay starts at zero and advances once on ended without looping", () => {
+test("desktop minimized autoplay starts at zero and loops in order on ended", () => {
   assert.match(videoCarousel, /const activeVideoIndex = useRef\(0\)/);
   assert.match(videoCarousel, /const desktopSequenceStarted = useRef\(false\)/);
   assert.match(videoCarousel, /const firstItem = itemsRef\.current\[0\]/);
-  assert.match(videoCarousel, /nextIndex = index \+ 1/);
-  assert.match(videoCarousel, /if \(!nextItem\) return/);
+  assert.match(videoCarousel, /\(index \+ 1\) % itemsRef\.current\.length/);
   assert.match(videoCarousel, /onEnded=\{\(\) => playNextDesktopVideo\(index\)\}/);
   assert.match(videoCarousel, /pauseAllExcept\(nextId\)/);
-  assert.doesNotMatch(videoCarousel, /nextIndex % itemsRef\.current\.length/);
 });
 
 test("all minimized and expanded players share one mute state", () => {
@@ -177,26 +175,51 @@ test("expanded playback pauses cards, pauses between items, and restores visibil
   assert.match(videoCarousel, /navigateExpandedViewer[\s\S]*expandedVideoRef\.current\?\.pause\(\)/);
   assert.match(videoCarousel, /closeExpandedViewer[\s\S]*expandedVideoRef\.current\?\.pause\(\)/);
   assert.match(videoCarousel, /requestAnimationFrame\(\(\) => playMostVisibleVideo\(\)\)/);
-  assert.match(videoCarousel, /VisitedProfileVideoPlayer src=\{item\.payload\.video_url\} autoPlay muted=\{isMuted\}/);
+  assert.match(videoCarousel, /VisitedProfileVideoPlayer src=\{slide\.item\.payload\.video_url\} autoPlay=\{slideActive\}/);
 });
 
 test("mobile swipe previews adjacent videos and snaps or cancels in 260ms", () => {
-  assert.match(videoCarousel, /previousItem[\s\S]*bottom-full/);
-  assert.match(videoCarousel, /nextItem[\s\S]*top-full/);
+  assert.match(videoCarousel, /expandedSlideIndices\.map/);
+  assert.match(videoCarousel, /data-expanded-video-slide=\{slideActive \? "current" : slideIndex < expandedIndex \? "previous" : "next"\}/);
+  assert.match(videoCarousel, /key=\{slideId\}/);
+  assert.match(videoCarousel, /translateY\(\$\{\(slideIndex - expandedIndex\) \* 100\}%\)/);
+  assert.match(videoCarousel, /preload="auto"/);
   assert.match(videoCarousel, /transition: swipeAnimating \? "transform 260ms ease-out" : "none"/);
   assert.match(videoCarousel, /setSwipeOffset\(0\)[\s\S]*return/);
   assert.match(videoCarousel, /window\.setTimeout\([\s\S]*260/);
   assert.match(videoCarousel, /readyState >= HTMLMediaElement\.HAVE_CURRENT_DATA/);
   assert.match(videoCarousel, /addEventListener\("loadeddata"/);
-  assert.match(videoCarousel, /swipeCoverSrc[\s\S]*requestAnimationFrame\(\(\) => requestAnimationFrame/);
+  assert.doesNotMatch(videoCarousel, /swipeCoverSrc/);
 });
 
 test("video surface toggles playback without persistent transport controls", () => {
   assert.match(videoCarousel, /const togglePlayback = \(\) =>/);
   assert.match(videoCarousel, /if \(willPlay\) void video\.play\(\)\.catch/);
   assert.match(videoCarousel, /else video\.pause\(\)/);
-  assert.match(videoCarousel, /onClick=\{togglePlayback\}/);
+  assert.match(videoCarousel, /onClick=\{interactive \? togglePlayback : undefined\}/);
   assert.match(videoCarousel, /manuallyPausedVideoId\.current === nextId/);
   assert.match(videoCarousel, /onManualToggle=\{\(paused\)/);
   assert.match(videoCarousel, /event\.stopPropagation\(\); onMutedChange/);
+});
+
+test("visited tab and document visibility pause and resume the same in-memory player", () => {
+  assert.match(activityColumn, /VisitedProfileVideoReactions key=\{normalizedViewedUsername\} username=\{normalizedViewedUsername\} isActive=\{effectiveActiveTab === "activity" && visitedActivityTab === "video_reactions"\}/);
+  assert.match(videoCarousel, /isVideoTabActive\.current = isActive/);
+  assert.match(videoCarousel, /pauseForInterruption/);
+  assert.match(videoCarousel, /resumeAfterInterruption/);
+  assert.match(videoCarousel, /if \(!isActive\) pauseForInterruption\(\)/);
+  assert.match(videoCarousel, /document\.addEventListener\("visibilitychange"/);
+  assert.match(videoCarousel, /if \(document\.hidden\) pauseForInterruption\(\)/);
+  assert.match(videoCarousel, /manuallyPausedVideoId\.current === resume\.videoId/);
+  assert.doesNotMatch(videoCarousel, /localStorage|sessionStorage/);
+});
+
+test("a new visited username resets transient playback and mute state", () => {
+  assert.match(videoCarousel, /activeVideoIndex\.current = 0/);
+  assert.match(videoCarousel, /activeVideoId\.current = null/);
+  assert.match(videoCarousel, /manuallyPausedVideoId\.current = null/);
+  assert.match(videoCarousel, /resumeAfterInterruption\.current = null/);
+  assert.match(videoCarousel, /setIsMuted\(true\)/);
+  assert.match(activityColumn, /key=\{normalizedViewedUsername\}/);
+  assert.match(videoCarousel, /\}, \[username\]\)/);
 });
