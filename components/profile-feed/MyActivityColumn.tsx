@@ -1642,7 +1642,7 @@ export default function MyActivityColumn({
 
             {!isOwnProfile && hasOpenedVisitedVideoReactions ? (
               <div className={visitedActivityTab === "video_reactions" ? "block" : "hidden"}>
-                <VisitedProfileVideoReactions username={normalizedViewedUsername} />
+                <VisitedProfileVideoReactions key={normalizedViewedUsername} username={normalizedViewedUsername} isActive={effectiveActiveTab === "activity" && visitedActivityTab === "video_reactions"} />
               </div>
             ) : null}
 
