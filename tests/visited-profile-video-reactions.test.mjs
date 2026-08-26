@@ -135,7 +135,8 @@ test("expanded movie metadata is the only header link and targets the canonical 
 });
 
 test("desktop expanded viewer overlays compact metadata on a full-height video", () => {
-  assert.match(videoCarousel, /xl:h-\[100dvh\] xl:max-h-full/);
+  assert.match(videoCarousel, /xl:h-\[100dvh\][^"\n]*xl:max-h-full/);
+  assert.match(videoCarousel, /xl:h-\[100dvh\] xl:w-\[min\(56\.25dvh,100dvw\)\] xl:max-h-full/);
   assert.match(videoCarousel, /xl:absolute xl:inset-x-0 xl:top-0/);
   assert.match(videoCarousel, /xl:bg-transparent/);
   assert.doesNotMatch(videoCarousel, /xl:bg-gradient-to-b|xl:from-black\/90/);
