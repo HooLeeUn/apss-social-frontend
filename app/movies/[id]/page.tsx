@@ -50,6 +50,8 @@ import { SocialUser } from "../../../lib/profile-feed/types";
 import { resolveMovieTitles, t as translate } from "../../../lib/i18n";
 import { onboardingPrepareStepEventName } from "../../../lib/onboarding/types";
 import type { OnboardingPrepareAction } from "../../../lib/onboarding/types";
+import { useDesktopGuest } from "../../../hooks/useDesktopGuest";
+import GuestSignupRec from "../../../components/GuestSignupRec";
 
 type CommentInputMode = "text-comment" | "video-comment";
 type TrailerCompanionView = "reaction" | "public-comments" | "directed-comments";
@@ -2759,6 +2761,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
 }
 
 function MovieDetailPageContent() {
+  const { hydrated: authHydrated, isDesktopGuest } = useDesktopGuest();
   const router = useRouter();
   const searchParams = useSearchParams();
   const branding = useAppBranding();
@@ -3055,7 +3058,7 @@ function MovieDetailPageContent() {
   }, [commentInputMode, scrollCommentStartIntoView]);
 
   const canShowDirectedComments = friendRequestsRestricted === false;
-  const shouldRenderDirectedComments = friendRequestsRestricted !== true;
+  const shouldRenderDirectedComments = !isDesktopGuest && friendRequestsRestricted !== true;
 
   const fetchMovieDetail = useCallback(async () => {
     if (!movieId) return null;
@@ -3116,8 +3119,9 @@ function MovieDetailPageContent() {
   }, []);
 
   useEffect(() => {
+    if (!authHydrated) return;
     const token = getToken();
-    if (!token) {
+    if (!token && !isDesktopGuest) {
       router.replace("/login");
       return;
     }
@@ -3180,7 +3184,7 @@ function MovieDetailPageContent() {
           });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof ApiError && error.status === 401) {
+        if (!isDesktopGuest && error instanceof ApiError && error.status === 401) {
           router.replace("/login");
           return;
         }
@@ -3208,7 +3212,7 @@ function MovieDetailPageContent() {
         if (cancelled) return;
         console.log("[movie-comments-debug] public GET status", error instanceof ApiError ? error.status : null);
         console.log("[movie-comments-debug] public GET response", error instanceof Error ? error.message : String(error));
-        if (error instanceof ApiError && error.status === 401) {
+        if (!isDesktopGuest && error instanceof ApiError && error.status === 401) {
           router.replace("/login");
           return;
         }
@@ -3326,13 +3330,15 @@ function MovieDetailPageContent() {
 
     void loadMovie();
     void loadPublicComments();
-    void loadMentionUsers();
-    void loadDirectedComments();
+    if (!isDesktopGuest) {
+      void loadMentionUsers();
+      void loadDirectedComments();
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [fetchMovieDetail, locale, movieId, router]);
+  }, [authHydrated, fetchMovieDetail, isDesktopGuest, locale, movieId, router]);
 
   const handleMovieRated = useCallback(
     async (_movieId: Movie["id"], score: number, _payload?: unknown) => {
@@ -4454,7 +4460,7 @@ function MovieDetailPageContent() {
               showExtendedMetadata
               highlightMyRatingSlot
               enlargeInteractionIcons
-              extendedMetadataMiddleSlot={<StreamingProviders movieId={movie.id} />}
+              extendedMetadataMiddleSlot={isDesktopGuest ? <GuestSignupRec /> : <StreamingProviders movieId={movie.id} />}
               ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
               separateRatingsActionsCard
               onRated={handleMovieRated}
@@ -4489,7 +4495,7 @@ function MovieDetailPageContent() {
         </div>
 
         <div data-desktop-comment-tabs className="relative hidden items-center justify-center gap-16 xl:flex" role="tablist" aria-label={composerTitle}>
-          <AuthenticatedProfileAvatar tourTarget="detail-profile" user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-10 w-10 -translate-y-1/2 cursor-pointer" />
+          {!isDesktopGuest ? <AuthenticatedProfileAvatar tourTarget="detail-profile" user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-10 w-10 -translate-y-1/2 cursor-pointer" /> : null}
           {(["video-comment", "text-comment"] as const).map((mode) => {
             const isActiveMode = commentInputMode === mode;
             return (
@@ -4503,7 +4509,7 @@ function MovieDetailPageContent() {
                 data-comment-input-mode={mode}
                 onClick={() => handleCommentInputTabClick(mode)}
               >
-                {mode === "text-comment" ? composerTitle : t("movieDetailVideoCommentTitle")}
+                {mode === "text-comment" ? (isDesktopGuest ? t("movieDetailPublicComments") : composerTitle) : t("movieDetailVideoCommentTitle")}
               </button>
             );
           })}
@@ -4515,7 +4521,7 @@ function MovieDetailPageContent() {
         <div ref={videoCommentStartRef} data-video-reaction-section>
           <MobileVideoComments movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
-        <div data-desktop-comment-composer className={`${commentInputMode === "text-comment" ? "hidden xl:block" : "hidden"}`}>
+        <div data-desktop-comment-composer className={`${!isDesktopGuest && commentInputMode === "text-comment" ? "hidden xl:block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
         </div>
 

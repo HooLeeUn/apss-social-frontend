@@ -35,6 +35,9 @@ export interface LocaleUserScope {
 const translations = {
   es: {
     searchMovies: "Buscar películas, género o año",
+    guestContinue: "Ingresa como invitado",
+    guestSignUp: "Regístrate",
+    guestSeeMore: "Para ver más regístrate",
     chooseGenres: "*Escoge hasta 3 géneros",
     weeklyRecs: "Recomendaciones de la semana",
     yourWatchlist: "Tu Cartelera",
@@ -373,6 +376,9 @@ const translations = {
     logout: "Cerrar Sesión",
   },
   en: {
+    guestContinue: "Continue as guest",
+    guestSignUp: "Sign up",
+    guestSeeMore: "Sign up to see more",
     searchMovies: "Search movies, genre or year",
     chooseGenres: "*Choose up to 3 genres",
     weeklyRecs: "Weekly Recommendations",

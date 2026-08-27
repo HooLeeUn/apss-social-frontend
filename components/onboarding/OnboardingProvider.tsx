@@ -10,6 +10,7 @@ import { commonTourCopy, getTourDefinitions } from "../../lib/onboarding/tours";
 import { onboardingPrepareStepEventName } from "../../lib/onboarding/types";
 import type { OnboardingState, OnboardingStatus, TourDefinition, TourStepDefinition } from "../../lib/onboarding/types";
 import MyListIcon from "../MyListIcon";
+import { getAuthState } from "../../lib/auth";
 
 type PendingUpdate = { status: OnboardingStatus; currentStep: number | null };
 type TooltipPosition = { left: number; top: number };
@@ -325,7 +326,7 @@ export default function OnboardingProvider() {
   useEffect(() => {
     let cancelled = false;
     const reset = window.setTimeout(() => { setState(null); setReady(false); setRunning(false); setIsClosing(false); }, 0);
-    if (!tourId) return () => window.clearTimeout(reset);
+    if (!tourId || getAuthState().isGuest) return () => window.clearTimeout(reset);
     Promise.all([getOnboardingStates(), getMyProfile()]).then(([states, profile]) => {
       if (cancelled) return;
       const identity = String(profile?.username || "authenticated");

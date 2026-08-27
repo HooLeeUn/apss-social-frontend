@@ -51,6 +51,8 @@ import { resolveVideoReactionComment, type VideoReactionComment, type VideoReact
 import { buildCommentDetailEndpoint, parseComments, type SocialComment } from "../../lib/social";
 import { onboardingPrepareStepEventName } from "../../lib/onboarding/types";
 import type { OnboardingPrepareAction } from "../../lib/onboarding/types";
+import { useDesktopGuest } from "../../hooks/useDesktopGuest";
+import GuestSignupRec from "../../components/GuestSignupRec";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
@@ -225,6 +227,7 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 
 export default function FeedPage() {
   const router = useRouter();
+  const { hydrated: authHydrated, isDesktopGuest } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
@@ -327,8 +330,9 @@ export default function FeedPage() {
   }, []);
 
   useEffect(() => {
+    if (!authHydrated) return;
     const token = getToken();
-    if (!token) {
+    if (!token && !isDesktopGuest) {
       router.replace("/login");
       return;
     }
@@ -340,7 +344,7 @@ export default function FeedPage() {
           (error) => ({ ok: false as const, error }),
         );
 
-        if (!weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
+        if (!isDesktopGuest && !weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
           router.replace("/login");
           return;
         }
@@ -354,8 +358,8 @@ export default function FeedPage() {
 
         const [normalizedWeekly, myListMovies, myRecommendedMovies] = await Promise.all([
           Promise.resolve(weeklyResult.ok ? parseMovieList(weeklyResult.payload) : []),
-          getMyMovieList().catch(() => []),
-          getMyMovieRecommendations().catch(() => []),
+          isDesktopGuest ? Promise.resolve([]) : getMyMovieList().catch(() => []),
+          isDesktopGuest ? Promise.resolve([]) : getMyMovieRecommendations().catch(() => []),
         ]);
         const backendListSet = new Set(myListMovies.map((movie) => String(movie.id)));
         const backendRecommendationsSet = new Set(myRecommendedMovies.map((movie) => String(movie.id)));
@@ -369,7 +373,7 @@ export default function FeedPage() {
       } catch (loadError) {
         console.error("Feed load error:", loadError);
 
-        if (loadError instanceof ApiError && loadError.status === 401) {
+        if (!isDesktopGuest && loadError instanceof ApiError && loadError.status === 401) {
           router.replace("/login");
           return;
         }
@@ -381,7 +385,7 @@ export default function FeedPage() {
     };
 
     loadFeed();
-  }, [router]);
+  }, [authHydrated, isDesktopGuest, router]);
 
   const syncMyListIds = useCallback(async () => {
     try {
@@ -531,7 +535,7 @@ export default function FeedPage() {
         if ((loadPersonalizedError as Error).name === "AbortError") return;
         console.error("Filtered personalized load error:", loadPersonalizedError);
 
-        if (loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
+        if (!isDesktopGuest && loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
           router.replace("/login");
           return;
         }
@@ -545,7 +549,7 @@ export default function FeedPage() {
         }
       }
     },
-    [router],
+    [isDesktopGuest, router],
   );
 
   useEffect(() => {
@@ -681,6 +685,7 @@ export default function FeedPage() {
       setIsSavingStreamingCountry(true);
 
       try {
+        if (isDesktopGuest) return;
         await apiFetch("/me/", {
           method: "PATCH",
           body: JSON.stringify({ streaming_country: nextCountry }),
@@ -691,7 +696,7 @@ export default function FeedPage() {
         setIsSavingStreamingCountry(false);
       }
     },
-    [isSavingStreamingCountry, setStreamingCountry, streamingCountry],
+    [isDesktopGuest, isSavingStreamingCountry, setStreamingCountry, streamingCountry],
   );
 
   const handleNotificationItemClick = useCallback(
@@ -1076,6 +1081,7 @@ export default function FeedPage() {
               />
             </div>
             <div className={`feed-header__account feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 xl:pointer-events-none xl:absolute xl:right-4 xl:top-6 xl:block xl:pr-1 ${isNotificationPanelOpen ? "xl:z-[90]" : ""}`}>
+              {isDesktopGuest ? <div className="pointer-events-auto flex w-[198px] flex-col items-center gap-2"><GuestSignupRec /><StreamingCountrySelector country={streamingCountry} onCountryChange={handleStreamingCountryChange} /></div> : (
               <div className="pointer-events-auto relative flex w-auto flex-col items-end xl:w-[198px] xl:items-center">
                 <div className="flex items-center gap-2">
                 <button
@@ -1155,8 +1161,9 @@ export default function FeedPage() {
                   error={streamingCountryError}
                 />
               </div>
+              </div>
+              )}
             </div>
-          </div>
           </div>
 
           <div className="feed-header__search-row feed-desktop-only hidden items-center justify-between gap-3 xl:block">
@@ -1168,7 +1175,7 @@ export default function FeedPage() {
               showSearchIcon
               inlineAutocomplete
             />
-            <div data-tour="feed-menu" className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] xl:absolute xl:right-4 xl:top-[5.75rem] xl:[&>div]:w-[198px]">
+            {!isDesktopGuest ? <div data-tour="feed-menu" className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] xl:absolute xl:right-4 xl:top-[5.75rem] xl:[&>div]:w-[198px]">
               <DirectorBoardMenu
                 locale={locale}
                 isOpen={isDirectorBoardOpen}
@@ -1179,7 +1186,7 @@ export default function FeedPage() {
                 onPrivacySecurityClick={() => router.push("/privacy-security")}
                 onPoliciesClick={() => router.push("/policies")}
               />
-            </div>
+            </div> : null}
           </div>
 
           <GenreChips
