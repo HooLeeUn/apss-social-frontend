@@ -725,7 +725,7 @@ textarea,
     --mobile-profile-panel-height: calc(100dvh - var(--profile-mobile-top-offset) - var(--profile-mobile-bottom-nav-space));
     --mobile-profile-content-panel-height: calc(var(--mobile-profile-panel-height) + 10rem);
     --mobile-profile-useful-height: calc(100dvh - 2rem);
-    --mobile-profile-connections-height: calc(var(--mobile-profile-useful-height) - 3.75rem);
+    --mobile-profile-connections-height: calc(var(--mobile-profile-useful-height) - 4.25rem);
     --mobile-favorite-poster-width: clamp(5.25rem, 24vw, 6.25rem);
   }
 
@@ -733,6 +733,10 @@ textarea,
     width: 100%;
     max-width: none;
     padding-inline: 0;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-connections-search {
+    padding-top: 0.5rem;
   }
 
   .profile-feed-mobile-framing .favorite-movies-mobile-cube__stage,
@@ -807,6 +811,10 @@ textarea,
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-mobile-content-panel > .my-activity-column {
+    padding-top: 0.5rem;
   }
 
   .profile-feed-mobile-framing .my-activity-scroll-area,

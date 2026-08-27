@@ -58,7 +58,7 @@ export default function ProfileQuickNavigation({
   onBackToTop,
   backToTopLabel = "Volver arriba",
 }: ProfileQuickNavigationProps) {
-  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
+  const [tooltip, setTooltip] = useState<{ index: number; left: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerGestureRef = useRef<{
     pointerId: number;
@@ -77,7 +77,7 @@ export default function ProfileQuickNavigation({
   const cancelLongPress = useCallback(() => {
     clearLongPressTimer();
     pointerGestureRef.current = null;
-    setTooltipIndex(null);
+    setTooltip(null);
   }, [clearLongPressTimer]);
 
   useEffect(() => {
@@ -94,6 +94,7 @@ export default function ProfileQuickNavigation({
 
   const startLongPress = (event: PointerEvent<HTMLButtonElement>, index: number) => {
     if (event.pointerType === "mouse" || !event.isPrimary) return;
+    const button = event.currentTarget;
     cancelLongPress();
     suppressNextClickRef.current = false;
     pointerGestureRef.current = {
@@ -107,7 +108,10 @@ export default function ProfileQuickNavigation({
       const gesture = pointerGestureRef.current;
       if (!gesture || gesture.moved) return;
       gesture.longPressed = true;
-      setTooltipIndex(index);
+      const nav = button.closest("nav");
+      const buttonRect = button.getBoundingClientRect();
+      const navRect = nav?.getBoundingClientRect();
+      setTooltip({ index, left: buttonRect.left - (navRect?.left ?? 0) + buttonRect.width / 2 });
       longPressTimerRef.current = null;
     }, LONG_PRESS_DELAY);
   };
@@ -119,13 +123,18 @@ export default function ProfileQuickNavigation({
     gesture.moved = true;
     suppressNextClickRef.current = true;
     clearLongPressTimer();
-    setTooltipIndex(null);
+    setTooltip(null);
   };
 
   const finishLongPress = (event: PointerEvent<HTMLButtonElement>) => {
     const gesture = pointerGestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     suppressNextClickRef.current = gesture.moved || gesture.longPressed;
+    cancelLongPress();
+  };
+
+  const abandonLongPress = () => {
+    if (pointerGestureRef.current) suppressNextClickRef.current = true;
     cancelLongPress();
   };
 
@@ -136,11 +145,16 @@ export default function ProfileQuickNavigation({
           ↑
         </button>
       ) : null}
+      {tooltip ? (
+        <span role="tooltip" style={{ left: tooltip.left }} className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
+          {items[tooltip.index]?.label}
+        </span>
+      ) : null}
       <div className="overflow-visible rounded-full border border-white/15 bg-zinc-950/85 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.6)] backdrop-blur-xl">
         <div className="w-full touch-pan-x touch-pan-y overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex w-full min-w-[264px] justify-between">
           {items.map((item, index) => (
-            <button key={item.label} type="button" aria-label={item.label} title={item.label}
+            <button key={item.label} type="button" aria-label={item.label}
               data-profile-quick-navigation-item
               data-tour-mobile={item.tourTarget}
               className="relative flex h-11 min-h-11 min-w-11 flex-1 shrink-0 items-center justify-center rounded-full text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-300"
@@ -149,20 +163,16 @@ export default function ProfileQuickNavigation({
                   suppressNextClickRef.current = false;
                   return;
                 }
-                setTooltipIndex(null);
+                setTooltip(null);
                 item.onNavigate();
               }}
               onPointerDown={(event) => startLongPress(event, index)}
               onPointerMove={trackLongPress}
               onPointerUp={finishLongPress}
-              onPointerCancel={cancelLongPress}
-              onPointerLeave={trackLongPress}
+              onPointerCancel={abandonLongPress}
+              onPointerLeave={abandonLongPress}
+              onContextMenu={(event) => event.preventDefault()}
             >
-              {tooltipIndex === index ? (
-                <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
-                  {item.label}
-                </span>
-              ) : null}
               {item.icon}
               {index === 1 && pendingFriendRequestsCount > 0 ? (
                 <span className="pointer-events-none absolute right-1 top-0 z-10 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-bold leading-none text-zinc-950 shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
