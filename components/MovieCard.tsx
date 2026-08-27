@@ -737,6 +737,8 @@ interface MovieCardProps {
   linkToDetail?: boolean;
   showExtendedMetadata?: boolean;
   highlightMyRatingSlot?: boolean;
+  ratingReadOnly?: boolean;
+  onRatingReadOnlyClick?: () => void;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
   showBottomInteractionIcons?: boolean;
   enlargeInteractionIcons?: boolean;
@@ -802,6 +804,8 @@ function MovieCard({
   linkToDetail = true,
   showExtendedMetadata = false,
   highlightMyRatingSlot = false,
+  ratingReadOnly = false,
+  onRatingReadOnlyClick,
   onRated,
   showBottomInteractionIcons = true,
   enlargeInteractionIcons: _enlargeInteractionIcons = false,
@@ -1113,7 +1117,9 @@ function MovieCard({
         <span aria-label="Calificación de seguidos">👥 {formatFollowingRating(movie.followingAvgRating)}</span>
       </div>
       <div className="flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold sm:text-sm">
-        {onRated ? (
+        {ratingReadOnly ? (
+          <button type="button" onClick={onRatingReadOnlyClick} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
+        ) : onRated ? (
           <RatingPopover
             movieId={movie.id}
             currentRating={movie.myRating}
@@ -1227,7 +1233,9 @@ function MovieCard({
         }
       >
         {isFeed ? (
-          onRated ? (
+          ratingReadOnly ? (
+            <button type="button" onClick={onRatingReadOnlyClick} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
+          ) : onRated ? (
             <RatingPopover
               movieId={movie.id}
               currentRating={movie.myRating}

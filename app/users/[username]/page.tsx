@@ -366,7 +366,7 @@ export default function UserProfileFeedPage() {
             </div>
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
-              {isDesktopGuest ? <GuestSignupRec /> : profileUser ? (
+              {isDesktopGuest ? <div className="self-start"><GuestSignupRec /></div> : profileUser ? (
                 <SocialActions
                   profileUser={profileUser}
                   authenticatedFriendRequestsRestricted={authenticatedFriendRequestsRestricted}

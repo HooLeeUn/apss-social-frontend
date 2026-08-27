@@ -339,7 +339,7 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
     activeVideoIndex.current = nextIndex;
     desktopAdvancePending.current = nextIndex;
     pauseAllExcept(nextId);
-    nextVideo.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    if (!isDesktopGuest) nextVideo.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     nextVideo.muted = isMutedRef.current;
     if (nextVideo.ended) nextVideo.currentTime = 0;
     const playPromise = nextVideo.play();

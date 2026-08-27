@@ -14,6 +14,8 @@ import { stripLeadingMention } from "../../lib/strip-leading-mention";
 import EmptyStatePanel from "./EmptyStatePanel";
 import { apiFetch } from "../../lib/api";
 import VisitedProfileVideoReactions from "./VisitedProfileVideoReactions";
+import GuestContentGate from "../GuestContentGate";
+import { useDesktopGuest } from "../../hooks/useDesktopGuest";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
@@ -995,6 +997,8 @@ export default function MyActivityColumn({
   errorCopy,
 }: MyActivityColumnProps = {}) {
   const { locale, t } = useI18n();
+  const { isDesktopGuest } = useDesktopGuest();
+  const [guestHistoryGateOpen, setGuestHistoryGateOpen] = useState(false);
   const initialResolvedActiveTab =
     isOwnProfile && hidePrivateInbox !== false && initialActiveTab === "messages" ? "activity" : initialActiveTab;
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
@@ -1153,7 +1157,9 @@ export default function MyActivityColumn({
     const sortedItems = [...activity.items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
     const actorScopedItems = sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
 
-    return visitedActivityType ? actorScopedItems : [];
+    if (!visitedActivityType) return [];
+    if (visitedActivityType === "public_comment_reaction" && actorScopedItems.length === 0) return sortedItems;
+    return actorScopedItems;
   }, [activity.items, isOwnProfile, normalizedViewedUsername, visitedActivityType]);
 
   const ownActivityItems = useMemo(() => {
@@ -1197,7 +1203,7 @@ export default function MyActivityColumn({
   ]);
 
   useEffect(() => {
-    if (isOwnProfile || effectiveActiveTab !== "activity" || visitedActivityTab === "recommendations" || visitedActivityTab === "video_reactions") {
+    if (isDesktopGuest || isOwnProfile || effectiveActiveTab !== "activity" || visitedActivityTab === "recommendations" || visitedActivityTab === "video_reactions") {
       autoLoadAttemptsRef.current = 0;
       return;
     }
@@ -1213,7 +1219,7 @@ export default function MyActivityColumn({
 
     autoLoadAttemptsRef.current += 1;
     void activity.loadMore();
-  }, [effectiveActiveTab, activity, filteredActivityItems.length, isOwnProfile, visitedActivityTab]);
+  }, [effectiveActiveTab, activity, filteredActivityItems.length, isDesktopGuest, isOwnProfile, visitedActivityTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1455,7 +1461,7 @@ export default function MyActivityColumn({
     <section
       data-tour={isOwnProfile ? "profile-activity" : undefined}
       data-tour-mobile={isOwnProfile ? `profile-${effectiveActiveTab === "messages" ? "inbox" : effectiveActiveTab === "rated" ? "ratings" : "activity"}-mobile` : undefined}
-      className={`my-activity-column w-full min-w-0 max-w-full ${isOwnProfile ? "xl:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
+      className={`my-activity-column relative w-full min-w-0 max-w-full ${isOwnProfile ? "xl:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
     >
       {isOwnProfile ? (
         <header className="flex flex-wrap gap-2">
@@ -1579,7 +1585,10 @@ export default function MyActivityColumn({
               }`
             : "h-[425px] overflow-y-auto"
         }`}
-        onScroll={handleScroll}
+        tabIndex={isDesktopGuest && visitedActivityTab !== "video_reactions" ? 0 : undefined}
+        onWheel={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && event.deltaY > 0) { event.preventDefault(); setGuestHistoryGateOpen(true); } }}
+        onKeyDown={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && ["ArrowDown", "End", "PageDown", " "].includes(event.key)) { event.preventDefault(); setGuestHistoryGateOpen(true); } }}
+        onScroll={handleScroll} onScrollCapture={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && event.currentTarget.scrollTop > 1) { event.currentTarget.scrollTop = 0; setGuestHistoryGateOpen(true); } }}
         onTouchStart={handleActivityTouchStart}
         onTouchMove={handleActivityTouchMove}
         onTouchEnd={finishActivityTouch}
@@ -1761,6 +1770,7 @@ export default function MyActivityColumn({
           </>
         )}
       </div>
+      <GuestContentGate open={guestHistoryGateOpen} onClose={() => setGuestHistoryGateOpen(false)} />
       {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} onReactionUpdated={syncGivenVideoReaction} onDeleted={removeDeletedActivityVideo} /> : null}
       {activeReactionSummary ? <ReactionSummaryModal summary={activeReactionSummary} myUsername={myUsername} onClose={closeReactionSummary} /> : null}
     </section>

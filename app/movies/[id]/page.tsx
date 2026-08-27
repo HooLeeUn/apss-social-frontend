@@ -52,6 +52,7 @@ import { onboardingPrepareStepEventName } from "../../../lib/onboarding/types";
 import type { OnboardingPrepareAction } from "../../../lib/onboarding/types";
 import { useDesktopGuest } from "../../../hooks/useDesktopGuest";
 import GuestSignupRec from "../../../components/GuestSignupRec";
+import GuestContentGate from "../../../components/GuestContentGate";
 
 type CommentInputMode = "text-comment" | "video-comment";
 type TrailerCompanionView = "reaction" | "public-comments" | "directed-comments";
@@ -1039,7 +1040,7 @@ function CommentUserSearch({
   );
 }
 
-function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick }: { movieId: string; movieTitle: string; moviePoster: string | null; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void }) {
+function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick, desktopGuest = false }: { movieId: string; movieTitle: string; moviePoster: string | null; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void; desktopGuest?: boolean }) {
   const router = useRouter();
   const [recorderState, setRecorderState] = useState<VideoRecorderState>("idle");
   const [error, setError] = useState("");
@@ -1081,6 +1082,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const mobileHistoryScrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
+  const [guestGateOpen, setGuestGateOpen] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const pendingStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -1343,10 +1345,11 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const scrollHistoryCarousel = useCallback((direction: -1 | 1) => {
     const container = historyScrollRef.current;
     if (!container) return;
+    if (desktopGuest && direction === 1) { setGuestGateOpen(true); return; }
     const firstCard = container.querySelector<HTMLElement>("[data-video-comment-card]");
     const gap = Number.parseFloat(getComputedStyle(container).columnGap || getComputedStyle(container).gap) || 12;
     container.scrollBy({ left: direction * ((firstCard?.offsetWidth ?? 384) + gap), behavior: "smooth" });
-  }, []);
+  }, [desktopGuest]);
 
   useEffect(() => {
     const container = historyScrollRef.current;
@@ -2155,6 +2158,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   }, [recorderState]);
 
   const continueToNativePermissions = useCallback(async () => {
+    if (desktopGuest) return;
     setError("");
     setRecorderState("requestingPermission");
     if (!window.isSecureContext) { setError(t("movieDetailVideoInsecureContext")); setRecorderState("error"); return; }
@@ -2272,7 +2276,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       setError(t("movieDetailVideoCameraAccessError"));
       setRecorderState("error");
     }
-  }, [appendVideoDebugLog, cleanupRecorder, t]);
+  }, [appendVideoDebugLog, cleanupRecorder, desktopGuest, t]);
 
   useEffect(() => {
     if (recorderState !== "preparingRecorder") return;
@@ -2286,15 +2290,15 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       setError(phase === "cameraPreview" ? t("movieDetailVideoCameraPreviewError") : t("movieDetailVideoRecorderStartError"));
       setRecorderState("error");
     });
-  }, [cleanupRecorder, recorderState, startRecorderWithStream, t]);
+  }, [cleanupRecorder, desktopGuest, recorderState, startRecorderWithStream, t]);
 
   const cancelToIdle = useCallback(() => { cleanupRecorder({ clearPreview: true, nextState: "idle" }); setError(""); setRecorderState("idle"); }, [cleanupRecorder]);
   const cancelRequest = useCallback(() => { cleanupRecorder({ clearPreview: true, nextState: "menu" }); setError(""); setRecorderState("menu"); }, [cleanupRecorder]);
-  const beginRecordingFlow = useCallback(() => { revokePreview(); setError(""); if (permissionInfoAcceptedRef.current) void continueToNativePermissions(); else setRecorderState("permissionInfo"); }, [continueToNativePermissions, revokePreview]);
+  const beginRecordingFlow = useCallback(() => { if (desktopGuest) return; revokePreview(); setError(""); if (permissionInfoAcceptedRef.current) void continueToNativePermissions(); else setRecorderState("permissionInfo"); }, [continueToNativePermissions, desktopGuest, revokePreview]);
   const retake = useCallback(() => { revokePreview(); setError(""); void continueToNativePermissions(); }, [continueToNativePermissions, revokePreview]);
 
   const processSelectedVideo = useCallback(async (file: File | undefined) => {
-    if (!file) return;
+    if (desktopGuest || !file) return;
     selectedFileRef.current = file;
     setRecorderState("validatingSelected");
     setError("");
@@ -2308,10 +2312,10 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       setError(t("movieDetailVideoPreviewPlaybackError"));
       setRecorderState("error");
     }
-  }, [mountPreviewImmediately, revokePreview, t]);
+  }, [desktopGuest, mountPreviewImmediately, revokePreview, t]);
 
   const uploadVideo = useCallback(async (file: File) => {
-    if (!file || file.size <= 0 || !previewUrl || !previewPlayable || previewDuration === null || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || recorderState === "uploading") return;
+    if (desktopGuest || !file || file.size <= 0 || !previewUrl || !previewPlayable || previewDuration === null || previewDuration <= 0 || previewDuration > VIDEO_COMMENT_MAX_SECONDS || recorderState === "uploading") return;
     const previousState = recorderState;
     setRecorderState("uploading");
     setError("");
@@ -2327,7 +2331,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       setError(mapVideoCommentError(err, t));
       setRecorderState(previousState === "previewSelected" ? "previewSelected" : "previewRecorded");
     }
-  }, [movieId, previewDuration, previewPlayable, previewUrl, recorderState, reloadFirstPage, revokePreview, t]);
+  }, [desktopGuest, movieId, previewDuration, previewPlayable, previewUrl, recorderState, reloadFirstPage, revokePreview, t]);
   const sendVideo = useCallback(() => { if (previewFile) void uploadVideo(previewFile); }, [previewFile, uploadVideo]);
 
   const deleteVideo = useCallback(async (id: string | number) => {
@@ -2358,6 +2362,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   }, [t]);
 
   const reactToVideo = useCallback(async (id: string | number, reaction: VideoCommentReaction) => {
+    if (desktopGuest) return;
     const key = String(id);
     if (reactingIdsRef.current.has(key)) return;
     reactingIdsRef.current.add(key);
@@ -2373,7 +2378,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       reactingIdsRef.current.delete(key);
       setReactingIds((value) => ({ ...value, [key]: false }));
     }
-  }, [t]);
+  }, [desktopGuest, t]);
 
   const toggleHistoryPlayback = useCallback((id: string) => {
     const video = historyVideosRef.current.get(id);
@@ -2666,7 +2671,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const reactionContent = <section data-mobile-video-reaction data-recording-overlay={isRecordingOverlay} data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
     <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : "max-h-[50dvh] overflow-y-auto overscroll-contain xl:contents"}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] xl:mx-auto xl:max-w-2xl">
-      <div ref={menuRef} data-video-reaction-rec data-tour-desktop="detail-rec" data-tour-mobile="detail-rec-mobile" className="relative flex justify-center">
+      <div ref={menuRef} data-video-reaction-rec data-tour-desktop="detail-rec" data-tour-mobile="detail-rec-mobile" className={desktopGuest ? "hidden" : "relative flex justify-center"}>
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] xl:h-20 xl:w-20 xl:transition xl:hover:border-[#86ADE0] xl:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
         {showMenu && optionsMenuPosition ? createPortal(<div ref={optionsMenuRef} data-rec-options-menu className="fixed z-[100] w-52 rounded-2xl border border-white/10 bg-zinc-950/95 p-2 shadow-2xl" style={optionsMenuPosition}>
           <button type="button" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-white/10" aria-label={t("movieDetailVideoRecord")} onClick={beginRecordingFlow}><span className="h-2.5 w-2.5 rounded-full bg-red-500" />{t("movieDetailVideoRecord")}</button>
@@ -2695,7 +2700,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200 xl:hidden" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
     <button type="button" data-history-carousel-arrow="left" disabled={recorderState !== "idle" || !canScrollHistoryLeft} className="hidden" aria-label="Anterior" onClick={() => scrollHistoryCarousel(-1)}>←</button>
     <div data-history-carousel-viewport className="relative">
-    <div ref={historyScrollRef} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 xl:mx-auto xl:max-h-[32rem] xl:max-w-3xl xl:overflow-y-auto xl:pr-2">
+    <div ref={historyScrollRef} tabIndex={desktopGuest ? 0 : undefined} onWheel={(event) => { if (desktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); setGuestGateOpen(true); } }} onKeyDown={(event) => { if (desktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); setGuestGateOpen(true); } }} onScroll={(event) => { if (desktopGuest && event.currentTarget.scrollLeft > 1) { event.currentTarget.scrollLeft = 0; setGuestGateOpen(true); } }} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 xl:mx-auto xl:max-h-[32rem] xl:max-w-3xl xl:overflow-y-auto xl:pr-2">
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
@@ -2705,11 +2710,11 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
         return <article key={comment.id} data-video-comment-card={id} className="desktop-video-reaction-card relative space-y-1.5 bg-transparent p-2.5 xl:space-y-1 xl:p-2">
           {notificationReactionOverlay?.id === id ? <div className={`notification-video-reaction-overlay notification-video-reaction-overlay--${notificationReactionOverlay.reaction}${notificationReactionOverlay.reducedMotion ? " notification-video-reaction-overlay--reduced" : ""}`} aria-hidden="true"><span>{notificationReactionOverlay.reaction === "like" ? "👍" : "👎"}</span>{notificationReactionOverlay.reaction === "like" && !notificationReactionOverlay.reducedMotion ? <i className="notification-reaction-confetti">✦ · ✧ · ✦</i> : null}</div> : null}
           <div className="relative mx-auto flex max-w-full items-center gap-3 xl:w-full xl:gap-2"><button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-xs text-zinc-300 xl:h-8 xl:w-8" aria-label={`Ver perfil de ${comment.user.username}`} onClick={() => onAuthorClick(comment.user.username)}>{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
-            <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3 xl:flex-col xl:items-start xl:gap-0"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div><VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[id]} t={t} onReact={(commentId, reaction) => void reactToVideo(commentId, reaction)} className="shrink-0 xl:hidden" />{comment.can_delete === true ? <div data-video-delete-menu className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 hover:bg-white/10" disabled={!!deletingIds[id]} aria-label={t("movieDetailVideoDelete")} onClick={() => setDeleteMenuId((current) => current === id ? null : id)}>⋮</button>{deleteMenuId === id ? <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuId(null); setDeleteConfirmId(comment.id); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}</div>
+            <img src={comment.user.avatar} alt="" className="h-full w-full object-cover" /> : comment.user.username.slice(0,2).toUpperCase()}</button><div className="flex min-w-0 flex-1 items-baseline gap-3 xl:flex-col xl:items-start xl:gap-0"><button type="button" className="min-w-0 truncate text-left text-sm font-bold text-zinc-100 hover:text-[#86ADE0]" onClick={() => onAuthorClick(comment.user.username)}>{comment.user.username}</button><time className="shrink-0 text-xs text-zinc-500">{new Date(comment.created_at).toLocaleDateString()}</time></div><VideoCommentReactionButtons comment={comment} disabled={desktopGuest || !!reactingIds[id]} t={t} onReact={(commentId, reaction) => void reactToVideo(commentId, reaction)} className="shrink-0 xl:hidden" />{comment.can_delete === true ? <div data-video-delete-menu className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 hover:bg-white/10" disabled={!!deletingIds[id]} aria-label={t("movieDetailVideoDelete")} onClick={() => setDeleteMenuId((current) => current === id ? null : id)}>⋮</button>{deleteMenuId === id ? <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-xl"><button type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-200 hover:bg-white/10" onClick={() => { setDeleteMenuId(null); setDeleteConfirmId(comment.id); }}>{t("movieDetailVideoDelete")}</button></div> : null}</div> : null}</div>
           <div className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black xl:mx-auto xl:w-fit xl:max-w-full">
             <div className="group relative inline-flex max-w-full shrink-0 overflow-hidden rounded-xl [contain:layout_paint]">
               <video data-video-comment-player="true" data-video-comment-id={id} src={comment.video_url} preload="metadata" playsInline controls={false} controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block h-auto w-auto max-w-full shrink-0 object-contain [contain:layout_paint]" style={{ maxHeight: VIDEO_COMMENT_CARD_VIDEO_HEIGHT }} onLoadedMetadata={(event) => lockHistoryPlayerGeometry(event.currentTarget)} onClick={() => toggleHistoryPlayback(id)} onPlay={(event) => { const video = event.currentTarget; logHistoryPlayerGeometry("before-play", video); activeVideoIdRef.current = id; pauseOtherHistoryVideos(id); syncPlayerState(video); requestAnimationFrame(() => logHistoryPlayerGeometry("playing", video)); }} onPause={(event) => { logHistoryPlayerGeometry("paused", event.currentTarget); syncPlayerState(event.currentTarget); }} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} onEnded={(event) => { endedRef.current.add(id); syncPlayerState(event.currentTarget); if (window.matchMedia("(min-width: 1280px)").matches && !document.body.classList.contains("detail-trailer-active")) playNextVisibleHistoryVideo(id); }} />
-              <VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[id]} t={t} onReact={(commentId, reaction) => { selectHistoryVideoForReaction(String(commentId)); void reactToVideo(commentId, reaction); }} className="pointer-events-none absolute left-2 top-2 z-10 hidden opacity-0 xl:flex xl:group-hover:pointer-events-auto xl:group-hover:opacity-100" />
+              <VideoCommentReactionButtons comment={comment} disabled={desktopGuest || !!reactingIds[id]} t={t} onReact={(commentId, reaction) => { selectHistoryVideoForReaction(String(commentId)); void reactToVideo(commentId, reaction); }} className="pointer-events-none absolute left-2 top-2 z-10 hidden opacity-0 xl:flex xl:group-hover:pointer-events-auto xl:group-hover:opacity-100" />
               <div className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-center bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-7 transition-opacity duration-150 ${state.paused ? "xl:opacity-0" : "xl:opacity-0 xl:group-hover:opacity-100"}`}>
                 <button type="button" className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-white ${state.paused ? "xl:pointer-events-none" : "xl:pointer-events-none xl:group-hover:pointer-events-auto"}`} aria-label={t(state.muted ? "movieDetailVideoSoundOn" : "movieDetailVideoMute")} onClick={(event) => { event.stopPropagation(); toggleHistorySound(id); }}>{state.muted ? "🔇" : "🔊"}</button>
                 <button type="button" className={`pointer-events-auto ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white ${state.paused ? "xl:pointer-events-none" : "xl:pointer-events-none xl:group-hover:pointer-events-auto"}`} aria-label={t("movieDetailVideoExpand")} onClick={(event) => { event.stopPropagation(); openExpandedVideo(id); }}>⛶</button>
@@ -2721,6 +2726,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
     </div>
+    <GuestContentGate open={guestGateOpen} onClose={() => setGuestGateOpen(false)} />
     </div>
     <button type="button" data-history-carousel-arrow="right" disabled={recorderState !== "idle" || !canScrollHistoryRight} className="hidden" aria-label="Siguiente" onClick={() => scrollHistoryCarousel(1)}>→</button>
     {orientationPaused ? <div className="fixed inset-0 z-[200] flex h-[100dvh] w-[100dvw] items-center justify-center bg-black px-6 py-[max(1.5rem,env(safe-area-inset-top))] text-center" role="alert" aria-live="assertive"><div className="w-full max-w-lg"><span className="video-reaction-phone mx-auto mb-6 block h-20 w-11 rounded-xl border-2 border-white" aria-hidden="true" /><p className="text-lg font-bold leading-relaxed text-white sm:text-xl">{t("movieDetailVideoRotatePortrait")}</p></div></div> : null}
@@ -2742,7 +2748,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
               <button type="button" disabled={currentIndex <= 0} aria-label="Anterior" className="absolute right-full z-30 mr-3 hidden h-11 w-11 items-center justify-center rounded-full border border-[#86ADE0] bg-zinc-950/80 text-xl text-[#86ADE0] shadow-lg disabled:border-zinc-600 disabled:text-zinc-600 xl:flex" onClick={(event) => { event.stopPropagation(); navigateExpandedVideo(-1); }}>←</button>
               <div className="relative inline-flex max-h-[calc(100dvh-1rem)] max-w-full overflow-hidden">
               <video data-expanded-video-id={expandedVideoId} ref={(node) => { if (node) expandedVideosRef.current.set(expandedVideoId, node); else expandedVideosRef.current.delete(expandedVideoId); }} src={comment.video_url} autoPlay muted playsInline controlsList="nodownload noplaybackrate" disablePictureInPicture disableRemotePlayback className="block max-h-[calc(100dvh-1rem)] max-w-full object-contain" onLoadedData={() => setShowExpandedTransitionFrame(false)} onTouchStart={(event) => { const touch = event.touches[0]; expandedTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY, vertical: null } : null; suppressExpandedTapRef.current = false; setExpandedDragAnimating(false); }} onTouchMove={(event) => { const start = expandedTouchStartRef.current; const touch = event.touches[0]; if (!start || !touch) return; const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; if (start.vertical === null && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= VIDEO_COMMENT_EXPANDED_SWIPE_INTENT_PX) start.vertical = Math.abs(deltaY) > Math.abs(deltaX); if (!start.vertical) return; event.preventDefault(); suppressExpandedTapRef.current = true; const direction = deltaY < 0 ? 1 : -1; const hasTarget = comments[currentIndex + direction] !== undefined; setExpandedDragOffset(hasTarget ? deltaY : deltaY * 0.2); }} onTouchEnd={(event) => { const start = expandedTouchStartRef.current; const touch = event.changedTouches[0]; expandedTouchStartRef.current = null; if (!start || !touch || !start.vertical) { if (expandedDragOffset !== 0) cancelExpandedDrag(); return; } const deltaX = touch.clientX - start.x; const deltaY = touch.clientY - start.y; const direction: -1 | 1 = deltaY < 0 ? 1 : -1; if (Math.abs(deltaY) >= VIDEO_COMMENT_EXPANDED_SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX) && comments[currentIndex + direction]) finishExpandedDrag(direction); else cancelExpandedDrag(); }} onTouchCancel={() => { expandedTouchStartRef.current = null; if (expandedDragOffset !== 0) cancelExpandedDrag(); }} onClick={(event) => { if (suppressExpandedTapRef.current) { suppressExpandedTapRef.current = false; return; } if (event.currentTarget.paused) void event.currentTarget.play(); else event.currentTarget.pause(); }} onPlay={(event) => syncPlayerState(event.currentTarget)} onPause={(event) => syncPlayerState(event.currentTarget)} onVolumeChange={(event) => syncPlayerState(event.currentTarget)} />
-              <VideoCommentReactionButtons comment={comment} disabled={!!reactingIds[expandedVideoId]} expanded t={t} onReact={(commentId, reaction) => void reactToVideo(commentId, reaction)} className="absolute left-3 top-3 z-20 bg-transparent xl:flex-col xl:items-start xl:gap-0" />
+              <VideoCommentReactionButtons comment={comment} disabled={desktopGuest || !!reactingIds[expandedVideoId]} expanded t={t} onReact={(commentId, reaction) => void reactToVideo(commentId, reaction)} className="absolute left-3 top-3 z-20 bg-transparent xl:flex-col xl:items-start xl:gap-0" />
               <VideoReactionMovieMetadata poster={moviePoster} title={movieTitle} onTitleClick={() => { closeExpandedVideo(); router.push(`/movies/${encodeURIComponent(movieId)}`); }} />
               <button type="button" className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-2xl text-white" aria-label={t("movieDetailVideoCloseExpanded")} onClick={closeExpandedVideo}>×</button>
               <button type="button" className="absolute bottom-4 left-3 z-20 flex min-w-0 items-center gap-2 rounded-full bg-black/25 pr-2 text-sm font-semibold text-white" aria-label={`Ver perfil de ${comment.user.username}`} onClick={(event) => { event.stopPropagation(); navigateFromExpandedVideoToAuthor(comment.user.username); }}><span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-[10px]">{comment.user.avatar ? // eslint-disable-next-line @next/next/no-img-element
@@ -2762,6 +2768,8 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
 
 function MovieDetailPageContent() {
   const { hydrated: authHydrated, isDesktopGuest } = useDesktopGuest();
+  const [guestRatingGateOpen, setGuestRatingGateOpen] = useState(false);
+  const [guestCommentsGateOpen, setGuestCommentsGateOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const branding = useAppBranding();
@@ -4453,7 +4461,7 @@ function MovieDetailPageContent() {
             <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">{movieError}</div>
           ) : null}
           {!movieLoading && !movieError && movie ? (
-            <div data-tour="detail-info"><MovieCard
+            <div className="relative"><div data-tour="detail-info"><MovieCard
               movie={movie}
               variant="feed"
               linkToDetail={false}
@@ -4464,11 +4472,13 @@ function MovieDetailPageContent() {
               ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
               separateRatingsActionsCard
               onRated={handleMovieRated}
+              ratingReadOnly={isDesktopGuest}
+              onRatingReadOnlyClick={() => setGuestRatingGateOpen(true)}
               creditsLoading={creditsLoading}
               preloadPersonDetails
               enableMobileDetailCarousel
               branding={branding}
-            /></div>
+            /></div><GuestContentGate open={guestRatingGateOpen} variant="rate" onClose={() => setGuestRatingGateOpen(false)} /></div>
           ) : null}
 
           <div data-mobile-comment-tabs className="relative flex items-center justify-between gap-4 xl:hidden" role="tablist" aria-label={composerTitle}>
@@ -4519,7 +4529,7 @@ function MovieDetailPageContent() {
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
         </div>
         <div ref={videoCommentStartRef} data-video-reaction-section>
-          <MobileVideoComments movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
+          <MobileVideoComments desktopGuest={isDesktopGuest} movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${!isDesktopGuest && commentInputMode === "text-comment" ? "hidden xl:block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
@@ -4609,7 +4619,10 @@ function MovieDetailPageContent() {
               desktopDarkScrollbar
               exposePublicCommentIds
               containerRef={publicCommentsScrollRef}
+              readOnly={isDesktopGuest}
+              onReadOnlyBoundaryAttempt={() => setGuestCommentsGateOpen(true)}
             />
+            <GuestContentGate open={guestCommentsGateOpen} onClose={() => setGuestCommentsGateOpen(false)} />
             </div>
           </section>
 
