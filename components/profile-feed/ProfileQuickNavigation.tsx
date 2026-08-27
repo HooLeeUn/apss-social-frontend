@@ -15,29 +15,14 @@ interface ProfileQuickNavigationProps {
   items: QuickNavigationItem[];
   pendingFriendRequestsCount: number;
   forceVisible?: boolean;
+  visible?: boolean;
+  showBackToTop?: boolean;
+  onBackToTop?: () => void;
+  backToTopLabel?: string;
 }
 
-const MOVE_THRESHOLD = 10;
 const LONG_PRESS_DELAY = 500;
-const PROGRAMMATIC_SCROLL_SETTLE_DELAY = 180;
-const PROGRAMMATIC_SCROLL_MAX_DELAY = 3000;
-const PROFILE_FEED_SELECTOR = ".profile-feed-mobile-framing";
-const INTERACTIVE_TARGET_SELECTOR = [
-  "button",
-  "a",
-  "input",
-  "select",
-  "textarea",
-  "summary",
-  "label",
-  "[role='button']",
-  "[role='link']",
-  "[href]",
-  "[contenteditable='true']",
-  "[data-interactive='true']",
-  "[tabindex]:not([tabindex='-1'])",
-  "[class*='cursor-pointer']",
-].join(",");
+const LONG_PRESS_MOVE_THRESHOLD = 10;
 
 function LineIcon({ children }: { children: ReactNode }) {
   return (
@@ -63,191 +48,130 @@ export const profileQuickNavigationIcons = {
   followingActivity: <LineIcon><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M3 10h18M6 3l2 3m3-3 2 3m3-3 2 3" /></LineIcon>,
 };
 
-export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriendRequestsCount, forceVisible = false }: ProfileQuickNavigationProps) {
-  const [visible, setVisible] = useState(true);
-  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
-  const lastScrollY = useRef(0);
-  const gesture = useRef<{ pointerId: number; x: number; y: number; moved: boolean; longPressed: boolean } | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const suppressClick = useRef(false);
-  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const revealGesture = useRef<{ pointerId: number; x: number; y: number; cancelled: boolean; triggered: boolean } | null>(null);
-  const quickNavigationInProgress = useRef(false);
-  const programmaticScrollSettleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const programmaticScrollFallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+export default function ProfileQuickNavigation({
+  ariaLabel,
+  items,
+  pendingFriendRequestsCount,
+  forceVisible = false,
+  visible = true,
+  showBackToTop = false,
+  onBackToTop,
+  backToTopLabel = "Volver arriba",
+}: ProfileQuickNavigationProps) {
+  const [tooltip, setTooltip] = useState<{ index: number; left: number } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerGestureRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+    longPressed: boolean;
+  } | null>(null);
+  const suppressNextClickRef = useRef(false);
 
-  const finishQuickNavigation = useCallback(() => {
-    quickNavigationInProgress.current = false;
-    if (programmaticScrollSettleTimer.current) clearTimeout(programmaticScrollSettleTimer.current);
-    if (programmaticScrollFallbackTimer.current) clearTimeout(programmaticScrollFallbackTimer.current);
-    programmaticScrollSettleTimer.current = null;
-    programmaticScrollFallbackTimer.current = null;
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
   }, []);
 
-  const navigateAndHide = useCallback((action: () => void) => {
-    finishQuickNavigation();
-    quickNavigationInProgress.current = true;
-    setVisible(false);
-    action();
-    programmaticScrollFallbackTimer.current = setTimeout(finishQuickNavigation, PROGRAMMATIC_SCROLL_MAX_DELAY);
-  }, [finishQuickNavigation]);
-
-  const clearLongPress = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-  }, []);
-
-  const cancelGesture = useCallback(() => {
-    const hadGesture = gesture.current !== null;
-    clearLongPress();
-    gesture.current = null;
-    setTooltipIndex(null);
-    if (hadGesture) suppressClick.current = true;
-  }, [clearLongPress]);
+  const cancelLongPress = useCallback(() => {
+    clearLongPressTimer();
+    pointerGestureRef.current = null;
+    setTooltip(null);
+  }, [clearLongPressTimer]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    lastScrollY.current = Math.max(window.scrollY, 0);
-    const onScroll = () => {
-      const next = Math.max(window.scrollY, 0);
-      const delta = next - lastScrollY.current;
-      if (Math.abs(delta) > 0) cancelGesture();
-      if (quickNavigationInProgress.current) {
-        if (programmaticScrollSettleTimer.current) clearTimeout(programmaticScrollSettleTimer.current);
-        programmaticScrollSettleTimer.current = setTimeout(finishQuickNavigation, PROGRAMMATIC_SCROLL_SETTLE_DELAY);
-      } else if (next < 80) setVisible(true);
-      else if (delta > 8) setVisible(false);
-      else if (delta < -8) setVisible(true);
-      if (Math.abs(delta) > 8) lastScrollY.current = next;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [cancelGesture, finishQuickNavigation]);
-
-  useEffect(() => () => {
-    clearLongPress();
-    finishQuickNavigation();
-  }, [clearLongPress, finishQuickNavigation]);
-
-  const clearRevealGesture = useCallback(() => {
-    if (revealTimer.current) clearTimeout(revealTimer.current);
-    revealTimer.current = null;
-    revealGesture.current = null;
-  }, []);
-
-  useEffect(() => {
-    const mobileViewport = window.matchMedia("(max-width: 1279px)");
-
-    const handlePointerDown = (event: globalThis.PointerEvent) => {
-      if (!mobileViewport.matches || event.pointerType === "mouse" || !event.isPrimary) return;
+    const dismissTooltip = (event: globalThis.PointerEvent) => {
       const target = event.target;
-      if (!(target instanceof Element) || !target.closest(PROFILE_FEED_SELECTOR) || target.closest(INTERACTIVE_TARGET_SELECTOR)) return;
-
-      clearRevealGesture();
-      revealGesture.current = {
-        pointerId: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        cancelled: false,
-        triggered: false,
-      };
-      revealTimer.current = setTimeout(() => {
-        const current = revealGesture.current;
-        if (!current || current.cancelled || current.triggered) return;
-        current.triggered = true;
-        setVisible(true);
-        revealTimer.current = null;
-      }, LONG_PRESS_DELAY);
+      if (!(target instanceof Element) || !target.closest("[data-profile-quick-navigation-item]")) cancelLongPress();
     };
-
-    const handlePointerMove = (event: globalThis.PointerEvent) => {
-      const current = revealGesture.current;
-      if (!current || current.pointerId !== event.pointerId) return;
-      if (Math.hypot(event.clientX - current.x, event.clientY - current.y) > MOVE_THRESHOLD) {
-        current.cancelled = true;
-        clearRevealGesture();
-      }
-    };
-
-    const handlePointerEnd = (event: globalThis.PointerEvent) => {
-      if (revealGesture.current?.pointerId === event.pointerId) clearRevealGesture();
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("pointermove", handlePointerMove, { passive: true });
-    document.addEventListener("pointerup", handlePointerEnd);
-    document.addEventListener("pointercancel", handlePointerEnd);
-    document.addEventListener("scroll", clearRevealGesture, { capture: true, passive: true });
-    document.addEventListener("visibilitychange", clearRevealGesture);
-
+    document.addEventListener("pointerdown", dismissTooltip, true);
     return () => {
-      clearRevealGesture();
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("pointerup", handlePointerEnd);
-      document.removeEventListener("pointercancel", handlePointerEnd);
-      document.removeEventListener("scroll", clearRevealGesture, true);
-      document.removeEventListener("visibilitychange", clearRevealGesture);
+      document.removeEventListener("pointerdown", dismissTooltip, true);
+      clearLongPressTimer();
     };
-  }, [clearRevealGesture]);
+  }, [cancelLongPress, clearLongPressTimer]);
 
-  const start = (event: PointerEvent<HTMLButtonElement>, index: number) => {
-    if (event.pointerType === "mouse") return;
-    clearLongPress();
-    suppressClick.current = false;
-    gesture.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false, longPressed: false };
-    timer.current = setTimeout(() => {
-      if (!gesture.current || gesture.current.moved) return;
-      gesture.current.longPressed = true;
-      setTooltipIndex(index);
+  const startLongPress = (event: PointerEvent<HTMLButtonElement>, index: number) => {
+    if (event.pointerType === "mouse" || !event.isPrimary) return;
+    const button = event.currentTarget;
+    cancelLongPress();
+    suppressNextClickRef.current = false;
+    pointerGestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+      longPressed: false,
+    };
+    longPressTimerRef.current = setTimeout(() => {
+      const gesture = pointerGestureRef.current;
+      if (!gesture || gesture.moved) return;
+      gesture.longPressed = true;
+      const nav = button.closest("nav");
+      const buttonRect = button.getBoundingClientRect();
+      const navRect = nav?.getBoundingClientRect();
+      setTooltip({ index, left: buttonRect.left - (navRect?.left ?? 0) + buttonRect.width / 2 });
+      longPressTimerRef.current = null;
     }, LONG_PRESS_DELAY);
   };
 
-  const move = (event: PointerEvent<HTMLButtonElement>) => {
-    const current = gesture.current;
-    if (!current || current.pointerId !== event.pointerId) return;
-    if (Math.hypot(event.clientX - current.x, event.clientY - current.y) > MOVE_THRESHOLD) {
-      current.moved = true;
-      clearLongPress();
-      setTooltipIndex(null);
-    }
+  const trackLongPress = (event: PointerEvent<HTMLButtonElement>) => {
+    const gesture = pointerGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) <= LONG_PRESS_MOVE_THRESHOLD) return;
+    gesture.moved = true;
+    suppressNextClickRef.current = true;
+    clearLongPressTimer();
+    setTooltip(null);
   };
 
-  const finish = (event: PointerEvent<HTMLButtonElement>, action: () => void) => {
-    const current = gesture.current;
-    if (!current || current.pointerId !== event.pointerId) return;
-    clearLongPress();
-    gesture.current = null;
-    setTooltipIndex(null);
-    suppressClick.current = true;
-    if (!current.moved && !current.longPressed) navigateAndHide(action);
+  const finishLongPress = (event: PointerEvent<HTMLButtonElement>) => {
+    const gesture = pointerGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    suppressNextClickRef.current = gesture.moved || gesture.longPressed;
+    cancelLongPress();
+  };
+
+  const abandonLongPress = () => {
+    if (pointerGestureRef.current) suppressNextClickRef.current = true;
+    cancelLongPress();
   };
 
   return (
-    <nav aria-label={ariaLabel} className={`profile-quick-navigation fixed inset-x-4 z-[60] xl:hidden bottom-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
-      {tooltipIndex !== null ? (
-        <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
-          {items[tooltipIndex]?.label}
+    <nav aria-label={ariaLabel} className={`profile-quick-navigation fixed inset-x-4 z-[60] xl:hidden bottom-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
+      {showBackToTop && onBackToTop ? (
+        <button type="button" aria-label={backToTopLabel} onClick={onBackToTop} className="absolute bottom-[calc(100%+0.35rem)] left-1/2 flex h-7 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-950/65 text-sm text-white/60 shadow-lg backdrop-blur transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
+          ↑
+        </button>
+      ) : null}
+      {tooltip ? (
+        <span role="tooltip" style={{ left: tooltip.left }} className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
+          {items[tooltip.index]?.label}
         </span>
       ) : null}
       <div className="overflow-visible rounded-full border border-white/15 bg-zinc-950/85 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-        <div className="w-full touch-pan-x touch-pan-y overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={cancelGesture}>
+        <div className="w-full touch-pan-x touch-pan-y overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex w-full min-w-[264px] justify-between">
           {items.map((item, index) => (
-            <button key={item.label} type="button" aria-label={item.label} title={item.label}
+            <button key={item.label} type="button" aria-label={item.label}
+              data-profile-quick-navigation-item
               data-tour-mobile={item.tourTarget}
               className="relative flex h-11 min-h-11 min-w-11 flex-1 shrink-0 items-center justify-center rounded-full text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-300"
               onClick={() => {
-                if (suppressClick.current) {
-                  suppressClick.current = false;
+                if (suppressNextClickRef.current) {
+                  suppressNextClickRef.current = false;
                   return;
                 }
-                navigateAndHide(item.onNavigate);
+                setTooltip(null);
+                item.onNavigate();
               }}
-              onPointerDown={(event) => start(event, index)} onPointerMove={move}
-              onPointerUp={(event) => finish(event, item.onNavigate)}
-              onPointerCancel={cancelGesture}
-              onPointerLeave={cancelGesture}
+              onPointerDown={(event) => startLongPress(event, index)}
+              onPointerMove={trackLongPress}
+              onPointerUp={finishLongPress}
+              onPointerCancel={abandonLongPress}
+              onPointerLeave={abandonLongPress}
+              onContextMenu={(event) => event.preventDefault()}
             >
               {item.icon}
               {index === 1 && pendingFriendRequestsCount > 0 ? (

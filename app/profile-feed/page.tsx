@@ -36,6 +36,7 @@ import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 type QuickTarget = "following" | "friends" | "activity" | "my-list" | "recommended" | "following-activity";
+type MobileSection = "top" | "connections" | "activity" | "lists" | "following-activity";
 const debugFriendRequestNavigation = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
 
 function logFriendRequestNavigation(event: string, details: Record<string, unknown> = {}) {
@@ -172,11 +173,15 @@ function ProfileFeedContent() {
   const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
   const [activeMobileProfileFeedSlide, setActiveMobileProfileFeedSlide] = useState(0);
+  const [activeMobileSection, setActiveMobileSection] = useState<MobileSection>("top");
+  const [quickNavigationVisible, setQuickNavigationVisible] = useState(true);
+  const profileFeedScrollerRef = useRef<HTMLElement | null>(null);
+  const topSectionRef = useRef<HTMLElement | null>(null);
+  const internalScrollPositionsRef = useRef(new WeakMap<HTMLElement, number>());
   const mobileProfileFeedCarouselRef = useRef<HTMLDivElement | null>(null);
   const connectionsSearchSectionRef = useRef<HTMLElement | null>(null);
   const activityAndListsPanelRef = useRef<HTMLDivElement | null>(null);
   const followingActivityPanelRef = useRef<HTMLDivElement | null>(null);
-  const [pendingNavigationTarget, setPendingNavigationTarget] = useState<QuickTarget | null>(null);
   const [connectionBlockRequest, setConnectionBlockRequest] = useState<{ block: 0 | 1; id: number } | null>(null);
   const [connectionViewRequest, setConnectionViewRequest] = useState<{ view: "friends" | "pending"; id: number } | null>(null);
   const [pendingFriendRequestNavigation, setPendingFriendRequestNavigation] = useState(false);
@@ -622,12 +627,37 @@ function ProfileFeedContent() {
     if (options?.pendingTab) {
       setConnectionViewRequest({ view: "pending", id: requestId });
     }
-    setPendingNavigationTarget("friends");
+  }, []);
+
+  const navigateToMobileSection = useCallback((target: MobileSection) => {
+    const scroller = profileFeedScrollerRef.current;
+    const destination = target === "top"
+      ? topSectionRef.current
+      : target === "connections"
+        ? connectionsSearchSectionRef.current
+        : target === "following-activity"
+          ? followingActivityPanelRef.current
+          : activityAndListsPanelRef.current;
+    if (!scroller || !destination) return;
+
+    setQuickNavigationVisible(true);
+    setActiveMobileSection(target);
+    let offset = 0;
+    let element: HTMLElement | null = destination;
+    while (element && element !== scroller) {
+      offset += element.offsetTop;
+      element = element.offsetParent as HTMLElement | null;
+    }
+    scroller.scrollTo({
+      top: offset,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
   }, []);
 
   const requestQuickNavigation = useCallback((target: QuickTarget) => {
     if (target === "friends") {
       navigateToFriends();
+      navigateToMobileSection("connections");
       return;
     }
 
@@ -642,8 +672,10 @@ function ProfileFeedContent() {
       setActiveListView((current) => current === nextView ? current : nextView);
       selectMobileContentSlide(1);
     }
-    setPendingNavigationTarget(target);
-  }, [navigateToFriends, selectMobileContentSlide]);
+    navigateToMobileSection(
+      target === "following" ? "connections" : target === "following-activity" ? "following-activity" : target === "activity" ? "activity" : "lists",
+    );
+  }, [navigateToFriends, navigateToMobileSection, selectMobileContentSlide]);
 
   const completeConnectionBlockRequest = useCallback((requestId: number) => {
     setConnectionBlockRequest((current) => current?.id === requestId ? null : current);
@@ -707,7 +739,6 @@ function ProfileFeedContent() {
       logFriendRequestNavigation("navigation-cleanup", { visible: isVisible() });
       friendRequestNavigationCompleted.current = true;
       setPendingFriendRequestNavigation(false);
-      setPendingNavigationTarget(null);
       setConnectionBlockRequest(null);
       setConnectionViewRequest(null);
 
@@ -745,41 +776,6 @@ function ProfileFeedContent() {
       window.cancelAnimationFrame(retryFrame);
     };
   }, [activeConnectionBlock, activeFriendsView, loadingPendingRequests, loadingProfileUser, pendingFriendRequestNavigation, router, searchParams]);
-
-  useEffect(() => {
-    if (!pendingNavigationTarget) return;
-    if (pendingFriendRequestNavigation) return;
-    if ((pendingNavigationTarget === "following" || pendingNavigationTarget === "friends") && (connectionBlockRequest || connectionViewRequest)) return;
-    const requiredListView = pendingNavigationTarget === "my-list" ? "my-list" : pendingNavigationTarget === "recommended" ? "recommended" : null;
-    if (requiredListView && activeListView !== requiredListView) return;
-
-    const destination = pendingNavigationTarget === "following" || pendingNavigationTarget === "friends"
-      ? connectionsSearchSectionRef.current
-      : pendingNavigationTarget === "following-activity"
-        ? followingActivityPanelRef.current
-        : activityAndListsPanelRef.current;
-    if (!destination || typeof window === "undefined") return;
-
-    let secondFrame = 0;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        if (pendingNavigationTarget === "activity") {
-          activityAndListsPanelRef.current?.querySelector<HTMLElement>(".my-activity-scroll-area")?.scrollTo({ top: 0 });
-        } else if (requiredListView) {
-          activityAndListsPanelRef.current?.querySelector<HTMLElement>(".profile-feed-mobile-list-scroll")?.scrollTo({ top: 0 });
-        } else if (pendingNavigationTarget === "following-activity") {
-          followingActivityPanelRef.current?.querySelector<HTMLElement>(".profile-feed-following-scroll")?.scrollTo({ top: 0 });
-        }
-        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        destination.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-        setPendingNavigationTarget(null);
-      });
-    });
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      if (secondFrame) window.cancelAnimationFrame(secondFrame);
-    };
-  }, [activeListView, connectionBlockRequest, connectionViewRequest, pendingFriendRequestNavigation, pendingNavigationTarget, router, searchParams]);
 
   const renderMovieListPanel = (className: string, mobile = false) => (
     <section data-tour-mobile={mobile ? `profile-${activeListView === "recommended" ? "recommendations" : "list"}-mobile` : undefined} className={className}>
@@ -883,9 +879,20 @@ function ProfileFeedContent() {
   );
 
   return (
-    <main className="profile-feed-mobile-framing min-h-screen overflow-x-clip bg-black text-zinc-100">
+    <main
+      ref={profileFeedScrollerRef}
+      onScrollCapture={(event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement) || target === event.currentTarget || target.scrollHeight <= target.clientHeight) return;
+        const previous = internalScrollPositionsRef.current.get(target) ?? target.scrollTop;
+        if (target.scrollTop > previous) setQuickNavigationVisible(false);
+        else if (target.scrollTop < previous) setQuickNavigationVisible(true);
+        internalScrollPositionsRef.current.set(target, target.scrollTop);
+      }}
+      className="profile-feed-mobile-framing h-dvh overflow-x-clip overflow-y-hidden overscroll-y-none bg-black text-zinc-100 xl:h-auto xl:min-h-screen xl:overflow-y-visible xl:overscroll-y-auto"
+    >
       <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 xl:px-8 xl:pb-8">
-        <section className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">
+        <section ref={topSectionRef} className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">
           <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-[1fr_3fr]">
             <div data-tour="profile-info" className="mx-auto flex w-full min-w-0 max-w-full">
               <ProfileIdentityCard
@@ -1063,6 +1070,10 @@ function ProfileFeedContent() {
         ariaLabel={t("profileFeedQuickNavigation")}
         pendingFriendRequestsCount={receivedPendingRequestsCount}
         forceVisible={forceMobileQuickNavigation}
+        visible={quickNavigationVisible}
+        showBackToTop={activeMobileSection !== "top"}
+        onBackToTop={() => navigateToMobileSection("top")}
+        backToTopLabel={locale === "en" ? "Back to top" : "Volver arriba"}
         items={[
           { label: t("profileFeedFollowing"), icon: profileQuickNavigationIcons.following, tourTarget: "profile-quick-following", onNavigate: () => requestQuickNavigation("following") },
           { label: t("profileFeedFriends"), icon: profileQuickNavigationIcons.friends, tourTarget: "profile-quick-friends", onNavigate: () => requestQuickNavigation("friends") },
