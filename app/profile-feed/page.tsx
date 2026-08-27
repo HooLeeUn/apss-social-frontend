@@ -889,7 +889,7 @@ function ProfileFeedContent() {
         else if (target.scrollTop < previous) setQuickNavigationVisible(true);
         internalScrollPositionsRef.current.set(target, target.scrollTop);
       }}
-      className="profile-feed-mobile-framing h-dvh overflow-x-clip overflow-y-hidden bg-black text-zinc-100 xl:h-auto xl:min-h-screen xl:overflow-y-visible"
+      className={`profile-feed-mobile-framing h-dvh overflow-x-clip overflow-y-hidden bg-black text-zinc-100 xl:h-auto xl:min-h-screen xl:overflow-y-visible ${activeMobileSection === "top" ? "" : "[&_.activity-scrollbar]:overscroll-y-contain"}`}
     >
       <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 xl:px-8 xl:pb-8">
         <section ref={topSectionRef} className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">

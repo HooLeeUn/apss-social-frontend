@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type PointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import MyListIcon from "../MyListIcon";
 
 type QuickNavigationItem = {
@@ -20,6 +20,9 @@ interface ProfileQuickNavigationProps {
   onBackToTop?: () => void;
   backToTopLabel?: string;
 }
+
+const LONG_PRESS_DELAY = 500;
+const LONG_PRESS_MOVE_THRESHOLD = 10;
 
 function LineIcon({ children }: { children: ReactNode }) {
   return (
@@ -55,6 +58,77 @@ export default function ProfileQuickNavigation({
   onBackToTop,
   backToTopLabel = "Volver arriba",
 }: ProfileQuickNavigationProps) {
+  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerGestureRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+    longPressed: boolean;
+  } | null>(null);
+  const suppressNextClickRef = useRef(false);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  }, []);
+
+  const cancelLongPress = useCallback(() => {
+    clearLongPressTimer();
+    pointerGestureRef.current = null;
+    setTooltipIndex(null);
+  }, [clearLongPressTimer]);
+
+  useEffect(() => {
+    const dismissTooltip = (event: globalThis.PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest("[data-profile-quick-navigation-item]")) cancelLongPress();
+    };
+    document.addEventListener("pointerdown", dismissTooltip, true);
+    return () => {
+      document.removeEventListener("pointerdown", dismissTooltip, true);
+      clearLongPressTimer();
+    };
+  }, [cancelLongPress, clearLongPressTimer]);
+
+  const startLongPress = (event: PointerEvent<HTMLButtonElement>, index: number) => {
+    if (event.pointerType === "mouse" || !event.isPrimary) return;
+    cancelLongPress();
+    suppressNextClickRef.current = false;
+    pointerGestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+      longPressed: false,
+    };
+    longPressTimerRef.current = setTimeout(() => {
+      const gesture = pointerGestureRef.current;
+      if (!gesture || gesture.moved) return;
+      gesture.longPressed = true;
+      setTooltipIndex(index);
+      longPressTimerRef.current = null;
+    }, LONG_PRESS_DELAY);
+  };
+
+  const trackLongPress = (event: PointerEvent<HTMLButtonElement>) => {
+    const gesture = pointerGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) <= LONG_PRESS_MOVE_THRESHOLD) return;
+    gesture.moved = true;
+    suppressNextClickRef.current = true;
+    clearLongPressTimer();
+    setTooltipIndex(null);
+  };
+
+  const finishLongPress = (event: PointerEvent<HTMLButtonElement>) => {
+    const gesture = pointerGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    suppressNextClickRef.current = gesture.moved || gesture.longPressed;
+    cancelLongPress();
+  };
+
   return (
     <nav aria-label={ariaLabel} className={`profile-quick-navigation fixed inset-x-4 z-[60] xl:hidden bottom-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
       {showBackToTop && onBackToTop ? (
@@ -67,10 +141,28 @@ export default function ProfileQuickNavigation({
           <div className="flex w-full min-w-[264px] justify-between">
           {items.map((item, index) => (
             <button key={item.label} type="button" aria-label={item.label} title={item.label}
+              data-profile-quick-navigation-item
               data-tour-mobile={item.tourTarget}
               className="relative flex h-11 min-h-11 min-w-11 flex-1 shrink-0 items-center justify-center rounded-full text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-300"
-              onClick={item.onNavigate}
+              onClick={() => {
+                if (suppressNextClickRef.current) {
+                  suppressNextClickRef.current = false;
+                  return;
+                }
+                setTooltipIndex(null);
+                item.onNavigate();
+              }}
+              onPointerDown={(event) => startLongPress(event, index)}
+              onPointerMove={trackLongPress}
+              onPointerUp={finishLongPress}
+              onPointerCancel={cancelLongPress}
+              onPointerLeave={trackLongPress}
             >
+              {tooltipIndex === index ? (
+                <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
+                  {item.label}
+                </span>
+              ) : null}
               {item.icon}
               {index === 1 && pendingFriendRequestsCount > 0 ? (
                 <span className="pointer-events-none absolute right-1 top-0 z-10 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-bold leading-none text-zinc-950 shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
