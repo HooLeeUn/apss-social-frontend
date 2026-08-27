@@ -16,6 +16,8 @@ import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount
 import CommentDetailButton from "./CommentDetailButton";
 import MyListIcon from "./MyListIcon";
 import RatingPopover from "./RatingPopover";
+import GuestContentGate from "./GuestContentGate";
+import { useGuestGate } from "./GuestGateProvider";
 import { RatingUserSmileIcon } from "./RatingIcons";
 import TrailerModal from "./TrailerModal";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
@@ -738,6 +740,7 @@ interface MovieCardProps {
   showExtendedMetadata?: boolean;
   highlightMyRatingSlot?: boolean;
   ratingReadOnly?: boolean;
+  guestActions?: boolean;
   onRatingReadOnlyClick?: () => void;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
   showBottomInteractionIcons?: boolean;
@@ -805,6 +808,7 @@ function MovieCard({
   showExtendedMetadata = false,
   highlightMyRatingSlot = false,
   ratingReadOnly = false,
+  guestActions = false,
   onRatingReadOnlyClick,
   onRated,
   showBottomInteractionIcons = true,
@@ -825,6 +829,8 @@ function MovieCard({
   trailerHoverDelayMs = DEFAULT_TRAILER_HOVER_DELAY_MS,
   branding = null,
 }: MovieCardProps) {
+  const { showGuestGate } = useGuestGate();
+  const guestGateId = `movie-actions:${movie.id}`;
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -1062,6 +1068,7 @@ function MovieCard({
   }, [country, isDesktopViewport, isFeed, linkToDetail, movie.id]);
 
   const handleToggleMyList = async () => {
+    if (guestActions) { showGuestGate(guestGateId, "list"); return; }
     const nextValue = !isInMyList;
     if (!onToggleMyList) setLocalIsInMyList(nextValue);
 
@@ -1079,6 +1086,7 @@ function MovieCard({
     }
   };
   const handleToggleMyRecommendations = async () => {
+    if (guestActions) { showGuestGate(guestGateId, "recommend"); return; }
     const nextValue = !isInMyRecommendations;
     if (!onToggleMyRecommendations) setLocalIsInMyRecommendations(nextValue);
     try {
@@ -1118,7 +1126,7 @@ function MovieCard({
       </div>
       <div className="flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold sm:text-sm">
         {ratingReadOnly ? (
-          <button type="button" onClick={onRatingReadOnlyClick} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
+          <button type="button" onClick={() => guestActions ? showGuestGate(guestGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
         ) : onRated ? (
           <RatingPopover
             movieId={movie.id}
@@ -1167,10 +1175,10 @@ function MovieCard({
         <CommentDetailButton tourTarget="feed-card-synopsis" title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
         {showBottomInteractionIcons ? (
           <div className="interaction-icons static z-10 flex flex-nowrap items-center gap-1">
-            <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+            <button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
               <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
             </button>
-            <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+            <button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
               <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
             </button>
           </div>
@@ -1234,7 +1242,7 @@ function MovieCard({
       >
         {isFeed ? (
           ratingReadOnly ? (
-            <button type="button" onClick={onRatingReadOnlyClick} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
+            <span className="relative inline-flex"><button type="button" onClick={() => guestActions ? showGuestGate(guestGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button><GuestContentGate gateId={guestGateId} placement="below" /></span>
           ) : onRated ? (
             <RatingPopover
               movieId={movie.id}
@@ -1299,10 +1307,10 @@ function MovieCard({
                     : `absolute ${highlightMyRatingSlot ? (showExtendedMetadata ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2" : "hidden") : "right-10 -top-7"}`
                 }`}
               >
-                <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                   <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
                 </button>
-                <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                <button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                   <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
                 </button>
               </div>
@@ -1315,10 +1323,10 @@ function MovieCard({
       ) : (
         <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
           <div className="interaction-icons">
-            <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+            <button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
               <MyListIcon cardSize className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
             </button>
-            <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+            <button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
               <img src="/icons/Ticket.png" alt="" className={`${compactInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
             </button>
           </div>
@@ -1482,10 +1490,10 @@ function MovieCard({
             <div
               className="interaction-icons absolute right-2 top-[4.85rem] z-10"
             >
-              <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+              <button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                 <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
               </button>
-              <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+              <button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                 <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
               </button>
             </div>

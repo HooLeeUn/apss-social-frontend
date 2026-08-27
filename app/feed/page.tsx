@@ -1227,6 +1227,8 @@ export default function FeedPage() {
               {visiblePersonalizedMovies.map((movie) => (
                 <MovieCard
                   key={movie.id}
+                  guestActions={isDesktopGuest}
+                  ratingReadOnly={isDesktopGuest}
                   movie={movie}
                   variant="feed"
                   enlargeInteractionIcons

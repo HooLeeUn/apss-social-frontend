@@ -2066,7 +2066,9 @@ export async function getSocialActivity(
       const parsed = parseSocialActivity(payload);
 
       return {
-        items: filterUsernameScopedActivity(parsed.items, usernameScope),
+        // The username activity endpoint is already scoped by the backend. Reaction
+        // payloads do not consistently repeat that username in their actor fields.
+        items: activityType === "public_comment_reaction" ? parsed.items : filterUsernameScopedActivity(parsed.items, usernameScope),
         next: parsed.next ? normalizeActivityNextEndpoint(parsed.next) : null,
       };
     }

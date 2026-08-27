@@ -53,6 +53,7 @@ import type { OnboardingPrepareAction } from "../../../lib/onboarding/types";
 import { useDesktopGuest } from "../../../hooks/useDesktopGuest";
 import GuestSignupRec from "../../../components/GuestSignupRec";
 import GuestContentGate from "../../../components/GuestContentGate";
+import { useGuestGate } from "../../../components/GuestGateProvider";
 
 type CommentInputMode = "text-comment" | "video-comment";
 type TrailerCompanionView = "reaction" | "public-comments" | "directed-comments";
@@ -1042,6 +1043,8 @@ function CommentUserSearch({
 
 function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick, desktopGuest = false }: { movieId: string; movieTitle: string; moviePoster: string | null; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void; desktopGuest?: boolean }) {
   const router = useRouter();
+  const { showGuestGate } = useGuestGate();
+  const guestVideoGateId = `detail-video:${movieId}`;
   const [recorderState, setRecorderState] = useState<VideoRecorderState>("idle");
   const [error, setError] = useState("");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -1082,7 +1085,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const mobileHistoryScrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
-  const [guestGateOpen, setGuestGateOpen] = useState(false);
+
   const streamRef = useRef<MediaStream | null>(null);
   const pendingStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -1345,11 +1348,11 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const scrollHistoryCarousel = useCallback((direction: -1 | 1) => {
     const container = historyScrollRef.current;
     if (!container) return;
-    if (desktopGuest && direction === 1) { setGuestGateOpen(true); return; }
+    if (desktopGuest && direction === 1) { showGuestGate(guestVideoGateId, "more"); return; }
     const firstCard = container.querySelector<HTMLElement>("[data-video-comment-card]");
     const gap = Number.parseFloat(getComputedStyle(container).columnGap || getComputedStyle(container).gap) || 12;
     container.scrollBy({ left: direction * ((firstCard?.offsetWidth ?? 384) + gap), behavior: "smooth" });
-  }, [desktopGuest]);
+  }, [desktopGuest, guestVideoGateId, showGuestGate]);
 
   useEffect(() => {
     const container = historyScrollRef.current;
@@ -2700,7 +2703,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200 xl:hidden" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
     <button type="button" data-history-carousel-arrow="left" disabled={recorderState !== "idle" || !canScrollHistoryLeft} className="hidden" aria-label="Anterior" onClick={() => scrollHistoryCarousel(-1)}>←</button>
     <div data-history-carousel-viewport className="relative">
-    <div ref={historyScrollRef} tabIndex={desktopGuest ? 0 : undefined} onWheel={(event) => { if (desktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); setGuestGateOpen(true); } }} onKeyDown={(event) => { if (desktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); setGuestGateOpen(true); } }} onScroll={(event) => { if (desktopGuest && event.currentTarget.scrollLeft > 1) { event.currentTarget.scrollLeft = 0; setGuestGateOpen(true); } }} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 xl:mx-auto xl:max-h-[32rem] xl:max-w-3xl xl:overflow-y-auto xl:pr-2">
+    <div ref={historyScrollRef} tabIndex={desktopGuest ? 0 : undefined} onWheel={(event) => { if (desktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestVideoGateId, "more"); } }} onKeyDown={(event) => { if (desktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestVideoGateId, "more"); } }} onScroll={(event) => { if (desktopGuest && event.currentTarget.scrollLeft > 1) { event.currentTarget.scrollLeft = 0; showGuestGate(guestVideoGateId, "more"); } }} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className="desktop-dark-scrollbar mt-5 space-y-3 xl:mx-auto xl:max-h-[32rem] xl:max-w-3xl xl:overflow-y-auto xl:pr-2">
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
@@ -2726,7 +2729,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
     </div>
-    <GuestContentGate open={guestGateOpen} onClose={() => setGuestGateOpen(false)} />
+    <GuestContentGate gateId={guestVideoGateId} />
     </div>
     <button type="button" data-history-carousel-arrow="right" disabled={recorderState !== "idle" || !canScrollHistoryRight} className="hidden" aria-label="Siguiente" onClick={() => scrollHistoryCarousel(1)}>→</button>
     {orientationPaused ? <div className="fixed inset-0 z-[200] flex h-[100dvh] w-[100dvw] items-center justify-center bg-black px-6 py-[max(1.5rem,env(safe-area-inset-top))] text-center" role="alert" aria-live="assertive"><div className="w-full max-w-lg"><span className="video-reaction-phone mx-auto mb-6 block h-20 w-11 rounded-xl border-2 border-white" aria-hidden="true" /><p className="text-lg font-bold leading-relaxed text-white sm:text-xl">{t("movieDetailVideoRotatePortrait")}</p></div></div> : null}
@@ -2768,14 +2771,14 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
 
 function MovieDetailPageContent() {
   const { hydrated: authHydrated, isDesktopGuest } = useDesktopGuest();
-  const [guestRatingGateOpen, setGuestRatingGateOpen] = useState(false);
-  const [guestCommentsGateOpen, setGuestCommentsGateOpen] = useState(false);
+  const { showGuestGate } = useGuestGate();
   const router = useRouter();
   const searchParams = useSearchParams();
   const branding = useAppBranding();
   const { locale, t } = useI18n();
   const params = useParams<{ id: string }>();
   const movieId = params?.id ? String(params.id) : "";
+  const guestCommentsGateId = `detail-comments:${movieId}`;
   const debugNotificationTarget = searchParams.get("debugNotificationTarget") === "1";
   const [notificationDiagnosticEntries, setNotificationDiagnosticEntries] = useState<string[]>([]);
   const [notificationDiagnosticViewport, setNotificationDiagnosticViewport] = useState<"unknown" | "mobile" | "desktop">("unknown");
@@ -4473,12 +4476,12 @@ function MovieDetailPageContent() {
               separateRatingsActionsCard
               onRated={handleMovieRated}
               ratingReadOnly={isDesktopGuest}
-              onRatingReadOnlyClick={() => setGuestRatingGateOpen(true)}
+              guestActions={isDesktopGuest}
               creditsLoading={creditsLoading}
               preloadPersonDetails
               enableMobileDetailCarousel
               branding={branding}
-            /></div><GuestContentGate open={guestRatingGateOpen} variant="rate" onClose={() => setGuestRatingGateOpen(false)} /></div>
+            /></div></div>
           ) : null}
 
           <div data-mobile-comment-tabs className="relative flex items-center justify-between gap-4 xl:hidden" role="tablist" aria-label={composerTitle}>
@@ -4620,9 +4623,9 @@ function MovieDetailPageContent() {
               exposePublicCommentIds
               containerRef={publicCommentsScrollRef}
               readOnly={isDesktopGuest}
-              onReadOnlyBoundaryAttempt={() => setGuestCommentsGateOpen(true)}
+              onReadOnlyBoundaryAttempt={() => showGuestGate(guestCommentsGateId, "more")}
             />
-            <GuestContentGate open={guestCommentsGateOpen} onClose={() => setGuestCommentsGateOpen(false)} />
+            <GuestContentGate gateId={guestCommentsGateId} />
             </div>
           </section>
 

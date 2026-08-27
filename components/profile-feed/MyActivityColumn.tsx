@@ -16,6 +16,7 @@ import { apiFetch } from "../../lib/api";
 import VisitedProfileVideoReactions from "./VisitedProfileVideoReactions";
 import GuestContentGate from "../GuestContentGate";
 import { useDesktopGuest } from "../../hooks/useDesktopGuest";
+import { useGuestGate } from "../GuestGateProvider";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
@@ -998,7 +999,8 @@ export default function MyActivityColumn({
 }: MyActivityColumnProps = {}) {
   const { locale, t } = useI18n();
   const { isDesktopGuest } = useDesktopGuest();
-  const [guestHistoryGateOpen, setGuestHistoryGateOpen] = useState(false);
+  const { showGuestGate } = useGuestGate();
+  const guestHistoryGateId = `profile-history:${viewedUsername ?? "me"}`;
   const initialResolvedActiveTab =
     isOwnProfile && hidePrivateInbox !== false && initialActiveTab === "messages" ? "activity" : initialActiveTab;
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
@@ -1586,9 +1588,9 @@ export default function MyActivityColumn({
             : "h-[425px] overflow-y-auto"
         }`}
         tabIndex={isDesktopGuest && visitedActivityTab !== "video_reactions" ? 0 : undefined}
-        onWheel={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && event.deltaY > 0) { event.preventDefault(); setGuestHistoryGateOpen(true); } }}
-        onKeyDown={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && ["ArrowDown", "End", "PageDown", " "].includes(event.key)) { event.preventDefault(); setGuestHistoryGateOpen(true); } }}
-        onScroll={handleScroll} onScrollCapture={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && event.currentTarget.scrollTop > 1) { event.currentTarget.scrollTop = 0; setGuestHistoryGateOpen(true); } }}
+        onWheel={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && event.deltaY > 0) { event.preventDefault(); showGuestGate(guestHistoryGateId, "more"); } }}
+        onKeyDown={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && ["ArrowDown", "End", "PageDown", " "].includes(event.key)) { event.preventDefault(); showGuestGate(guestHistoryGateId, "more"); } }}
+        onScroll={handleScroll} onScrollCapture={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && event.currentTarget.scrollTop > 1) { event.currentTarget.scrollTop = 0; showGuestGate(guestHistoryGateId, "more"); } }}
         onTouchStart={handleActivityTouchStart}
         onTouchMove={handleActivityTouchMove}
         onTouchEnd={finishActivityTouch}
@@ -1770,7 +1772,7 @@ export default function MyActivityColumn({
           </>
         )}
       </div>
-      <GuestContentGate open={guestHistoryGateOpen} onClose={() => setGuestHistoryGateOpen(false)} />
+      <GuestContentGate gateId={guestHistoryGateId} />
       {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} onReactionUpdated={syncGivenVideoReaction} onDeleted={removeDeletedActivityVideo} /> : null}
       {activeReactionSummary ? <ReactionSummaryModal summary={activeReactionSummary} myUsername={myUsername} onClose={closeReactionSummary} /> : null}
     </section>
