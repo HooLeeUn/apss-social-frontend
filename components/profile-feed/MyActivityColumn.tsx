@@ -1384,7 +1384,7 @@ export default function MyActivityColumn({
 
   const handleActivityTouchStart = useCallback(
     (event: TouchEvent<HTMLDivElement>) => {
-      if (effectiveActiveTab === "messages" || !window.matchMedia("(max-width: 1279px)").matches) return;
+      if (effectiveActiveTab === "messages" || !window.matchMedia("(max-width: 1279px)").matches || isOwnProfile) return;
       const startY = event.touches[0]?.clientY;
       if (startY === undefined) return;
       if (event.timeStamp - swipeIntentRef.current.endedAt > SWIPE_INTENT_MAX_GAP_MS) {
@@ -1397,14 +1397,14 @@ export default function MyActivityColumn({
         direction: null,
       };
     },
-    [effectiveActiveTab],
+    [effectiveActiveTab, isOwnProfile],
   );
 
   const handleActivityTouchMove = useCallback(
     (event: TouchEvent<HTMLDivElement>) => {
       const gesture = activityTouchGestureRef.current;
       const currentY = event.touches[0]?.clientY;
-      if (!gesture || currentY === undefined || effectiveActiveTab === "messages") return;
+      if (!gesture || currentY === undefined || isOwnProfile || effectiveActiveTab === "messages") return;
 
       const scrollDelta = gesture.previousY - currentY;
       gesture.previousY = currentY;
@@ -1426,7 +1426,7 @@ export default function MyActivityColumn({
       const outerScroller = scroller.ownerDocument.scrollingElement;
       if (outerScroller) outerScroller.scrollTop += scrollDelta;
     },
-    [effectiveActiveTab],
+    [effectiveActiveTab, isOwnProfile],
   );
 
   const finishActivityTouch = useCallback((event: TouchEvent<HTMLDivElement>) => {

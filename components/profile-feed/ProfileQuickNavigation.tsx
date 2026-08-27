@@ -15,13 +15,14 @@ interface ProfileQuickNavigationProps {
   items: QuickNavigationItem[];
   pendingFriendRequestsCount: number;
   forceVisible?: boolean;
+  showBackToTop?: boolean;
+  onBackToTop?: () => void;
 }
 
 const MOVE_THRESHOLD = 10;
 const LONG_PRESS_DELAY = 500;
-const PROGRAMMATIC_SCROLL_SETTLE_DELAY = 180;
-const PROGRAMMATIC_SCROLL_MAX_DELAY = 3000;
 const PROFILE_FEED_SELECTOR = ".profile-feed-mobile-framing";
+const INTERNAL_SCROLL_SELECTOR = ".my-activity-scroll-area, .profile-feed-mobile-list-scroll, .profile-feed-following-scroll, [data-profile-internal-scroll]";
 const INTERACTIVE_TARGET_SELECTOR = [
   "button",
   "a",
@@ -63,34 +64,19 @@ export const profileQuickNavigationIcons = {
   followingActivity: <LineIcon><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M3 10h18M6 3l2 3m3-3 2 3m3-3 2 3" /></LineIcon>,
 };
 
-export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriendRequestsCount, forceVisible = false }: ProfileQuickNavigationProps) {
+export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriendRequestsCount, forceVisible = false, showBackToTop = false, onBackToTop }: ProfileQuickNavigationProps) {
   const [visible, setVisible] = useState(true);
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
-  const lastScrollY = useRef(0);
+  const internalScrollPositions = useRef(new WeakMap<Element, number>());
   const gesture = useRef<{ pointerId: number; x: number; y: number; moved: boolean; longPressed: boolean } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressClick = useRef(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealGesture = useRef<{ pointerId: number; x: number; y: number; cancelled: boolean; triggered: boolean } | null>(null);
-  const quickNavigationInProgress = useRef(false);
-  const programmaticScrollSettleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const programmaticScrollFallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const finishQuickNavigation = useCallback(() => {
-    quickNavigationInProgress.current = false;
-    if (programmaticScrollSettleTimer.current) clearTimeout(programmaticScrollSettleTimer.current);
-    if (programmaticScrollFallbackTimer.current) clearTimeout(programmaticScrollFallbackTimer.current);
-    programmaticScrollSettleTimer.current = null;
-    programmaticScrollFallbackTimer.current = null;
-  }, []);
-
-  const navigateAndHide = useCallback((action: () => void) => {
-    finishQuickNavigation();
-    quickNavigationInProgress.current = true;
-    setVisible(false);
+  const navigateAndShow = useCallback((action: () => void) => {
+    setVisible(true);
     action();
-    programmaticScrollFallbackTimer.current = setTimeout(finishQuickNavigation, PROGRAMMATIC_SCROLL_MAX_DELAY);
-  }, [finishQuickNavigation]);
+  }, []);
 
   const clearLongPress = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -107,27 +93,25 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    lastScrollY.current = Math.max(window.scrollY, 0);
-    const onScroll = () => {
-      const next = Math.max(window.scrollY, 0);
-      const delta = next - lastScrollY.current;
+    const onScroll = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.matches(INTERNAL_SCROLL_SELECTOR)) return;
+      const next = target.scrollTop;
+      const previous = internalScrollPositions.current.get(target) ?? next;
+      const delta = next - previous;
       if (Math.abs(delta) > 0) cancelGesture();
-      if (quickNavigationInProgress.current) {
-        if (programmaticScrollSettleTimer.current) clearTimeout(programmaticScrollSettleTimer.current);
-        programmaticScrollSettleTimer.current = setTimeout(finishQuickNavigation, PROGRAMMATIC_SCROLL_SETTLE_DELAY);
-      } else if (next < 80) setVisible(true);
+      if (next < 8) setVisible(true);
       else if (delta > 8) setVisible(false);
       else if (delta < -8) setVisible(true);
-      if (Math.abs(delta) > 8) lastScrollY.current = next;
+      if (Math.abs(delta) > 8) internalScrollPositions.current.set(target, next);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [cancelGesture, finishQuickNavigation]);
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener("scroll", onScroll, true);
+  }, [cancelGesture]);
 
   useEffect(() => () => {
     clearLongPress();
-    finishQuickNavigation();
-  }, [clearLongPress, finishQuickNavigation]);
+  }, [clearLongPress]);
 
   const clearRevealGesture = useCallback(() => {
     if (revealTimer.current) clearTimeout(revealTimer.current);
@@ -220,11 +204,21 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
     gesture.current = null;
     setTooltipIndex(null);
     suppressClick.current = true;
-    if (!current.moved && !current.longPressed) navigateAndHide(action);
+    if (!current.moved && !current.longPressed) navigateAndShow(action);
   };
 
   return (
-    <nav aria-label={ariaLabel} className={`profile-quick-navigation fixed inset-x-4 z-[60] xl:hidden bottom-[calc(1rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
+    <nav aria-label={ariaLabel} className={`profile-quick-navigation fixed inset-x-4 z-[60] xl:hidden bottom-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
+      {showBackToTop && onBackToTop ? (
+        <button
+          type="button"
+          aria-label="Volver al inicio del perfil"
+          className="profile-quick-navigation__back absolute bottom-[calc(100%+0.35rem)] left-1/2 flex h-6 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-950/65 text-sm text-white/60 shadow-lg backdrop-blur transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+          onClick={() => navigateAndShow(onBackToTop)}
+        >
+          <span aria-hidden="true">⌃</span>
+        </button>
+      ) : null}
       {tooltipIndex !== null ? (
         <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
           {items[tooltipIndex]?.label}
@@ -242,7 +236,7 @@ export default function ProfileQuickNavigation({ ariaLabel, items, pendingFriend
                   suppressClick.current = false;
                   return;
                 }
-                navigateAndHide(item.onNavigate);
+                navigateAndShow(item.onNavigate);
               }}
               onPointerDown={(event) => start(event, index)} onPointerMove={move}
               onPointerUp={(event) => finish(event, item.onNavigate)}

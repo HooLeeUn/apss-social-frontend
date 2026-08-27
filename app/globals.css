@@ -727,6 +727,16 @@ textarea,
     --mobile-profile-useful-height: calc(100dvh - 2rem);
     --mobile-profile-connections-height: calc(var(--mobile-profile-useful-height) - 3.75rem);
     --mobile-favorite-poster-width: clamp(5.25rem, 24vw, 6.25rem);
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior-y: none;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .profile-feed-mobile-framing::-webkit-scrollbar {
+    display: none;
   }
 
   .profile-feed-mobile-framing .favorite-movies-block {
@@ -816,9 +826,14 @@ textarea,
     flex: 1 1 auto;
     overflow-x: hidden;
     overflow-y: auto;
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: contain;
     scroll-padding-bottom: var(--mobile-profile-nav-clearance);
     touch-action: pan-x pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .profile-feed-mobile-framing [data-profile-internal-scroll] {
+    overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -868,7 +883,7 @@ textarea,
     max-height: none;
     overflow-x: hidden;
     overflow-y: auto;
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: contain;
     scroll-padding-bottom: var(--mobile-profile-nav-clearance);
     touch-action: pan-x pan-y pinch-zoom;
     -webkit-overflow-scrolling: touch;

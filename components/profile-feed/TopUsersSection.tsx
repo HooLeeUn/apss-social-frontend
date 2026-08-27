@@ -218,7 +218,7 @@ function Block({
         ) : null}
 
         {loading ? (
-          <div className="activity-scrollbar space-y-2.5 overflow-y-auto pr-1">
+          <div data-profile-internal-scroll className="activity-scrollbar space-y-2.5 overflow-y-auto pr-1">
             {Array.from({ length: 4 }).map((_, index) => (
               <div key={`${title}-skeleton-${index}`} className="flex animate-pulse items-center gap-3 py-2.5">
                 <div className="h-9 w-9 rounded-full bg-zinc-800" />
@@ -244,7 +244,7 @@ function Block({
         ) : null}
 
         {!loading && !error && users.length > 0 ? (
-          <div className="activity-scrollbar h-full overflow-y-auto pr-1">
+          <div data-profile-internal-scroll className="activity-scrollbar h-full overflow-y-auto pr-1">
             {users.map((user) => (
               <UserRow key={`${title}-${user.id}`} user={user} onNavigateUser={onNavigateUser} />
             ))}
@@ -294,7 +294,7 @@ function PendingRequestsBlock({
         {loading ? <p className="py-6 text-center text-sm text-zinc-500">{t("profileFeedLoading")}</p> : null}
         {!loading && !error && requests.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">{t("profileFeedNoPendingRequests")}</p> : null}
         {!loading && !error && requests.length > 0 ? (
-          <div className="activity-scrollbar h-full overflow-y-auto pr-1">
+          <div data-profile-internal-scroll className="activity-scrollbar h-full overflow-y-auto pr-1">
             {requests.map((request) => (
               <PendingRequestRow key={`pending-${request.id}`} request={request} onAccept={onAccept} onReject={onReject} onCancel={onCancel} onNavigateUser={onNavigateUser} />
             ))}
