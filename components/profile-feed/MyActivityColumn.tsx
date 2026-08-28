@@ -998,7 +998,7 @@ export default function MyActivityColumn({
   errorCopy,
 }: MyActivityColumnProps = {}) {
   const { locale, t } = useI18n();
-  const { isDesktopGuest } = useDesktopGuest();
+  const { isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const { showGuestGate } = useGuestGate();
   const guestHistoryGateId = `profile-history:${viewedUsername ?? "me"}`;
   const initialResolvedActiveTab =
@@ -1423,6 +1423,13 @@ export default function MyActivityColumn({
       gesture.direction = direction;
 
       const scroller = event.currentTarget;
+      if (isDesktopGuest && direction === 1 && scroller.scrollHeight > scroller.clientHeight + 1) {
+        if (event.cancelable) event.preventDefault();
+        showGuestGate(guestHistoryGateId, "more");
+        const outerScroller = scroller.ownerDocument.scrollingElement;
+        if (outerScroller) outerScroller.scrollTop += scrollDelta;
+        return;
+      }
       const remainingBelow = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
       const distanceToEdge = direction === 1 ? remainingBelow : scroller.scrollTop;
       const isAtEdge = distanceToEdge <= 1;
@@ -1436,7 +1443,7 @@ export default function MyActivityColumn({
       const outerScroller = scroller.ownerDocument.scrollingElement;
       if (outerScroller) outerScroller.scrollTop += scrollDelta;
     },
-    [effectiveActiveTab],
+    [effectiveActiveTab, guestHistoryGateId, isDesktopGuest, showGuestGate],
   );
 
   const finishActivityTouch = useCallback((event: TouchEvent<HTMLDivElement>) => {

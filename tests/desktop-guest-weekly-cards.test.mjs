@@ -43,7 +43,7 @@ test("guest gates use a short portal-capable presentation", () => {
 test("desktop guest contextual controls stay attached to their visible headings and tabs", () => {
   assert.match(detail, /!isDesktopGuest \? <CommentUserSearch/);
   assert.match(detail, /GuestContentGate gateId=\{guestCommentsGateId\} placement="inline-end"/);
-  assert.match(visitedProfile, /headerAction=\{isDesktopGuest \? <GuestSignupRec \/>/);
+  assert.match(visitedProfile, /headerAction=\{isDesktopGuest \? <GuestSignupRec[^>]+gateVariant="profile"/);
   assert.match(activity, /portal anchorRef=\{activeVisitedTabRef\}/);
 });
 

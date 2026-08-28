@@ -206,7 +206,7 @@ test("REC options and the active recorder escape reaction scroll clipping withou
   has(/createPortal\(<div ref=\{optionsMenuRef\} data-rec-options-menu/);
   has(/className="fixed z-\[100\] w-52/);
   has(/desktop \? rect\.right \+ 12 : rect\.left \+ rect\.width \/ 2 - menuWidth \/ 2/);
-  has(/isRecordingOverlay \? "contents" : "max-h-\[50dvh\] overflow-y-auto/);
+  has(/isRecordingOverlay \? "contents" : `max-h-\[50dvh\].*overflow-y-auto overscroll-contain/);
   has(/isRecordingOverlay && typeof document !== "undefined" \? createPortal\(reactionContent, document\.body\)/);
   has(/isRecordingOverlay \? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3"/);
   has(/data-recording-overlay=\{isRecordingOverlay\}/);

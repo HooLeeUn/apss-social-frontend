@@ -1160,7 +1160,10 @@ function MovieCard({
       <div className="min-w-0 justify-self-start">
         {tmdbUrl ? (
           <TooltipTarget text={tmdbTooltip}>
-            <a
+            {guestActions ? <span aria-label={tmdbTooltip} className="inline-flex h-8 w-[82px] shrink-0 items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
+            </span> : <a
               href={tmdbUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -1170,7 +1173,7 @@ function MovieCard({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
-            </a>
+            </a>}
           </TooltipTarget>
         ) : null}
       </div>
@@ -1283,7 +1286,10 @@ function MovieCard({
               <div aria-hidden="true" />
               {tmdbUrl ? (
                 <TooltipTarget text={tmdbTooltip}>
-                  <a
+                  {guestActions ? <span aria-label={tmdbTooltip} className={splitFeedTmdbLogoClassName}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
+                  </span> : <a
                     href={tmdbUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1293,7 +1299,7 @@ function MovieCard({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
-                  </a>
+                  </a>}
                 </TooltipTarget>
               ) : null}
               {ratingsActionsTmdbSlot ? <div className={splitFeedTmdbSlotClassName}>{ratingsActionsTmdbSlot}</div> : null}

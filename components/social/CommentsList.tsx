@@ -72,6 +72,7 @@ export default function CommentsList({
 }: CommentsListProps) {
   const { t } = useI18n();
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const readOnlyTouchYRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (readOnly || !hasMore || loadingMore || !onLoadMore) return;
@@ -163,6 +164,10 @@ export default function CommentsList({
         }
       }}
       onWheel={(event) => { if (readOnly && event.deltaY > 0) { event.preventDefault(); onReadOnlyBoundaryAttempt?.(); } }}
+      onTouchStart={(event) => { readOnlyTouchYRef.current = event.touches[0]?.clientY ?? null; }}
+      onTouchMove={(event) => { const previousY = readOnlyTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!readOnly || previousY === null || currentY === undefined) return; const delta = previousY - currentY; readOnlyTouchYRef.current = currentY; if (delta <= 0 || event.currentTarget.scrollHeight <= event.currentTarget.clientHeight + 1) return; if (event.cancelable) event.preventDefault(); onReadOnlyBoundaryAttempt?.(); const outer = event.currentTarget.ownerDocument.scrollingElement; if (outer) outer.scrollTop += delta; }}
+      onTouchEnd={() => { readOnlyTouchYRef.current = null; }}
+      onTouchCancel={() => { readOnlyTouchYRef.current = null; }}
       onKeyDown={(event) => { if (readOnly && ["ArrowDown", "End", "PageDown", " "].includes(event.key)) { event.preventDefault(); onReadOnlyBoundaryAttempt?.(); } }}
       tabIndex={readOnly ? 0 : undefined}
     >

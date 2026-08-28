@@ -25,7 +25,10 @@ export default function GuestContentGate({ gateId, placement = "floating", class
     const update = () => {
       const rect = anchorRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setPortalPosition({ left: Math.min(Math.max(rect.left + rect.width / 2, 150), window.innerWidth - 150), top: rect.bottom + 8 });
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const preferredTop = rect.bottom + 8;
+      const top = window.innerWidth < 768 && preferredTop > viewportHeight - 64 ? Math.max(12, rect.top - 60) : preferredTop;
+      setPortalPosition({ left: Math.min(Math.max(rect.left + rect.width / 2, 150), window.innerWidth - 150), top });
     };
     update();
     window.addEventListener("resize", update);
@@ -37,7 +40,7 @@ export default function GuestContentGate({ gateId, placement = "floating", class
   }, [anchorRef, open, portal]);
 
   if (!open) return null;
-  const copyKey: Record<GuestGateVariant, "guestSeeMorePrefix" | "guestRatePrefix" | "guestListPrefix" | "guestRecommendPrefix" | "guestSignupPrefix" | "guestProfilePrefix" | "guestAvailabilityPrefix"> = { more: "guestSeeMorePrefix", rate: "guestRatePrefix", list: "guestListPrefix", recommend: "guestRecommendPrefix", signup: "guestSignupPrefix", profile: "guestProfilePrefix", availability: "guestAvailabilityPrefix" };
+  const copyKey: Record<GuestGateVariant, "guestSeeMorePrefix" | "guestRatePrefix" | "guestListPrefix" | "guestRecommendPrefix" | "guestExpandPrefix" | "guestSignupPrefix" | "guestProfilePrefix" | "guestAvailabilityPrefix"> = { more: "guestSeeMorePrefix", rate: "guestRatePrefix", list: "guestListPrefix", recommend: "guestRecommendPrefix", expand: "guestExpandPrefix", signup: "guestSignupPrefix", profile: "guestProfilePrefix", availability: "guestAvailabilityPrefix" };
   const position = placement === "below" ? "left-1/2 top-full mt-2 -translate-x-1/2" : placement === "below-end" ? "right-0 top-full mt-2" : placement === "inline-end" ? "right-0 top-1/2 -translate-y-1/2" : "bottom-3 left-1/2 -translate-x-1/2";
   const content = <div ref={gateRef} role="status" style={portal && portalPosition ? { left: portalPosition.left, top: portalPosition.top } : undefined} className={`${portal ? "fixed -translate-x-1/2" : `absolute ${position}`} z-[300] flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#86ADE0]/30 bg-zinc-950/95 px-3 py-2 text-sm shadow-[0_12px_35px_rgba(0,0,0,.65)] backdrop-blur ${className}`}>
     {t(copyKey[activeGate.variant]) ? <span className="text-zinc-300">{t(copyKey[activeGate.variant])}</span> : null}

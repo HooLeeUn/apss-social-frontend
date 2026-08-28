@@ -1083,6 +1083,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const historyScrollRef = useRef<HTMLDivElement | null>(null);
   const mobileHistoryScrollRef = useRef<HTMLDivElement | null>(null);
+  const guestMobileHistoryTouchYRef = useRef<number | null>(null);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
 
@@ -2412,12 +2413,13 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
 
 
   const openExpandedVideo = useCallback((id: string) => {
+    if (desktopGuest) { showGuestGate(guestVideoGateId, "expand"); return; }
     expandedOpenRef.current = true;
     historyVideosRef.current.forEach((video) => { video.pause(); video.currentTime = 0; });
     activeVideoIdRef.current = null;
     setExpandedVideoId(id);
     window.requestAnimationFrame(() => window.dispatchEvent(new Event("qnext:reaction-fullscreen-enter")));
-  }, []);
+  }, [desktopGuest, guestVideoGateId, showGuestGate]);
 
   const navigateExpandedVideo = useCallback((direction: -1 | 1) => {
     if (expandedVideoId === null) return;
@@ -2672,7 +2674,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
 
 
   const reactionContent = <section data-mobile-video-reaction data-recording-overlay={isRecordingOverlay} data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
-    <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : "max-h-[50dvh] overflow-y-auto overscroll-contain xl:contents"}>
+    <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : `max-h-[50dvh] ${desktopGuest ? "overflow-y-hidden" : "overflow-y-auto overscroll-contain"} xl:contents`} onTouchStart={(event) => { guestMobileHistoryTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileHistoryTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!desktopGuest || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileHistoryTouchYRef.current = currentY; if (delta <= 0 || event.currentTarget.scrollHeight <= event.currentTarget.clientHeight + 1) return; if (event.cancelable) event.preventDefault(); showGuestGate(guestVideoGateId, "more"); const outer = event.currentTarget.ownerDocument.scrollingElement; if (outer) outer.scrollTop += delta; }} onTouchEnd={() => { guestMobileHistoryTouchYRef.current = null; }} onTouchCancel={() => { guestMobileHistoryTouchYRef.current = null; }}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] xl:mx-auto xl:max-w-2xl">
       <div ref={menuRef} data-video-reaction-rec data-tour-desktop="detail-rec" data-tour-mobile="detail-rec-mobile" className={desktopGuest ? "hidden" : "relative flex justify-center"}>
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] text-[#c7dcf6] shadow-[0_0_24px_rgba(134,173,224,0.18)] xl:h-20 xl:w-20 xl:transition xl:hover:border-[#86ADE0] xl:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}>Rec</button> : null}
@@ -2729,7 +2731,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
     </div>
-    <GuestContentGate gateId={guestVideoGateId} />
+    <GuestContentGate gateId={guestVideoGateId} portal anchorRef={mobileHistoryScrollRef} />
     </div>
     <button type="button" data-history-carousel-arrow="right" disabled={recorderState !== "idle" || !canScrollHistoryRight} className="hidden" aria-label="Siguiente" onClick={() => scrollHistoryCarousel(1)}>→</button>
     {orientationPaused ? <div className="fixed inset-0 z-[200] flex h-[100dvh] w-[100dvw] items-center justify-center bg-black px-6 py-[max(1.5rem,env(safe-area-inset-top))] text-center" role="alert" aria-live="assertive"><div className="w-full max-w-lg"><span className="video-reaction-phone mx-auto mb-6 block h-20 w-11 rounded-xl border-2 border-white" aria-hidden="true" /><p className="text-lg font-bold leading-relaxed text-white sm:text-xl">{t("movieDetailVideoRotatePortrait")}</p></div></div> : null}
@@ -2770,7 +2772,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
 }
 
 function MovieDetailPageContent() {
-  const { hydrated: authHydrated, isDesktopGuest } = useDesktopGuest();
+  const { hydrated: authHydrated, viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const { showGuestGate } = useGuestGate();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -3130,7 +3132,7 @@ function MovieDetailPageContent() {
   }, []);
 
   useEffect(() => {
-    if (!authHydrated) return;
+    if (!authHydrated || !viewportHydrated) return;
     const token = getToken();
     if (!token && !isDesktopGuest) {
       router.replace("/login");
@@ -3349,7 +3351,7 @@ function MovieDetailPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [authHydrated, fetchMovieDetail, isDesktopGuest, locale, movieId, router]);
+  }, [authHydrated, viewportHydrated, fetchMovieDetail, isDesktopGuest, locale, movieId, router]);
 
   const handleMovieRated = useCallback(
     async (_movieId: Movie["id"], score: number, _payload?: unknown) => {
@@ -4485,7 +4487,7 @@ function MovieDetailPageContent() {
           ) : null}
 
           <div data-mobile-comment-tabs className="relative flex items-center justify-between gap-4 xl:hidden" role="tablist" aria-label={composerTitle}>
-            <AuthenticatedProfileAvatar mobileTourTarget="detail-profile-avatar-mobile" user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-y-1/2 cursor-pointer" />
+            {!isDesktopGuest ? <AuthenticatedProfileAvatar mobileTourTarget="detail-profile-avatar-mobile" user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-y-1/2 cursor-pointer" /> : null}
             {(["video-comment", "text-comment"] as const).map((mode) => {
               const isActiveMode = commentInputMode === mode;
 
@@ -4529,7 +4531,7 @@ function MovieDetailPageContent() {
         </div>
 
         <div ref={textCommentStartRef} data-mobile-text-comment data-active={commentInputMode === "text-comment"} className={`xl:hidden ${commentInputMode === "text-comment" ? "block" : "hidden"}`}>
-          <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile />
+          {!isDesktopGuest ? <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile /> : null}
         </div>
         <div ref={videoCommentStartRef} data-video-reaction-section>
           <MobileVideoComments desktopGuest={isDesktopGuest} movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
@@ -4619,7 +4621,7 @@ function MovieDetailPageContent() {
               deletingCommentIds={deletingCommentIds}
               actionErrorByCommentId={commentActionErrorById}
               borderlessContainer
-              unboundedOnMobile
+              unboundedOnMobile={!isDesktopGuest}
               desktopDarkScrollbar
               exposePublicCommentIds
               containerRef={publicCommentsScrollRef}

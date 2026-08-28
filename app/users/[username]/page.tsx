@@ -243,7 +243,7 @@ export default function UserProfileFeedPage() {
   const router = useRouter();
   const branding = useAppBranding();
   const { t } = useI18n();
-  const { isDesktopGuest } = useDesktopGuest();
+  const { viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const routeUsername = resolveUsernameParam(params?.username);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
   const [profileState, setProfileState] = useState<"loading" | "ready" | "not_found" | "error" | "redirecting">("loading");
@@ -256,6 +256,7 @@ export default function UserProfileFeedPage() {
     profileUser?.canViewFullProfile !== true;
 
   useEffect(() => {
+    if (!viewportHydrated) return;
     if (isDesktopGuest) return;
     const loadAuthenticatedPrivacy = async () => {
       try {
@@ -267,9 +268,10 @@ export default function UserProfileFeedPage() {
     };
 
     void loadAuthenticatedPrivacy();
-  }, [isDesktopGuest]);
+  }, [isDesktopGuest, viewportHydrated]);
 
   useEffect(() => {
+    if (!viewportHydrated) return;
     let cancelled = false;
 
     const loadProfile = async () => {
@@ -302,7 +304,7 @@ export default function UserProfileFeedPage() {
     return () => {
       cancelled = true;
     };
-  }, [isDesktopGuest, routeUsername, router]);
+  }, [isDesktopGuest, routeUsername, router, viewportHydrated]);
 
   if (profileState === "loading" || profileState === "redirecting") {
     return <main className="min-h-screen bg-black" aria-busy="true" />;
@@ -377,7 +379,7 @@ export default function UserProfileFeedPage() {
               {!hasLimitedAccess ? (
                 <FavoriteMoviesBlock
                   title={interpolate(t("visitedProfileFavoriteMovies"), { name: profileTitleName })}
-                  headerAction={isDesktopGuest ? <GuestSignupRec /> : undefined}
+                  headerAction={isDesktopGuest ? <GuestSignupRec gateId="visited-profile-signup" gateVariant="profile" /> : undefined}
                   readOnly
                   viewedUsername={routeUsername}
                 />

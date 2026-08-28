@@ -88,13 +88,14 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
 }
 
 export default function VisitedProfileVideoReactions({ username, isActive, guestGateId: providedGuestGateId }: { username: string; isActive: boolean; guestGateId?: string }) {
-  const { isDesktopGuest } = useDesktopGuest();
+  const { isGuestExperience: isDesktopGuest, isMobile } = useDesktopGuest();
   const { locale, t } = useI18n();
   const [items, setItems] = useState<VideoReactionActivity[]>([]);
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const carouselRef = useRef<HTMLDivElement | null>(null);
+  const guestMobileTouchYRef = useRef<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const { showGuestGate } = useGuestGate();
@@ -412,16 +413,16 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
     if (!isDesktopGuest || !carouselRef.current) { setGuestVisibleCount(null); return; }
     const carousel = carouselRef.current;
     const measure = () => {
-      const boundary = carousel.getBoundingClientRect().right + 1;
-      setGuestVisibleCount([...carousel.children].filter((child) => child.getBoundingClientRect().left < boundary).length);
+      const rect = carousel.getBoundingClientRect();
+      setGuestVisibleCount([...carousel.children].filter((child) => isMobile ? child.getBoundingClientRect().top < rect.bottom : child.getBoundingClientRect().left < rect.right + 1).length);
       carousel.scrollLeft = 0;
     };
     measure(); window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [cards.length, isDesktopGuest]);
+  }, [cards.length, isDesktopGuest, isMobile]);
 
   const openExpandedViewer = useCallback((index: number) => {
-    if (isDesktopGuest) { showGuestGate(guestGateId, "more"); return; }
+    if (isDesktopGuest) { showGuestGate(guestGateId, "expand"); return; }
     pauseAllExcept(null);
     expandedIndexRef.current = index;
     if (window.matchMedia("(min-width: 1280px)").matches) {
@@ -496,7 +497,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
   return (
     <div className="relative">
       <button type="button" onClick={() => scrollCarousel(-1)} disabled={!canScrollLeft} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">←</button>
-      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); }} className="space-y-8 overflow-x-visible px-1 pb-4 xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
+      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); }} onTouchStart={(event) => { guestMobileTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!isDesktopGuest || !isMobile || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileTouchYRef.current = currentY; if (delta <= 0 || event.currentTarget.scrollHeight <= event.currentTarget.clientHeight + 1) return; if (event.cancelable) event.preventDefault(); showGuestGate(guestGateId, "more"); const outer = event.currentTarget.ownerDocument.scrollingElement; if (outer) outer.scrollTop += delta; }} onTouchEnd={() => { guestMobileTouchYRef.current = null; }} onTouchCancel={() => { guestMobileTouchYRef.current = null; }} className={`space-y-8 overflow-x-visible px-1 pb-4 ${isDesktopGuest && isMobile ? "max-h-[70dvh] overflow-y-hidden" : ""} xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75`}>
         {cards.map(({ item, title, timestamp }, index) => {
           const commentId = item.payload.video_comment_id;
           const videoId = String(commentId ?? item.id);

@@ -227,7 +227,7 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 
 export default function FeedPage() {
   const router = useRouter();
-  const { hydrated: authHydrated, isDesktopGuest } = useDesktopGuest();
+  const { hydrated: authHydrated, viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
@@ -330,7 +330,7 @@ export default function FeedPage() {
   }, []);
 
   useEffect(() => {
-    if (!authHydrated) return;
+    if (!authHydrated || !viewportHydrated) return;
     const token = getToken();
     if (!token && !isDesktopGuest) {
       router.replace("/login");
@@ -385,7 +385,7 @@ export default function FeedPage() {
     };
 
     loadFeed();
-  }, [authHydrated, isDesktopGuest, router]);
+  }, [authHydrated, viewportHydrated, isDesktopGuest, router]);
 
   const syncMyListIds = useCallback(async () => {
     try {
@@ -1057,7 +1057,7 @@ export default function FeedPage() {
               />
             </div>
             <div className="feed-mobile-only relative z-50 flex flex-1 justify-center xl:hidden [&>div]:w-[4.25rem]">
-              <DirectorBoardMenu
+              {isDesktopGuest ? <GuestSignupRec gateId="feed-mobile-profile-signup" gateVariant="profile" /> : <DirectorBoardMenu
                 locale={locale}
                 mobileIconOnly
                 mobileTourTarget="feed-menu-mobile"
@@ -1068,7 +1068,7 @@ export default function FeedPage() {
                 onPersonalDataClick={() => router.push("/settings/personal-data")}
                 onPrivacySecurityClick={() => router.push("/privacy-security")}
                 onPoliciesClick={() => router.push("/policies")}
-              />
+              />}
             </div>
             <div className="feed-mobile-only relative z-50 flex flex-none justify-end xl:hidden">
               <StreamingCountrySelector
