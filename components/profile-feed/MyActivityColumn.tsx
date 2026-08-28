@@ -1157,11 +1157,12 @@ export default function MyActivityColumn({
     if (!normalizedViewedUsername) return [];
 
     const sortedItems = [...activity.items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-    const actorScopedItems = sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
-
     if (!visitedActivityType) return [];
-    if (visitedActivityType === "public_comment_reaction" && actorScopedItems.length === 0) return sortedItems;
-    return actorScopedItems;
+    // The public-comment-reaction endpoint is already scoped by the visited
+    // username. Its actor fields are not the signed-in user and can be absent,
+    // so applying the generic actor filter would discard valid guest results.
+    if (visitedActivityType === "public_comment_reaction") return sortedItems;
+    return sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
   }, [activity.items, isOwnProfile, normalizedViewedUsername, visitedActivityType]);
 
   const ownActivityItems = useMemo(() => {

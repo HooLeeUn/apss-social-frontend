@@ -1081,7 +1081,7 @@ export default function FeedPage() {
               />
             </div>
             <div className={`feed-header__account feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 xl:pointer-events-none xl:absolute xl:right-4 xl:top-6 xl:block xl:pr-1 ${isNotificationPanelOpen ? "xl:z-[90]" : ""}`}>
-              {isDesktopGuest ? <div className="pointer-events-auto flex w-[198px] flex-col items-center gap-2"><GuestSignupRec /><StreamingCountrySelector country={streamingCountry} onCountryChange={handleStreamingCountryChange} /></div> : (
+              {isDesktopGuest ? <div className="pointer-events-auto flex w-[230px] items-center justify-end gap-3"><GuestSignupRec /><StreamingCountrySelector country={streamingCountry} onCountryChange={handleStreamingCountryChange} /></div> : (
               <div className="pointer-events-auto relative flex w-auto flex-col items-end xl:w-[198px] xl:items-center">
                 <div className="flex items-center gap-2">
                 <button
@@ -1210,7 +1210,7 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} branding={branding} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS} />
+          <WeeklyRecommendationsSection desktopGuest={isDesktopGuest} weeklyMovies={weeklyMovies} branding={branding} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">
