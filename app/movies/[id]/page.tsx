@@ -51,7 +51,6 @@ import { resolveMovieTitles, t as translate } from "../../../lib/i18n";
 import { onboardingPrepareStepEventName } from "../../../lib/onboarding/types";
 import type { OnboardingPrepareAction } from "../../../lib/onboarding/types";
 import { useDesktopGuest } from "../../../hooks/useDesktopGuest";
-import GuestSignupRec from "../../../components/GuestSignupRec";
 import GuestContentGate from "../../../components/GuestContentGate";
 import { useGuestGate } from "../../../components/GuestGateProvider";
 
@@ -4495,7 +4494,7 @@ function MovieDetailPageContent() {
               showExtendedMetadata
               highlightMyRatingSlot
               enlargeInteractionIcons
-              extendedMetadataMiddleSlot={isDesktopGuest ? <div className="flex min-h-28 w-full items-center justify-center xl:min-h-0 xl:translate-y-5 xl:scale-125"><GuestSignupRec gateId="detail-availability-signup" gateVariant="availability" /></div> : <StreamingProviders movieId={movie.id} />}
+              extendedMetadataMiddleSlot={isDesktopGuest ? <div className="flex min-h-28 w-full items-center justify-center px-4 text-center xl:min-h-0 xl:translate-y-5"><span className="text-sm text-zinc-100">{t("guestAvailabilityPrefix")} <Link href="/signup" className="font-semibold underline underline-offset-2">{t("guestSignUp")}</Link></span></div> : <StreamingProviders movieId={movie.id} />}
               ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
               separateRatingsActionsCard
               onRated={handleMovieRated}

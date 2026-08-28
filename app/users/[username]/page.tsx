@@ -21,7 +21,6 @@ import { useI18n } from "../../../hooks/useI18n";
 import { interpolate } from "../../../lib/i18n";
 import { ApiError } from "../../../lib/api";
 import { useDesktopGuest } from "../../../hooks/useDesktopGuest";
-import GuestSignupRec from "../../../components/GuestSignupRec";
 
 function resolveUsernameParam(rawValue: string | string[] | undefined): string {
   if (Array.isArray(rawValue)) {
@@ -379,7 +378,6 @@ export default function UserProfileFeedPage() {
               {!hasLimitedAccess ? (
                 <FavoriteMoviesBlock
                   title={interpolate(t("visitedProfileFavoriteMovies"), { name: profileTitleName })}
-                  headerAction={isDesktopGuest ? <GuestSignupRec gateId="visited-profile-signup" gateVariant="profile" /> : undefined}
                   readOnly
                   viewedUsername={routeUsername}
                 />

@@ -11,7 +11,6 @@ const detail = readFileSync(new URL("../app/movies/[id]/page.tsx", import.meta.u
 const visitedProfile = readFileSync(new URL("../app/users/[username]/page.tsx", import.meta.url), "utf8");
 const activity = readFileSync(new URL("../components/profile-feed/MyActivityColumn.tsx", import.meta.url), "utf8");
 const movieCard = readFileSync(new URL("../components/MovieCard.tsx", import.meta.url), "utf8");
-const signupRec = readFileSync(new URL("../components/GuestSignupRec.tsx", import.meta.url), "utf8");
 const translations = readFileSync(new URL("../lib/i18n.ts", import.meta.url), "utf8");
 
 test("desktop guest state reaches every weekly recommendation card", () => {
@@ -51,20 +50,18 @@ test("guest gates use a short portal-capable presentation", () => {
 test("desktop guest contextual controls stay attached to their visible headings and tabs", () => {
   assert.match(detail, /!isDesktopGuest \? <CommentUserSearch/);
   assert.match(detail, /GuestContentGate gateId=\{guestCommentsGateId\} placement="inline-end"/);
-  assert.match(visitedProfile, /headerAction=\{isDesktopGuest \? <GuestSignupRec[^>]+gateVariant="profile"/);
+  assert.doesNotMatch(visitedProfile, /GuestSignupRec|headerAction=/);
   assert.match(activity, /portal placement=\{isMobile \? "viewport-center" : "below"\} anchorRef=\{activeVisitedTabRef\}/);
   assert.match(detail, /closeGuestGate\(\);[\s\S]*?setTrailerCompanionView\(next\)/);
   assert.match(detail, /trailerCompanionOpen && !mobileViewport && event\.currentTarget\.scrollTop > 0/);
 });
 
-test("signup REC uses the single coordinated gate without a native duplicate tooltip", () => {
-  assert.match(signupRec, /instanceGateId = `\$\{gateId\}:\$\{useId\(\)\}`/);
-  assert.match(signupRec, /showGuestGate\(instanceGateId, gateVariant\)/);
-  assert.match(signupRec, /GuestContentGate gateId=\{instanceGateId\} portal anchorRef=\{anchorRef\}/);
-  assert.doesNotMatch(signupRec, /title=\{t\("guestSignUp"\)\}/);
-  assert.match(feed, /gateVariant="profile"/);
-  assert.match(detail, /gateVariant="availability"/);
-  assert.match(translations, /guestProfilePrefix: "Para ver tu perfil"/);
+test("guest profile and availability calls to action use explicit destinations", () => {
+  assert.match(feed, /showGuestGate\("feed-desktop-profile-login", "profile-login"\)/);
+  assert.match(feed, /<Link href="\/signup"[^>]*>\{translate\(locale, "guestSignUp"\)\}<\/Link>/);
+  assert.match(detail, /guestAvailabilityPrefix[\s\S]*?<Link href="\/signup"/);
+  assert.match(gate, /href=\{loginGate \? "\/login" : "\/signup"\}/);
+  assert.match(translations, /guestProfileLoginPrefix: "Para ver tu perfil,"/);
   assert.match(translations, /guestAvailabilityPrefix: "To see availability in your country,"/);
 });
 
