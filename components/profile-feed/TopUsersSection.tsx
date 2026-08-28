@@ -187,6 +187,7 @@ function Block({
   emptyDescription,
   emptyIcon,
   emptyLogoUrl,
+  mobileHeaderIndicator,
 }: {
   title: string;
   users: SocialUser[];
@@ -200,12 +201,14 @@ function Block({
   emptyDescription?: string;
   emptyIcon?: ReactNode;
   emptyLogoUrl?: string | null;
+  mobileHeaderIndicator?: ReactNode;
 }) {
   const { t } = useI18n();
   return (
-    <section className="profile-feed-connections-panel flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 xl:p-4">
+    <section className="profile-feed-connections-panel relative flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 xl:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot ?? <h2 className="text-base font-semibold text-zinc-100">{title}</h2>}
+        {mobileHeaderIndicator ? <span aria-hidden="true" className="pointer-events-none absolute right-4 top-[1.05rem] text-sm leading-none text-zinc-500 xl:hidden">{mobileHeaderIndicator}</span> : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {!loading && error ? (
@@ -265,6 +268,7 @@ function PendingRequestsBlock({
   onCancel,
   onNavigateUser,
   headerSlot,
+  mobileHeaderIndicator,
 }: {
   requests: FriendRequest[];
   loading: boolean;
@@ -275,12 +279,14 @@ function PendingRequestsBlock({
   onCancel: (request: FriendRequest) => void;
   onNavigateUser?: (clickedUser: SocialUser) => void;
   headerSlot: ReactNode;
+  mobileHeaderIndicator?: ReactNode;
 }) {
   const { t } = useI18n();
   return (
-    <section className="profile-feed-connections-panel flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 xl:p-4">
+    <section className="profile-feed-connections-panel relative flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 xl:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot}
+        {mobileHeaderIndicator ? <span aria-hidden="true" className="pointer-events-none absolute right-4 top-[1.05rem] text-sm leading-none text-zinc-500 xl:hidden">{mobileHeaderIndicator}</span> : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {!loading && error ? (
@@ -677,6 +683,7 @@ export default function TopUsersSection({
       error={followingError}
       onRetry={onRetryFollowing}
       onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
+      mobileHeaderIndicator="→"
     />
   );
 
@@ -695,6 +702,7 @@ export default function TopUsersSection({
         error={friendsError}
         onRetry={onRetryFriends}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
+        mobileHeaderIndicator="←"
       />
     ) : (
       <PendingRequestsBlock
@@ -707,6 +715,7 @@ export default function TopUsersSection({
         onReject={onRejectFriendRequest}
         onCancel={onCancelFriendRequest}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
+        mobileHeaderIndicator="←"
       />
     );
 

@@ -1068,15 +1068,13 @@ function ProfileFeedContent() {
       </div>
       <ProfileQuickNavigation
         ariaLabel={t("profileFeedQuickNavigation")}
-        pendingFriendRequestsCount={receivedPendingRequestsCount}
         forceVisible={forceMobileQuickNavigation}
         visible={quickNavigationVisible}
         showBackToTop={activeMobileSection !== "top"}
         onBackToTop={() => navigateToMobileSection("top")}
         backToTopLabel={locale === "en" ? "Back to top" : "Volver arriba"}
         items={[
-          { label: t("profileFeedFollowing"), icon: profileQuickNavigationIcons.following, tourTarget: "profile-quick-following", onNavigate: () => requestQuickNavigation("following") },
-          { label: t("profileFeedFriends"), icon: profileQuickNavigationIcons.friends, tourTarget: "profile-quick-friends", onNavigate: () => requestQuickNavigation("friends") },
+          { label: t("profileFeedFollowingAndFriends"), icon: profileQuickNavigationIcons.following, tourTarget: "profile-quick-following", onNavigate: () => requestQuickNavigation("following") },
           { label: t("profileFeedMyActivity"), icon: profileQuickNavigationIcons.activity, tourTarget: "profile-quick-activity", onNavigate: () => requestQuickNavigation("activity") },
           { label: t("profileFeedMyList"), icon: profileQuickNavigationIcons.list, tourTarget: "profile-quick-list", onNavigate: () => requestQuickNavigation("my-list") },
           { label: t("profileFeedMyRecommendations"), icon: profileQuickNavigationIcons.recommendations, tourTarget: "profile-quick-recommendations", onNavigate: () => requestQuickNavigation("recommended") },

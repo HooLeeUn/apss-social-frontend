@@ -116,7 +116,7 @@ test("Profile Feed completion returns both responsive tours to the document top"
   assert.doesNotMatch(skipBody, /scrollTo/);
 });
 
-test("mobile Profile Feed has nine prepared structural steps and six dock targets", () => {
+test("mobile Profile Feed has nine prepared structural steps and five dock targets", () => {
   const page = fs.readFileSync("app/profile-feed/page.tsx", "utf8");
   const activity = fs.readFileSync("components/profile-feed/MyActivityColumn.tsx", "utf8");
   const quickNavigation = fs.readFileSync("components/profile-feed/ProfileQuickNavigation.tsx", "utf8");
@@ -126,9 +126,10 @@ test("mobile Profile Feed has nine prepared structural steps and six dock target
   for (const target of ["profile-connections-mobile", "profile-activity-mobile", "profile-inbox-mobile", "profile-ratings-mobile", "profile-list-mobile", "profile-recommendations-mobile", "profile-following-activity-mobile"]) {
     assert.match(`${page}\n${activity}\n${connections}\n${tours}`, new RegExp(target));
   }
-  for (const target of ["profile-quick-following", "profile-quick-friends", "profile-quick-activity", "profile-quick-list", "profile-quick-recommendations", "profile-quick-following-activity"]) {
+  for (const target of ["profile-quick-following", "profile-quick-activity", "profile-quick-list", "profile-quick-recommendations", "profile-quick-following-activity"]) {
     assert.match(page, new RegExp(target));
   }
+  assert.doesNotMatch(page, /profile-quick-friends/);
   assert.match(quickNavigation, /visible \|\| forceVisible/);
   assert.match(tours, /mobileSteps = steps\.map/);
   assert.match(tours, /profile-mobile-following-activity/);
