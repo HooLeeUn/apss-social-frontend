@@ -42,6 +42,9 @@ test("mobile detail is read-only, keeps public content, and gates expansion", ()
   assert.match(detail, /trailerCompanionOpen && event\.deltaY > 0/);
   assert.match(detail, /guestTrailerHistoryTouchRef/);
   assert.match(detail, /Math\.max\(-18, rawDelta \/ 7\)/);
+  assert.match(detail, /event\.stopPropagation\(\); if \(event\.cancelable\) event\.preventDefault\(\)/);
+  assert.match(detail, /axis: "horizontal" \| "vertical" \| null/);
+  assert.match(detail, /mobileViewport=\{isMobile\}/);
   assert.match(detail, /if \(!gesture\.gateShown\) \{ gesture\.gateShown = true; showGuestGate\(guestVideoGateId, "more"\); \}/);
   assert.match(detail, /resetGuestTrailerRubberBand/);
   assert.match(detail, /trailerCompanionView !== "public-comments" \|\| event\.deltaY <= 0/);

@@ -38,7 +38,8 @@ test("guest gates use a short portal-capable presentation", () => {
   assert.match(hero, /gateId=\{`\$\{gateBaseId\}:rate`\} portal anchorRef=\{ratingGateAnchorRef\}/);
   assert.match(mini, /gateId=\{`\$\{gateBaseId\}:rate`\} portal anchorRef=\{ratingGateAnchorRef\}/);
   assert.match(movieCard, /gateId=\{guestRatingGateId\} portal anchorRef=\{guestRatingGateAnchorRef\}/);
-  assert.match(gate, /bg-\[#24558a\]\/95/);
+  assert.match(gate, /bg-white\/95/);
+  assert.match(gate, /text-black/);
   assert.match(translations, /guestRecommendPrefix: "Para Recomendar,"/);
   assert.match(translations, /guestRecommendPrefix: "To Recommend,"/);
   assert.match(gate, /prefix\.indexOf\("Rec"\)/);
@@ -51,7 +52,7 @@ test("desktop guest contextual controls stay attached to their visible headings 
   assert.match(visitedProfile, /headerAction=\{isDesktopGuest \? <GuestSignupRec[^>]+gateVariant="profile"/);
   assert.match(activity, /portal placement=\{isMobile \? "viewport-center" : "below"\} anchorRef=\{activeVisitedTabRef\}/);
   assert.match(detail, /closeGuestGate\(\);[\s\S]*?setTrailerCompanionView\(next\)/);
-  assert.match(detail, /trailerCompanionOpen && window\.matchMedia\("\(min-width: 1280px\)"\)\.matches && event\.currentTarget\.scrollTop > 0/);
+  assert.match(detail, /trailerCompanionOpen && !mobileViewport && event\.currentTarget\.scrollTop > 0/);
 });
 
 test("signup REC uses the single coordinated gate without a native duplicate tooltip", () => {
