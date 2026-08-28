@@ -38,6 +38,9 @@ test("guest gates use a short portal-capable presentation", () => {
   assert.match(hero, /gateId=\{`\$\{gateBaseId\}:rate`\} portal anchorRef=\{ratingGateAnchorRef\}/);
   assert.match(mini, /gateId=\{`\$\{gateBaseId\}:rate`\} portal anchorRef=\{ratingGateAnchorRef\}/);
   assert.match(movieCard, /gateId=\{guestRatingGateId\} portal anchorRef=\{guestRatingGateAnchorRef\}/);
+  assert.match(gate, /bg-\[#24558a\]\/95/);
+  assert.match(translations, /guestRecommendPrefix: "Para REComendar,"/);
+  assert.match(translations, /guestRecommendPrefix: "To RECommend,"/);
 });
 
 test("desktop guest contextual controls stay attached to their visible headings and tabs", () => {

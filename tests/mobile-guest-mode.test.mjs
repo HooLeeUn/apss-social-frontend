@@ -39,6 +39,10 @@ test("mobile detail is read-only, keeps public content, and gates expansion", ()
   assert.match(detail, /placement="section-center" anchorRef=\{videoGateAnchorRef\}/);
   assert.match(detail, /placement="section-center" anchorRef=\{publicCommentsScrollRef\}/);
   assert.match(movieCard, /guestActions \? <span aria-label=\{tmdbTooltip\}/);
+  assert.match(movieCard, /onClick=\{handleMobileToggleMyList\}/);
+  assert.match(movieCard, /onClick=\{handleMobileToggleMyRecommendations\}/);
+  assert.match(movieCard, /gateId=\{mobileGuestListGateId\} placement="below-end" portal anchorRef=\{mobileGuestListGateAnchorRef\}/);
+  assert.match(movieCard, /gateId=\{mobileGuestRecommendGateId\} placement="below-end" portal anchorRef=\{mobileGuestRecommendGateAnchorRef\}/);
 });
 
 test("mobile visited profiles reuse viewport gates and preserve outer scrolling", () => {

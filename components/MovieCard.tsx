@@ -834,7 +834,11 @@ function MovieCard({
   const guestRatingGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:rate`;
   const guestListGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:list`;
   const guestRecommendGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:recommend`;
+  const mobileGuestListGateId = `${guestListGateId}:mobile`;
+  const mobileGuestRecommendGateId = `${guestRecommendGateId}:mobile`;
   const guestRatingGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const mobileGuestListGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const mobileGuestRecommendGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -1102,6 +1106,14 @@ function MovieCard({
       if (!onToggleMyRecommendations) setLocalIsInMyRecommendations(!nextValue);
     }
   };
+  const handleMobileToggleMyList = () => {
+    if (guestActions) { showGuestGate(mobileGuestListGateId, "list"); return; }
+    void handleToggleMyList();
+  };
+  const handleMobileToggleMyRecommendations = () => {
+    if (guestActions) { showGuestGate(mobileGuestRecommendGateId, "recommend"); return; }
+    void handleToggleMyRecommendations();
+  };
 
   const tagIconClassName = `interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
   const splitFeedActions = isFeed && separateRatingsActionsCard;
@@ -1182,12 +1194,18 @@ function MovieCard({
         <CommentDetailButton tourTarget="feed-card-synopsis" title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
         {showBottomInteractionIcons ? (
           <div className="interaction-icons static z-10 flex flex-nowrap items-center gap-1">
-            <button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestListGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-              <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
-            </button>
-            <button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRecommendGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
-              <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
-            </button>
+            <span ref={mobileGuestListGateAnchorRef} className="relative inline-flex">
+              <button data-tour="feed-card-tag" type="button" onClick={handleMobileToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+              </button>
+              <GuestContentGate gateId={mobileGuestListGateId} placement="below-end" portal anchorRef={mobileGuestListGateAnchorRef} />
+            </span>
+            <span ref={mobileGuestRecommendGateAnchorRef} className="relative inline-flex">
+              <button data-tour="feed-card-ticket" type="button" onClick={handleMobileToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+              </button>
+              <GuestContentGate gateId={mobileGuestRecommendGateId} placement="below-end" portal anchorRef={mobileGuestRecommendGateAnchorRef} />
+            </span>
           </div>
         ) : null}
       </div>
