@@ -55,8 +55,8 @@ export default function GuestContentGate({ gateId, placement = "floating", class
   const position = placement === "below" ? "left-1/2 top-full mt-2 -translate-x-1/2" : placement === "below-end" ? "right-0 top-full mt-2" : placement === "inline-end" ? "right-0 top-1/2 -translate-y-1/2" : "bottom-3 left-1/2 -translate-x-1/2";
   const centered = placement === "section-center" || placement === "viewport-center";
   const content = <div ref={gateRef} role="status" style={portal && portalPosition ? { left: portalPosition.left, top: portalPosition.top } : undefined} className={`${portal ? `fixed -translate-x-1/2 ${centered ? "-translate-y-1/2" : ""}` : `absolute ${position}`} z-[300] flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-zinc-300/80 bg-white/95 px-3 py-2 text-sm text-black shadow-[0_12px_35px_rgba(0,0,0,.28)] backdrop-blur ${className}`}>
-    {prefix ? <span className="text-black">{recommendHighlightIndex >= 0 ? <>{prefix.slice(0, recommendHighlightIndex)}<span className="bg-gradient-to-r from-[#86ADE0] via-[#8177d8] to-[#a56ed1] bg-clip-text font-semibold text-transparent">Rec</span>{prefix.slice(recommendHighlightIndex + 3)}</> : prefix}</span> : null}
-    <Link href="/signup" className="font-semibold text-black underline-offset-2 hover:underline">{t("guestSignUp")}</Link>
+    {prefix ? <span className="text-black">{recommendHighlightIndex >= 0 ? <>{prefix.slice(0, recommendHighlightIndex)}<span className="bg-gradient-to-r from-[#168BFF] via-[#6558F5] to-[#A63DFF] bg-clip-text font-bold text-transparent drop-shadow-[0_0_5px_rgba(99,88,245,.45)]">Rec</span>{prefix.slice(recommendHighlightIndex + 3)}</> : prefix}</span> : null}
+    <Link href="/signup" className="font-semibold text-black underline decoration-1 underline-offset-2">{t("guestSignUp")}</Link>
     <button type="button" aria-label={t("trailerClose")} onClick={closeGuestGate} className="ml-1 text-zinc-600 hover:text-black">×</button>
   </div>;
   if (portal) return portalPosition ? createPortal(content, document.body) : null;

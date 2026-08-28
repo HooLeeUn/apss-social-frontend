@@ -43,7 +43,8 @@ test("guest gates use a short portal-capable presentation", () => {
   assert.match(translations, /guestRecommendPrefix: "Para Recomendar,"/);
   assert.match(translations, /guestRecommendPrefix: "To Recommend,"/);
   assert.match(gate, /prefix\.indexOf\("Rec"\)/);
-  assert.match(gate, /from-\[#86ADE0\] via-\[#8177d8\] to-\[#a56ed1\]/);
+  assert.match(gate, /from-\[#168BFF\] via-\[#6558F5\] to-\[#A63DFF\]/);
+  assert.match(gate, /underline decoration-1 underline-offset-2/);
 });
 
 test("desktop guest contextual controls stay attached to their visible headings and tabs", () => {

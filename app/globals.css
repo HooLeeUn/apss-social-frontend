@@ -1096,6 +1096,12 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
     margin: 0;
   }
 
+  body.detail-trailer-active [data-desktop-video-reaction-history][data-guest-mobile-trailer-locked="true"] {
+    overflow-y: hidden;
+    overscroll-behavior-y: none;
+    touch-action: pan-x;
+  }
+
   body.detail-trailer-active [data-trailer-public-comments],
   body.detail-trailer-active [data-trailer-directed-comments] {
     inset: auto 0.75rem max(0.75rem, env(safe-area-inset-bottom)) 0.75rem;

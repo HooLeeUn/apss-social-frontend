@@ -13,6 +13,7 @@ const profile = read("../app/users/[username]/page.tsx");
 const activity = read("../components/profile-feed/MyActivityColumn.tsx");
 const profileVideos = read("../components/profile-feed/VisitedProfileVideoReactions.tsx");
 const comments = read("../components/social/CommentsList.tsx");
+const globalStyles = read("../app/globals.css");
 
 test("the existing guest session supports phones without classifying tablets as phones", () => {
   assert.match(guestHook, /matchMedia\("\(max-width: 767px\)"\)/);
@@ -45,6 +46,8 @@ test("mobile detail is read-only, keeps public content, and gates expansion", ()
   assert.match(detail, /event\.stopPropagation\(\); if \(event\.cancelable\) event\.preventDefault\(\)/);
   assert.match(detail, /axis: "horizontal" \| "vertical" \| null/);
   assert.match(detail, /mobileViewport=\{isMobile\}/);
+  assert.match(detail, /data-guest-mobile-trailer-locked=\{desktopGuest && trailerCompanionOpen && mobileViewport \? "true" : undefined\}/);
+  assert.match(globalStyles, /data-guest-mobile-trailer-locked="true"\][\s\S]*?overflow-y: hidden;[\s\S]*?touch-action: pan-x;/);
   assert.match(detail, /if \(!gesture\.gateShown\) \{ gesture\.gateShown = true; showGuestGate\(guestVideoGateId, "more"\); \}/);
   assert.match(detail, /resetGuestTrailerRubberBand/);
   assert.match(detail, /trailerCompanionView !== "public-comments" \|\| event\.deltaY <= 0/);
