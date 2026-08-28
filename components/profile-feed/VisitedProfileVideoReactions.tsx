@@ -8,6 +8,8 @@ import { useI18n } from "../../hooks/useI18n";
 import { apiFetch } from "../../lib/api";
 import { formatProfileFeedRelativeDate, resolveMovieTitles } from "../../lib/i18n";
 import type { ProfileFeedActivityMovie, VideoReactionActivityPayload } from "../../lib/profile-feed/types";
+import { useDesktopGuest } from "../../hooks/useDesktopGuest";
+import { useGuestGate } from "../GuestGateProvider";
 
 interface VideoReactionActivity {
   id: string | number;
@@ -85,15 +87,20 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
   </>;
 }
 
-export default function VisitedProfileVideoReactions({ username, isActive }: { username: string; isActive: boolean }) {
+export default function VisitedProfileVideoReactions({ username, isActive, guestGateId: providedGuestGateId }: { username: string; isActive: boolean; guestGateId?: string }) {
+  const { isGuestExperience: isDesktopGuest, isMobile } = useDesktopGuest();
   const { locale, t } = useI18n();
   const [items, setItems] = useState<VideoReactionActivity[]>([]);
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const carouselRef = useRef<HTMLDivElement | null>(null);
+  const guestMobileTouchYRef = useRef<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const { showGuestGate } = useGuestGate();
+  const guestGateId = providedGuestGateId ?? `profile-video-reactions:${username}`;
+  const [guestVisibleCount, setGuestVisibleCount] = useState<number | null>(null);
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const visibilityRatios = useRef(new Map<string, number>());
   const activeVideoId = useRef<string | null>(null);
@@ -325,6 +332,7 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
   const playNextDesktopVideo = useCallback((index: number) => {
     if (!window.matchMedia("(min-width: 1280px)").matches || expandedIndexRef.current !== null) return;
     const nextIndex = itemsRef.current.length > 0 ? (index + 1) % itemsRef.current.length : -1;
+    if (isDesktopGuest && guestVisibleCount !== null && nextIndex >= guestVisibleCount) return;
     const nextItem = itemsRef.current[nextIndex];
     if (!nextItem) return;
     const nextId = String(nextItem.payload.video_comment_id ?? nextItem.id);
@@ -333,14 +341,15 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
     activeVideoIndex.current = nextIndex;
     desktopAdvancePending.current = nextIndex;
     pauseAllExcept(nextId);
-    nextVideo.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    if (!isDesktopGuest) nextVideo.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     nextVideo.muted = isMutedRef.current;
     if (nextVideo.ended) nextVideo.currentTime = 0;
     const playPromise = nextVideo.play();
     if (playPromise) void playPromise.catch(() => {});
-  }, [pauseAllExcept]);
+  }, [guestVisibleCount, isDesktopGuest, pauseAllExcept]);
 
   const reactToVideo = useCallback(async (itemId: string | number, commentId: string | number, reaction: VideoReaction) => {
+    if (isDesktopGuest) return;
     const key = String(commentId);
     if (reactingIds.current.has(key)) return;
     reactingIds.current.add(key);
@@ -372,7 +381,7 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
       reactingIds.current.delete(key);
       setReacting((current) => ({ ...current, [key]: false }));
     }
-  }, []);
+  }, [isDesktopGuest]);
 
   const updateNavigation = useCallback(() => {
     const carousel = carouselRef.current;
@@ -390,6 +399,7 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
   const scrollCarousel = (direction: -1 | 1) => {
     const carousel = carouselRef.current;
     if (!carousel) return;
+    if (isDesktopGuest && direction === 1) { showGuestGate(guestGateId, "more"); return; }
     carousel.scrollBy({ left: direction * Math.max(carousel.clientWidth * 0.85, 280), behavior: "smooth" });
   };
 
@@ -399,7 +409,21 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
     return { item, title, timestamp };
   }), [items, locale]);
 
+  useLayoutEffect(() => {
+    if (!isDesktopGuest || !carouselRef.current) { setGuestVisibleCount(null); return; }
+    const carousel = carouselRef.current;
+    const measure = () => {
+      const rect = carousel.getBoundingClientRect();
+      const mobileBoundary = (window.visualViewport?.offsetTop ?? 0) + (window.visualViewport?.height ?? window.innerHeight);
+      setGuestVisibleCount([...carousel.children].filter((child) => isMobile ? child.getBoundingClientRect().top < mobileBoundary : child.getBoundingClientRect().left < rect.right + 1).length);
+      carousel.scrollLeft = 0;
+    };
+    measure(); window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [cards.length, isDesktopGuest, isMobile]);
+
   const openExpandedViewer = useCallback((index: number) => {
+    if (isDesktopGuest) { showGuestGate(guestGateId, "expand"); return; }
     pauseAllExcept(null);
     expandedIndexRef.current = index;
     if (window.matchMedia("(min-width: 1280px)").matches) {
@@ -409,7 +433,7 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
     } else {
       setExpandedIndex(index);
     }
-  }, [pauseAllExcept]);
+  }, [guestGateId, isDesktopGuest, pauseAllExcept, showGuestGate]);
 
   const closeExpandedViewer = useCallback(() => {
     expandedVideoRef.current?.pause();
@@ -470,19 +494,20 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
   if (state === "loading") return <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p>;
   if (state === "error") return <p className="text-sm text-red-200">{t("visitedProfileVideoReactionsError")}</p>;
   if (cards.length === 0) return <p className="text-sm text-zinc-500">{t("visitedProfileNoVideoReactions")}</p>;
+  const visibleCards = isDesktopGuest && isMobile && guestVisibleCount !== null ? cards.slice(0, Math.max(1, guestVisibleCount)) : cards;
 
   return (
     <div className="relative">
       <button type="button" onClick={() => scrollCarousel(-1)} disabled={!canScrollLeft} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">←</button>
-      <div ref={carouselRef} onScroll={updateNavigation} className="space-y-8 overflow-x-visible px-1 pb-4 xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
-        {cards.map(({ item, title, timestamp }, index) => {
+      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); }} onTouchStart={(event) => { guestMobileTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!isDesktopGuest || !isMobile || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileTouchYRef.current = currentY; if (delta <= 0 || guestVisibleCount === null || guestVisibleCount >= cards.length) return; showGuestGate(guestGateId, "more"); }} onTouchEnd={() => { guestMobileTouchYRef.current = null; }} onTouchCancel={() => { guestMobileTouchYRef.current = null; }} className="space-y-8 overflow-x-visible px-1 pb-4 xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
+        {visibleCards.map(({ item, title, timestamp }, index) => {
           const commentId = item.payload.video_comment_id;
           const videoId = String(commentId ?? item.id);
           const reactionButtons = commentId !== undefined ? (
             <div className="flex shrink-0 items-center gap-1" data-visited-profile-video-reactions>
               {(["like", "dislike"] as const).map((reaction) => {
                 const selected = item.payload.my_reaction === reaction;
-                return <button key={reaction} type="button" disabled={!!reacting[videoId]} aria-label={t(reaction === "like" ? "movieDetailLike" : "movieDetailDislike")} aria-pressed={selected} className={`min-h-9 rounded-full px-2 py-1.5 text-sm font-semibold leading-none transition disabled:opacity-50 ${selected ? reaction === "like" ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200" : "bg-black/35 text-white hover:bg-black/55"}`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void reactToVideo(item.id, commentId, reaction); }}>
+                return <button key={reaction} type="button" disabled={isDesktopGuest || !!reacting[videoId]} aria-label={t(reaction === "like" ? "movieDetailLike" : "movieDetailDislike")} aria-pressed={selected} className={`min-h-9 rounded-full px-2 py-1.5 text-sm font-semibold leading-none transition disabled:opacity-50 ${selected ? reaction === "like" ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200" : "bg-black/35 text-white hover:bg-black/55"}`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void reactToVideo(item.id, commentId, reaction); }}>
                   <span aria-hidden="true">{reaction === "like" ? "👍" : "👎"}</span> {reaction === "like" ? Number(item.payload.likes_count ?? 0) : Number(item.payload.dislikes_count ?? 0)}
                 </button>;
               })}

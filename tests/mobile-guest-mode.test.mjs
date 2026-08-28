@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+const guestHook = read("../hooks/useDesktopGuest.ts");
+const routeGuard = read("../components/GuestRouteGuard.tsx");
+const login = read("../app/page.tsx");
+const feed = read("../app/feed/page.tsx");
+const detail = read("../app/movies/[id]/page.tsx");
+const movieCard = read("../components/MovieCard.tsx");
+const profile = read("../app/users/[username]/page.tsx");
+const activity = read("../components/profile-feed/MyActivityColumn.tsx");
+const profileVideos = read("../components/profile-feed/VisitedProfileVideoReactions.tsx");
+const comments = read("../components/social/CommentsList.tsx");
+const globalStyles = read("../app/globals.css");
+
+test("the existing guest session supports phones without classifying tablets as phones", () => {
+  assert.match(guestHook, /matchMedia\("\(max-width: 767px\)"\)/);
+  assert.match(guestHook, /isGuestExperience: auth\.isGuest && \(desktop \|\| mobile\)/);
+  assert.match(routeGuard, /!isDesktop && !isMobile/);
+  assert.match(login, /onClick=\{continueAsGuest\} className="mx-auto mt-4 block[^\"]*md:hidden xl:block/);
+});
+
+test("mobile feed reuses guest controls and write gates", () => {
+  assert.match(feed, /isGuestExperience: isDesktopGuest/);
+  assert.match(feed, /feed-mobile-only[\s\S]*?isDesktopGuest \? <Link href="\/signup"/);
+  assert.match(feed, /guestActions=\{isDesktopGuest\}/);
+  assert.match(feed, /ratingReadOnly=\{isDesktopGuest\}/);
+  assert.match(feed, /showGuestGate\("feed-mobile-avatar", "explore-profile-login"\)/);
+  assert.match(feed, /showGuestGate\("feed-mobile-notifications", "notifications"\)/);
+});
+
+test("mobile detail is read-only, keeps public content, and gates expansion", () => {
+  assert.match(detail, /data-video-reaction-rec[\s\S]*?className=\{desktopGuest \? "hidden"/);
+  assert.match(detail, /overflow-y-hidden[\s\S]*?showGuestGate\(guestVideoGateId, "more"\)/);
+  assert.match(detail, /if \(desktopGuest\) \{ showGuestGate\(guestVideoGateId, "expand"\); return; \}/);
+  assert.match(detail, /!isDesktopGuest \? <CommentComposer/);
+  assert.match(detail, /unboundedOnMobile=\{!isDesktopGuest\}/);
+  assert.match(detail, /placement="section-center" anchorRef=\{trailerCompanionOpen \? historyScrollRef : videoGateAnchorRef\}/);
+  assert.match(detail, /placement="section-center" anchorRef=\{publicCommentsScrollRef\}/);
+  assert.match(detail, /trailerCompanionOpen \? historyScrollRef : videoGateAnchorRef/);
+  assert.match(detail, /trailerCompanionOpen && event\.deltaY > 0/);
+  assert.match(detail, /guestTrailerHistoryTouchRef/);
+  assert.match(detail, /Math\.max\(-18, rawDelta \/ 7\)/);
+  assert.match(detail, /event\.stopPropagation\(\); if \(event\.cancelable\) event\.preventDefault\(\)/);
+  assert.match(detail, /axis: "horizontal" \| "vertical" \| null/);
+  assert.match(detail, /mobileViewport=\{isMobile\}/);
+  assert.match(detail, /data-guest-mobile-trailer-locked=\{desktopGuest && trailerCompanionOpen && mobileViewport \? "true" : undefined\}/);
+  assert.match(globalStyles, /data-guest-mobile-trailer-locked="true"\][\s\S]*?overflow-y: hidden;[\s\S]*?touch-action: pan-x;/);
+  assert.match(detail, /if \(!gesture\.gateShown\) \{ gesture\.gateShown = true; showGuestGate\(guestVideoGateId, "more"\); \}/);
+  assert.match(detail, /resetGuestTrailerRubberBand/);
+  assert.match(detail, /trailerCompanionView !== "public-comments" \|\| event\.deltaY <= 0/);
+  assert.match(detail, /anchorRef=\{publicCommentsSectionRef\} className="!z-\[1200\]"/);
+  assert.match(movieCard, /guestActions \? <span aria-label=\{tmdbTooltip\}/);
+  assert.match(movieCard, /onClick=\{handleMobileToggleMyList\}/);
+  assert.match(movieCard, /onClick=\{handleMobileToggleMyRecommendations\}/);
+  assert.match(movieCard, /gateId=\{mobileGuestListGateId\} placement="below-end" portal anchorRef=\{mobileGuestListGateAnchorRef\}/);
+  assert.match(movieCard, /gateId=\{mobileGuestRecommendGateId\} placement="below-end" portal anchorRef=\{mobileGuestRecommendGateAnchorRef\}/);
+});
+
+test("mobile visited profiles reuse viewport gates and preserve outer scrolling", () => {
+  assert.match(profile, /isGuestExperience: isDesktopGuest/);
+  assert.doesNotMatch(profile, /GuestSignupRec|headerAction=/);
+  assert.match(activity, /outerScroller\.scrollTop \+= scrollDelta/);
+  assert.match(profileVideos, /cards\.slice\(0, Math\.max\(1, guestVisibleCount\)\)/);
+  assert.doesNotMatch(profileVideos, /max-h-\[70dvh\] overflow-y-hidden/);
+  assert.match(profileVideos, /showGuestGate\(guestGateId, "expand"\)/);
+  assert.match(comments, /outer\.scrollTop \+= delta/);
+  assert.match(activity, /placement=\{isMobile \? "viewport-center" : "below"\}/);
+});

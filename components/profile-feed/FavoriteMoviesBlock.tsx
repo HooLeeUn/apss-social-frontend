@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, ReactNode, TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, apiFetch } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
 import { RatingSmileIcon } from "../RatingIcons";
@@ -39,6 +39,7 @@ interface FavoriteSearchModalProps {
 
 interface FavoriteMoviesBlockProps {
   title?: string;
+  headerAction?: ReactNode;
   readOnly?: boolean;
   viewedUsername?: string;
 }
@@ -592,6 +593,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
 
 export default function FavoriteMoviesBlock({
   title,
+  headerAction,
   readOnly = false,
   viewedUsername,
 }: FavoriteMoviesBlockProps = {}) {
@@ -705,7 +707,7 @@ export default function FavoriteMoviesBlock({
 
   return (
     <section className="favorite-movies-block rounded-3xl bg-zinc-950/65 p-6 shadow-[0_24px_45px_rgba(0,0,0,0.38)]">
-      {title ? <h2 className="mb-4 text-lg font-semibold text-zinc-100 xl:text-left">{title}</h2> : null}
+      {title ? <div className="mb-4 flex items-center gap-4"><h2 className="text-lg font-semibold text-zinc-100 xl:text-left">{title}</h2>{headerAction}</div> : null}
       {loading ? <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p> : null}
       {!loading && error ? <p className="mb-3 text-xs text-zinc-400">{error}</p> : null}
 

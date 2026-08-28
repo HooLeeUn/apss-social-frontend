@@ -14,6 +14,9 @@ import { stripLeadingMention } from "../../lib/strip-leading-mention";
 import EmptyStatePanel from "./EmptyStatePanel";
 import { apiFetch } from "../../lib/api";
 import VisitedProfileVideoReactions from "./VisitedProfileVideoReactions";
+import GuestContentGate from "../GuestContentGate";
+import { useDesktopGuest } from "../../hooks/useDesktopGuest";
+import { useGuestGate } from "../GuestGateProvider";
 
 const MIN_VISIBLE_OWN_ACTIVITY_ITEMS = 8;
 const MIN_VISIBLE_VISITED_ACTIVITY_ITEMS = 8;
@@ -995,6 +998,9 @@ export default function MyActivityColumn({
   errorCopy,
 }: MyActivityColumnProps = {}) {
   const { locale, t } = useI18n();
+  const { isGuestExperience: isDesktopGuest, isMobile } = useDesktopGuest();
+  const { showGuestGate } = useGuestGate();
+  const guestHistoryGateId = `profile-history:${viewedUsername ?? "me"}`;
   const initialResolvedActiveTab =
     isOwnProfile && hidePrivateInbox !== false && initialActiveTab === "messages" ? "activity" : initialActiveTab;
   const [activeTab, setActiveTab] = useState<"activity" | "messages" | "rated">(initialResolvedActiveTab);
@@ -1024,6 +1030,7 @@ export default function MyActivityColumn({
   const activityTouchGestureRef = useRef<ActivityTouchGesture | null>(null);
   const swipeIntentRef = useRef<SwipeIntent>({ count: 0, direction: null, endedAt: 0, armedDirection: null });
   const visitedTabsRef = useRef<HTMLDivElement | null>(null);
+  const activeVisitedTabRef = useRef<HTMLButtonElement | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
   const canShowPrivateInbox = isOwnProfile && hidePrivateInbox === false;
@@ -1151,9 +1158,12 @@ export default function MyActivityColumn({
     if (!normalizedViewedUsername) return [];
 
     const sortedItems = [...activity.items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-    const actorScopedItems = sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
-
-    return visitedActivityType ? actorScopedItems : [];
+    if (!visitedActivityType) return [];
+    // The public-comment-reaction endpoint is already scoped by the visited
+    // username. Its actor fields are not the signed-in user and can be absent,
+    // so applying the generic actor filter would discard valid guest results.
+    if (visitedActivityType === "public_comment_reaction") return sortedItems;
+    return sortedItems.filter((item) => isVisitedActorItem(item, normalizedViewedUsername));
   }, [activity.items, isOwnProfile, normalizedViewedUsername, visitedActivityType]);
 
   const ownActivityItems = useMemo(() => {
@@ -1197,7 +1207,7 @@ export default function MyActivityColumn({
   ]);
 
   useEffect(() => {
-    if (isOwnProfile || effectiveActiveTab !== "activity" || visitedActivityTab === "recommendations" || visitedActivityTab === "video_reactions") {
+    if (isDesktopGuest || isOwnProfile || effectiveActiveTab !== "activity" || visitedActivityTab === "recommendations" || visitedActivityTab === "video_reactions") {
       autoLoadAttemptsRef.current = 0;
       return;
     }
@@ -1213,7 +1223,7 @@ export default function MyActivityColumn({
 
     autoLoadAttemptsRef.current += 1;
     void activity.loadMore();
-  }, [effectiveActiveTab, activity, filteredActivityItems.length, isOwnProfile, visitedActivityTab]);
+  }, [effectiveActiveTab, activity, filteredActivityItems.length, isDesktopGuest, isOwnProfile, visitedActivityTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1413,6 +1423,13 @@ export default function MyActivityColumn({
       gesture.direction = direction;
 
       const scroller = event.currentTarget;
+      if (isDesktopGuest && direction === 1 && scroller.scrollHeight > scroller.clientHeight + 1) {
+        if (event.cancelable) event.preventDefault();
+        showGuestGate(guestHistoryGateId, "more");
+        const outerScroller = scroller.ownerDocument.scrollingElement;
+        if (outerScroller) outerScroller.scrollTop += scrollDelta;
+        return;
+      }
       const remainingBelow = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
       const distanceToEdge = direction === 1 ? remainingBelow : scroller.scrollTop;
       const isAtEdge = distanceToEdge <= 1;
@@ -1426,7 +1443,7 @@ export default function MyActivityColumn({
       const outerScroller = scroller.ownerDocument.scrollingElement;
       if (outerScroller) outerScroller.scrollTop += scrollDelta;
     },
-    [effectiveActiveTab],
+    [effectiveActiveTab, guestHistoryGateId, isDesktopGuest, showGuestGate],
   );
 
   const finishActivityTouch = useCallback((event: TouchEvent<HTMLDivElement>) => {
@@ -1455,7 +1472,7 @@ export default function MyActivityColumn({
     <section
       data-tour={isOwnProfile ? "profile-activity" : undefined}
       data-tour-mobile={isOwnProfile ? `profile-${effectiveActiveTab === "messages" ? "inbox" : effectiveActiveTab === "rated" ? "ratings" : "activity"}-mobile` : undefined}
-      className={`my-activity-column w-full min-w-0 max-w-full ${isOwnProfile ? "xl:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
+      className={`my-activity-column relative w-full min-w-0 max-w-full ${isOwnProfile ? "xl:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
     >
       {isOwnProfile ? (
         <header className="flex flex-wrap gap-2">
@@ -1481,6 +1498,7 @@ export default function MyActivityColumn({
           <h2 className="text-base font-semibold text-zinc-100">{resolvedTitle}</h2>
           <div ref={visitedTabsRef} className="flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 xl:flex-wrap xl:overflow-x-visible xl:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
+              ref={visitedActivityTab === "recommendations" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("recommendations");
@@ -1495,6 +1513,7 @@ export default function MyActivityColumn({
               {t("visitedProfileRecommendations")}
             </button>
             <button
+              ref={visitedActivityTab === "video_reactions" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("video_reactions");
@@ -1510,6 +1529,7 @@ export default function MyActivityColumn({
               {t("visitedProfileVideoReactions")}
             </button>
             <button
+              ref={visitedActivityTab === "public_comments" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("public_comments");
@@ -1524,6 +1544,7 @@ export default function MyActivityColumn({
               {t("visitedProfilePublicComments")}
             </button>
             <button
+              ref={visitedActivityTab === "ratings" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("ratings");
@@ -1538,6 +1559,7 @@ export default function MyActivityColumn({
               {t("visitedProfileRatings")}
             </button>
             <button
+              ref={visitedActivityTab === "reactions" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("reactions");
@@ -1552,6 +1574,7 @@ export default function MyActivityColumn({
               {t("visitedProfileLikesDislikes")}
             </button>
           </div>
+          {isDesktopGuest ? <GuestContentGate gateId={guestHistoryGateId} portal placement={isMobile ? "viewport-center" : "below"} anchorRef={activeVisitedTabRef} /> : null}
           </div>
         </>
       )}
@@ -1579,7 +1602,10 @@ export default function MyActivityColumn({
               }`
             : "h-[425px] overflow-y-auto"
         }`}
-        onScroll={handleScroll}
+        tabIndex={isDesktopGuest && visitedActivityTab !== "video_reactions" ? 0 : undefined}
+        onWheel={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && event.deltaY > 0) { event.preventDefault(); showGuestGate(guestHistoryGateId, "more"); } }}
+        onKeyDown={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && ["ArrowDown", "End", "PageDown", " "].includes(event.key)) { event.preventDefault(); showGuestGate(guestHistoryGateId, "more"); } }}
+        onScroll={handleScroll} onScrollCapture={(event) => { if (isDesktopGuest && visitedActivityTab !== "video_reactions" && event.currentTarget.scrollTop > 1) { event.currentTarget.scrollTop = 0; showGuestGate(guestHistoryGateId, "more"); } }}
         onTouchStart={handleActivityTouchStart}
         onTouchMove={handleActivityTouchMove}
         onTouchEnd={finishActivityTouch}
@@ -1646,7 +1672,7 @@ export default function MyActivityColumn({
 
             {!isOwnProfile && hasOpenedVisitedVideoReactions ? (
               <div className={visitedActivityTab === "video_reactions" ? "block" : "hidden"}>
-                <VisitedProfileVideoReactions key={normalizedViewedUsername} username={normalizedViewedUsername} isActive={effectiveActiveTab === "activity" && visitedActivityTab === "video_reactions"} />
+                <VisitedProfileVideoReactions key={normalizedViewedUsername} username={normalizedViewedUsername} isActive={effectiveActiveTab === "activity" && visitedActivityTab === "video_reactions"} guestGateId={guestHistoryGateId} />
               </div>
             ) : null}
 

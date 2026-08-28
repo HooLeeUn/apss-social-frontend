@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useState } from "react";
+import { memo, useId, useRef, useState } from "react";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
@@ -16,6 +16,8 @@ import TrailerModal from "./TrailerModal";
 import PosterImage from "./PosterImage";
 import type { AppBranding } from "../lib/branding";
 import { RatingUserSmileIcon } from "./RatingIcons";
+import GuestContentGate from "./GuestContentGate";
+import { useGuestGate } from "./GuestGateProvider";
 
 interface WeeklyHeroCardProps {
   movie?: Movie;
@@ -28,6 +30,7 @@ interface WeeklyHeroCardProps {
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   trailerHoverDelayMs?: number;
   branding?: AppBranding | null;
+  desktopGuest?: boolean;
 }
 
 function getAvatarFallback(username?: string | null): string {
@@ -39,8 +42,14 @@ function getAvatarFallback(username?: string | null): string {
   return initials || "★";
 }
 
-function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations, trailerHoverDelayMs, branding = null }: WeeklyHeroCardProps) {
+function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations, trailerHoverDelayMs, branding = null, desktopGuest = false }: WeeklyHeroCardProps) {
   const { locale, country, t } = useI18n();
+  const { showGuestGate } = useGuestGate();
+  const gateInstanceId = useId();
+  const gateBaseId = `weekly-hero:${movie?.id ?? fallbackLabel}:${gateInstanceId}`;
+  const listGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const recommendGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const ratingGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
   const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
@@ -66,6 +75,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
     : null;
   const handleToggleMyList = async () => {
     if (!movie) return;
+    if (desktopGuest) { showGuestGate(`${gateBaseId}:list`, "list"); return; }
     const nextValue = !isInMyList;
     try {
       if (onToggleMyList) await onToggleMyList(movie.id, nextValue);
@@ -77,6 +87,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   };
   const handleToggleMyRecommendations = async () => {
     if (!movie) return;
+    if (desktopGuest) { showGuestGate(`${gateBaseId}:recommend`, "recommend"); return; }
     const nextValue = !isInMyRecommendations;
     try {
       if (onToggleMyRecommendations) await onToggleMyRecommendations(movie.id, nextValue);
@@ -167,10 +178,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 <span className="sr-only">{topUsername}</span>
               </div>
               <div className="interaction-icons col-span-2 z-10 flex justify-around justify-self-stretch xl:absolute xl:right-12 xl:top-0.5">
-                <button type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-                  <MyListIcon cardSize className={tagIconClassName} />
-                </button>
-                <button type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button>
+                <span ref={listGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:list`, "list"); }} onClick={handleToggleMyList} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}><MyListIcon cardSize className={tagIconClassName} /></button><GuestContentGate gateId={`${gateBaseId}:list`} portal anchorRef={listGateAnchorRef} /></span>
+                <span ref={recommendGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:recommend`, "recommend"); }} onClick={handleToggleMyRecommendations} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button><GuestContentGate gateId={`${gateBaseId}:recommend`} portal anchorRef={recommendGateAnchorRef} /></span>
               </div>
               <CommentDetailButton title={title} synopsisEs={movie?.synopsis_es} synopsis={movie?.synopsis} className="h-9 w-9 shrink-0 justify-self-end" />
             </div>
@@ -230,7 +239,9 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             <div className="weekly-hero-rating weekly-hero-rating--mine rounded-lg border border-transparent bg-blue-950/25 px-1.5 py-1.5 transition-all duration-150 hover:-translate-y-px xl:bg-blue-950/35 xl:px-3 xl:py-2 xl:shadow-[0_4px_12px_rgba(59,130,246,0.22)] xl:hover:shadow-[0_8px_18px_rgba(59,130,246,0.28)]">
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
-                {movie && onRated ? (
+                {desktopGuest && movie ? (
+                  <span ref={ratingGateAnchorRef} className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-sm text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} portal anchorRef={ratingGateAnchorRef} /></span>
+                ) : movie && onRated ? (
                   <RatingPopover
                     movieId={movie.id}
                     currentRating={movie.myRating}

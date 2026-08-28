@@ -8,6 +8,7 @@ import AuthCountrySelector, { useAuthLocale } from "../../components/auth/AuthCo
 import AuthDialog from "../../components/auth/AuthDialog";
 import PasswordVisibilityButton from "../../components/auth/PasswordVisibilityButton";
 import { getAgeFromBirthDate, MINIMUM_AGE } from "../../lib/personal-data";
+import { clearGuestMode } from "../../lib/auth";
 
 type FieldName =
   | "first_name"
@@ -223,6 +224,7 @@ export default function SignupPage() {
         return;
       }
 
+      clearGuestMode();
       setRegistrationPending(true);
     } catch (error) {
       console.error(error);

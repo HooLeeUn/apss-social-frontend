@@ -20,6 +20,7 @@ import { useAppBranding } from "../../../hooks/useAppBranding";
 import { useI18n } from "../../../hooks/useI18n";
 import { interpolate } from "../../../lib/i18n";
 import { ApiError } from "../../../lib/api";
+import { useDesktopGuest } from "../../../hooks/useDesktopGuest";
 
 function resolveUsernameParam(rawValue: string | string[] | undefined): string {
   if (Array.isArray(rawValue)) {
@@ -241,6 +242,7 @@ export default function UserProfileFeedPage() {
   const router = useRouter();
   const branding = useAppBranding();
   const { t } = useI18n();
+  const { viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const routeUsername = resolveUsernameParam(params?.username);
   const [profileUser, setProfileUser] = useState<SocialUser | null>(null);
   const [profileState, setProfileState] = useState<"loading" | "ready" | "not_found" | "error" | "redirecting">("loading");
@@ -253,6 +255,8 @@ export default function UserProfileFeedPage() {
     profileUser?.canViewFullProfile !== true;
 
   useEffect(() => {
+    if (!viewportHydrated) return;
+    if (isDesktopGuest) return;
     const loadAuthenticatedPrivacy = async () => {
       try {
         const privacySettings = await getProfilePrivacySettings();
@@ -263,9 +267,10 @@ export default function UserProfileFeedPage() {
     };
 
     void loadAuthenticatedPrivacy();
-  }, []);
+  }, [isDesktopGuest, viewportHydrated]);
 
   useEffect(() => {
+    if (!viewportHydrated) return;
     let cancelled = false;
 
     const loadProfile = async () => {
@@ -286,7 +291,7 @@ export default function UserProfileFeedPage() {
         setProfileUser(null);
         if (error instanceof ApiError && error.status === 403 && error.code === "restricted_by_user") {
           setProfileState("redirecting");
-          router.replace("/profile-feed");
+          router.replace(isDesktopGuest ? "/feed" : "/profile-feed");
           return;
         }
         setProfileState(error instanceof ApiError && error.status === 404 ? "not_found" : "error");
@@ -298,7 +303,7 @@ export default function UserProfileFeedPage() {
     return () => {
       cancelled = true;
     };
-  }, [routeUsername, router]);
+  }, [isDesktopGuest, routeUsername, router, viewportHydrated]);
 
   if (profileState === "loading" || profileState === "redirecting") {
     return <main className="min-h-screen bg-black" aria-busy="true" />;
@@ -333,12 +338,12 @@ export default function UserProfileFeedPage() {
         <section className="rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">
           <div className="grid items-start gap-6 xl:grid-cols-[1fr_3fr] xl:items-end">
             <div className="flex flex-col gap-5 xl:self-end">
-              <Link
+              {!isDesktopGuest ? <Link
                 href="/profile-feed"
                 className="inline-flex w-fit items-center rounded-full border border-white/20 bg-zinc-900/70 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-blue-200/70 hover:text-blue-100"
               >
                 {t("visitedProfileBackToMyProfile")}
-              </Link>
+              </Link> : null}
 
               <ProfileIdentityCard
                 username={profileHandle}
@@ -362,7 +367,7 @@ export default function UserProfileFeedPage() {
             </div>
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
-              {profileUser ? (
+              {!isDesktopGuest && profileUser ? (
                 <SocialActions
                   profileUser={profileUser}
                   authenticatedFriendRequestsRestricted={authenticatedFriendRequestsRestricted}

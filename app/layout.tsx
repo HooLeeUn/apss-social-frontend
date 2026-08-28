@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import IOSPinchZoomGuard from "@/components/IOSPinchZoomGuard";
 import DisableNativeContextMenu from "@/components/DisableNativeContextMenu";
 import OnboardingProvider from "@/components/onboarding/OnboardingProvider";
+import GuestRouteGuard from "@/components/GuestRouteGuard";
+import GuestGateProvider from "@/components/GuestGateProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,7 +41,8 @@ export default function RootLayout({
       >
         <IOSPinchZoomGuard />
         <DisableNativeContextMenu />
-        {children}
+        <GuestRouteGuard />
+        <GuestGateProvider>{children}</GuestGateProvider>
         <OnboardingProvider />
       </body>
     </html>

@@ -20,6 +20,11 @@ test("visited activity requests include activity_type and pagination follows bac
   assert.match(adapters, /parsed\.next \? normalizeActivityNextEndpoint\(parsed\.next\) : null/);
 });
 
+test("public comment reactions preserve the visited-user endpoint payload for guests", () => {
+  assert.match(adapters, /activityType === "public_comment_reaction" \? parsed\.items/);
+  assert.match(activityColumn, /visitedActivityType === "public_comment_reaction"\) return sortedItems/);
+});
+
 test("comment reaction authors use only the canonical user visitability endpoint", () => {
   assert.match(activityColumn, /getUserVisitabilityByUsername\(username\)/);
   assert.doesNotMatch(activityColumn, /getUserProfileByUsername\(username\)/);

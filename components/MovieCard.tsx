@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
@@ -16,6 +16,8 @@ import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount
 import CommentDetailButton from "./CommentDetailButton";
 import MyListIcon from "./MyListIcon";
 import RatingPopover from "./RatingPopover";
+import GuestContentGate from "./GuestContentGate";
+import { useGuestGate } from "./GuestGateProvider";
 import { RatingUserSmileIcon } from "./RatingIcons";
 import TrailerModal from "./TrailerModal";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
@@ -737,6 +739,9 @@ interface MovieCardProps {
   linkToDetail?: boolean;
   showExtendedMetadata?: boolean;
   highlightMyRatingSlot?: boolean;
+  ratingReadOnly?: boolean;
+  guestActions?: boolean;
+  onRatingReadOnlyClick?: () => void;
   onRated?: (movieId: Movie["id"], score: number, payload?: unknown) => void | Promise<void>;
   showBottomInteractionIcons?: boolean;
   enlargeInteractionIcons?: boolean;
@@ -802,6 +807,9 @@ function MovieCard({
   linkToDetail = true,
   showExtendedMetadata = false,
   highlightMyRatingSlot = false,
+  ratingReadOnly = false,
+  guestActions = false,
+  onRatingReadOnlyClick,
   onRated,
   showBottomInteractionIcons = true,
   enlargeInteractionIcons: _enlargeInteractionIcons = false,
@@ -821,6 +829,16 @@ function MovieCard({
   trailerHoverDelayMs = DEFAULT_TRAILER_HOVER_DELAY_MS,
   branding = null,
 }: MovieCardProps) {
+  const { showGuestGate } = useGuestGate();
+  const guestGateInstanceId = useId();
+  const guestRatingGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:rate`;
+  const guestListGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:list`;
+  const guestRecommendGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:recommend`;
+  const mobileGuestListGateId = `${guestListGateId}:mobile`;
+  const mobileGuestRecommendGateId = `${guestRecommendGateId}:mobile`;
+  const guestRatingGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const mobileGuestListGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const mobileGuestRecommendGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
@@ -1058,6 +1076,7 @@ function MovieCard({
   }, [country, isDesktopViewport, isFeed, linkToDetail, movie.id]);
 
   const handleToggleMyList = async () => {
+    if (guestActions) { showGuestGate(guestListGateId, "list"); return; }
     const nextValue = !isInMyList;
     if (!onToggleMyList) setLocalIsInMyList(nextValue);
 
@@ -1075,6 +1094,7 @@ function MovieCard({
     }
   };
   const handleToggleMyRecommendations = async () => {
+    if (guestActions) { showGuestGate(guestRecommendGateId, "recommend"); return; }
     const nextValue = !isInMyRecommendations;
     if (!onToggleMyRecommendations) setLocalIsInMyRecommendations(nextValue);
     try {
@@ -1085,6 +1105,14 @@ function MovieCard({
       console.warn("No se pudo actualizar Mis recomendadas.", error);
       if (!onToggleMyRecommendations) setLocalIsInMyRecommendations(!nextValue);
     }
+  };
+  const handleMobileToggleMyList = () => {
+    if (guestActions) { showGuestGate(mobileGuestListGateId, "list"); return; }
+    void handleToggleMyList();
+  };
+  const handleMobileToggleMyRecommendations = () => {
+    if (guestActions) { showGuestGate(mobileGuestRecommendGateId, "recommend"); return; }
+    void handleToggleMyRecommendations();
   };
 
   const tagIconClassName = `interaction-icon-tag ${isInMyList ? "interaction-icon-tag--active" : "interaction-icon-tag--inactive"}`;
@@ -1113,7 +1141,9 @@ function MovieCard({
         <span aria-label="Calificación de seguidos">👥 {formatFollowingRating(movie.followingAvgRating)}</span>
       </div>
       <div className="flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold sm:text-sm">
-        {onRated ? (
+        {ratingReadOnly ? (
+          <button type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRatingGateId, "rate"); }} onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
+        ) : onRated ? (
           <RatingPopover
             movieId={movie.id}
             currentRating={movie.myRating}
@@ -1142,7 +1172,10 @@ function MovieCard({
       <div className="min-w-0 justify-self-start">
         {tmdbUrl ? (
           <TooltipTarget text={tmdbTooltip}>
-            <a
+            {guestActions ? <span aria-label={tmdbTooltip} className="inline-flex h-8 w-[82px] shrink-0 items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
+            </span> : <a
               href={tmdbUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -1152,7 +1185,7 @@ function MovieCard({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
-            </a>
+            </a>}
           </TooltipTarget>
         ) : null}
       </div>
@@ -1161,12 +1194,18 @@ function MovieCard({
         <CommentDetailButton tourTarget="feed-card-synopsis" title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
         {showBottomInteractionIcons ? (
           <div className="interaction-icons static z-10 flex flex-nowrap items-center gap-1">
-            <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-              <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
-            </button>
-            <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
-              <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
-            </button>
+            <span ref={mobileGuestListGateAnchorRef} className="relative inline-flex">
+              <button data-tour="feed-card-tag" type="button" onClick={handleMobileToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
+              </button>
+              <GuestContentGate gateId={mobileGuestListGateId} placement="below-end" portal anchorRef={mobileGuestListGateAnchorRef} />
+            </span>
+            <span ref={mobileGuestRecommendGateAnchorRef} className="relative inline-flex">
+              <button data-tour="feed-card-ticket" type="button" onClick={handleMobileToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
+              </button>
+              <GuestContentGate gateId={mobileGuestRecommendGateId} placement="below-end" portal anchorRef={mobileGuestRecommendGateAnchorRef} />
+            </span>
           </div>
         ) : null}
       </div>
@@ -1227,7 +1266,9 @@ function MovieCard({
         }
       >
         {isFeed ? (
-          onRated ? (
+          ratingReadOnly ? (
+            <span ref={guestRatingGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRatingGateId, "rate"); }} onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button><GuestContentGate gateId={guestRatingGateId} portal anchorRef={guestRatingGateAnchorRef} /></span>
+          ) : onRated ? (
             <RatingPopover
               movieId={movie.id}
               currentRating={movie.myRating}
@@ -1263,7 +1304,10 @@ function MovieCard({
               <div aria-hidden="true" />
               {tmdbUrl ? (
                 <TooltipTarget text={tmdbTooltip}>
-                  <a
+                  {guestActions ? <span aria-label={tmdbTooltip} className={splitFeedTmdbLogoClassName}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
+                  </span> : <a
                     href={tmdbUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1273,7 +1317,7 @@ function MovieCard({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/brand/tmdb.svg" alt="" className="h-auto w-full object-contain" loading="lazy" />
-                  </a>
+                  </a>}
                 </TooltipTarget>
               ) : null}
               {ratingsActionsTmdbSlot ? <div className={splitFeedTmdbSlotClassName}>{ratingsActionsTmdbSlot}</div> : null}
@@ -1291,12 +1335,12 @@ function MovieCard({
                     : `absolute ${highlightMyRatingSlot ? (showExtendedMetadata ? "left-[58%] top-1/2 -translate-x-1/2 -translate-y-1/2" : "hidden") : "right-10 -top-7"}`
                 }`}
               >
-                <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+                <span className="relative inline-flex"><button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestListGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                   <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
-                </button>
-                <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+                </button><GuestContentGate gateId={guestListGateId} placement="below-end" /></span>
+                <span className="relative inline-flex"><button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRecommendGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                   <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
-                </button>
+                </button><GuestContentGate gateId={guestRecommendGateId} placement="below-end" /></span>
               </div>
             ) : null}
             {!splitFeedActions ? (
@@ -1307,10 +1351,10 @@ function MovieCard({
       ) : (
         <div className="col-span-3 mt-1 flex justify-center" aria-hidden="true">
           <div className="interaction-icons">
-            <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+            <button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestListGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
               <MyListIcon cardSize className={`${compactInteractionIconClassName} ${tagIconClassName}`} />
             </button>
-            <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+            <button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRecommendGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
               <img src="/icons/Ticket.png" alt="" className={`${compactInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
             </button>
           </div>
@@ -1474,12 +1518,12 @@ function MovieCard({
             <div
               className="interaction-icons absolute right-2 top-[4.85rem] z-10"
             >
-              <button data-tour="feed-card-tag" type="button" onClick={handleToggleMyList} className="cursor-pointer" aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
+              <span className="relative inline-flex"><button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestListGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
                 <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
-              </button>
-              <button data-tour="feed-card-ticket" type="button" onClick={handleToggleMyRecommendations} className="cursor-pointer" aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
+              </button><GuestContentGate gateId={guestListGateId} placement="below-end" /></span>
+              <span className="relative inline-flex"><button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRecommendGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                 <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
-              </button>
+              </button><GuestContentGate gateId={guestRecommendGateId} placement="below-end" /></span>
             </div>
           ) : null}
         </div>

@@ -33,6 +33,8 @@ interface CommentsListProps {
   unboundedOnMobile?: boolean;
   desktopDarkScrollbar?: boolean;
   containerRef?: Ref<HTMLDivElement>;
+  readOnly?: boolean;
+  onReadOnlyBoundaryAttempt?: () => void;
 }
 
 export default function CommentsList({
@@ -65,12 +67,15 @@ export default function CommentsList({
   unboundedOnMobile = false,
   desktopDarkScrollbar = false,
   containerRef,
+  readOnly = false,
+  onReadOnlyBoundaryAttempt,
 }: CommentsListProps) {
   const { t } = useI18n();
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const readOnlyTouchYRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!hasMore || loadingMore || !onLoadMore) return;
+    if (readOnly || !hasMore || loadingMore || !onLoadMore) return;
     const sentinel = loadMoreSentinelRef.current;
     if (!sentinel || typeof IntersectionObserver === "undefined") return;
 
@@ -85,7 +90,7 @@ export default function CommentsList({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, onLoadMore]);
+  }, [hasMore, loadingMore, onLoadMore, readOnly]);
 
   if (loading) {
     return (
@@ -130,6 +135,7 @@ export default function CommentsList({
               deleting={Boolean(deletingCommentIds[String(comment.id)])}
               actionError={actionErrorByCommentId[String(comment.id)]}
               displayText={getDisplayText?.(comment)}
+              disabled={readOnly}
             />
           </div>
         ))}
@@ -150,12 +156,20 @@ export default function CommentsList({
             : "scrollbar-dark max-h-[28rem] overflow-y-auto rounded-xl border border-white/15 bg-zinc-950/65 p-4"
       }`}
       onScroll={(event) => {
-        if (!hasMore || loadingMore || !onLoadMore) return;
+        if (readOnly && event.currentTarget.scrollTop > 1) { event.currentTarget.scrollTop = 0; onReadOnlyBoundaryAttempt?.(); return; }
+        if (readOnly || !hasMore || loadingMore || !onLoadMore) return;
         const target = event.currentTarget;
         if (target.scrollTop + target.clientHeight >= target.scrollHeight - 48) {
           onLoadMore();
         }
       }}
+      onWheel={(event) => { if (readOnly && event.deltaY > 0) { event.preventDefault(); onReadOnlyBoundaryAttempt?.(); } }}
+      onTouchStart={(event) => { readOnlyTouchYRef.current = event.touches[0]?.clientY ?? null; }}
+      onTouchMove={(event) => { const previousY = readOnlyTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!readOnly || previousY === null || currentY === undefined) return; const delta = previousY - currentY; readOnlyTouchYRef.current = currentY; if (delta <= 0 || event.currentTarget.scrollHeight <= event.currentTarget.clientHeight + 1) return; if (event.cancelable) event.preventDefault(); onReadOnlyBoundaryAttempt?.(); const outer = event.currentTarget.ownerDocument.scrollingElement; if (outer) outer.scrollTop += delta; }}
+      onTouchEnd={() => { readOnlyTouchYRef.current = null; }}
+      onTouchCancel={() => { readOnlyTouchYRef.current = null; }}
+      onKeyDown={(event) => { if (readOnly && ["ArrowDown", "End", "PageDown", " "].includes(event.key)) { event.preventDefault(); onReadOnlyBoundaryAttempt?.(); } }}
+      tabIndex={readOnly ? 0 : undefined}
     >
       <div className="space-y-0">
         {comments.map((comment, index) => (
@@ -184,6 +198,7 @@ export default function CommentsList({
               deleting={Boolean(deletingCommentIds[String(comment.id)])}
               actionError={actionErrorByCommentId[String(comment.id)]}
               displayText={getDisplayText?.(comment)}
+              disabled={readOnly}
             />
           </div>
         ))}

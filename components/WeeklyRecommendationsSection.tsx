@@ -16,15 +16,17 @@ interface WeeklyRecommendationsSectionProps {
   onToggleMyRecommendations?: (movieId: Movie["id"], nextValue: boolean) => Promise<void> | void;
   trailerHoverDelayMs?: number;
   branding?: AppBranding | null;
+  desktopGuest?: boolean;
 }
 
-function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations, trailerHoverDelayMs, branding = null }: WeeklyRecommendationsSectionProps) {
+function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUsername, onRated, listedMovieIds, onToggleMyList, recommendedMovieIds, onToggleMyRecommendations, trailerHoverDelayMs, branding = null, desktopGuest = false }: WeeklyRecommendationsSectionProps) {
   const { t } = useI18n({ userId: currentUserId, username: currentUsername });
   const heroMovies = useMemo(() => [weeklyMovies[0], weeklyMovies[1]], [weeklyMovies]);
   const miniMovies = useMemo(() => Array.from({ length: 6 }, (_, index) => weeklyMovies[index + 2]), [weeklyMovies]);
 
   const renderHeroCard = (movie: Movie | undefined, index: number) => (
     <WeeklyHeroCard
+      desktopGuest={desktopGuest}
       movie={movie}
       fallbackLabel={`Recomendación destacada #${index + 1}`}
       currentUserId={currentUserId}
@@ -40,6 +42,7 @@ function WeeklyRecommendationsSection({ weeklyMovies, currentUserId, currentUser
 
   const renderMiniCard = (movie: Movie | undefined, index: number) => (
     <WeeklyMiniCard
+      desktopGuest={desktopGuest}
       movie={movie}
       fallbackLabel={`Top #${index + 3}`}
       currentUserId={currentUserId}

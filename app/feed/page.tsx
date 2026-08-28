@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
 import { clearToken, getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
@@ -51,6 +52,9 @@ import { resolveVideoReactionComment, type VideoReactionComment, type VideoReact
 import { buildCommentDetailEndpoint, parseComments, type SocialComment } from "../../lib/social";
 import { onboardingPrepareStepEventName } from "../../lib/onboarding/types";
 import type { OnboardingPrepareAction } from "../../lib/onboarding/types";
+import { useDesktopGuest } from "../../hooks/useDesktopGuest";
+import GuestContentGate from "../../components/GuestContentGate";
+import { useGuestGate } from "../../components/GuestGateProvider";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
@@ -225,6 +229,8 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 
 export default function FeedPage() {
   const router = useRouter();
+  const { showGuestGate } = useGuestGate();
+  const { hydrated: authHydrated, viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
@@ -271,6 +277,9 @@ export default function FeedPage() {
   const mobileNotificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileNavRef = useRef<HTMLElement | null>(null);
+  const mobileProfileGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const desktopGuestProfileGateAnchorRef = useRef<HTMLDivElement | null>(null);
+  const mobileNotificationsGateAnchorRef = useRef<HTMLDivElement | null>(null);
   const isRefreshingNotificationsRef = useRef(false);
   const lastMobileScrollYRef = useRef(0);
 
@@ -327,8 +336,9 @@ export default function FeedPage() {
   }, []);
 
   useEffect(() => {
+    if (!authHydrated || !viewportHydrated) return;
     const token = getToken();
-    if (!token) {
+    if (!token && !isDesktopGuest) {
       router.replace("/login");
       return;
     }
@@ -340,7 +350,7 @@ export default function FeedPage() {
           (error) => ({ ok: false as const, error }),
         );
 
-        if (!weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
+        if (!isDesktopGuest && !weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
           router.replace("/login");
           return;
         }
@@ -354,8 +364,8 @@ export default function FeedPage() {
 
         const [normalizedWeekly, myListMovies, myRecommendedMovies] = await Promise.all([
           Promise.resolve(weeklyResult.ok ? parseMovieList(weeklyResult.payload) : []),
-          getMyMovieList().catch(() => []),
-          getMyMovieRecommendations().catch(() => []),
+          isDesktopGuest ? Promise.resolve([]) : getMyMovieList().catch(() => []),
+          isDesktopGuest ? Promise.resolve([]) : getMyMovieRecommendations().catch(() => []),
         ]);
         const backendListSet = new Set(myListMovies.map((movie) => String(movie.id)));
         const backendRecommendationsSet = new Set(myRecommendedMovies.map((movie) => String(movie.id)));
@@ -369,7 +379,7 @@ export default function FeedPage() {
       } catch (loadError) {
         console.error("Feed load error:", loadError);
 
-        if (loadError instanceof ApiError && loadError.status === 401) {
+        if (!isDesktopGuest && loadError instanceof ApiError && loadError.status === 401) {
           router.replace("/login");
           return;
         }
@@ -381,7 +391,7 @@ export default function FeedPage() {
     };
 
     loadFeed();
-  }, [router]);
+  }, [authHydrated, viewportHydrated, isDesktopGuest, router]);
 
   const syncMyListIds = useCallback(async () => {
     try {
@@ -531,7 +541,7 @@ export default function FeedPage() {
         if ((loadPersonalizedError as Error).name === "AbortError") return;
         console.error("Filtered personalized load error:", loadPersonalizedError);
 
-        if (loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
+        if (!isDesktopGuest && loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
           router.replace("/login");
           return;
         }
@@ -545,7 +555,7 @@ export default function FeedPage() {
         }
       }
     },
-    [router],
+    [isDesktopGuest, router],
   );
 
   useEffect(() => {
@@ -681,6 +691,7 @@ export default function FeedPage() {
       setIsSavingStreamingCountry(true);
 
       try {
+        if (isDesktopGuest) return;
         await apiFetch("/me/", {
           method: "PATCH",
           body: JSON.stringify({ streaming_country: nextCountry }),
@@ -691,7 +702,7 @@ export default function FeedPage() {
         setIsSavingStreamingCountry(false);
       }
     },
-    [isSavingStreamingCountry, setStreamingCountry, streamingCountry],
+    [isDesktopGuest, isSavingStreamingCountry, setStreamingCountry, streamingCountry],
   );
 
   const handleNotificationItemClick = useCallback(
@@ -1052,7 +1063,7 @@ export default function FeedPage() {
               />
             </div>
             <div className="feed-mobile-only relative z-50 flex flex-1 justify-center xl:hidden [&>div]:w-[4.25rem]">
-              <DirectorBoardMenu
+              {isDesktopGuest ? <Link href="/signup" className="text-sm font-semibold text-white underline underline-offset-2">{translate(locale, "guestSignUp")}</Link> : <DirectorBoardMenu
                 locale={locale}
                 mobileIconOnly
                 mobileTourTarget="feed-menu-mobile"
@@ -1063,7 +1074,7 @@ export default function FeedPage() {
                 onPersonalDataClick={() => router.push("/settings/personal-data")}
                 onPrivacySecurityClick={() => router.push("/privacy-security")}
                 onPoliciesClick={() => router.push("/policies")}
-              />
+              />}
             </div>
             <div className="feed-mobile-only relative z-50 flex flex-none justify-end xl:hidden">
               <StreamingCountrySelector
@@ -1076,6 +1087,7 @@ export default function FeedPage() {
               />
             </div>
             <div className={`feed-header__account feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 xl:pointer-events-none xl:absolute xl:right-4 xl:top-6 xl:block xl:pr-1 ${isNotificationPanelOpen ? "xl:z-[90]" : ""}`}>
+              {isDesktopGuest ? <div className="pointer-events-auto mt-7 flex w-[252px] items-center justify-end gap-6"><div ref={desktopGuestProfileGateAnchorRef} className="relative flex flex-col items-center gap-1"><span onMouseEnter={() => showGuestGate("feed-desktop-profile-login", "profile-login")}><UserProfilePlaceholderButton onClick={() => showGuestGate("feed-desktop-profile-login", "profile-login")} avatarUrl={null} avatarAlt={translate(locale, "guestProfileLoginPrefix")} /></span><Link href="/signup" className="text-xs font-semibold text-white underline underline-offset-2">{translate(locale, "guestSignUp")}</Link><GuestContentGate gateId="feed-desktop-profile-login" portal anchorRef={desktopGuestProfileGateAnchorRef} /></div><div className="scale-105"><StreamingCountrySelector country={streamingCountry} onCountryChange={handleStreamingCountryChange} /></div></div> : (
               <div className="pointer-events-auto relative flex w-auto flex-col items-end xl:w-[198px] xl:items-center">
                 <div className="flex items-center gap-2">
                 <button
@@ -1155,8 +1167,9 @@ export default function FeedPage() {
                   error={streamingCountryError}
                 />
               </div>
+              </div>
+              )}
             </div>
-          </div>
           </div>
 
           <div className="feed-header__search-row feed-desktop-only hidden items-center justify-between gap-3 xl:block">
@@ -1168,7 +1181,7 @@ export default function FeedPage() {
               showSearchIcon
               inlineAutocomplete
             />
-            <div data-tour="feed-menu" className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] xl:absolute xl:right-4 xl:top-[5.75rem] xl:[&>div]:w-[198px]">
+            {!isDesktopGuest ? <div data-tour="feed-menu" className="feed-header__menu relative z-50 shrink-0 [&>div]:w-[8.5rem] sm:[&>div]:w-[9.5rem] xl:absolute xl:right-4 xl:top-[5.75rem] xl:[&>div]:w-[198px]">
               <DirectorBoardMenu
                 locale={locale}
                 isOpen={isDirectorBoardOpen}
@@ -1179,7 +1192,7 @@ export default function FeedPage() {
                 onPrivacySecurityClick={() => router.push("/privacy-security")}
                 onPoliciesClick={() => router.push("/policies")}
               />
-            </div>
+            </div> : null}
           </div>
 
           <GenreChips
@@ -1203,7 +1216,7 @@ export default function FeedPage() {
         </div>
 
         <section className="space-y-5">
-          <WeeklyRecommendationsSection weeklyMovies={weeklyMovies} branding={branding} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS} />
+          <WeeklyRecommendationsSection desktopGuest={isDesktopGuest} weeklyMovies={weeklyMovies} branding={branding} currentUserId={currentUserId} currentUsername={currentUsername} onRated={updateWeeklyMovieRating} listedMovieIds={listedMovieIds} onToggleMyList={handleToggleMyList} recommendedMovieIds={recommendedMovieIds} onToggleMyRecommendations={handleToggleMyRecommendations} trailerHoverDelayMs={MAIN_FEED_TRAILER_HOVER_DELAY_MS} />
         </section>
 
         <section className="space-y-5 bg-black pb-8">
@@ -1220,6 +1233,8 @@ export default function FeedPage() {
               {visiblePersonalizedMovies.map((movie) => (
                 <MovieCard
                   key={movie.id}
+                  guestActions={isDesktopGuest}
+                  ratingReadOnly={isDesktopGuest}
                   movie={movie}
                   variant="feed"
                   enlargeInteractionIcons
@@ -1280,19 +1295,19 @@ export default function FeedPage() {
             <circle cx="11" cy="11" r="7" />
           </svg>
         </button>
-        <UserProfilePlaceholderButton
+        <span ref={mobileProfileGateAnchorRef} className="relative inline-flex"><UserProfilePlaceholderButton
           mobileTourTarget="feed-profile-mobile"
-          onClick={() => router.push("/profile-feed")}
+          onClick={() => { if (isDesktopGuest) { showGuestGate("feed-mobile-avatar", "explore-profile-login"); return; } router.push("/profile-feed"); }}
           avatarUrl={profileAvatarUrl}
           avatarAlt="Ir a perfil"
           avatarVersion={profileAvatarVersion}
-        />
-        <div className="relative">
+        /><GuestContentGate gateId="feed-mobile-avatar" portal placement="section-center" anchorRef={mobileProfileGateAnchorRef} /></span>
+        <div ref={mobileNotificationsGateAnchorRef} className="relative">
           <button
             data-tour-mobile="feed-notifications-mobile"
             type="button"
             aria-label="Ver notificaciones"
-            onClick={handleBellClick}
+            onClick={() => { if (isDesktopGuest) { showGuestGate("feed-mobile-notifications", "notifications"); return; } handleBellClick(); }}
             className="relative flex h-11 w-11 items-center justify-center rounded-full text-zinc-100 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-6 w-6">
@@ -1305,10 +1320,11 @@ export default function FeedPage() {
               </span>
             ) : null}
           </button>
+          <GuestContentGate gateId="feed-mobile-notifications" portal placement="section-center" anchorRef={mobileNotificationsGateAnchorRef} />
         </div>
       </nav>
 
-      {isNotificationPanelOpen ? (
+      {isNotificationPanelOpen && !isDesktopGuest ? (
         <div ref={mobileNotificationContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[70] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md xl:hidden">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">{translate(locale, "notificationsTitle")}</p>
