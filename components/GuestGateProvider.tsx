@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-export type GuestGateVariant = "more" | "rate" | "list" | "recommend" | "expand" | "signup" | "profile" | "availability";
+export type GuestGateVariant = "more" | "rate" | "list" | "recommend" | "expand" | "signup" | "profile" | "explore-profile" | "notifications" | "availability";
 type ActiveGate = { id: string; variant: GuestGateVariant } | null;
 type GuestGateContextValue = {
   activeGate: ActiveGate;

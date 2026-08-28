@@ -44,7 +44,7 @@ test("desktop guest contextual controls stay attached to their visible headings 
   assert.match(detail, /!isDesktopGuest \? <CommentUserSearch/);
   assert.match(detail, /GuestContentGate gateId=\{guestCommentsGateId\} placement="inline-end"/);
   assert.match(visitedProfile, /headerAction=\{isDesktopGuest \? <GuestSignupRec[^>]+gateVariant="profile"/);
-  assert.match(activity, /portal anchorRef=\{activeVisitedTabRef\}/);
+  assert.match(activity, /portal placement=\{isMobile \? "viewport-center" : "below"\} anchorRef=\{activeVisitedTabRef\}/);
 });
 
 test("signup REC uses the single coordinated gate without a native duplicate tooltip", () => {
@@ -66,4 +66,9 @@ test("each mounted card owns a unique contextual gate id", () => {
 
 test("portal gates wait for measured coordinates instead of rendering a top-left duplicate", () => {
   assert.match(gate, /if \(portal\) return portalPosition \? createPortal\(content, document\.body\) : null/);
+});
+
+test("guest gates expose shared section and viewport centered placements", () => {
+  assert.match(gate, /placement === "viewport-center"/);
+  assert.match(gate, /placement === "section-center"/);
 });

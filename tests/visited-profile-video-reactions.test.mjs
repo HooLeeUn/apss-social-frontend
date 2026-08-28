@@ -92,7 +92,7 @@ test("visited profile reaction controls are touch-visible and desktop-hover-only
 });
 
 test("expanded viewer opens the selected carousel index with shared localized metadata and reactions", () => {
-  assert.match(videoCarousel, /cards\.map\(\(\{ item, title, timestamp \}, index\)/);
+  assert.match(videoCarousel, /visibleCards\.map\(\(\{ item, title, timestamp \}, index\)/);
   assert.match(videoCarousel, /openExpandedViewer\(index\)/);
   assert.match(videoCarousel, /const \{ item, title \} = cards\[expandedIndex\]/);
   assert.match(videoCarousel, /item\.movie\.image \|\| "\/brand\/qnext-poster-placeholder\.png"/);

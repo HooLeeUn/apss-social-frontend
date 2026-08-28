@@ -998,7 +998,7 @@ export default function MyActivityColumn({
   errorCopy,
 }: MyActivityColumnProps = {}) {
   const { locale, t } = useI18n();
-  const { isGuestExperience: isDesktopGuest } = useDesktopGuest();
+  const { isGuestExperience: isDesktopGuest, isMobile } = useDesktopGuest();
   const { showGuestGate } = useGuestGate();
   const guestHistoryGateId = `profile-history:${viewedUsername ?? "me"}`;
   const initialResolvedActiveTab =
@@ -1574,7 +1574,7 @@ export default function MyActivityColumn({
               {t("visitedProfileLikesDislikes")}
             </button>
           </div>
-          {isDesktopGuest ? <GuestContentGate gateId={guestHistoryGateId} portal anchorRef={activeVisitedTabRef} /> : null}
+          {isDesktopGuest ? <GuestContentGate gateId={guestHistoryGateId} portal placement={isMobile ? "viewport-center" : "below"} anchorRef={activeVisitedTabRef} /> : null}
           </div>
         </>
       )}

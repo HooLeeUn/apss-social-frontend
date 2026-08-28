@@ -53,6 +53,8 @@ import { onboardingPrepareStepEventName } from "../../lib/onboarding/types";
 import type { OnboardingPrepareAction } from "../../lib/onboarding/types";
 import { useDesktopGuest } from "../../hooks/useDesktopGuest";
 import GuestSignupRec from "../../components/GuestSignupRec";
+import GuestContentGate from "../../components/GuestContentGate";
+import { useGuestGate } from "../../components/GuestGateProvider";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
@@ -227,6 +229,7 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 
 export default function FeedPage() {
   const router = useRouter();
+  const { showGuestGate } = useGuestGate();
   const { hydrated: authHydrated, viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
@@ -274,6 +277,8 @@ export default function FeedPage() {
   const mobileNotificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileNavRef = useRef<HTMLElement | null>(null);
+  const mobileProfileGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const mobileNotificationsGateAnchorRef = useRef<HTMLDivElement | null>(null);
   const isRefreshingNotificationsRef = useRef(false);
   const lastMobileScrollYRef = useRef(0);
 
@@ -1289,19 +1294,19 @@ export default function FeedPage() {
             <circle cx="11" cy="11" r="7" />
           </svg>
         </button>
-        <UserProfilePlaceholderButton
+        <span ref={mobileProfileGateAnchorRef} className="relative inline-flex"><UserProfilePlaceholderButton
           mobileTourTarget="feed-profile-mobile"
-          onClick={() => router.push("/profile-feed")}
+          onClick={() => { if (isDesktopGuest) { showGuestGate("feed-mobile-avatar", "explore-profile"); return; } router.push("/profile-feed"); }}
           avatarUrl={profileAvatarUrl}
           avatarAlt="Ir a perfil"
           avatarVersion={profileAvatarVersion}
-        />
-        <div className="relative">
+        /><GuestContentGate gateId="feed-mobile-avatar" portal placement="section-center" anchorRef={mobileProfileGateAnchorRef} /></span>
+        <div ref={mobileNotificationsGateAnchorRef} className="relative">
           <button
             data-tour-mobile="feed-notifications-mobile"
             type="button"
             aria-label="Ver notificaciones"
-            onClick={handleBellClick}
+            onClick={() => { if (isDesktopGuest) { showGuestGate("feed-mobile-notifications", "notifications"); return; } handleBellClick(); }}
             className="relative flex h-11 w-11 items-center justify-center rounded-full text-zinc-100 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70"
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-6 w-6">
@@ -1314,10 +1319,11 @@ export default function FeedPage() {
               </span>
             ) : null}
           </button>
+          <GuestContentGate gateId="feed-mobile-notifications" portal placement="section-center" anchorRef={mobileNotificationsGateAnchorRef} />
         </div>
       </nav>
 
-      {isNotificationPanelOpen ? (
+      {isNotificationPanelOpen && !isDesktopGuest ? (
         <div ref={mobileNotificationContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[70] rounded-2xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_28px_40px_rgba(0,0,0,0.55)] backdrop-blur-md xl:hidden">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">{translate(locale, "notificationsTitle")}</p>
