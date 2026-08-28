@@ -4471,7 +4471,7 @@ function MovieDetailPageContent() {
               showExtendedMetadata
               highlightMyRatingSlot
               enlargeInteractionIcons
-              extendedMetadataMiddleSlot={isDesktopGuest ? <GuestSignupRec /> : <StreamingProviders movieId={movie.id} />}
+              extendedMetadataMiddleSlot={isDesktopGuest ? <div className="xl:translate-y-3"><GuestSignupRec /></div> : <StreamingProviders movieId={movie.id} />}
               ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
               separateRatingsActionsCard
               onRated={handleMovieRated}
@@ -4577,9 +4577,10 @@ function MovieDetailPageContent() {
             </>
           ) : null}
           <section data-tour-desktop="detail-public-comments" ref={publicCommentsSectionRef} data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden xl:block" : ""}`}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               {!trailerCompanionOpen ? <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden xl:block" : ""}`}>{t("movieDetailPublicComments")}</h2> : null}
-              <CommentUserSearch
+              {isDesktopGuest && !trailerCompanionOpen ? <GuestContentGate gateId={guestCommentsGateId} placement="inline-end" /> : null}
+              {!isDesktopGuest ? <CommentUserSearch
                 users={publicFilterUsers}
                 query={publicSearchQuery}
                 selectedUser={selectedPublicFilterUser}
@@ -4592,7 +4593,7 @@ function MovieDetailPageContent() {
                 onQueryChange={setPublicSearchQuery}
                 onOpenChange={setIsPublicSearchOpen}
                 onSelect={setSelectedPublicFilterUser}
-              />
+              /> : null}
             </div>
             <div data-trailer-public-comments-list data-empty={publicComments.length === 0} className="contents">
             <CommentsList
@@ -4625,7 +4626,6 @@ function MovieDetailPageContent() {
               readOnly={isDesktopGuest}
               onReadOnlyBoundaryAttempt={() => showGuestGate(guestCommentsGateId, "more")}
             />
-            <GuestContentGate gateId={guestCommentsGateId} />
             </div>
           </section>
 

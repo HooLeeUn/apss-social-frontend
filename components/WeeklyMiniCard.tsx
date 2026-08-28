@@ -215,7 +215,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     <span className="truncate text-[10px] font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating)}</span>
                   </span>
                   {desktopGuest && movie ? (
-                    <span className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-[10px] font-semibold text-blue-100" onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} placement="below" /></span>
+                    <span className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-[10px] font-semibold text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} placement="below" /></span>
                   ) : movie && onRated ? (
                     <RatingPopover
                       movieId={movie.id}

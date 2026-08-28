@@ -366,7 +366,7 @@ export default function UserProfileFeedPage() {
             </div>
 
             <div className="flex min-h-[220px] flex-col justify-center gap-5">
-              {isDesktopGuest ? <div className="mt-5 self-start"><GuestSignupRec /></div> : profileUser ? (
+              {!isDesktopGuest && profileUser ? (
                 <SocialActions
                   profileUser={profileUser}
                   authenticatedFriendRequestsRestricted={authenticatedFriendRequestsRestricted}
@@ -377,6 +377,7 @@ export default function UserProfileFeedPage() {
               {!hasLimitedAccess ? (
                 <FavoriteMoviesBlock
                   title={interpolate(t("visitedProfileFavoriteMovies"), { name: profileTitleName })}
+                  headerAction={isDesktopGuest ? <GuestSignupRec /> : undefined}
                   readOnly
                   viewedUsername={routeUsername}
                 />

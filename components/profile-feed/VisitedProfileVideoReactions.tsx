@@ -9,7 +9,6 @@ import { apiFetch } from "../../lib/api";
 import { formatProfileFeedRelativeDate, resolveMovieTitles } from "../../lib/i18n";
 import type { ProfileFeedActivityMovie, VideoReactionActivityPayload } from "../../lib/profile-feed/types";
 import { useDesktopGuest } from "../../hooks/useDesktopGuest";
-import GuestContentGate from "../GuestContentGate";
 import { useGuestGate } from "../GuestGateProvider";
 
 interface VideoReactionActivity {
@@ -88,7 +87,7 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
   </>;
 }
 
-export default function VisitedProfileVideoReactions({ username, isActive }: { username: string; isActive: boolean }) {
+export default function VisitedProfileVideoReactions({ username, isActive, guestGateId: providedGuestGateId }: { username: string; isActive: boolean; guestGateId?: string }) {
   const { isDesktopGuest } = useDesktopGuest();
   const { locale, t } = useI18n();
   const [items, setItems] = useState<VideoReactionActivity[]>([]);
@@ -99,7 +98,7 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const { showGuestGate } = useGuestGate();
-  const guestGateId = `profile-video-reactions:${username}`;
+  const guestGateId = providedGuestGateId ?? `profile-video-reactions:${username}`;
   const [guestVisibleCount, setGuestVisibleCount] = useState<number | null>(null);
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const visibilityRatios = useRef(new Map<string, number>());
@@ -536,7 +535,6 @@ export default function VisitedProfileVideoReactions({ username, isActive }: { u
         })}
       </div>
       <button type="button" onClick={() => scrollCarousel(1)} disabled={!canScrollRight} aria-label={t("visitedProfileNextVideoReaction")} className="absolute right-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">→</button>
-      <GuestContentGate gateId={guestGateId} />
       {expandedIndex !== null && cards[expandedIndex] ? (() => {
         const { item, title } = cards[expandedIndex];
         const commentId = item.payload.video_comment_id;

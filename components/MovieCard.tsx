@@ -1128,7 +1128,7 @@ function MovieCard({
       </div>
       <div className="flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold sm:text-sm">
         {ratingReadOnly ? (
-          <button type="button" onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
+          <button type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRatingGateId, "rate"); }} onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
         ) : onRated ? (
           <RatingPopover
             movieId={movie.id}
@@ -1244,7 +1244,7 @@ function MovieCard({
       >
         {isFeed ? (
           ratingReadOnly ? (
-            <span className="relative inline-flex"><button type="button" onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button><GuestContentGate gateId={guestRatingGateId} placement="below" /></span>
+            <span className="relative inline-flex"><button type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRatingGateId, "rate"); }} onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button><GuestContentGate gateId={guestRatingGateId} placement="below" /></span>
           ) : onRated ? (
             <RatingPopover
               movieId={movie.id}

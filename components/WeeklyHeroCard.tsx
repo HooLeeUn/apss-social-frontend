@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
@@ -46,6 +46,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const { locale, country, t } = useI18n();
   const { showGuestGate } = useGuestGate();
   const gateBaseId = `weekly-hero:${movie?.id ?? fallbackLabel}`;
+  const listGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const recommendGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
   const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
@@ -174,8 +176,8 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 <span className="sr-only">{topUsername}</span>
               </div>
               <div className="interaction-icons col-span-2 z-10 flex justify-around justify-self-stretch xl:absolute xl:right-12 xl:top-0.5">
-                <span className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:list`, "list"); }} onClick={handleToggleMyList} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}><MyListIcon cardSize className={tagIconClassName} /></button><GuestContentGate gateId={`${gateBaseId}:list`} placement="below-end" /></span>
-                <span className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:recommend`, "recommend"); }} onClick={handleToggleMyRecommendations} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button><GuestContentGate gateId={`${gateBaseId}:recommend`} placement="below-end" /></span>
+                <span ref={listGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:list`, "list"); }} onClick={handleToggleMyList} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}><MyListIcon cardSize className={tagIconClassName} /></button><GuestContentGate gateId={`${gateBaseId}:list`} portal anchorRef={listGateAnchorRef} /></span>
+                <span ref={recommendGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:recommend`, "recommend"); }} onClick={handleToggleMyRecommendations} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--hero-sm interaction-icon--hero-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button><GuestContentGate gateId={`${gateBaseId}:recommend`} portal anchorRef={recommendGateAnchorRef} /></span>
               </div>
               <CommentDetailButton title={title} synopsisEs={movie?.synopsis_es} synopsis={movie?.synopsis} className="h-9 w-9 shrink-0 justify-self-end" />
             </div>
@@ -236,7 +238,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
                 {desktopGuest && movie ? (
-                  <span className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-sm text-blue-100" onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} placement="below" /></span>
+                  <span className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-sm text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} placement="below" /></span>
                 ) : movie && onRated ? (
                   <RatingPopover
                     movieId={movie.id}

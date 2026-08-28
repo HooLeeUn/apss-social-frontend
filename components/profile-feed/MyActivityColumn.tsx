@@ -1030,6 +1030,7 @@ export default function MyActivityColumn({
   const activityTouchGestureRef = useRef<ActivityTouchGesture | null>(null);
   const swipeIntentRef = useRef<SwipeIntent>({ count: 0, direction: null, endedAt: 0, armedDirection: null });
   const visitedTabsRef = useRef<HTMLDivElement | null>(null);
+  const activeVisitedTabRef = useRef<HTMLButtonElement | null>(null);
   const normalizedViewedUsername = viewedUsername?.trim() || "";
   const resolvedScope = scope || (isOwnProfile ? "me" : (normalizedViewedUsername ? `user:${normalizedViewedUsername}` : null));
   const canShowPrivateInbox = isOwnProfile && hidePrivateInbox === false;
@@ -1490,6 +1491,7 @@ export default function MyActivityColumn({
           <h2 className="text-base font-semibold text-zinc-100">{resolvedTitle}</h2>
           <div ref={visitedTabsRef} className="flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 xl:flex-wrap xl:overflow-x-visible xl:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
+              ref={visitedActivityTab === "recommendations" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("recommendations");
@@ -1504,6 +1506,7 @@ export default function MyActivityColumn({
               {t("visitedProfileRecommendations")}
             </button>
             <button
+              ref={visitedActivityTab === "video_reactions" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("video_reactions");
@@ -1519,6 +1522,7 @@ export default function MyActivityColumn({
               {t("visitedProfileVideoReactions")}
             </button>
             <button
+              ref={visitedActivityTab === "public_comments" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("public_comments");
@@ -1533,6 +1537,7 @@ export default function MyActivityColumn({
               {t("visitedProfilePublicComments")}
             </button>
             <button
+              ref={visitedActivityTab === "ratings" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("ratings");
@@ -1547,6 +1552,7 @@ export default function MyActivityColumn({
               {t("visitedProfileRatings")}
             </button>
             <button
+              ref={visitedActivityTab === "reactions" ? activeVisitedTabRef : undefined}
               type="button"
               onClick={(event) => {
                 setVisitedActivityTab("reactions");
@@ -1561,6 +1567,7 @@ export default function MyActivityColumn({
               {t("visitedProfileLikesDislikes")}
             </button>
           </div>
+          {isDesktopGuest ? <GuestContentGate gateId={guestHistoryGateId} portal anchorRef={activeVisitedTabRef} /> : null}
           </div>
         </>
       )}
@@ -1658,7 +1665,7 @@ export default function MyActivityColumn({
 
             {!isOwnProfile && hasOpenedVisitedVideoReactions ? (
               <div className={visitedActivityTab === "video_reactions" ? "block" : "hidden"}>
-                <VisitedProfileVideoReactions key={normalizedViewedUsername} username={normalizedViewedUsername} isActive={effectiveActiveTab === "activity" && visitedActivityTab === "video_reactions"} />
+                <VisitedProfileVideoReactions key={normalizedViewedUsername} username={normalizedViewedUsername} isActive={effectiveActiveTab === "activity" && visitedActivityTab === "video_reactions"} guestGateId={guestHistoryGateId} />
               </div>
             ) : null}
 
@@ -1773,7 +1780,6 @@ export default function MyActivityColumn({
           </>
         )}
       </div>
-      <GuestContentGate gateId={guestHistoryGateId} />
       {activeVideo ? <ActivityVideoModal video={activeVideo} onClose={closeActiveVideo} onReactionUpdated={syncGivenVideoReaction} onDeleted={removeDeletedActivityVideo} /> : null}
       {activeReactionSummary ? <ReactionSummaryModal summary={activeReactionSummary} myUsername={myUsername} onClose={closeReactionSummary} /> : null}
     </section>
