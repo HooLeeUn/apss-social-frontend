@@ -1171,7 +1171,8 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   body.detail-trailer-active[data-trailer-companion-view="reaction"] [data-desktop-video-reaction-history],
   body.detail-trailer-active[data-trailer-companion-view="public-comments"] [data-trailer-public-comments],
   body.detail-trailer-active[data-trailer-companion-view="directed-comments"] [data-trailer-directed-comments] {
-    transform: translateX(var(--trailer-companion-drag-x, 0px));
+    transform: translateX(var(--trailer-companion-drag-x, 0px)) translateY(var(--guest-trailer-rubber-y, 0px));
+    transition: var(--guest-trailer-rubber-transition, none);
   }
 
   body.detail-trailer-active[data-trailer-companion-view="reaction"] [data-trailer-public-comments],
@@ -1181,7 +1182,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
 
   body.detail-trailer-active[data-trailer-companion-view="public-comments"] [data-desktop-video-reaction-history],
   body.detail-trailer-active[data-trailer-companion-view="directed-comments"] [data-trailer-public-comments] {
-    transform: translateX(calc(-100% + var(--trailer-companion-drag-x, 0px)));
+    transform: translateX(calc(-100% + var(--trailer-companion-drag-x, 0px))) translateY(var(--guest-trailer-rubber-y, 0px));
   }
 
   body.detail-trailer-active[data-trailer-companion-view="reaction"] [data-trailer-directed-comments] {
@@ -1189,7 +1190,7 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   }
 
   body.detail-trailer-active[data-trailer-companion-view="directed-comments"] [data-desktop-video-reaction-history] {
-    transform: translateX(calc(-200% + var(--trailer-companion-drag-x, 0px)));
+    transform: translateX(calc(-200% + var(--trailer-companion-drag-x, 0px))) translateY(var(--guest-trailer-rubber-y, 0px));
   }
 }
 

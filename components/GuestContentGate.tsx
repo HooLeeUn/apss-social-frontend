@@ -50,10 +50,12 @@ export default function GuestContentGate({ gateId, placement = "floating", class
 
   if (!open) return null;
   const copyKey: Record<GuestGateVariant, "guestSeeMorePrefix" | "guestRatePrefix" | "guestListPrefix" | "guestRecommendPrefix" | "guestExpandPrefix" | "guestSignupPrefix" | "guestProfilePrefix" | "guestExploreProfilePrefix" | "guestNotificationsPrefix" | "guestAvailabilityPrefix"> = { more: "guestSeeMorePrefix", rate: "guestRatePrefix", list: "guestListPrefix", recommend: "guestRecommendPrefix", expand: "guestExpandPrefix", signup: "guestSignupPrefix", profile: "guestProfilePrefix", "explore-profile": "guestExploreProfilePrefix", notifications: "guestNotificationsPrefix", availability: "guestAvailabilityPrefix" };
+  const prefix = t(copyKey[activeGate.variant]);
+  const recommendHighlightIndex = activeGate.variant === "recommend" ? prefix.indexOf("Rec") : -1;
   const position = placement === "below" ? "left-1/2 top-full mt-2 -translate-x-1/2" : placement === "below-end" ? "right-0 top-full mt-2" : placement === "inline-end" ? "right-0 top-1/2 -translate-y-1/2" : "bottom-3 left-1/2 -translate-x-1/2";
   const centered = placement === "section-center" || placement === "viewport-center";
   const content = <div ref={gateRef} role="status" style={portal && portalPosition ? { left: portalPosition.left, top: portalPosition.top } : undefined} className={`${portal ? `fixed -translate-x-1/2 ${centered ? "-translate-y-1/2" : ""}` : `absolute ${position}`} z-[300] flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#9bbde7]/45 bg-[#24558a]/95 px-3 py-2 text-sm text-white shadow-[0_12px_35px_rgba(4,20,43,.6)] backdrop-blur ${className}`}>
-    {t(copyKey[activeGate.variant]) ? <span className="text-white">{t(copyKey[activeGate.variant])}</span> : null}
+    {prefix ? <span className="text-white">{recommendHighlightIndex >= 0 ? <>{prefix.slice(0, recommendHighlightIndex)}<span className="bg-gradient-to-r from-[#86ADE0] via-[#8177d8] to-[#a56ed1] bg-clip-text font-semibold text-transparent">Rec</span>{prefix.slice(recommendHighlightIndex + 3)}</> : prefix}</span> : null}
     <Link href="/signup" className="font-semibold text-white underline-offset-2 hover:underline">{t("guestSignUp")}</Link>
     <button type="button" aria-label={t("trailerClose")} onClick={closeGuestGate} className="ml-1 text-blue-100/80 hover:text-white">×</button>
   </div>;

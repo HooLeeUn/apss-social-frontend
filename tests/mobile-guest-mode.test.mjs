@@ -40,7 +40,10 @@ test("mobile detail is read-only, keeps public content, and gates expansion", ()
   assert.match(detail, /placement="section-center" anchorRef=\{publicCommentsScrollRef\}/);
   assert.match(detail, /trailerCompanionOpen \? historyScrollRef : videoGateAnchorRef/);
   assert.match(detail, /trailerCompanionOpen && event\.deltaY > 0/);
-  assert.match(detail, /guestTrailerHistoryTouchYRef/);
+  assert.match(detail, /guestTrailerHistoryTouchRef/);
+  assert.match(detail, /Math\.max\(-18, rawDelta \/ 7\)/);
+  assert.match(detail, /if \(!gesture\.gateShown\) \{ gesture\.gateShown = true; showGuestGate\(guestVideoGateId, "more"\); \}/);
+  assert.match(detail, /resetGuestTrailerRubberBand/);
   assert.match(detail, /trailerCompanionView !== "public-comments" \|\| event\.deltaY <= 0/);
   assert.match(detail, /anchorRef=\{publicCommentsSectionRef\} className="!z-\[1200\]"/);
   assert.match(movieCard, /guestActions \? <span aria-label=\{tmdbTooltip\}/);
