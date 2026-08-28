@@ -48,6 +48,8 @@ test("desktop guest contextual controls stay attached to their visible headings 
   assert.match(detail, /GuestContentGate gateId=\{guestCommentsGateId\} placement="inline-end"/);
   assert.match(visitedProfile, /headerAction=\{isDesktopGuest \? <GuestSignupRec[^>]+gateVariant="profile"/);
   assert.match(activity, /portal placement=\{isMobile \? "viewport-center" : "below"\} anchorRef=\{activeVisitedTabRef\}/);
+  assert.match(detail, /closeGuestGate\(\);[\s\S]*?setTrailerCompanionView\(next\)/);
+  assert.match(detail, /trailerCompanionOpen && event\.currentTarget\.scrollTop > 0/);
 });
 
 test("signup REC uses the single coordinated gate without a native duplicate tooltip", () => {

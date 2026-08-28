@@ -1041,10 +1041,11 @@ function CommentUserSearch({
   );
 }
 
-function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick, desktopGuest = false }: { movieId: string; movieTitle: string; moviePoster: string | null; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void; desktopGuest?: boolean }) {
+function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick, desktopGuest = false, trailerCompanionOpen = false }: { movieId: string; movieTitle: string; moviePoster: string | null; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void; desktopGuest?: boolean; trailerCompanionOpen?: boolean }) {
   const router = useRouter();
   const { showGuestGate } = useGuestGate();
   const guestVideoGateId = `detail-video:${movieId}`;
+  const guestTrailerHistoryTouchYRef = useRef<number | null>(null);
   const [recorderState, setRecorderState] = useState<VideoRecorderState>("idle");
   const [error, setError] = useState("");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -2706,7 +2707,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
     {videoDebugEnabled ? <aside className="mt-4 max-h-56 w-full overflow-auto rounded-xl border border-amber-400/40 bg-black p-3 font-mono text-[10px] text-amber-200 xl:hidden" aria-label="Video debug"><strong>VIDEO DEBUG ACTIVO</strong>{videoDebugEntries.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}</aside> : null}
     <button type="button" data-history-carousel-arrow="left" disabled={recorderState !== "idle" || !canScrollHistoryLeft} className="hidden" aria-label="Anterior" onClick={() => scrollHistoryCarousel(-1)}>←</button>
     <div ref={videoGateAnchorRef} data-history-carousel-viewport className="relative">
-    <div ref={historyScrollRef} tabIndex={desktopGuest ? 0 : undefined} onWheel={(event) => { if (desktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestVideoGateId, "more"); } }} onKeyDown={(event) => { if (desktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestVideoGateId, "more"); } }} onScroll={(event) => { if (desktopGuest && event.currentTarget.scrollLeft > 1) { event.currentTarget.scrollLeft = 0; showGuestGate(guestVideoGateId, "more"); } }} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className={`desktop-dark-scrollbar ${desktopGuest ? "mt-0 xl:mt-5" : "mt-5"} space-y-3 xl:mx-auto xl:max-h-[32rem] xl:max-w-3xl xl:overflow-y-auto xl:pr-2`}>
+    <div ref={historyScrollRef} tabIndex={desktopGuest ? 0 : undefined} onWheel={(event) => { if (!desktopGuest) return; if (trailerCompanionOpen && event.deltaY > 0) { event.preventDefault(); showGuestGate(guestVideoGateId, "more"); return; } if (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0)) { event.preventDefault(); showGuestGate(guestVideoGateId, "more"); } }} onKeyDown={(event) => { if (desktopGuest && (["ArrowRight", "End", "PageDown"].includes(event.key) || (trailerCompanionOpen && event.key === "ArrowDown"))) { event.preventDefault(); showGuestGate(guestVideoGateId, "more"); } }} onScroll={(event) => { if (!desktopGuest) return; if (trailerCompanionOpen && event.currentTarget.scrollTop > 0) { event.currentTarget.scrollTop = 0; showGuestGate(guestVideoGateId, "more"); } if (event.currentTarget.scrollLeft > 1) { event.currentTarget.scrollLeft = 0; showGuestGate(guestVideoGateId, "more"); } }} onTouchStart={(event) => { guestTrailerHistoryTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestTrailerHistoryTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!desktopGuest || !trailerCompanionOpen || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestTrailerHistoryTouchYRef.current = currentY; if (delta <= 0) return; if (event.cancelable) event.preventDefault(); showGuestGate(guestVideoGateId, "more"); }} onTouchEnd={() => { guestTrailerHistoryTouchYRef.current = null; }} onTouchCancel={() => { guestTrailerHistoryTouchYRef.current = null; }} data-desktop-video-reaction-history data-can-scroll-left={canScrollHistoryLeft} data-can-scroll-right={canScrollHistoryRight} className={`desktop-dark-scrollbar ${desktopGuest ? "mt-0 xl:mt-5" : "mt-5"} space-y-3 xl:mx-auto xl:max-h-[32rem] xl:max-w-3xl xl:overflow-y-auto xl:pr-2`}>
       {recorderState === "idle" && initialLoading ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}
       {recorderState === "idle" && historyError ? <div className="text-center text-sm text-red-200"><p>{historyError}</p><button type="button" className="mt-2 rounded-lg border border-white/10 px-3 py-1 text-zinc-100" onClick={reloadFirstPage}>{t("movieDetailVideoRetry")}</button></div> : null}
       {showEmpty ? <p className="text-center text-sm text-zinc-500">{t("movieDetailVideoEmpty")}</p> : null}
@@ -2732,7 +2733,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       {recorderState === "idle" && loadingMore ? <p className="text-center text-sm text-zinc-400">{t("movieDetailVideoLoadingVideos")}</p> : null}{recorderState === "idle" ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
     </div>
     </div>
-    <GuestContentGate gateId={guestVideoGateId} portal placement="section-center" anchorRef={videoGateAnchorRef} />
+    <GuestContentGate gateId={guestVideoGateId} portal placement="section-center" anchorRef={trailerCompanionOpen ? historyScrollRef : videoGateAnchorRef} className={trailerCompanionOpen ? "!z-[1200]" : ""} />
     </div>
     <button type="button" data-history-carousel-arrow="right" disabled={recorderState !== "idle" || !canScrollHistoryRight} className="hidden" aria-label="Siguiente" onClick={() => scrollHistoryCarousel(1)}>→</button>
     {orientationPaused ? <div className="fixed inset-0 z-[200] flex h-[100dvh] w-[100dvw] items-center justify-center bg-black px-6 py-[max(1.5rem,env(safe-area-inset-top))] text-center" role="alert" aria-live="assertive"><div className="w-full max-w-lg"><span className="video-reaction-phone mx-auto mb-6 block h-20 w-11 rounded-xl border-2 border-white" aria-hidden="true" /><p className="text-lg font-bold leading-relaxed text-white sm:text-xl">{t("movieDetailVideoRotatePortrait")}</p></div></div> : null}
@@ -2774,7 +2775,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
 
 function MovieDetailPageContent() {
   const { hydrated: authHydrated, viewportHydrated, isGuestExperience: isDesktopGuest, isMobile } = useDesktopGuest();
-  const { showGuestGate } = useGuestGate();
+  const { showGuestGate, closeGuestGate } = useGuestGate();
   const router = useRouter();
   const searchParams = useSearchParams();
   const branding = useAppBranding();
@@ -2868,6 +2869,7 @@ function MovieDetailPageContent() {
   const directedCommentsSectionRef = useRef<HTMLElement | null>(null);
   const publicCommentsScrollRef = useRef<HTMLDivElement | null>(null);
   const publicCommentsSectionRef = useRef<HTMLElement | null>(null);
+  const guestTrailerCommentsTouchYRef = useRef<number | null>(null);
   const directedCommentsScrollRef = useRef<HTMLDivElement | null>(null);
   const processedDirectedTargetRef = useRef<string | null>(null);
   const processedPublicTargetRef = useRef<string | null>(null);
@@ -4327,6 +4329,7 @@ function MovieDetailPageContent() {
   const composerTitle = isSeriesDetail ? t("movieDetailSeriesCommentTitle") : t("movieDetailCommentTitle");
 
   const changeTrailerCompanionView = useCallback((next: TrailerCompanionView) => {
+    closeGuestGate();
     setTrailerCompanionView(next);
     document.body.dataset.trailerCompanionView = next;
     if (next !== "reaction") {
@@ -4337,7 +4340,7 @@ function MovieDetailPageContent() {
     } else {
       window.dispatchEvent(new Event("qnext:companion-reaction-enter"));
     }
-  }, []);
+  }, [closeGuestGate]);
 
   useEffect(() => {
     const initializeCompanion = () => {
@@ -4535,7 +4538,7 @@ function MovieDetailPageContent() {
           {!isDesktopGuest ? <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} hideTitleOnMobile /> : null}
         </div>
         <div ref={videoCommentStartRef} data-video-reaction-section>
-          <MobileVideoComments desktopGuest={isDesktopGuest} movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
+          <MobileVideoComments desktopGuest={isDesktopGuest} trailerCompanionOpen={trailerCompanionOpen} movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${!isDesktopGuest && commentInputMode === "text-comment" ? "hidden xl:block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} title={composerTitle} />
@@ -4579,7 +4582,7 @@ function MovieDetailPageContent() {
               </div>
             </>
           ) : null}
-          <section data-tour-desktop="detail-public-comments" ref={publicCommentsSectionRef} data-trailer-public-comments className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden xl:block" : ""}`}>
+          <section data-tour-desktop="detail-public-comments" ref={publicCommentsSectionRef} data-trailer-public-comments onWheel={(event) => { if (!isDesktopGuest || !trailerCompanionOpen || trailerCompanionView !== "public-comments" || event.deltaY <= 0) return; event.preventDefault(); showGuestGate(guestCommentsGateId, "more"); }} onScroll={(event) => { if (!isDesktopGuest || !trailerCompanionOpen || trailerCompanionView !== "public-comments" || event.currentTarget.scrollTop <= 0) return; event.currentTarget.scrollTop = 0; showGuestGate(guestCommentsGateId, "more"); }} onTouchStart={(event) => { guestTrailerCommentsTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestTrailerCommentsTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!isDesktopGuest || !trailerCompanionOpen || trailerCompanionView !== "public-comments" || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestTrailerCommentsTouchYRef.current = currentY; if (delta <= 0) return; if (event.cancelable) event.preventDefault(); showGuestGate(guestCommentsGateId, "more"); }} onTouchEnd={() => { guestTrailerCommentsTouchYRef.current = null; }} onTouchCancel={() => { guestTrailerCommentsTouchYRef.current = null; }} className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden xl:block" : ""}`}>
             <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               {!trailerCompanionOpen ? <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden xl:block" : ""}`}>{t("movieDetailPublicComments")}</h2> : null}
               {isDesktopGuest && !isMobile && !trailerCompanionOpen ? <GuestContentGate gateId={guestCommentsGateId} placement="inline-end" /> : null}
@@ -4629,8 +4632,9 @@ function MovieDetailPageContent() {
               readOnly={isDesktopGuest}
               onReadOnlyBoundaryAttempt={() => showGuestGate(guestCommentsGateId, "more")}
             />
-            {isDesktopGuest && isMobile ? <GuestContentGate gateId={guestCommentsGateId} portal placement="section-center" anchorRef={publicCommentsScrollRef} /> : null}
+            {isDesktopGuest && isMobile && !trailerCompanionOpen ? <GuestContentGate gateId={guestCommentsGateId} portal placement="section-center" anchorRef={publicCommentsScrollRef} /> : null}
             </div>
+            {isDesktopGuest && trailerCompanionOpen ? <GuestContentGate gateId={guestCommentsGateId} portal placement="section-center" anchorRef={publicCommentsSectionRef} className="!z-[1200]" /> : null}
           </section>
 
           {shouldRenderDirectedComments ? (

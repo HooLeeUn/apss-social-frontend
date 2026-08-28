@@ -36,8 +36,13 @@ test("mobile detail is read-only, keeps public content, and gates expansion", ()
   assert.match(detail, /if \(desktopGuest\) \{ showGuestGate\(guestVideoGateId, "expand"\); return; \}/);
   assert.match(detail, /!isDesktopGuest \? <CommentComposer/);
   assert.match(detail, /unboundedOnMobile=\{!isDesktopGuest\}/);
-  assert.match(detail, /placement="section-center" anchorRef=\{videoGateAnchorRef\}/);
+  assert.match(detail, /placement="section-center" anchorRef=\{trailerCompanionOpen \? historyScrollRef : videoGateAnchorRef\}/);
   assert.match(detail, /placement="section-center" anchorRef=\{publicCommentsScrollRef\}/);
+  assert.match(detail, /trailerCompanionOpen \? historyScrollRef : videoGateAnchorRef/);
+  assert.match(detail, /trailerCompanionOpen && event\.deltaY > 0/);
+  assert.match(detail, /guestTrailerHistoryTouchYRef/);
+  assert.match(detail, /trailerCompanionView !== "public-comments" \|\| event\.deltaY <= 0/);
+  assert.match(detail, /anchorRef=\{publicCommentsSectionRef\} className="!z-\[1200\]"/);
   assert.match(movieCard, /guestActions \? <span aria-label=\{tmdbTooltip\}/);
   assert.match(movieCard, /onClick=\{handleMobileToggleMyList\}/);
   assert.match(movieCard, /onClick=\{handleMobileToggleMyRecommendations\}/);
