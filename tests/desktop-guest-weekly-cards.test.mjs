@@ -10,6 +10,7 @@ const gate = readFileSync(new URL("../components/GuestContentGate.tsx", import.m
 const detail = readFileSync(new URL("../app/movies/[id]/page.tsx", import.meta.url), "utf8");
 const visitedProfile = readFileSync(new URL("../app/users/[username]/page.tsx", import.meta.url), "utf8");
 const activity = readFileSync(new URL("../components/profile-feed/MyActivityColumn.tsx", import.meta.url), "utf8");
+const movieCard = readFileSync(new URL("../components/MovieCard.tsx", import.meta.url), "utf8");
 
 test("desktop guest state reaches every weekly recommendation card", () => {
   assert.match(feed, /WeeklyRecommendationsSection desktopGuest=\{isDesktopGuest\}/);
@@ -32,6 +33,9 @@ test("guest gates use a short portal-capable presentation", () => {
   assert.match(gate, /createPortal\(content, document\.body\)/);
   assert.match(hero, /portal anchorRef=\{listGateAnchorRef\}/);
   assert.match(hero, /portal anchorRef=\{recommendGateAnchorRef\}/);
+  assert.match(hero, /gateId=\{`\$\{gateBaseId\}:rate`\} portal anchorRef=\{ratingGateAnchorRef\}/);
+  assert.match(mini, /gateId=\{`\$\{gateBaseId\}:rate`\} portal anchorRef=\{ratingGateAnchorRef\}/);
+  assert.match(movieCard, /gateId=\{guestRatingGateId\} portal anchorRef=\{guestRatingGateAnchorRef\}/);
 });
 
 test("desktop guest contextual controls stay attached to their visible headings and tabs", () => {

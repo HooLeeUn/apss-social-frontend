@@ -48,6 +48,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const gateBaseId = `weekly-hero:${movie?.id ?? fallbackLabel}`;
   const listGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const recommendGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const ratingGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
   const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
@@ -238,7 +239,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
                 {desktopGuest && movie ? (
-                  <span className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-sm text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} placement="below" /></span>
+                  <span ref={ratingGateAnchorRef} className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-sm text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} portal anchorRef={ratingGateAnchorRef} /></span>
                 ) : movie && onRated ? (
                   <RatingPopover
                     movieId={movie.id}

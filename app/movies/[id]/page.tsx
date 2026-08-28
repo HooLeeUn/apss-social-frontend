@@ -4471,7 +4471,7 @@ function MovieDetailPageContent() {
               showExtendedMetadata
               highlightMyRatingSlot
               enlargeInteractionIcons
-              extendedMetadataMiddleSlot={isDesktopGuest ? <div className="xl:translate-y-3"><GuestSignupRec /></div> : <StreamingProviders movieId={movie.id} />}
+              extendedMetadataMiddleSlot={isDesktopGuest ? <div className="xl:translate-y-5 xl:scale-125"><GuestSignupRec /></div> : <StreamingProviders movieId={movie.id} />}
               ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
               separateRatingsActionsCard
               onRated={handleMovieRated}

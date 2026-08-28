@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
@@ -47,6 +47,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const { locale, country } = useI18n();
   const { showGuestGate } = useGuestGate();
   const gateBaseId = `weekly-mini:${movie?.id ?? fallbackLabel}`;
+  const ratingGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
   const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
@@ -215,7 +216,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     <span className="truncate text-[10px] font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating)}</span>
                   </span>
                   {desktopGuest && movie ? (
-                    <span className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-[10px] font-semibold text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} placement="below" /></span>
+                    <span ref={ratingGateAnchorRef} className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-[10px] font-semibold text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} portal anchorRef={ratingGateAnchorRef} /></span>
                   ) : movie && onRated ? (
                     <RatingPopover
                       movieId={movie.id}
