@@ -44,6 +44,7 @@ test("guest gates use a short portal-capable presentation", () => {
   assert.match(translations, /guestRecommendPrefix: "To Recommend,"/);
   assert.match(gate, /prefix\.indexOf\("Rec"\)/);
   assert.match(gate, /from-\[#168BFF\] via-\[#6558F5\] to-\[#A63DFF\]/);
+  assert.match(gate, /inline-block[^"]*text-\[1\.08em\][^"]*leading-none/);
   assert.match(gate, /underline decoration-1 underline-offset-2/);
 });
 
