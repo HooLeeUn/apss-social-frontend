@@ -58,6 +58,8 @@ test("desktop guest contextual controls stay attached to their visible headings 
 
 test("guest profile and availability calls to action use explicit destinations", () => {
   assert.match(feed, /showGuestGate\("feed-desktop-profile-login", "profile-login"\)/);
+  assert.match(feed, /<span onMouseEnter=\{\(\) => showGuestGate\("feed-desktop-profile-login", "profile-login"\)\}><UserProfilePlaceholderButton/);
+  assert.doesNotMatch(feed, /className="relative flex flex-col items-center gap-1" onMouseEnter=/);
   assert.match(feed, /<Link href="\/signup"[^>]*>\{translate\(locale, "guestSignUp"\)\}<\/Link>/);
   assert.match(detail, /guestAvailabilityPrefix[\s\S]*?<Link href="\/signup"/);
   assert.match(gate, /href=\{loginGate \? "\/login" : "\/signup"\}/);
