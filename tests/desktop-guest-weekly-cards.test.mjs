@@ -11,6 +11,8 @@ const detail = readFileSync(new URL("../app/movies/[id]/page.tsx", import.meta.u
 const visitedProfile = readFileSync(new URL("../app/users/[username]/page.tsx", import.meta.url), "utf8");
 const activity = readFileSync(new URL("../components/profile-feed/MyActivityColumn.tsx", import.meta.url), "utf8");
 const movieCard = readFileSync(new URL("../components/MovieCard.tsx", import.meta.url), "utf8");
+const signupRec = readFileSync(new URL("../components/GuestSignupRec.tsx", import.meta.url), "utf8");
+const translations = readFileSync(new URL("../lib/i18n.ts", import.meta.url), "utf8");
 
 test("desktop guest state reaches every weekly recommendation card", () => {
   assert.match(feed, /WeeklyRecommendationsSection desktopGuest=\{isDesktopGuest\}/);
@@ -43,4 +45,18 @@ test("desktop guest contextual controls stay attached to their visible headings 
   assert.match(detail, /GuestContentGate gateId=\{guestCommentsGateId\} placement="inline-end"/);
   assert.match(visitedProfile, /headerAction=\{isDesktopGuest \? <GuestSignupRec \/>/);
   assert.match(activity, /portal anchorRef=\{activeVisitedTabRef\}/);
+});
+
+test("signup REC uses the single coordinated gate without a native duplicate tooltip", () => {
+  assert.match(signupRec, /showGuestGate\(gateId, gateVariant\)/);
+  assert.match(signupRec, /GuestContentGate gateId=\{gateId\} portal anchorRef=\{anchorRef\}/);
+  assert.doesNotMatch(signupRec, /title=\{t\("guestSignUp"\)\}/);
+  assert.match(feed, /gateVariant="profile"/);
+  assert.match(detail, /gateVariant="availability"/);
+  assert.match(translations, /guestProfilePrefix: "Para ver tu perfil"/);
+  assert.match(translations, /guestAvailabilityPrefix: "To see availability in your country,"/);
+});
+
+test("portal gates wait for measured coordinates instead of rendering a top-left duplicate", () => {
+  assert.match(gate, /if \(portal\) return portalPosition \? createPortal\(content, document\.body\) : null/);
 });

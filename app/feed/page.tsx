@@ -1081,7 +1081,7 @@ export default function FeedPage() {
               />
             </div>
             <div className={`feed-header__account feed-desktop-only pointer-events-auto relative z-[60] hidden shrink-0 pr-0 xl:pointer-events-none xl:absolute xl:right-4 xl:top-6 xl:block xl:pr-1 ${isNotificationPanelOpen ? "xl:z-[90]" : ""}`}>
-              {isDesktopGuest ? <div className="pointer-events-auto mt-5 flex w-[246px] items-center justify-end gap-5 [&_svg]:h-9 [&_svg]:w-9"><GuestSignupRec /><div className="scale-105"><StreamingCountrySelector country={streamingCountry} onCountryChange={handleStreamingCountryChange} /></div></div> : (
+              {isDesktopGuest ? <div className="pointer-events-auto mt-7 flex w-[252px] items-center justify-end gap-6 [&_svg]:h-9 [&_svg]:w-9"><GuestSignupRec gateId="feed-profile-signup" gateVariant="profile" /><div className="scale-105"><StreamingCountrySelector country={streamingCountry} onCountryChange={handleStreamingCountryChange} /></div></div> : (
               <div className="pointer-events-auto relative flex w-auto flex-col items-end xl:w-[198px] xl:items-center">
                 <div className="flex items-center gap-2">
                 <button
