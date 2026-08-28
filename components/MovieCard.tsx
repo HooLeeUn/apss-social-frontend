@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../hooks/useI18n";
@@ -830,9 +830,10 @@ function MovieCard({
   branding = null,
 }: MovieCardProps) {
   const { showGuestGate } = useGuestGate();
-  const guestRatingGateId = `movie-actions:${movie.id}:rate`;
-  const guestListGateId = `movie-actions:${movie.id}:list`;
-  const guestRecommendGateId = `movie-actions:${movie.id}:recommend`;
+  const guestGateInstanceId = useId();
+  const guestRatingGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:rate`;
+  const guestListGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:list`;
+  const guestRecommendGateId = `movie-actions:${movie.id}:${guestGateInstanceId}:recommend`;
   const guestRatingGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";

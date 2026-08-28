@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useRef, useState } from "react";
+import { memo, useId, useRef, useState } from "react";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
@@ -46,7 +46,8 @@ function getAvatarFallback(username?: string | null): string {
 function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations, trailerHoverDelayMs, branding = null, desktopGuest = false }: WeeklyMiniCardProps) {
   const { locale, country } = useI18n();
   const { showGuestGate } = useGuestGate();
-  const gateBaseId = `weekly-mini:${movie?.id ?? fallbackLabel}`;
+  const gateInstanceId = useId();
+  const gateBaseId = `weekly-mini:${movie?.id ?? fallbackLabel}:${gateInstanceId}`;
   const ratingGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;

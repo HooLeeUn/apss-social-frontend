@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useRef, useState } from "react";
+import { memo, useId, useRef, useState } from "react";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
 import { addMovieToMyList, addMovieToMyRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../lib/movies";
@@ -45,7 +45,8 @@ function getAvatarFallback(username?: string | null): string {
 function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyList = false, onToggleMyList, isInMyRecommendations = false, onToggleMyRecommendations, trailerHoverDelayMs, branding = null, desktopGuest = false }: WeeklyHeroCardProps) {
   const { locale, country, t } = useI18n();
   const { showGuestGate } = useGuestGate();
-  const gateBaseId = `weekly-hero:${movie?.id ?? fallbackLabel}`;
+  const gateInstanceId = useId();
+  const gateBaseId = `weekly-hero:${movie?.id ?? fallbackLabel}:${gateInstanceId}`;
   const listGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const recommendGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const ratingGateAnchorRef = useRef<HTMLSpanElement | null>(null);

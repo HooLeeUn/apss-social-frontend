@@ -48,13 +48,20 @@ test("desktop guest contextual controls stay attached to their visible headings 
 });
 
 test("signup REC uses the single coordinated gate without a native duplicate tooltip", () => {
-  assert.match(signupRec, /showGuestGate\(gateId, gateVariant\)/);
-  assert.match(signupRec, /GuestContentGate gateId=\{gateId\} portal anchorRef=\{anchorRef\}/);
+  assert.match(signupRec, /instanceGateId = `\$\{gateId\}:\$\{useId\(\)\}`/);
+  assert.match(signupRec, /showGuestGate\(instanceGateId, gateVariant\)/);
+  assert.match(signupRec, /GuestContentGate gateId=\{instanceGateId\} portal anchorRef=\{anchorRef\}/);
   assert.doesNotMatch(signupRec, /title=\{t\("guestSignUp"\)\}/);
   assert.match(feed, /gateVariant="profile"/);
   assert.match(detail, /gateVariant="availability"/);
   assert.match(translations, /guestProfilePrefix: "Para ver tu perfil"/);
   assert.match(translations, /guestAvailabilityPrefix: "To see availability in your country,"/);
+});
+
+test("each mounted card owns a unique contextual gate id", () => {
+  assert.match(movieCard, /guestGateInstanceId = useId\(\)/);
+  assert.match(hero, /gateInstanceId = useId\(\)/);
+  assert.match(mini, /gateInstanceId = useId\(\)/);
 });
 
 test("portal gates wait for measured coordinates instead of rendering a top-left duplicate", () => {

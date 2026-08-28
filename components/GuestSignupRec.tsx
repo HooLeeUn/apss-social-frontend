@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { useI18n } from "../hooks/useI18n";
 import GuestContentGate from "./GuestContentGate";
 import { GuestGateVariant, useGuestGate } from "./GuestGateProvider";
@@ -10,7 +10,8 @@ export default function GuestSignupRec({ gateId = "guest-signup-rec", gateVarian
   const { t } = useI18n();
   const { showGuestGate } = useGuestGate();
   const anchorRef = useRef<HTMLSpanElement | null>(null);
-  return <span ref={anchorRef} className="relative inline-flex" onMouseEnter={() => showGuestGate(gateId, gateVariant)}>
+  const instanceGateId = `${gateId}:${useId()}`;
+  return <span ref={anchorRef} className="relative inline-flex" onMouseEnter={() => showGuestGate(instanceGateId, gateVariant)}>
     <Link href="/signup" aria-label={t("guestSignUp")} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]">
       <svg viewBox="0 0 32 32" aria-hidden="true" className="h-8 w-8 overflow-visible drop-shadow-[0_0_7px_rgba(134,173,224,.45)]">
         <path d="M16 3A13 13 0 0 0 16 29" fill="none" stroke="#86ADE0" strokeWidth="2.4" strokeLinecap="round"/>
@@ -19,6 +20,6 @@ export default function GuestSignupRec({ gateId = "guest-signup-rec", gateVarian
         <circle cx="14.4" cy="14.2" r="2.8" fill="#dcecff" opacity=".9"/>
       </svg>
     </Link>
-    <GuestContentGate gateId={gateId} portal anchorRef={anchorRef} />
+    <GuestContentGate gateId={instanceGateId} portal anchorRef={anchorRef} />
   </span>;
 }
