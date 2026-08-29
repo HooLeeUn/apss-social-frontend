@@ -22,8 +22,6 @@ interface CommentComposerProps {
   loading?: boolean;
   error?: string;
   placeholder?: string;
-  title?: string;
-  hideTitleOnMobile?: boolean;
 }
 
 function getMentionToken(value: string, caretIndex: number): { start: number; query: string } | null {
@@ -38,7 +36,7 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
   };
 }
 
-export default function CommentComposer({ friends, searchMentionSuggestions, onSubmit, loading = false, error, placeholder, title, hideTitleOnMobile = false }: CommentComposerProps) {
+export default function CommentComposer({ friends, searchMentionSuggestions, onSubmit, loading = false, error, placeholder }: CommentComposerProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
@@ -48,6 +46,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
   const [selectedMention, setSelectedMention] = useState<MentionSelection | null>(null);
   const [mentionSuggestions, setMentionSuggestions] = useState<Friend[]>([]);
   const mentionRequestIdRef = useRef(0);
+  const submittingRef = useRef(false);
 
   const hasValidSelectedMention = useMemo(() => {
     if (!selectedMention) return false;
@@ -126,37 +125,9 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
     });
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (mentionQuery === null) return;
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActiveIndex((current) => (mentionSuggestions.length === 0 ? 0 : (current + 1) % mentionSuggestions.length));
-      return;
-    }
-
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveIndex((current) => (mentionSuggestions.length === 0 ? 0 : (current - 1 + mentionSuggestions.length) % mentionSuggestions.length));
-      return;
-    }
-
-    if (event.key === "Enter" && mentionSuggestions.length > 0) {
-      event.preventDefault();
-      handleSelectSuggestion(mentionSuggestions[activeIndex]);
-      return;
-    }
-
-    if (event.key === "Escape") {
-      setMentionSuggestions([]);
-      setMentionQuery(null);
-      setMentionStart(null);
-    }
-  };
-
   const handleSubmit = async () => {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || submittingRef.current) return;
 
     const mentionUsername = hasValidSelectedMention ? normalizeMentionUsername(selectedMention?.username ?? "") : null;
     console.log("[mentions-debug] submit mode:", mentionUsername ? "directed" : "public");
@@ -164,22 +135,59 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
     console.log("[mentions-debug] mentioned_username final:", mentionUsername);
     console.log("[mentions-debug] textarea value:", trimmed);
 
-    await onSubmit({
-      text: trimmed,
-      mentionUsername,
-    });
+    submittingRef.current = true;
+    try {
+      await onSubmit({
+        text: trimmed,
+        mentionUsername,
+      });
 
-    setText("");
-    setMentionSuggestions([]);
-    setMentionQuery(null);
-    setMentionStart(null);
-    setSelectedMention(null);
+      setText("");
+      setMentionSuggestions([]);
+      setMentionQuery(null);
+      setMentionStart(null);
+      setSelectedMention(null);
+    } finally {
+      submittingRef.current = false;
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+
+    if (mentionQuery !== null && event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((current) => (mentionSuggestions.length === 0 ? 0 : (current + 1) % mentionSuggestions.length));
+      return;
+    }
+
+    if (mentionQuery !== null && event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((current) => (mentionSuggestions.length === 0 ? 0 : (current - 1 + mentionSuggestions.length) % mentionSuggestions.length));
+      return;
+    }
+
+    if (mentionQuery !== null && event.key === "Enter" && mentionSuggestions.length > 0) {
+      event.preventDefault();
+      handleSelectSuggestion(mentionSuggestions[activeIndex]);
+      return;
+    }
+
+    if (mentionQuery !== null && event.key === "Escape") {
+      setMentionSuggestions([]);
+      setMentionQuery(null);
+      setMentionStart(null);
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (!event.repeat) void handleSubmit();
+    }
   };
 
   return (
     <section className="rounded-2xl bg-zinc-950/55 p-4">
-      <h3 className={`mb-3 text-xl font-bold text-[#86ADE0] ${hideTitleOnMobile ? "hidden xl:block" : ""}`}>{title ?? t("movieDetailCommentTitle")}</h3>
-
       <div className="relative">
         <textarea
           ref={textareaRef}
@@ -191,6 +199,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
             updateMentionState(nextText, event.target.selectionStart ?? nextText.length);
           }}
           onKeyDown={handleKeyDown}
+          enterKeyHint="send"
           placeholder={placeholder ?? t("movieDetailCommentPlaceholder")}
           className="max-h-[4.5rem] min-h-[4.5rem] w-full resize-none overflow-y-auto rounded-xl border border-white/30 bg-black/30 p-3 text-sm leading-5 text-zinc-100 outline-none transition focus:border-white/45"
         />
@@ -200,21 +209,9 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
         ) : null}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          {hasValidSelectedMention && selectedMention ? (
-            <p className="text-xs text-zinc-400">{`${t("movieDetailValidMention")}: @${selectedMention.username}`}</p>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          disabled={loading || text.trim().length === 0}
-          onClick={() => void handleSubmit()}
-          className="rounded-full border-2 border-white/60 px-4 py-2 text-xs font-semibold text-zinc-100 transition hover:border-white disabled:opacity-50"
-        >
-          {loading ? t("movieDetailSending") : t("movieDetailPost")}
-        </button>
-      </div>
+      {hasValidSelectedMention && selectedMention ? (
+        <p className="mt-2 text-xs text-zinc-400">{`${t("movieDetailValidMention")}: @${selectedMention.username}`}</p>
+      ) : null}
 
       {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
     </section>
