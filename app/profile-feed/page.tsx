@@ -797,6 +797,9 @@ function ProfileFeedContent() {
           selectedIcon={listView === "my-list"
             ? <MyListIcon className="pointer-events-none h-[18px] w-[18px] shrink-0" />
             : <Image src="/icons/Ticket.png" alt="" width={22} height={18} className="pointer-events-none h-[18px] w-[22px] shrink-0 object-contain" />}
+          selectedLabel={listView === "recommended"
+            ? <ProfileRecommendationsLabel label={t("profileFeedMyRecommendations")} />
+            : undefined}
           className="rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         />
         <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 xl:block">
@@ -816,7 +819,7 @@ function ProfileFeedContent() {
         </select>
         {listView === "recommended" ? (
           <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-10 right-8 hidden items-center justify-center text-sm font-semibold text-zinc-100 xl:flex">
-            <ProfileRecommendationsLabel label={t("profileFeedMyRecommendations")} locale={locale} />
+            <ProfileRecommendationsLabel label={t("profileFeedMyRecommendations")} />
           </span>
         ) : null}
         <span aria-hidden="true" className="pointer-events-none absolute right-3 hidden xl:block top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
@@ -1088,7 +1091,7 @@ function ProfileFeedContent() {
         items={[
           { label: t("profileFeedFollowingAndFriends"), icon: profileQuickNavigationIcons.following, tourTarget: "profile-quick-following", onNavigate: () => requestQuickNavigation("following") },
           { label: t("profileFeedMyActivity"), icon: profileQuickNavigationIcons.activity, tourTarget: "profile-quick-activity", onNavigate: () => requestQuickNavigation("activity") },
-          { label: t("profileFeedMyRecommendations"), tooltipLabel: <ProfileRecommendationsLabel label={t("profileFeedMyRecommendations")} locale={locale} />, icon: profileQuickNavigationIcons.recommendations, tourTarget: "profile-quick-recommendations", onNavigate: () => requestQuickNavigation("recommended") },
+          { label: t("profileFeedMyRecommendations"), tooltipLabel: <ProfileRecommendationsLabel label={t("profileFeedMyRecommendations")} />, icon: profileQuickNavigationIcons.recommendations, tourTarget: "profile-quick-recommendations", onNavigate: () => requestQuickNavigation("recommended") },
           { label: t("profileFeedMyList"), icon: profileQuickNavigationIcons.list, tourTarget: "profile-quick-list", onNavigate: () => requestQuickNavigation("my-list") },
           { label: t("profileFeedFollowingActivityTitle"), icon: profileQuickNavigationIcons.followingActivity, tourTarget: "profile-quick-following-activity", onNavigate: () => requestQuickNavigation("following-activity") },
         ]}

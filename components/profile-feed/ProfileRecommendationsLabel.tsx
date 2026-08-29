@@ -1,10 +1,9 @@
 interface ProfileRecommendationsLabelProps {
   label: string;
-  locale: string;
 }
 
-export default function ProfileRecommendationsLabel({ label, locale }: ProfileRecommendationsLabelProps) {
-  const highlightIndex = locale === "es" ? label.indexOf("Rec") : -1;
+export default function ProfileRecommendationsLabel({ label }: ProfileRecommendationsLabelProps) {
+  const highlightIndex = label.indexOf("Rec");
 
   if (highlightIndex < 0) return <>{label}</>;
 
