@@ -337,7 +337,7 @@ export default function UserProfileFeedPage() {
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 py-8 xl:px-8">
         <section className="rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">
           <div className="grid items-start gap-6 xl:grid-cols-[1fr_3fr] xl:items-end">
-            <div className="min-w-0 flex flex-col gap-5 xl:self-end">
+            <div className="min-w-0 flex flex-col gap-5 xl:self-end xl:[&>div>div:nth-child(2)>div:last-child]:right-4">
               {!isDesktopGuest ? <Link
                 href="/profile-feed"
                 className="inline-flex w-fit items-center rounded-full border border-white/20 bg-zinc-900/70 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-blue-200/70 hover:text-blue-100"
@@ -357,6 +357,7 @@ export default function UserProfileFeedPage() {
                 appBranding={branding}
                 logoSlot="visited_profile_logo_url"
                 autoHeight
+                fitDesktopPersonalDataRow
                 userLabel={t("visitedProfileUser")}
                 formatAge={(age) => interpolate(t("visitedProfileAge"), { age })}
                 followersCount={profileUser?.followersCount}

@@ -21,6 +21,13 @@ test("desktop-only fitting leaves the existing mobile follower chip in place", (
 });
 
 test("visited profile identity column allows long names to truncate without widening its grid track", () => {
-  assert.match(visitedProfileSource, /className="min-w-0 flex flex-col gap-5 xl:self-end"/);
+  assert.match(visitedProfileSource, /className="min-w-0 flex flex-col gap-5 xl:self-end/);
   assert.match(cardSource, /className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-base font-medium text-zinc-300"/);
+});
+
+test("visited profile keeps its desktop avatar and personal-data chips inside the fixed identity column", () => {
+  assert.match(visitedProfileSource, /xl:\[&>div>div:nth-child\(2\)>div:last-child\]:right-4/);
+  assert.match(visitedProfileSource, /autoHeight\s+fitDesktopPersonalDataRow/);
+  assert.match(cardSource, /fitDesktopPersonalDataRow \? "xl:flex-nowrap xl:gap-1"/);
+  assert.match(cardSource, /fitDesktopPersonalDataRow && canShowFollowers && canShowAge/);
 });
