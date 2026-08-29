@@ -180,6 +180,7 @@ function ProfileFeedContent() {
   const profileFeedScrollerRef = useRef<HTMLElement | null>(null);
   const topSectionRef = useRef<HTMLElement | null>(null);
   const internalScrollPositionsRef = useRef(new WeakMap<HTMLElement, number>());
+  const followingActivityScrollHeightsRef = useRef(new WeakMap<HTMLElement, number>());
   const mobileProfileFeedCarouselRef = useRef<HTMLDivElement | null>(null);
   const connectionsSearchSectionRef = useRef<HTMLElement | null>(null);
   const activityAndListsPanelRef = useRef<HTMLDivElement | null>(null);
@@ -899,6 +900,13 @@ function ProfileFeedContent() {
       onScrollCapture={(event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement) || target === event.currentTarget || target.scrollHeight <= target.clientHeight) return;
+        const isMobileFollowingActivityScroll = window.matchMedia("(max-width: 1279px)").matches && Boolean(target.closest(".profile-feed-following-activity"));
+        const previousClientHeight = followingActivityScrollHeightsRef.current.get(target) ?? target.clientHeight;
+        followingActivityScrollHeightsRef.current.set(target, target.clientHeight);
+        if (isMobileFollowingActivityScroll && target.clientHeight !== previousClientHeight) {
+          internalScrollPositionsRef.current.set(target, target.scrollTop);
+          return;
+        }
         const previous = internalScrollPositionsRef.current.get(target) ?? target.scrollTop;
         if (target.scrollTop > previous) setQuickNavigationVisible(false);
         else if (target.scrollTop < previous) setQuickNavigationVisible(true);
