@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, memo, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, memo, type Ref, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL, apiFetch } from "../lib/api";
 import { Movie, normalizeNextEndpoint, parseMovieList, parseMoviePagination } from "../lib/movies";
@@ -33,6 +33,7 @@ interface SearchBarProps {
   autocompletePlacement?: "above" | "below";
   locale?: "es" | "en";
   tourTarget?: string;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 function buildAutocompleteEndpoint(query: string, page: number): string {
@@ -107,6 +108,7 @@ export default function SearchBar({
   autocompletePlacement = "below",
   locale = "es",
   tourTarget,
+  inputRef,
 }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Movie[]>([]);
@@ -323,6 +325,7 @@ export default function SearchBar({
             </svg>
           ) : null}
           <input
+            ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => {

@@ -11,6 +11,7 @@ import { useI18n } from "../../hooks/useI18n";
 import { resolveMovieTitles, translateProfileFeedMovieType } from "../../lib/i18n";
 import SocialActivityCard from "./SocialActivityCard";
 import EmptyStatePanel from "./EmptyStatePanel";
+import ProfileRecommendationsLabel from "./ProfileRecommendationsLabel";
 
 type InteractionsTab = SocialTab | "recommendations";
 
@@ -478,7 +479,8 @@ export default function SocialActivityTabsBlock() {
             onClick={handleRecommendationsTabClick}
             className={getTabClassName(isRecommendationsActive, "h-12 min-h-12 min-w-[9.25rem] flex-col gap-0.5 justify-self-start py-2 leading-tight")}
           >
-            <span>{t("profileFeedRecommendations")}</span>
+            <span className="xl:hidden"><ProfileRecommendationsLabel label={t("profileFeedRecommendations")} /></span>
+            <span className="hidden xl:inline">{t("profileFeedRecommendations")}</span>
           </button>
 
           <div className="relative col-start-2 h-10 w-[var(--activity-slot-width)] overflow-visible">

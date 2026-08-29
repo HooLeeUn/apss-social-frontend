@@ -14,6 +14,7 @@ import EmptyStatePanel from "../../components/profile-feed/EmptyStatePanel";
 import MobileDarkSelect from "../../components/MobileDarkSelect";
 import MyListIcon from "../../components/MyListIcon";
 import ProfileQuickNavigation, { profileQuickNavigationIcons } from "../../components/profile-feed/ProfileQuickNavigation";
+import ProfileRecommendationsLabel from "../../components/profile-feed/ProfileRecommendationsLabel";
 import {
   acceptFriendship,
   cancelFriendRequest,
@@ -172,12 +173,14 @@ function ProfileFeedContent() {
   const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
   const [loadingRecommendedMovies, setLoadingRecommendedMovies] = useState(true);
   const [activeListView, setActiveListView] = useState<"my-list" | "recommended">("my-list");
+  const [activeDesktopListView, setActiveDesktopListView] = useState<"my-list" | "recommended">("recommended");
   const [activeMobileProfileFeedSlide, setActiveMobileProfileFeedSlide] = useState(0);
   const [activeMobileSection, setActiveMobileSection] = useState<MobileSection>("top");
   const [quickNavigationVisible, setQuickNavigationVisible] = useState(true);
   const profileFeedScrollerRef = useRef<HTMLElement | null>(null);
   const topSectionRef = useRef<HTMLElement | null>(null);
   const internalScrollPositionsRef = useRef(new WeakMap<HTMLElement, number>());
+  const followingActivityScrollHeightsRef = useRef(new WeakMap<HTMLElement, number>());
   const mobileProfileFeedCarouselRef = useRef<HTMLDivElement | null>(null);
   const connectionsSearchSectionRef = useRef<HTMLElement | null>(null);
   const activityAndListsPanelRef = useRef<HTMLDivElement | null>(null);
@@ -213,8 +216,8 @@ function ProfileFeedContent() {
       if (action === "profile-activity") setActivityTabRequest({ tab: "activity", id: requestId });
       if (action === "profile-inbox") setActivityTabRequest({ tab: "messages", id: requestId });
       if (action === "profile-ratings") setActivityTabRequest({ tab: "rated", id: requestId });
-      if (action === "profile-list") setActiveListView("my-list");
-      if (action === "profile-recommendations") setActiveListView("recommended");
+      if (action === "profile-list") setActiveDesktopListView("my-list");
+      if (action === "profile-recommendations") setActiveDesktopListView("recommended");
     };
     window.addEventListener(onboardingPrepareStepEventName, prepareOnboardingStep);
     return () => window.removeEventListener(onboardingPrepareStepEventName, prepareOnboardingStep);
@@ -777,57 +780,69 @@ function ProfileFeedContent() {
     };
   }, [activeConnectionBlock, activeFriendsView, loadingPendingRequests, loadingProfileUser, pendingFriendRequestNavigation, router, searchParams]);
 
-  const renderMovieListPanel = (className: string, mobile = false) => (
-    <section data-tour-mobile={mobile ? `profile-${activeListView === "recommended" ? "recommendations" : "list"}-mobile` : undefined} className={className}>
+  const renderMovieListPanel = (className: string, mobile = false) => {
+    const listView = mobile ? activeListView : activeDesktopListView;
+    const setListView = mobile ? setActiveListView : setActiveDesktopListView;
+
+    return (
+      <section data-tour-mobile={mobile ? `profile-${listView === "recommended" ? "recommendations" : "list"}-mobile` : undefined} className={className}>
       <div className="relative mx-auto w-fit">
         <MobileDarkSelect
           ariaLabel={t("profileFeedMyList")}
-          value={activeListView}
+          value={listView}
           options={[
             { value: "my-list", label: t("profileFeedMyList") },
             { value: "recommended", label: t("profileFeedMyRecommendations") },
           ]}
-          onChange={setActiveListView}
-          selectedIcon={activeListView === "my-list"
+          onChange={setListView}
+          selectedIcon={listView === "my-list"
             ? <MyListIcon className="pointer-events-none h-[18px] w-[18px] shrink-0" />
             : <Image src="/icons/Ticket.png" alt="" width={22} height={18} className="pointer-events-none h-[18px] w-[22px] shrink-0 object-contain" />}
+          selectedLabel={listView === "recommended"
+            ? <ProfileRecommendationsLabel label={t("profileFeedMyRecommendations")} />
+            : undefined}
           className="rounded-xl border border-white/20 bg-zinc-900/80 px-3 py-1.5 text-center text-lg font-semibold text-zinc-100 shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         />
         <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 xl:block">
-          {activeListView === "my-list"
+          {listView === "my-list"
             ? <MyListIcon className="h-[18px] w-[18px]" />
             : <Image src="/icons/Ticket.png" alt="" width={22} height={18} className="h-[18px] w-[22px] object-contain" />}
         </span>
         <select
-          data-tour={activeListView === "recommended" ? "profile-recommendations" : "profile-list"}
+          data-tour={listView === "recommended" ? "profile-recommendations" : "profile-list"}
           aria-label={t("profileFeedMyList")}
-          value={activeListView}
-          onChange={(event) => setActiveListView(event.target.value === "recommended" ? "recommended" : "my-list")}
-          className={`hidden appearance-none overflow-hidden rounded-xl border xl:block xl:w-56 border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center ${activeListView === "recommended" ? "text-sm" : "text-lg"} font-semibold leading-7 text-zinc-100 [text-indent:1.25rem] shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0`}
+          value={listView}
+          onChange={(event) => setListView(event.target.value === "recommended" ? "recommended" : "my-list")}
+          className={`hidden appearance-none overflow-hidden rounded-xl border xl:block xl:w-56 border-white/20 bg-zinc-900/80 px-3 py-1.5 pr-8 text-center ${listView === "recommended" ? "text-sm text-transparent" : "text-lg text-zinc-100"} font-semibold leading-7 [text-indent:1.25rem] shadow-[0_14px_26px_rgba(0,0,0,0.35)] outline-none transition hover:border-white/30 hover:bg-zinc-900 focus:outline-none focus:ring-0 focus:border-white/20 focus-visible:outline-none focus-visible:ring-0 focus-visible:border-white/20 active:ring-0`}
         >
           <option value="my-list" className="rounded-t-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyList")}</option>
           <option value="recommended" className="rounded-b-xl bg-zinc-950 text-zinc-100">{t("profileFeedMyRecommendations")}</option>
         </select>
+        {listView === "recommended" ? (
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-10 right-8 hidden items-center justify-center text-sm font-semibold text-zinc-100 xl:flex">
+            <ProfileRecommendationsLabel label={t("profileFeedMyRecommendations")} />
+          </span>
+        ) : null}
         <span aria-hidden="true" className="pointer-events-none absolute right-3 hidden xl:block top-1/2 -translate-y-1/2 text-xs text-zinc-300">▾</span>
       </div>
       <div className="profile-feed-mobile-list-scroll activity-scrollbar mt-4 flex-1 space-y-2.5 overflow-y-auto pr-3">
-        {activeListView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
-        {activeListView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? (
+        {listView === "recommended" && loadingRecommendedMovies ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
+        {listView === "recommended" && !loadingRecommendedMovies && recommendedMovies.length === 0 ? (
           <EmptyStatePanel
             title={t("emptyMyRecommendationsTitle")}
             description={t("emptyMyRecommendationsDescription")}
             icon={<span aria-hidden="true">🎬</span>}
           />
         ) : null}
-        {activeListView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
-        {activeListView === "my-list" && !loadingMyList && myListMovies.length === 0 ? (
+        {listView === "my-list" && loadingMyList ? <p className="text-center text-xs text-zinc-400">{t("profileFeedLoadingList")}</p> : null}
+        {listView === "my-list" && !loadingMyList && myListMovies.length === 0 ? (
           <EmptyStatePanel
             title={t("emptyMyListTitle")}
             description={t("emptyMyListDescription")}
             icon={<span aria-hidden="true">🎞️</span>}
           />
         ) : null}
-        {activeListView === "my-list" && myListMovies.map((movie) => {
+        {listView === "my-list" && myListMovies.map((movie) => {
           const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
           const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
           return (
@@ -851,7 +866,7 @@ function ProfileFeedContent() {
           );
         })}
 
-        {activeListView === "recommended" && recommendedMovies.map((movie) => {
+        {listView === "recommended" && recommendedMovies.map((movie) => {
           const { primary: displayTitle, secondary: englishTitle } = resolveMovieTitles(locale, movie.titleSpanish || movie.displayTitle || movie.title, movie.titleEnglish || movie.displaySecondaryTitle, movie.title);
           const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
           return (
@@ -875,8 +890,9 @@ function ProfileFeedContent() {
           );
         })}
       </div>
-    </section>
-  );
+      </section>
+    );
+  };
 
   return (
     <main
@@ -884,6 +900,13 @@ function ProfileFeedContent() {
       onScrollCapture={(event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement) || target === event.currentTarget || target.scrollHeight <= target.clientHeight) return;
+        const isMobileFollowingActivityScroll = window.matchMedia("(max-width: 1279px)").matches && Boolean(target.closest(".profile-feed-following-activity"));
+        const previousClientHeight = followingActivityScrollHeightsRef.current.get(target) ?? target.clientHeight;
+        followingActivityScrollHeightsRef.current.set(target, target.clientHeight);
+        if (isMobileFollowingActivityScroll && target.clientHeight !== previousClientHeight) {
+          internalScrollPositionsRef.current.set(target, target.scrollTop);
+          return;
+        }
         const previous = internalScrollPositionsRef.current.get(target) ?? target.scrollTop;
         if (target.scrollTop > previous) setQuickNavigationVisible(false);
         else if (target.scrollTop < previous) setQuickNavigationVisible(true);
@@ -1062,7 +1085,7 @@ function ProfileFeedContent() {
           </div>
         </section>
 
-        <div data-tour="profile-following-activity" data-tour-mobile="profile-following-activity-mobile" ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 xl:mt-4">
+        <div data-tour="profile-following-activity" data-tour-mobile="profile-following-activity-mobile" ref={followingActivityPanelRef} className={`profile-feed-following-activity mt-3 scroll-mt-4 xl:mt-4 ${!quickNavigationVisible && !forceMobileQuickNavigation ? "profile-feed-following-activity--dock-hidden" : ""}`}>
           <SocialActivityTabsBlock />
         </div>
       </div>
@@ -1076,8 +1099,8 @@ function ProfileFeedContent() {
         items={[
           { label: t("profileFeedFollowingAndFriends"), icon: profileQuickNavigationIcons.following, tourTarget: "profile-quick-following", onNavigate: () => requestQuickNavigation("following") },
           { label: t("profileFeedMyActivity"), icon: profileQuickNavigationIcons.activity, tourTarget: "profile-quick-activity", onNavigate: () => requestQuickNavigation("activity") },
+          { label: t("profileFeedMyRecommendations"), tooltipLabel: <ProfileRecommendationsLabel label={t("profileFeedMyRecommendations")} />, icon: profileQuickNavigationIcons.recommendations, tourTarget: "profile-quick-recommendations", onNavigate: () => requestQuickNavigation("recommended") },
           { label: t("profileFeedMyList"), icon: profileQuickNavigationIcons.list, tourTarget: "profile-quick-list", onNavigate: () => requestQuickNavigation("my-list") },
-          { label: t("profileFeedMyRecommendations"), icon: profileQuickNavigationIcons.recommendations, tourTarget: "profile-quick-recommendations", onNavigate: () => requestQuickNavigation("recommended") },
           { label: t("profileFeedFollowingActivityTitle"), icon: profileQuickNavigationIcons.followingActivity, tourTarget: "profile-quick-following-activity", onNavigate: () => requestQuickNavigation("following-activity") },
         ]}
       />

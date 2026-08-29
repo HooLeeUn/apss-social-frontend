@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const activityColumn = readFileSync(new URL('../components/profile-feed/MyActivityColumn.tsx', import.meta.url), 'utf8');
+const profileFeedPage = readFileSync(new URL('../app/profile-feed/page.tsx', import.meta.url), 'utf8');
 
 test('activity boundary handoff is isolated to iOS and iPadOS', () => {
   assert.match(activityColumn, /\/iPad\|iPhone\|iPod\/\.test\(navigator\.userAgent\)/);
@@ -32,4 +33,10 @@ test('private inbox retains native chaining and touch start preserves long press
   assert.doesNotMatch(touchStartHandler, /preventDefault/);
   assert.match(touchStartHandler, /max-width: 1279px/);
   assert.match(activityColumn, /if \(event\.cancelable\) event\.preventDefault\(\)/);
+});
+
+test('following activity ignores scroll direction caused by the dock height transition', () => {
+  assert.match(profileFeedPage, /window\.matchMedia\("\(max-width: 1279px\)"\)\.matches && Boolean\(target\.closest\("\.profile-feed-following-activity"\)\)/);
+  assert.match(profileFeedPage, /target\.clientHeight !== previousClientHeight/);
+  assert.match(profileFeedPage, /internalScrollPositionsRef\.current\.set\(target, target\.scrollTop\);\s+return;/);
 });

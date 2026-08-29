@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API_BASE_URL, ApiError, apiFetch } from "../../lib/api";
@@ -276,6 +277,7 @@ export default function FeedPage() {
   const desktopNotificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileNotificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
   const mobileNavRef = useRef<HTMLElement | null>(null);
   const mobileProfileGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const desktopGuestProfileGateAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -672,15 +674,16 @@ export default function FeedPage() {
   }, [refreshNotifications]);
 
   const handleMobileSearchToggle = useCallback(() => {
-    setIsMobileSearchOpen((current) => {
-      const nextState = !current;
-      if (nextState) {
-        setIsNotificationPanelOpen(false);
-        setIsDirectorBoardOpen(false);
-      }
-      return nextState;
-    });
-  }, []);
+    if (isMobileSearchOpen) {
+      setIsMobileSearchOpen(false);
+      return;
+    }
+
+    setIsNotificationPanelOpen(false);
+    setIsDirectorBoardOpen(false);
+    flushSync(() => setIsMobileSearchOpen(true));
+    mobileSearchInputRef.current?.focus();
+  }, [isMobileSearchOpen]);
 
   const handleStreamingCountryChange = useCallback(
     async (nextCountry: StreamingCountry) => {
@@ -1272,6 +1275,7 @@ export default function FeedPage() {
       {isMobileSearchOpen ? (
         <div ref={mobileSearchContainerRef} className="feed-mobile-search-modal fixed inset-x-4 bottom-24 z-[65] rounded-3xl border border-white/15 bg-zinc-950/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.65)] backdrop-blur-xl xl:hidden">
           <SearchBar
+            inputRef={mobileSearchInputRef}
             locale={locale}
             className="w-full rounded-full border-2 border-white/60 bg-zinc-900/90 p-1.5"
             inputClassName="rounded-full border-2 border-white/50 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500"
