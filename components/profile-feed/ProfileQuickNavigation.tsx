@@ -13,7 +13,6 @@ type QuickNavigationItem = {
 interface ProfileQuickNavigationProps {
   ariaLabel: string;
   items: QuickNavigationItem[];
-  pendingFriendRequestsCount: number;
   forceVisible?: boolean;
   visible?: boolean;
   showBackToTop?: boolean;
@@ -51,7 +50,6 @@ export const profileQuickNavigationIcons = {
 export default function ProfileQuickNavigation({
   ariaLabel,
   items,
-  pendingFriendRequestsCount,
   forceVisible = false,
   visible = true,
   showBackToTop = false,
@@ -174,11 +172,6 @@ export default function ProfileQuickNavigation({
               onContextMenu={(event) => event.preventDefault()}
             >
               {item.icon}
-              {index === 1 && pendingFriendRequestsCount > 0 ? (
-                <span className="pointer-events-none absolute right-1 top-0 z-10 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-400 px-1 text-[10px] font-bold leading-none text-zinc-950 shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
-                  {pendingFriendRequestsCount}
-                </span>
-              ) : null}
             </button>
           ))}
           </div>

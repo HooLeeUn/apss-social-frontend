@@ -15,7 +15,7 @@ import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import TrailerModal from "./TrailerModal";
 import PosterImage from "./PosterImage";
 import type { AppBranding } from "../lib/branding";
-import { RatingUserSmileIcon } from "./RatingIcons";
+import { RatingPersonRaisingHandIcon } from "./RatingIcons";
 import GuestContentGate from "./GuestContentGate";
 import { useGuestGate } from "./GuestGateProvider";
 
@@ -240,7 +240,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
               <p className="text-[11px] uppercase tracking-wide whitespace-nowrap text-blue-200">{t("myRating").toUpperCase()}</p>
               <div className="mt-1">
                 {desktopGuest && movie ? (
-                  <span ref={ratingGateAnchorRef} className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-sm text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} portal anchorRef={ratingGateAnchorRef} /></span>
+                  <span ref={ratingGateAnchorRef} className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-sm text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} portal anchorRef={ratingGateAnchorRef} /></span>
                 ) : movie && onRated ? (
                   <RatingPopover
                     movieId={movie.id}
@@ -248,11 +248,11 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     onRated={(score, payload) => onRated(movie.id, score, payload)}
                     nullLabel="—"
                     ariaLabel="Mi calificación"
-                    icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
+                    icon={<RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />}
                     className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/25 [&_button]:px-1 [&_button]:text-xs [&_button]:text-blue-100 xl:[&_button]:justify-between xl:[&_button]:bg-blue-950/45 xl:[&_button]:text-sm xl:[&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.2)] xl:[&_button:hover]:bg-blue-900/50 xl:[&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.26)]"
                   />
                 ) : (
-                  <p className="inline-flex items-center gap-1 text-base font-semibold text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /> {formatMyRating(movie?.myRating)}</p>
+                  <p className="inline-flex items-center gap-1 text-base font-semibold text-blue-100"><RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" /> {formatMyRating(movie?.myRating)}</p>
                 )}
               </div>
             </div>

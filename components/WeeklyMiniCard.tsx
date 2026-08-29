@@ -16,7 +16,7 @@ import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import TrailerModal from "./TrailerModal";
 import PosterImage from "./PosterImage";
 import type { AppBranding } from "../lib/branding";
-import { RatingUserSmileIcon } from "./RatingIcons";
+import { RatingPersonRaisingHandIcon } from "./RatingIcons";
 import GuestContentGate from "./GuestContentGate";
 import { useGuestGate } from "./GuestGateProvider";
 
@@ -217,7 +217,7 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                     <span className="truncate text-[10px] font-semibold text-zinc-100">👥 {formatFollowingRating(movie?.followingAvgRating)}</span>
                   </span>
                   {desktopGuest && movie ? (
-                    <span ref={ratingGateAnchorRef} className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-[10px] font-semibold text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} portal anchorRef={ratingGateAnchorRef} /></span>
+                    <span ref={ratingGateAnchorRef} className="relative inline-flex w-full"><button type="button" className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-950/45 px-1 py-1 text-[10px] font-semibold text-blue-100" onMouseEnter={() => showGuestGate(`${gateBaseId}:rate`, "rate")} onClick={() => showGuestGate(`${gateBaseId}:rate`, "rate")}><RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />—</button><GuestContentGate gateId={`${gateBaseId}:rate`} portal anchorRef={ratingGateAnchorRef} /></span>
                   ) : movie && onRated ? (
                     <RatingPopover
                       movieId={movie.id}
@@ -225,12 +225,12 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                       onRated={(score, payload) => onRated(movie.id, score, payload)}
                       nullLabel="—"
                       ariaLabel="Mi calificación"
-                      icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
+                      icon={<RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />}
                       className="w-full [&_button]:w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:whitespace-nowrap [&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/35 [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] [&_button]:font-semibold [&_button]:text-blue-100 xl:[&_button]:bg-blue-950/45 xl:[&_button]:px-1 xl:[&_button]:shadow-[0_3px_10px_rgba(59,130,246,0.24)] xl:[&_button:hover]:-translate-y-px xl:[&_button:hover]:shadow-[0_7px_15px_rgba(59,130,246,0.3)]"
                     />
                   ) : (
                     <span className="flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-transparent bg-blue-950/35 px-1.5 py-1 text-center transition-all duration-150 hover:-translate-y-px xl:bg-blue-950/45 xl:px-1 xl:shadow-[0_3px_10px_rgba(59,130,246,0.24)] xl:hover:shadow-[0_7px_15px_rgba(59,130,246,0.3)]">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /> {formatMyRating(movie?.myRating)}</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-100"><RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" /> {formatMyRating(movie?.myRating)}</span>
                     </span>
                   )}
                 </div>

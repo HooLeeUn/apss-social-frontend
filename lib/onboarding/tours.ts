@@ -111,8 +111,7 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
         optional: false,
       }));
       mobileSteps[2].callouts = [
-        { target: '[data-tour-mobile="profile-quick-following"]', label: locale === "en" ? "Following" : "Seguidos", placement: "top" },
-        { target: '[data-tour-mobile="profile-quick-friends"]', label: locale === "en" ? "Friends" : "Amigos", placement: "top" },
+        { target: '[data-tour-mobile="profile-quick-following"]', label: locale === "en" ? "Following/Friends" : "Seguidos/Amigos", placement: "top" },
       ];
       mobileSteps[3].callouts = [{ target: '[data-tour-mobile="profile-quick-activity"]', label: locale === "en" ? "My Activity" : "Mi Actividad", placement: "top" }];
       mobileSteps[6].callouts = [{ target: '[data-tour-mobile="profile-quick-list"]', label: locale === "en" ? "My List" : "Mi Lista", placement: "top" }];
