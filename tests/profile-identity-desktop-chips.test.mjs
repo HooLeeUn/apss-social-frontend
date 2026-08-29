@@ -26,7 +26,9 @@ test("visited profile identity column allows long names to truncate without wide
 });
 
 test("visited profile keeps its desktop avatar and personal-data chips inside the fixed identity column", () => {
+  assert.match(visitedProfileSource, /xl:\[&>div>div:nth-child\(2\)>div:last-child\]:absolute/);
   assert.match(visitedProfileSource, /xl:\[&>div>div:nth-child\(2\)>div:last-child\]:right-4/);
+  assert.match(visitedProfileSource, /xl:\[&>div>div:nth-child\(2\)>div:last-child\]:top-20/);
   assert.match(visitedProfileSource, /autoHeight\s+fitDesktopPersonalDataRow/);
   assert.match(cardSource, /fitDesktopPersonalDataRow \? "xl:flex-nowrap xl:gap-1"/);
   assert.match(cardSource, /fitDesktopPersonalDataRow && canShowFollowers && canShowAge/);
