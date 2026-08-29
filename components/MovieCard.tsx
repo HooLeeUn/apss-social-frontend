@@ -18,7 +18,7 @@ import MyListIcon from "./MyListIcon";
 import RatingPopover from "./RatingPopover";
 import GuestContentGate from "./GuestContentGate";
 import { useGuestGate } from "./GuestGateProvider";
-import { RatingUserSmileIcon } from "./RatingIcons";
+import { RatingPersonRaisingHandIcon } from "./RatingIcons";
 import TrailerModal from "./TrailerModal";
 import TrailerHoverOverlay from "./TrailerHoverOverlay";
 import PosterImage from "./PosterImage";
@@ -1142,7 +1142,7 @@ function MovieCard({
       </div>
       <div className="flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-semibold sm:text-sm">
         {ratingReadOnly ? (
-          <button type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRatingGateId, "rate"); }} onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
+          <button type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRatingGateId, "rate"); }} onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button>
         ) : onRated ? (
           <RatingPopover
             movieId={movie.id}
@@ -1150,7 +1150,7 @@ function MovieCard({
             onRated={(score, payload) => onRated(movie.id, score, payload)}
             nullLabel="—"
             ariaLabel="Mi calificación"
-            icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
+            icon={<RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />}
             className={`[&_button]:px-1.5 [&_button]:py-0.5 [&_button]:text-xs sm:[&_button]:px-2 sm:[&_button]:py-1 sm:[&_button]:text-sm ${
               highlightMyRatingSlot
                 ? "[&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
@@ -1159,7 +1159,7 @@ function MovieCard({
           />
         ) : (
           <>
-            <RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />
+            <RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />
             <span aria-label="Mi calificación" className={highlightMyRatingSlot ? "text-blue-100" : ""}>{formatMyRating(movie.myRating)}</span>
           </>
         )}
@@ -1267,7 +1267,7 @@ function MovieCard({
       >
         {isFeed ? (
           ratingReadOnly ? (
-            <span ref={guestRatingGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRatingGateId, "rate"); }} onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button><GuestContentGate gateId={guestRatingGateId} portal anchorRef={guestRatingGateAnchorRef} /></span>
+            <span ref={guestRatingGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRatingGateId, "rate"); }} onClick={() => guestActions ? showGuestGate(guestRatingGateId, "rate") : onRatingReadOnlyClick?.()} className="flex items-center gap-1 rounded-md bg-blue-950/45 px-2 py-1 text-blue-100"><RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" /><span aria-label="Mi calificación">—</span></button><GuestContentGate gateId={guestRatingGateId} portal anchorRef={guestRatingGateAnchorRef} /></span>
           ) : onRated ? (
             <RatingPopover
               movieId={movie.id}
@@ -1275,7 +1275,7 @@ function MovieCard({
               onRated={(score, payload) => onRated(movie.id, score, payload)}
               nullLabel="—"
               ariaLabel="Mi calificación"
-              icon={<RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
+              icon={<RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />}
               className={
                 highlightMyRatingSlot
                   ? "[&_button]:cursor-pointer [&_button]:border-transparent [&_button]:bg-blue-950/45 [&_button]:text-blue-100 [&_button]:shadow-[0_2px_10px_rgba(59,130,246,0.22)] [&_button:hover]:bg-blue-900/45 [&_button:hover]:shadow-[0_6px_14px_rgba(59,130,246,0.28)]"
@@ -1284,7 +1284,7 @@ function MovieCard({
             />
           ) : (
             <>
-              <RatingUserSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />
+              <RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />
               <span aria-label="Mi calificación" className={highlightMyRatingSlot ? "text-blue-100" : ""}>
                 {formatMyRating(movie.myRating)}
               </span>

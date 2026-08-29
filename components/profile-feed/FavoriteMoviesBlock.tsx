@@ -4,7 +4,7 @@ import Link from "next/link";
 import { memo, ReactNode, TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, apiFetch } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
-import { RatingSmileIcon } from "../RatingIcons";
+import { RatingPersonRaisingHandIcon } from "../RatingIcons";
 import {
   getFavoriteMovies,
   getFavoriteMoviesByUsername,
@@ -161,7 +161,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                         className="inline-flex h-10 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200"
                         aria-label={viewedUsername ? `Calificación visible de ${viewedUsername}` : "Calificación visible"}
                       >
-                        <RatingSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />
+                        <RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />
                         <span>{readOnlyOwnerRating === null ? "—" : formatAverageRating(readOnlyOwnerRating)}</span>
                       </div>
                     ) : (
@@ -173,7 +173,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                         onRated={(score) => handleRated(score)}
                         submitRatingRequest={handleSubmitRating}
                         disabled={!hasValidProduction}
-                        icon={<RatingSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
+                        icon={<RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />}
                         nullLabel="—"
                         ariaLabel={t("myRating")}
                         className="shrink-0"
@@ -208,7 +208,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                       currentRating={null}
                       onRated={() => undefined}
                       disabled
-                      icon={<RatingSmileIcon className="h-4 w-4 shrink-0 text-violet-400" />}
+                      icon={<RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />}
                       nullLabel="—"
                       ariaLabel={t("myRating")}
                       className="ml-auto shrink-0 [&_button]:hover:border-white/10 [&_button]:hover:bg-zinc-900/80 [&_button:disabled]:cursor-default [&_button:disabled]:transform-none [&_button:disabled]:shadow-none"
