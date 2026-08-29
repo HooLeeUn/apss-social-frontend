@@ -232,7 +232,7 @@ const translations = {
     profileFeedViewMore: "Ver más",
     profileFeedViewLess: "Ver menos",
     profileFeedMyList: "Mi Lista",
-    profileFeedMyRecommendations: "Mis recomendadas",
+    profileFeedMyRecommendations: "Mis Recomendadas",
     profileFeedRecommendations: "Recomendadas",
     profileFeedActions: "Acciones",
     profileFeedFollowingActivityTitle: "Actividad de Seguidos",

@@ -5,6 +5,7 @@ import MyListIcon from "../MyListIcon";
 
 type QuickNavigationItem = {
   label: string;
+  tooltipLabel?: ReactNode;
   icon: ReactNode;
   onNavigate: () => void;
   tourTarget?: string;
@@ -145,7 +146,7 @@ export default function ProfileQuickNavigation({
       ) : null}
       {tooltip ? (
         <span role="tooltip" style={{ left: tooltip.left }} className="pointer-events-none absolute bottom-[calc(100%+0.65rem)] z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/15 bg-zinc-950 px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl">
-          {items[tooltip.index]?.label}
+          {items[tooltip.index]?.tooltipLabel ?? items[tooltip.index]?.label}
         </span>
       ) : null}
       <div className="overflow-visible rounded-full border border-white/15 bg-zinc-950/85 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.6)] backdrop-blur-xl">
