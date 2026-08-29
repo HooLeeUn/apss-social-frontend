@@ -208,7 +208,7 @@ function Block({
     <section className="profile-feed-connections-panel relative flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 xl:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot ?? <h2 className="text-base font-semibold text-zinc-100">{title}</h2>}
-        {mobileHeaderIndicator ? <span aria-hidden="true" className="pointer-events-none absolute right-4 top-[1.05rem] text-sm leading-none text-zinc-500 xl:hidden">{mobileHeaderIndicator}</span> : null}
+        {mobileHeaderIndicator ? <span aria-hidden="true" className="pointer-events-none absolute right-4 top-[0.9rem] text-xl leading-none text-[#86ADE0] drop-shadow-[0_0_5px_rgba(134,173,224,0.45)] xl:hidden">{mobileHeaderIndicator}</span> : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {!loading && error ? (
@@ -286,7 +286,7 @@ function PendingRequestsBlock({
     <section className="profile-feed-connections-panel relative flex h-[30rem] w-full max-w-full flex-col rounded-3xl border-2 border-white/15 bg-zinc-950/55 p-3.5 xl:p-4">
       <header className="mb-2.5 flex items-center justify-between gap-3">
         {headerSlot}
-        {mobileHeaderIndicator ? <span aria-hidden="true" className="pointer-events-none absolute right-4 top-[1.05rem] text-sm leading-none text-zinc-500 xl:hidden">{mobileHeaderIndicator}</span> : null}
+        {mobileHeaderIndicator ? <span aria-hidden="true" className="pointer-events-none absolute right-4 top-[0.9rem] text-xl leading-none text-[#86ADE0] drop-shadow-[0_0_5px_rgba(134,173,224,0.45)] xl:hidden">{mobileHeaderIndicator}</span> : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {!loading && error ? (

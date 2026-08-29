@@ -1077,7 +1077,7 @@ function ProfileFeedContent() {
           </div>
         </section>
 
-        <div data-tour="profile-following-activity" data-tour-mobile="profile-following-activity-mobile" ref={followingActivityPanelRef} className="profile-feed-following-activity mt-3 scroll-mt-4 xl:mt-4">
+        <div data-tour="profile-following-activity" data-tour-mobile="profile-following-activity-mobile" ref={followingActivityPanelRef} className={`profile-feed-following-activity mt-3 scroll-mt-4 xl:mt-4 ${!quickNavigationVisible && !forceMobileQuickNavigation ? "profile-feed-following-activity--dock-hidden" : ""}`}>
           <SocialActivityTabsBlock />
         </div>
       </div>
