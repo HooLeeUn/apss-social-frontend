@@ -1077,6 +1077,7 @@ export default function FeedPage() {
                 onPersonalDataClick={() => router.push("/settings/personal-data")}
                 onPrivacySecurityClick={() => router.push("/privacy-security")}
                 onPoliciesClick={() => router.push("/policies")}
+                onContactClick={() => router.push("/contact")}
               />}
             </div>
             <div className="feed-mobile-only relative z-50 flex flex-none justify-end xl:hidden">
@@ -1194,6 +1195,7 @@ export default function FeedPage() {
                 onPersonalDataClick={() => router.push("/settings/personal-data")}
                 onPrivacySecurityClick={() => router.push("/privacy-security")}
                 onPoliciesClick={() => router.push("/policies")}
+                onContactClick={() => router.push("/contact")}
               />
             </div> : null}
           </div>

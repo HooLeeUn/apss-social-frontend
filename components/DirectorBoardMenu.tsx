@@ -11,6 +11,7 @@ interface DirectorBoardMenuProps {
   onPrivacySecurityClick?: () => void;
   onPersonalDataClick?: () => void;
   onPoliciesClick?: () => void;
+  onContactClick?: () => void;
 }
 
 interface DirectorBoardToggleProps {
@@ -65,6 +66,7 @@ export default function DirectorBoardMenu({
   onPrivacySecurityClick,
   onPersonalDataClick,
   onPoliciesClick,
+  onContactClick,
   locale = "es",
   mobileIconOnly = false,
   mobileTourTarget,
@@ -119,6 +121,11 @@ export default function DirectorBoardMenu({
     onCloseSession?.();
   };
 
+  const handleContactClick = () => {
+    onClose();
+    onContactClick?.();
+  };
+
   return (
     <div ref={menuRef} data-director-board-menu-root className={`relative ${mobileIconOnly ? "w-[4.25rem] xl:w-[198px]" : "w-[198px]"}`}>
       <DirectorBoardToggle isOpen={isOpen} onClick={onToggle} mobileIconOnly={mobileIconOnly} mobileTourTarget={mobileTourTarget} />
@@ -157,6 +164,15 @@ export default function DirectorBoardMenu({
               className="w-full px-3 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
             >
               {locale === "en" ? "Privacy & Security" : "Privacidad y Seguridad"}
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={handleContactClick}
+              className="w-full px-3 py-3 text-left text-sm text-zinc-200 transition-colors hover:bg-white/5"
+            >
+              {locale === "en" ? "Contact Us" : "Contáctenos"}
             </button>
           </li>
           <li>
