@@ -453,7 +453,7 @@ textarea,
     top: 0.5rem;
     width: 18.5rem;
     height: 5.125rem;
-    left: -1rem;
+    left: 0;
     justify-content: flex-start;
     padding-left: 0;
   }
