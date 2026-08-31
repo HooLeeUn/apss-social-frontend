@@ -71,8 +71,10 @@ export default function PoliciesPage() {
 
   const hasLegalContent = useMemo(() => sections.length > 0, [sections]);
 
+  const normalizePolicyText = (text: string) => text.replaceAll("QNext", "RecCool");
+
   const normalizePolicyParagraph = (paragraph: string) =>
-    paragraph
+    normalizePolicyText(paragraph)
       .replace(
         "Al crear cuenta, el usuario reconoce que su perfil se crea inicialmente como público.",
         "Al crear una cuenta, el usuario reconoce que su perfil se crea inicialmente como público.",
@@ -103,7 +105,7 @@ export default function PoliciesPage() {
         </div>
 
         <header className="space-y-2">
-          <h1 className="text-3xl font-semibold text-white sm:text-4xl">{title}</h1>
+          <h1 className="text-3xl font-semibold text-white sm:text-4xl">{normalizePolicyText(title)}</h1>
           {lastUpdated ? (
             <p className="text-sm text-zinc-400">
               {`${isEnglishLocale ? "Last updated" : "Última actualización"}: ${lastUpdated}`}
@@ -131,7 +133,7 @@ export default function PoliciesPage() {
           <div className="space-y-10 pb-8">
             {sections.map((section, index) => (
               <section key={`${section.subtitle}-${index}`} className="space-y-4">
-                <h2 className="text-xl font-semibold text-violet-300">{section.subtitle}</h2>
+                <h2 className="text-xl font-semibold text-violet-300">{normalizePolicyText(section.subtitle)}</h2>
                 <div className="space-y-3 text-[15px] leading-8 text-zinc-200">
                   {section.paragraphs.map((paragraph, paragraphIndex) => (
                     <p key={`${section.subtitle}-${paragraphIndex}`}>{normalizePolicyParagraph(paragraph)}</p>
@@ -141,9 +143,9 @@ export default function PoliciesPage() {
                       {!isEnglishLocale ? (
                         <>
                           <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
-                          <p>Los posters y sinopsis utilizados en QNext provienen de TMDB.</p>
+                          <p>Los posters y sinopsis utilizados en RecCool provienen de TMDB.</p>
                           <p>
-                            Parte de la información de películas y series utilizada en QNext, incluyendo títulos, años,
+                            Parte de la información de películas y series utilizada en RecCool, incluyendo títulos, años,
                             tipo, directores, casting, géneros, número de votos y calificaciones promedio de referencia,
                             proviene de IMDb.
                           </p>
