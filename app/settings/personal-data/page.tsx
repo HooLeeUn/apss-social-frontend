@@ -384,7 +384,7 @@ export default function PersonalDataPage() {
               branding={branding}
               slot="personal_data_logo_url"
               alt="Volver al feed"
-              className="block h-11 w-auto max-w-[220px] object-contain object-center"
+              className="block h-14 w-auto max-w-[min(46vw,220px)] object-contain object-center md:h-16 md:max-w-[260px]"
               textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
             />
           </button>

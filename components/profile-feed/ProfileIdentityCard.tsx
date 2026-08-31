@@ -105,14 +105,14 @@ export default function ProfileIdentityCard({
       <div className="relative flex min-w-0 items-start justify-between gap-4">
         <Link
           href="/feed"
-          className="inline-flex min-h-[68px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100 xl:min-w-[188px] xl:flex-initial"
+          className="inline-flex min-h-[68px] min-w-0 flex-1 items-center justify-start overflow-hidden rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100 xl:min-w-[188px] xl:flex-initial"
           aria-label="Ir al feed principal"
         >
           <AppLogo
             branding={appBranding}
             slot={logoSlot}
             alt={appTitle}
-            className="block h-12 min-w-0 w-auto max-w-full object-contain object-center xl:max-w-[184px]"
+            className="block h-16 min-w-0 w-auto max-w-full object-contain object-left xl:h-[68px] xl:max-w-[188px]"
             textClassName="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100"
           />
         </Link>

@@ -4484,7 +4484,7 @@ function MovieDetailPageContent() {
                 branding={branding}
                 slot="movie_detail_logo_url"
                 alt="Volver al feed"
-                className="block h-11 w-auto max-w-[220px] object-contain object-center"
+                className="block h-14 w-auto max-w-[min(40vw,220px)] object-contain object-center xl:h-16 xl:max-w-[260px]"
                 textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
               />
             </Link>

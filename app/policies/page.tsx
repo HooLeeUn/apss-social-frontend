@@ -99,7 +99,7 @@ export default function PoliciesPage() {
               slot="feed_logo_url"
               alt="Logo de QNext"
               className="text-xl font-semibold tracking-[0.24em] text-zinc-200 transition duration-200 group-hover:text-white"
-              imageClassName="h-12 w-auto object-contain opacity-95 drop-shadow-[0_8px_22px_rgba(124,58,237,0.28)] transition duration-200 group-hover:opacity-100 group-hover:drop-shadow-[0_10px_26px_rgba(167,139,250,0.35)]"
+              imageClassName="h-16 w-auto max-w-[min(72vw,260px)] object-contain opacity-95 drop-shadow-[0_8px_22px_rgba(124,58,237,0.28)] transition duration-200 group-hover:opacity-100 group-hover:drop-shadow-[0_10px_26px_rgba(167,139,250,0.35)] sm:h-[4.5rem] sm:max-w-[300px]"
             />
           </button>
         </div>
