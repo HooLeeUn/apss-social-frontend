@@ -83,7 +83,7 @@ export default function ProfileIdentityCard({
   const logoLinkClassName = isProfileFeedLogo
     ? "h-[68px] overflow-visible xl:mr-[88px] xl:flex-1"
     : isVisitedProfileLogo
-      ? "h-[68px] overflow-visible xl:min-w-[188px] xl:flex-initial"
+      ? "h-[68px] overflow-visible xl:w-[calc(100%-6rem)] xl:min-w-0 xl:max-w-[180px] xl:flex-none"
       : "overflow-hidden xl:min-w-[188px] xl:flex-initial";
   const logoClassName = usesFullWidthLogo
     ? "block h-auto min-w-0 w-full max-w-none object-contain object-left"
