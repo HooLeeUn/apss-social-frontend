@@ -298,14 +298,14 @@ export default function PrivacySecurityPage() {
           </h1>
           <Link
             href="/feed"
-            className="ml-auto inline-flex min-w-0 max-w-[38vw] shrink items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition md:max-w-none md:shrink-0 sm:mr-0"
+            className="relative ml-auto inline-flex h-14 min-w-0 flex-1 items-center justify-end overflow-visible rounded-lg bg-transparent px-1 py-1 transition sm:mr-0 md:h-16"
             aria-label="Volver al feed"
           >
             <AppLogo
               branding={branding}
               slot="privacy_security_logo_url"
               alt="Volver al feed"
-              className="block h-14 w-auto max-w-full object-contain object-center md:h-16 md:max-w-[260px]"
+              className="absolute right-1 top-1/2 block h-20 w-full max-w-[220px] -translate-y-1/2 object-contain object-right md:h-24 md:max-w-[320px]"
               textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
             />
           </Link>
