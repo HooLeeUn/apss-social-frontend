@@ -377,14 +377,14 @@ export default function PersonalDataPage() {
           <button
             type="button"
             onClick={() => router.push("/feed")}
-            className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
+            className="relative inline-flex h-14 w-[min(80vw,280px)] items-center overflow-visible rounded-lg bg-transparent px-1 py-1 transition md:h-16 md:w-[300px]"
             aria-label="Volver al feed"
           >
             <AppLogo
               branding={branding}
               slot="personal_data_logo_url"
               alt="Volver al feed"
-              className="block h-11 w-auto max-w-[220px] object-contain object-center"
+              className="absolute left-1 top-1/2 block h-20 w-full max-w-none -translate-y-1/2 object-contain object-left md:left-auto md:right-1 md:h-24 md:object-right"
               textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
             />
           </button>

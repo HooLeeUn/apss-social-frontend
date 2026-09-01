@@ -132,7 +132,7 @@ function MobileFeedDefaultLogo({ branding, onClick }: { branding: MobileLogoBran
         <img
           src={defaultLogoUrl}
           alt="QNext"
-          className="h-14 w-auto max-w-[150px] object-contain object-left sm:h-16"
+          className="h-16 w-auto max-w-[min(46vw,190px)] origin-left object-contain object-left min-[360px]:scale-150 min-[375px]:scale-[1.6] sm:h-[4.5rem] sm:max-w-[220px] sm:scale-[1.65]"
           loading="eager"
           decoding="sync"
           fetchPriority="high"

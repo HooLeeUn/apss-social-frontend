@@ -77,6 +77,18 @@ export default function ProfileIdentityCard({
   const cardHeightClass = autoHeight ? "h-fit min-h-0 self-start" : "min-h-[220px]";
   const personalDataSpacingClass = autoHeight ? "mt-0" : "mt-auto";
   const stableMobileHeightClass = stabilizeMobileHeight ? "min-h-[264px] xl:min-h-[220px]" : "";
+  const isProfileFeedLogo = logoSlot === "profile_feed_logo_url";
+  const isVisitedProfileLogo = logoSlot === "visited_profile_logo_url";
+  const usesFullWidthLogo = isProfileFeedLogo || isVisitedProfileLogo;
+  const logoLinkClassName = isProfileFeedLogo
+    ? "h-[68px] overflow-visible xl:mr-[88px] xl:flex-1"
+    : isVisitedProfileLogo
+      ? "h-[68px] overflow-visible xl:w-[calc(100%-6rem)] xl:min-w-0 xl:max-w-[180px] xl:flex-none"
+      : "overflow-hidden xl:min-w-[188px] xl:flex-initial";
+  const logoClassName = usesFullWidthLogo
+    ? "block h-auto min-w-0 w-full max-w-none object-contain object-left"
+    : "block h-16 min-w-0 w-auto max-w-full object-contain object-left xl:h-[68px] xl:max-w-[188px]";
+  const logoTextClassName = isProfileFeedLogo ? "hidden" : "text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100";
   const avatarClassName = `relative top-24 z-10 block h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${constrainDesktopAvatar ? "xl:absolute xl:right-1 xl:top-20 xl:h-[72px] xl:w-[72px]" : ""}`;
   const cardClassName = `relative mx-auto flex w-full min-w-0 max-w-full box-border flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass} ${stableMobileHeightClass}`;
 
@@ -105,15 +117,15 @@ export default function ProfileIdentityCard({
       <div className="relative flex min-w-0 items-start justify-between gap-4">
         <Link
           href="/feed"
-          className="inline-flex min-h-[68px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100 xl:min-w-[188px] xl:flex-initial"
+          className={`inline-flex min-h-[68px] min-w-0 flex-1 items-center justify-start rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100 ${logoLinkClassName}`}
           aria-label="Ir al feed principal"
         >
           <AppLogo
             branding={appBranding}
             slot={logoSlot}
             alt={appTitle}
-            className="block h-12 min-w-0 w-auto max-w-full object-contain object-center xl:max-w-[184px]"
-            textClassName="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100"
+            className={logoClassName}
+            textClassName={logoTextClassName}
           />
         </Link>
 

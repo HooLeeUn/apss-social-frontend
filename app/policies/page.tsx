@@ -91,15 +91,16 @@ export default function PoliciesPage() {
           <button
             type="button"
             onClick={() => router.push("/feed")}
-            className="group rounded-2xl p-1 transition duration-200 hover:-translate-y-0.5 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70"
+            className="group relative h-16 w-[min(80vw,300px)] rounded-2xl p-1 transition duration-200 hover:-translate-y-0.5 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70 sm:h-[4.5rem] sm:w-[360px]"
             aria-label="Ir al feed"
           >
             <AppLogo
               branding={branding}
-              slot="feed_logo_url"
+              slot="default_logo_url"
               alt="Logo de QNext"
               className="text-xl font-semibold tracking-[0.24em] text-zinc-200 transition duration-200 group-hover:text-white"
-              imageClassName="h-12 w-auto object-contain opacity-95 drop-shadow-[0_8px_22px_rgba(124,58,237,0.28)] transition duration-200 group-hover:opacity-100 group-hover:drop-shadow-[0_10px_26px_rgba(167,139,250,0.35)]"
+              imageClassName="absolute left-0 top-1/2 h-20 w-full max-w-none -translate-y-1/2 object-contain object-left opacity-95 drop-shadow-[0_8px_22px_rgba(124,58,237,0.28)] transition duration-200 group-hover:opacity-100 group-hover:drop-shadow-[0_10px_26px_rgba(167,139,250,0.35)] sm:h-24"
+              textClassName="hidden"
             />
           </button>
         </div>

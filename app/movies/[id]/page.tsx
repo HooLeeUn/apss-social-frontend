@@ -4477,15 +4477,15 @@ function MovieDetailPageContent() {
             <h1 className="text-2xl font-semibold text-zinc-100">{detailTitle}</h1>
             <Link
               href="/feed"
-              className="inline-flex items-center overflow-hidden rounded-lg bg-transparent px-1 py-1 transition"
+              className="relative inline-flex h-14 min-w-0 flex-1 items-center justify-end overflow-visible rounded-lg bg-transparent px-1 py-1 transition xl:h-16"
               aria-label="Volver al feed"
             >
               <AppLogo
                 branding={branding}
                 slot="movie_detail_logo_url"
                 alt="Volver al feed"
-                className="block h-11 w-auto max-w-[220px] object-contain object-center"
-                textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+                className="absolute right-1 top-1/2 block h-20 w-full max-w-[min(48vw,220px)] -translate-y-1/2 object-contain object-right xl:h-24 xl:max-w-[320px]"
+                textClassName="hidden"
               />
             </Link>
           </div>

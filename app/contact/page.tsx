@@ -72,13 +72,13 @@ export default function ContactPage() {
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t("contactTitle")}</h1>
           </div>
-          <button type="button" onClick={() => router.push("/feed")} aria-label="Volver al feed" className="shrink-0 rounded-lg p-1">
+          <button type="button" onClick={() => router.push("/feed")} aria-label="Volver al feed" className="relative h-14 min-w-0 flex-1 rounded-lg p-1 sm:h-16">
             <AppLogo
               branding={branding}
               slot="default_logo_url"
               alt="RecCool"
-              className="h-10 w-auto max-w-36 object-contain sm:h-12 sm:max-w-52"
-              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+              className="absolute right-1 top-1/2 h-20 w-full max-w-[220px] -translate-y-1/2 object-contain object-right sm:h-24 sm:max-w-[320px]"
+              textClassName="hidden"
               fallbackText="RecCool"
             />
           </button>
