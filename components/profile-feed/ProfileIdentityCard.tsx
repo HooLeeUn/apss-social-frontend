@@ -78,8 +78,14 @@ export default function ProfileIdentityCard({
   const personalDataSpacingClass = autoHeight ? "mt-0" : "mt-auto";
   const stableMobileHeightClass = stabilizeMobileHeight ? "min-h-[264px] xl:min-h-[220px]" : "";
   const isProfileFeedLogo = logoSlot === "profile_feed_logo_url";
-  const logoLinkClassName = isProfileFeedLogo ? "h-[68px] overflow-visible xl:mr-[88px] xl:flex-1" : "overflow-hidden xl:min-w-[188px] xl:flex-initial";
-  const logoClassName = isProfileFeedLogo
+  const isVisitedProfileLogo = logoSlot === "visited_profile_logo_url";
+  const usesFullWidthLogo = isProfileFeedLogo || isVisitedProfileLogo;
+  const logoLinkClassName = isProfileFeedLogo
+    ? "h-[68px] overflow-visible xl:mr-[88px] xl:flex-1"
+    : isVisitedProfileLogo
+      ? "h-[68px] overflow-visible xl:min-w-[188px] xl:flex-initial"
+      : "overflow-hidden xl:min-w-[188px] xl:flex-initial";
+  const logoClassName = usesFullWidthLogo
     ? "block h-auto min-w-0 w-full max-w-none object-contain object-left"
     : "block h-16 min-w-0 w-auto max-w-full object-contain object-left xl:h-[68px] xl:max-w-[188px]";
   const avatarClassName = `relative top-24 z-10 block h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${constrainDesktopAvatar ? "xl:absolute xl:right-1 xl:top-20 xl:h-[72px] xl:w-[72px]" : ""}`;
