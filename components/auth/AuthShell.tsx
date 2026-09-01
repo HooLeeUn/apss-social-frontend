@@ -17,6 +17,7 @@ interface AuthShellProps {
   fitMobileViewport?: boolean;
   headerAction?: ReactNode;
   logoAlt?: string;
+  emphasizeLogo?: boolean;
 }
 
 export default function AuthShell({
@@ -30,6 +31,7 @@ export default function AuthShell({
   fitMobileViewport = false,
   headerAction,
   logoAlt = "Logo de la app",
+  emphasizeLogo = false,
 }: AuthShellProps) {
   const branding = useAppBranding();
   const shellClassName = fitMobileViewport
@@ -55,13 +57,25 @@ export default function AuthShell({
       <div className={cardClassName}>
         <header className={headerClassName}>
           <div className="flex min-w-0 items-center justify-between gap-3">
-            <AppLogo
-              branding={branding}
-              slot={brandingSlot}
-              alt={logoAlt}
-              className={`${logoClassName} min-w-0 max-w-[min(18rem,calc(100%-6rem))]`}
-              textClassName="text-[0.69rem] font-semibold uppercase tracking-[0.25em] text-zinc-400/90"
-            />
+            {emphasizeLogo ? (
+              <div className="relative h-16 min-w-0 flex-1 sm:h-[4.5rem]">
+                <AppLogo
+                  branding={branding}
+                  slot={brandingSlot}
+                  alt={logoAlt}
+                  className="absolute left-0 top-1/2 block h-20 w-full max-w-none -translate-y-1/2 object-contain object-left sm:h-24"
+                  textClassName="text-[0.69rem] font-semibold uppercase tracking-[0.25em] text-zinc-400/90"
+                />
+              </div>
+            ) : (
+              <AppLogo
+                branding={branding}
+                slot={brandingSlot}
+                alt={logoAlt}
+                className={`${logoClassName} min-w-0 max-w-[min(18rem,calc(100%-6rem))]`}
+                textClassName="text-[0.69rem] font-semibold uppercase tracking-[0.25em] text-zinc-400/90"
+              />
+            )}
             {headerAction ? <div className="relative z-20 shrink-0">{headerAction}</div> : null}
           </div>
           <h1 className={titleClassName}>{title}</h1>

@@ -285,6 +285,7 @@ export default function SignupPage() {
         brandingSlot="signup_logo_url"
         headerAction={<AuthCountrySelector />}
         logoAlt="QNext"
+        emphasizeLogo
       >
         <div className="space-y-5 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-5 text-sm leading-6 text-emerald-50 shadow-[0_14px_36px_rgba(16,185,129,0.08)]">
           <p className="text-base font-semibold text-emerald-100">
@@ -315,6 +316,7 @@ export default function SignupPage() {
         brandingSlot="signup_logo_url"
         headerAction={<AuthCountrySelector />}
         logoAlt="QNext"
+        emphasizeLogo
       >
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
           <div className="space-y-2">

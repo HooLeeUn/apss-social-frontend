@@ -46,7 +46,7 @@ function LoginPageContent() {
   };
 
   return <>
-    <AuthShell title={text.loginTitle} description={text.loginDescription} footerText={text.noAccount} footerLinkText={text.signupLink} footerHref="/signup" brandingSlot="login_logo_url" fitMobileViewport headerAction={<AuthCountrySelector />} logoAlt="QNext">
+    <AuthShell title={text.loginTitle} description={text.loginDescription} footerText={text.noAccount} footerLinkText={text.signupLink} footerHref="/signup" brandingSlot="login_logo_url" fitMobileViewport headerAction={<AuthCountrySelector />} logoAlt="QNext" emphasizeLogo>
       <form onSubmit={handleLogin} noValidate className="space-y-4 sm:space-y-5">
         {verificationMessage ? <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${verificationMessageClassName}`}>{verificationMessage}</div> : null}
         <div className="space-y-2"><label htmlFor="login-username" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">{text.username}</label><input id="login-username" autoComplete="username" className={inputBaseClassName} placeholder={text.usernamePlaceholder} value={username} onChange={(e) => { setUsername(e.target.value); setFieldErrors((old) => ({ ...old, username: "" })); }} aria-invalid={Boolean(fieldErrors.username)} aria-describedby={fieldErrors.username ? "login-username-error" : undefined}/>{fieldErrors.username ? <p id="login-username-error" className="text-sm text-red-300">{fieldErrors.username}</p> : null}</div>
