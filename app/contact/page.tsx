@@ -78,7 +78,7 @@ export default function ContactPage() {
               slot="default_logo_url"
               alt="RecCool"
               className="absolute right-1 top-1/2 h-20 w-full max-w-[220px] -translate-y-1/2 object-contain object-right sm:h-24 sm:max-w-[320px]"
-              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+              textClassName="hidden"
               fallbackText="RecCool"
             />
           </button>
