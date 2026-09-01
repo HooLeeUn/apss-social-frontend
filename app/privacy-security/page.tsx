@@ -306,7 +306,7 @@ export default function PrivacySecurityPage() {
               slot="privacy_security_logo_url"
               alt="Volver al feed"
               className="absolute right-1 top-1/2 block h-20 w-full max-w-[220px] -translate-y-1/2 object-contain object-right md:h-24 md:max-w-[320px]"
-              textClassName="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-200"
+              textClassName="hidden"
             />
           </Link>
         </header>

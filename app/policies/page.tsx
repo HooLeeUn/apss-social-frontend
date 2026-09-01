@@ -100,6 +100,7 @@ export default function PoliciesPage() {
               alt="Logo de QNext"
               className="text-xl font-semibold tracking-[0.24em] text-zinc-200 transition duration-200 group-hover:text-white"
               imageClassName="absolute left-0 top-1/2 h-20 w-full max-w-none -translate-y-1/2 object-contain object-left opacity-95 drop-shadow-[0_8px_22px_rgba(124,58,237,0.28)] transition duration-200 group-hover:opacity-100 group-hover:drop-shadow-[0_10px_26px_rgba(167,139,250,0.35)] sm:h-24"
+              textClassName="hidden"
             />
           </button>
         </div>
