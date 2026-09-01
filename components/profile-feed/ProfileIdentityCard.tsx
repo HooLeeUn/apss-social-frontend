@@ -78,9 +78,9 @@ export default function ProfileIdentityCard({
   const personalDataSpacingClass = autoHeight ? "mt-0" : "mt-auto";
   const stableMobileHeightClass = stabilizeMobileHeight ? "min-h-[264px] xl:min-h-[220px]" : "";
   const isProfileFeedLogo = logoSlot === "profile_feed_logo_url";
-  const logoLinkClassName = isProfileFeedLogo ? "h-[68px] overflow-hidden xl:mr-[88px] xl:flex-1" : "overflow-hidden xl:min-w-[188px] xl:flex-initial";
+  const logoLinkClassName = isProfileFeedLogo ? "h-[68px] overflow-visible xl:mr-[88px] xl:flex-1" : "overflow-hidden xl:min-w-[188px] xl:flex-initial";
   const logoClassName = isProfileFeedLogo
-    ? "block h-full min-w-0 w-full max-w-none origin-left scale-[1.55] object-contain object-left"
+    ? "block h-auto min-w-0 w-full max-w-none object-contain object-left"
     : "block h-16 min-w-0 w-auto max-w-full object-contain object-left xl:h-[68px] xl:max-w-[188px]";
   const avatarClassName = `relative top-24 z-10 block h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${constrainDesktopAvatar ? "xl:absolute xl:right-1 xl:top-20 xl:h-[72px] xl:w-[72px]" : ""}`;
   const cardClassName = `relative mx-auto flex w-full min-w-0 max-w-full box-border flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass} ${stableMobileHeightClass}`;
