@@ -33,6 +33,7 @@ export interface SocialComment {
 export interface PaginatedComments {
   comments: SocialComment[];
   next: string | null;
+  total: number | null;
 }
 
 export interface UserIdentity {
@@ -440,10 +441,17 @@ export function parseCommentsPage(payload: unknown, fallbackType: "public" | "di
     .map((entry) => normalizeComment(entry, fallbackType));
 
   const next = toStringOrNull(pickFirst(root?.next, rootData?.next, root?.next_page, rootData?.next_page, root?.nextPage));
+  const rawTotal = pickFirst(root?.count, rootData?.count, root?.total, rootData?.total);
+  const total = typeof rawTotal === "number" && Number.isFinite(rawTotal)
+    ? Math.max(0, Math.trunc(rawTotal))
+    : typeof rawTotal === "string" && rawTotal.trim() !== "" && Number.isFinite(Number(rawTotal))
+      ? Math.max(0, Math.trunc(Number(rawTotal)))
+      : null;
 
   return {
     comments,
     next,
+    total,
   };
 }
 

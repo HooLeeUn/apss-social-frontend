@@ -1040,7 +1040,7 @@ function CommentUserSearch({
   );
 }
 
-function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notificationTarget, onNotificationTargetConsumed, logNotificationTarget, t, onAuthorClick, desktopGuest = false, trailerCompanionOpen = false, mobileViewport = false }: { movieId: string; movieTitle: string; moviePoster: string | null; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void; desktopGuest?: boolean; trailerCompanionOpen?: boolean; mobileViewport?: boolean }) {
+function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notificationTarget, onNotificationTargetConsumed, onTotalChange, logNotificationTarget, t, onAuthorClick, desktopGuest = false, trailerCompanionOpen = false, mobileViewport = false }: { movieId: string; movieTitle: string; moviePoster: string | null; active: boolean; notificationTarget: { id: string; reaction: VideoCommentReaction | null } | null; onNotificationTargetConsumed: () => void; onTotalChange: (total: number) => void; logNotificationTarget: NotificationDiagnosticLogger; t: (key: Parameters<typeof translate>[1]) => string; onAuthorClick: (username: string) => void; desktopGuest?: boolean; trailerCompanionOpen?: boolean; mobileViewport?: boolean }) {
   const router = useRouter();
   const { showGuestGate } = useGuestGate();
   const guestVideoGateId = `detail-video:${movieId}`;
@@ -1061,7 +1061,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const [previewError, setPreviewError] = useState("");
   const [comments, setComments] = useState<VideoComment[]>([]);
   const commentIds = useMemo(() => comments.map((item) => String(item.id)).join(","), [comments]);
-  const [, setCount] = useState(0);
+  const [count, setCount] = useState(0);
   const [next, setNext] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1089,6 +1089,8 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const [isHistoryUnderfilled, setIsHistoryUnderfilled] = useState(false);
+
+  useEffect(() => onTotalChange(count), [count, onTotalChange]);
 
   const streamRef = useRef<MediaStream | null>(null);
   const pendingStreamRef = useRef<MediaStream | null>(null);
@@ -2843,6 +2845,8 @@ function MovieDetailPageContent() {
   const [friendRequestsRestricted, setFriendRequestsRestricted] = useState<boolean | null>(null);
 
   const [publicComments, setPublicComments] = useState<SocialComment[]>([]);
+  const [publicCommentsTotal, setPublicCommentsTotal] = useState(0);
+  const [videoReactionTotal, setVideoReactionTotal] = useState(0);
   const [publicNext, setPublicNext] = useState<string | null>(null);
   const [loadingPublicMore, setLoadingPublicMore] = useState(false);
   const [directedConversations, setDirectedConversations] = useState<DirectedConversation[]>([]);
@@ -3181,6 +3185,7 @@ function MovieDetailPageContent() {
     setFriends([]);
     setFollowingUsers([]);
     setPublicComments([]);
+    setPublicCommentsTotal(0);
     setPublicNext(null);
     setDirectedConversations([]);
     setExpandedConversationKey(null);
@@ -3247,6 +3252,7 @@ function MovieDetailPageContent() {
         console.log("[movie-comments-debug] public GET response", response.body);
         const parsed = parseCommentsPage(response.body, "public");
         setPublicComments(parsed.comments);
+        setPublicCommentsTotal(parsed.total ?? parsed.comments.length);
         setPublicNext(normalizeEndpointPath(parsed.next));
         setPublicError("");
       } catch (error) {
@@ -3568,6 +3574,7 @@ function MovieDetailPageContent() {
     try {
       const payload = await apiFetch(publicNext);
       const parsed = parseCommentsPage(payload, "public");
+      if (parsed.total !== null) setPublicCommentsTotal(parsed.total);
       setPublicComments((current) => {
         const existing = new Set(current.map((comment) => String(comment.id)));
         const incoming = parsed.comments.filter((comment) => !existing.has(String(comment.id)));
@@ -4000,6 +4007,7 @@ function MovieDetailPageContent() {
           const refreshed = await debugApiRequest(buildMoviePublicSubmitEndpoint(movieId));
           const parsed = parseCommentsPage(refreshed.body, "public");
           setPublicComments(parsed.comments);
+          setPublicCommentsTotal(parsed.total ?? parsed.comments.length);
           setPublicNext(normalizeEndpointPath(parsed.next));
           setPublicError("");
         } catch (refreshError) {
@@ -4009,6 +4017,7 @@ function MovieDetailPageContent() {
           }
           if (parsedSubmittedComment) {
             setPublicComments((current) => [parsedSubmittedComment, ...current]);
+            setPublicCommentsTotal((current) => current + 1);
           }
         }
       }
@@ -4271,6 +4280,7 @@ function MovieDetailPageContent() {
       try {
         await apiFetch(buildCommentDetailEndpoint(comment.id), { method: "DELETE" });
         setPublicComments((current) => removeCommentFromCollection(current, comment.id));
+        if (comment.type === "public") setPublicCommentsTotal((current) => Math.max(0, current - 1));
         setDirectedConversations((current) =>
           current
             .map((conversation) => ({
@@ -4352,6 +4362,8 @@ function MovieDetailPageContent() {
   const detailTitle = isSeriesDetail ? t("movieDetailSeriesTitle") : t("movieDetailTitle");
   const composerPlaceholder = isSeriesDetail ? t("movieDetailSeriesCommentPlaceholder") : t("movieDetailCommentPlaceholder");
   const composerTitle = isSeriesDetail ? t("movieDetailSeriesCommentTitle") : t("movieDetailCommentTitle");
+  const videoReactionCountLabel = `${videoReactionTotal} ${t(videoReactionTotal === 1 ? "movieDetailVideoCountSingular" : "movieDetailVideoCountPlural")}`;
+  const publicCommentCountLabel = `${publicCommentsTotal} ${t(publicCommentsTotal === 1 ? "movieDetailPublicCommentCountSingular" : "movieDetailPublicCommentCountPlural")}`;
 
   const changeTrailerCompanionView = useCallback((next: TrailerCompanionView) => {
     closeGuestGate();
@@ -4527,11 +4539,11 @@ function MovieDetailPageContent() {
                   role="tab"
                   aria-selected={isActiveMode}
                   data-tour-mobile={mode === "text-comment" ? "detail-comment-tab-mobile" : undefined}
-                  className={`flex min-h-11 flex-1 items-center justify-center py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "pl-6 pr-2" : "px-2"} ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
+                  className={`flex h-11 flex-1 items-center justify-center text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "pl-6 pr-2" : "px-2"} ${mode === "video-comment" ? "flex-col" : "py-2"} ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
                   data-comment-input-mode={mode}
                   onClick={() => handleCommentInputTabClick(mode)}
                 >
-                  {mode === "text-comment" ? composerTitle : <span data-tour-mobile="detail-video-tab-mobile">{t("movieDetailVideoCommentTitle")}</span>}
+                  {mode === "text-comment" ? composerTitle : <><span data-tour-mobile="detail-video-tab-mobile">{t("movieDetailVideoCommentTitle")}</span><span data-video-reaction-count className="text-[10px] font-normal leading-3 text-zinc-500">{videoReactionCountLabel}</span></>}
                 </button>
               );
             })}
@@ -4549,11 +4561,11 @@ function MovieDetailPageContent() {
                 role="tab"
                 aria-selected={isActiveMode}
                 data-tour-desktop={mode === "video-comment" ? "detail-video-reactions" : "detail-comment-composer"}
-                className={`min-h-11 px-3 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActiveMode ? "text-xl font-bold text-[#86ADE0]" : "text-base font-medium text-zinc-400 hover:text-zinc-300"}`}
+                className={`min-h-11 px-3 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "relative" : ""} ${isActiveMode ? "text-xl font-bold text-[#86ADE0]" : "text-base font-medium text-zinc-400 hover:text-zinc-300"}`}
                 data-comment-input-mode={mode}
                 onClick={() => handleCommentInputTabClick(mode)}
               >
-                {mode === "text-comment" ? (isDesktopGuest ? t("movieDetailPublicComments") : composerTitle) : t("movieDetailVideoCommentTitle")}
+                {mode === "text-comment" ? (isDesktopGuest ? t("movieDetailPublicComments") : composerTitle) : <>{t("movieDetailVideoCommentTitle")}<span data-video-reaction-count className="absolute left-1/2 top-full -mt-2 -translate-x-1/2 whitespace-nowrap text-[11px] font-normal leading-3 text-zinc-500">{videoReactionCountLabel}</span></>}
               </button>
             );
           })}
@@ -4563,7 +4575,7 @@ function MovieDetailPageContent() {
           {!isDesktopGuest ? <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} /> : null}
         </div>
         <div ref={videoCommentStartRef} data-video-reaction-section>
-          <MobileVideoComments desktopGuest={isDesktopGuest} trailerCompanionOpen={trailerCompanionOpen} mobileViewport={isMobile} movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
+          <MobileVideoComments desktopGuest={isDesktopGuest} trailerCompanionOpen={trailerCompanionOpen} mobileViewport={isMobile} movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} onTotalChange={setVideoReactionTotal} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${!isDesktopGuest && commentInputMode === "text-comment" ? "-mt-3 hidden xl:block" : "hidden"}`}>
           <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} />
@@ -4585,12 +4597,13 @@ function MovieDetailPageContent() {
                   role="tab"
                   aria-selected={activeCommentsTab === "public"}
                   data-tour-mobile="detail-public-comments-mobile"
-                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  className={`flex min-h-[38px] flex-1 flex-col items-center justify-center rounded-lg px-3 text-sm font-semibold transition ${
                     activeCommentsTab === "public" ? "border border-[#86ADE0]/45 bg-zinc-950/50 text-[#c7dcf6] shadow-[0_0_16px_rgba(134,173,224,0.16)]" : "border border-transparent text-zinc-300 hover:bg-white/10 hover:text-white"
                   }`}
                   onClick={() => setActiveCommentsTab("public")}
                 >
-                  {t("movieDetailPublicComments")}
+                  <span>{t("movieDetailPublicComments")}</span>
+                  <span data-public-comment-count className="text-[10px] font-normal leading-3 text-zinc-500">{publicCommentCountLabel}</span>
                 </button>
                 <button
                   type="button"
@@ -4609,7 +4622,7 @@ function MovieDetailPageContent() {
           ) : null}
           <section data-tour-desktop="detail-public-comments" ref={publicCommentsSectionRef} data-trailer-public-comments onWheel={(event) => { if (!isDesktopGuest || !trailerCompanionOpen || trailerCompanionView !== "public-comments" || event.deltaY <= 0) return; event.preventDefault(); showGuestGate(guestCommentsGateId, "more"); }} onScroll={(event) => { if (!isDesktopGuest || !trailerCompanionOpen || trailerCompanionView !== "public-comments" || event.currentTarget.scrollTop <= 0) return; event.currentTarget.scrollTop = 0; showGuestGate(guestCommentsGateId, "more"); }} onTouchStart={(event) => { guestTrailerCommentsTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestTrailerCommentsTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!isDesktopGuest || !trailerCompanionOpen || trailerCompanionView !== "public-comments" || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestTrailerCommentsTouchYRef.current = currentY; if (delta <= 0) return; if (event.cancelable) event.preventDefault(); showGuestGate(guestCommentsGateId, "more"); }} onTouchEnd={() => { guestTrailerCommentsTouchYRef.current = null; }} onTouchCancel={() => { guestTrailerCommentsTouchYRef.current = null; }} className={`space-y-3 ${shouldRenderDirectedComments && activeCommentsTab !== "public" ? "hidden xl:block" : ""}`}>
             <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              {!trailerCompanionOpen ? <h2 className={`text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden xl:block" : ""}`}>{t("movieDetailPublicComments")}</h2> : null}
+              {!trailerCompanionOpen ? <h2 className={`relative text-xl font-bold text-[#86ADE0] ${shouldRenderDirectedComments ? "hidden xl:block" : ""}`}>{t("movieDetailPublicComments")}<span data-public-comment-count className="absolute left-1/2 top-full -translate-x-1/2 whitespace-nowrap text-[11px] font-normal leading-3 text-zinc-500">{publicCommentCountLabel}</span></h2> : null}
               {isDesktopGuest && !isMobile && !trailerCompanionOpen ? <GuestContentGate gateId={guestCommentsGateId} placement="inline-end" /> : null}
               {!isDesktopGuest ? <CommentUserSearch
                 users={publicFilterUsers}
