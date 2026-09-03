@@ -231,7 +231,7 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 export default function FeedPage() {
   const router = useRouter();
   const { showGuestGate } = useGuestGate();
-  const { hydrated: authHydrated, viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
+  const { hydrated: authHydrated, viewportHydrated, isGuest, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
@@ -340,7 +340,7 @@ export default function FeedPage() {
   useEffect(() => {
     if (!authHydrated || !viewportHydrated) return;
     const token = getToken();
-    if (!token && !isDesktopGuest) {
+    if (!token && !isGuest) {
       router.replace("/login");
       return;
     }
@@ -352,7 +352,7 @@ export default function FeedPage() {
           (error) => ({ ok: false as const, error }),
         );
 
-        if (!isDesktopGuest && !weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
+        if (!isGuest && !weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
           router.replace("/login");
           return;
         }
@@ -366,8 +366,8 @@ export default function FeedPage() {
 
         const [normalizedWeekly, myListMovies, myRecommendedMovies] = await Promise.all([
           Promise.resolve(weeklyResult.ok ? parseMovieList(weeklyResult.payload) : []),
-          isDesktopGuest ? Promise.resolve([]) : getMyMovieList().catch(() => []),
-          isDesktopGuest ? Promise.resolve([]) : getMyMovieRecommendations().catch(() => []),
+          isGuest ? Promise.resolve([]) : getMyMovieList().catch(() => []),
+          isGuest ? Promise.resolve([]) : getMyMovieRecommendations().catch(() => []),
         ]);
         const backendListSet = new Set(myListMovies.map((movie) => String(movie.id)));
         const backendRecommendationsSet = new Set(myRecommendedMovies.map((movie) => String(movie.id)));
@@ -381,7 +381,7 @@ export default function FeedPage() {
       } catch (loadError) {
         console.error("Feed load error:", loadError);
 
-        if (!isDesktopGuest && loadError instanceof ApiError && loadError.status === 401) {
+        if (!isGuest && loadError instanceof ApiError && loadError.status === 401) {
           router.replace("/login");
           return;
         }
@@ -393,7 +393,7 @@ export default function FeedPage() {
     };
 
     loadFeed();
-  }, [authHydrated, viewportHydrated, isDesktopGuest, router]);
+  }, [authHydrated, viewportHydrated, isGuest, router]);
 
   const syncMyListIds = useCallback(async () => {
     try {
@@ -543,7 +543,7 @@ export default function FeedPage() {
         if ((loadPersonalizedError as Error).name === "AbortError") return;
         console.error("Filtered personalized load error:", loadPersonalizedError);
 
-        if (!isDesktopGuest && loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
+        if (!isGuest && loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
           router.replace("/login");
           return;
         }
@@ -557,7 +557,7 @@ export default function FeedPage() {
         }
       }
     },
-    [isDesktopGuest, router],
+    [isGuest, router],
   );
 
   useEffect(() => {
