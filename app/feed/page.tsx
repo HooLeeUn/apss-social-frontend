@@ -56,6 +56,14 @@ import type { OnboardingPrepareAction } from "../../lib/onboarding/types";
 import { useDesktopGuest } from "../../hooks/useDesktopGuest";
 import GuestContentGate from "../../components/GuestContentGate";
 import { useGuestGate } from "../../components/GuestGateProvider";
+import {
+  buildPersonalizedFeedEndpoint,
+  filterBySelectedGenres,
+  isCurrentPersonalizedRequest,
+  loadFeedAccountCollections,
+  resolvePersonalizedMovies,
+  sanitizePersonalizedMovies,
+} from "../../lib/personalized-feed.mjs";
 
 const MY_LIST_IDS_STORAGE_KEY = "my_list_movie_ids";
 
@@ -175,17 +183,6 @@ function translateNotificationText(locale: ReturnType<typeof countryToLocale>, t
   return text;
 }
 
-function buildPersonalizedFeedEndpoint(selectedGenres: string[]): string {
-  const params = new URLSearchParams();
-
-  selectedGenres.forEach((genre) => {
-    params.append("genres", genre);
-  });
-
-  const queryString = params.toString();
-  return queryString ? `${MOVIES_FEED_ENDPOINT}?${queryString}` : MOVIES_FEED_ENDPOINT;
-}
-
 function withActiveGenreFilters(endpoint: string, selectedGenres: string[]): string {
   const [path, queryString = ""] = endpoint.split("?");
   const params = new URLSearchParams(queryString);
@@ -201,18 +198,6 @@ function withActiveGenreFilters(endpoint: string, selectedGenres: string[]): str
 
 function buildGenresQueryKey(selectedGenres: string[]): string {
   return [...selectedGenres].sort().join("|");
-}
-
-function filterBySelectedGenres(movies: Movie[], selectedGenres: string[]): Movie[] {
-  return movies.filter((movie) => movieMatchesSelectedGenres(movie.genres, selectedGenres));
-}
-
-function shouldExcludeFromPersonalized(movie: Movie, excludedRatedIds: Set<string>): boolean {
-  return excludedRatedIds.has(String(movie.id)) || movie.myRating !== null;
-}
-
-function sanitizePersonalizedMovies(movies: Movie[], excludedRatedIds: Set<string>): Movie[] {
-  return movies.filter((movie) => !shouldExcludeFromPersonalized(movie, excludedRatedIds));
 }
 
 type StreamingCountry = Country;
@@ -231,7 +216,7 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 export default function FeedPage() {
   const router = useRouter();
   const { showGuestGate } = useGuestGate();
-  const { hydrated: authHydrated, viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
+  const { hydrated: authHydrated, viewportHydrated, isGuest, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
@@ -248,6 +233,7 @@ export default function FeedPage() {
   const [personalizedNext, setPersonalizedNext] = useState<string | null>(null);
   const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false);
   const [isLoadingMorePersonalized, setIsLoadingMorePersonalized] = useState(false);
+  const [personalizedError, setPersonalizedError] = useState("");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [isDirectorBoardOpen, setIsDirectorBoardOpen] = useState(false);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
@@ -340,7 +326,7 @@ export default function FeedPage() {
   useEffect(() => {
     if (!authHydrated || !viewportHydrated) return;
     const token = getToken();
-    if (!token && !isDesktopGuest) {
+    if (!token && !isGuest) {
       router.replace("/login");
       return;
     }
@@ -352,7 +338,7 @@ export default function FeedPage() {
           (error) => ({ ok: false as const, error }),
         );
 
-        if (!isDesktopGuest && !weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
+        if (!isGuest && !weeklyResult.ok && weeklyResult.error instanceof ApiError && weeklyResult.error.status === 401) {
           router.replace("/login");
           return;
         }
@@ -364,11 +350,14 @@ export default function FeedPage() {
           throw weeklyResult.error;
         }
 
-        const [normalizedWeekly, myListMovies, myRecommendedMovies] = await Promise.all([
-          Promise.resolve(weeklyResult.ok ? parseMovieList(weeklyResult.payload) : []),
-          isDesktopGuest ? Promise.resolve([]) : getMyMovieList().catch(() => []),
-          isDesktopGuest ? Promise.resolve([]) : getMyMovieRecommendations().catch(() => []),
-        ]);
+        const normalizedWeekly = weeklyResult.ok ? parseMovieList(weeklyResult.payload) : [];
+        const accountCollections = await loadFeedAccountCollections(
+          isGuest,
+          () => getMyMovieList().catch(() => []),
+          () => getMyMovieRecommendations().catch(() => []),
+        );
+        const myListMovies = accountCollections.list;
+        const myRecommendedMovies = accountCollections.recommendations;
         const backendListSet = new Set(myListMovies.map((movie) => String(movie.id)));
         const backendRecommendationsSet = new Set(myRecommendedMovies.map((movie) => String(movie.id)));
 
@@ -381,7 +370,7 @@ export default function FeedPage() {
       } catch (loadError) {
         console.error("Feed load error:", loadError);
 
-        if (!isDesktopGuest && loadError instanceof ApiError && loadError.status === 401) {
+        if (!isGuest && loadError instanceof ApiError && loadError.status === 401) {
           router.replace("/login");
           return;
         }
@@ -393,7 +382,7 @@ export default function FeedPage() {
     };
 
     loadFeed();
-  }, [authHydrated, viewportHydrated, isDesktopGuest, router]);
+  }, [authHydrated, viewportHydrated, isGuest, router]);
 
   const syncMyListIds = useCallback(async () => {
     try {
@@ -524,16 +513,21 @@ export default function FeedPage() {
 
       setIsLoadingPersonalized(true);
       setIsLoadingMorePersonalized(false);
+      setPersonalizedError("");
       setPersonalizedMovies([]);
       setPersonalizedNext(null);
 
       try {
-        const payload = await apiFetch(buildPersonalizedFeedEndpoint(genres), { signal: abortController.signal });
-        if (personalizedRequestIdRef.current !== requestId || personalizedQueryKeyRef.current !== queryKey) return;
+        const payload = await apiFetch(buildPersonalizedFeedEndpoint(MOVIES_FEED_ENDPOINT, genres), { signal: abortController.signal });
+        if (!isCurrentPersonalizedRequest(personalizedRequestIdRef.current, personalizedQueryKeyRef.current, requestId, queryKey)) return;
 
-        const nextMovies = sanitizePersonalizedMovies(
-          filterBySelectedGenres(parseMovieList(payload), genres),
+        const nextMovies = resolvePersonalizedMovies(
+          payload,
+          genres,
           excludedRatedIdsRef.current,
+          !isGuest,
+          parseMovieList,
+          movieMatchesSelectedGenres,
         );
         const pagination = parseMoviePagination(payload);
 
@@ -543,12 +537,13 @@ export default function FeedPage() {
         if ((loadPersonalizedError as Error).name === "AbortError") return;
         console.error("Filtered personalized load error:", loadPersonalizedError);
 
-        if (!isDesktopGuest && loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
+        if (!isGuest && loadPersonalizedError instanceof ApiError && loadPersonalizedError.status === 401) {
           router.replace("/login");
           return;
         }
 
         if (personalizedRequestIdRef.current !== requestId || personalizedQueryKeyRef.current !== queryKey) return;
+        setPersonalizedError("No se pudo cargar la cartelera.");
         setPersonalizedMovies([]);
         setPersonalizedNext(null);
       } finally {
@@ -557,7 +552,7 @@ export default function FeedPage() {
         }
       }
     },
-    [isDesktopGuest, router],
+    [isGuest, router],
   );
 
   useEffect(() => {
@@ -581,13 +576,14 @@ export default function FeedPage() {
       if (requestId !== personalizedRequestIdRef.current || queryKey !== personalizedQueryKeyRef.current) return;
 
       const nextPageMovies = sanitizePersonalizedMovies(
-        filterBySelectedGenres(parseMovieList(payload), selectedGenres),
+        filterBySelectedGenres(parseMovieList(payload), selectedGenres, movieMatchesSelectedGenres),
         excludedRatedIdsRef.current,
+        !isGuest,
       );
       const pagination = parseMoviePagination(payload);
 
       setPersonalizedMovies((current) =>
-        sanitizePersonalizedMovies(mergeUniqueMovies(current, nextPageMovies), excludedRatedIdsRef.current),
+        sanitizePersonalizedMovies(mergeUniqueMovies(current, nextPageMovies), excludedRatedIdsRef.current, !isGuest),
       );
       setPersonalizedNext(pagination.next);
     } catch (loadMoreError) {
@@ -598,7 +594,7 @@ export default function FeedPage() {
         setIsLoadingMorePersonalized(false);
       }
     }
-  }, [isLoadingMorePersonalized, personalizedNext, selectedGenres]);
+  }, [isGuest, isLoadingMorePersonalized, personalizedNext, selectedGenres]);
 
   useEffect(() => {
     const node = loadMoreTriggerRef.current;
@@ -906,8 +902,8 @@ export default function FeedPage() {
     void _score;
     void _payload;
     excludedRatedIdsRef.current.add(String(movieId));
-    setPersonalizedMovies((current) => sanitizePersonalizedMovies(current, excludedRatedIdsRef.current));
-  }, []);
+    setPersonalizedMovies((current) => sanitizePersonalizedMovies(current, excludedRatedIdsRef.current, !isGuest));
+  }, [isGuest]);
 
   const handleToggleMyList = useCallback(async (movieId: Movie["id"], nextValue: boolean) => {
     const movieIdKey = String(movieId);
@@ -940,12 +936,16 @@ export default function FeedPage() {
   }, []);
 
   const visiblePersonalizedMovies = useMemo(
-    () => sanitizePersonalizedMovies(filterBySelectedGenres(personalizedMovies, selectedGenres), excludedRatedIdsRef.current),
-    [personalizedMovies, selectedGenres],
+    () => sanitizePersonalizedMovies(filterBySelectedGenres(personalizedMovies, selectedGenres, movieMatchesSelectedGenres), excludedRatedIdsRef.current, !isGuest),
+    [isGuest, personalizedMovies, selectedGenres],
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isGuest) {
+      setListedMovieIds(new Set());
+      return;
+    }
     const cached = window.localStorage.getItem(MY_LIST_IDS_STORAGE_KEY);
     if (!cached) return;
     try {
@@ -956,9 +956,10 @@ export default function FeedPage() {
     } catch {
       window.localStorage.removeItem(MY_LIST_IDS_STORAGE_KEY);
     }
-  }, []);
+  }, [isGuest]);
 
   useEffect(() => {
+    if (isGuest) return;
     const onMyListChanged = () => {
       void syncMyListIds();
     };
@@ -975,7 +976,7 @@ export default function FeedPage() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", onMyListChanged);
     };
-  }, [syncMyListIds]);
+  }, [isGuest, syncMyListIds]);
 
   useEffect(
     () => () => {
@@ -1230,6 +1231,8 @@ export default function FeedPage() {
           </div>
           {isLoadingPersonalized ? (
             <p className="pl-3 text-zinc-400 md:pl-6">Cargando...</p>
+          ) : personalizedError ? (
+            <p className="pl-3 text-red-400 md:pl-6">{personalizedError}</p>
           ) : visiblePersonalizedMovies.length === 0 ? (
             <p className="pl-3 text-zinc-400 md:pl-6">No hay películas personalizadas disponibles.</p>
           ) : (
