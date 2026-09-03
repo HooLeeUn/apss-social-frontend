@@ -231,7 +231,7 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 export default function FeedPage() {
   const router = useRouter();
   const { showGuestGate } = useGuestGate();
-  const { hydrated: authHydrated, viewportHydrated, isGuestExperience: isDesktopGuest } = useDesktopGuest();
+  const { hydrated: authHydrated, viewportHydrated, isGuest: isDesktopGuest } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);

@@ -23,7 +23,7 @@ test("the existing guest session supports phones without classifying tablets as 
 });
 
 test("mobile feed reuses guest controls and write gates", () => {
-  assert.match(feed, /isGuestExperience: isDesktopGuest/);
+  assert.match(feed, /isGuest: isDesktopGuest/);
   assert.match(feed, /feed-mobile-only[\s\S]*?isDesktopGuest \? <Link href="\/signup"/);
   assert.match(feed, /guestActions=\{isDesktopGuest\}/);
   assert.match(feed, /ratingReadOnly=\{isDesktopGuest\}/);
