@@ -17,17 +17,19 @@ interface PosterImageProps {
 export default function PosterImage({ posterSrc, title, branding = null, className, placeholderClassName, loading = "lazy", decoding = "async" }: PosterImageProps) {
   const realPosterSrc = posterSrc?.trim() || null;
   const brandingPlaceholderSrc = resolvePosterPlaceholderUrl(branding);
-  const fallbackPlaceholderSrc = "/brand/qnext-poster-placeholder.png";
   const sourceKey = `${realPosterSrc ?? ""}|${brandingPlaceholderSrc ?? ""}`;
   const sources = useMemo(() => {
-    const orderedSources = [realPosterSrc, brandingPlaceholderSrc, fallbackPlaceholderSrc].filter((source): source is string => Boolean(source));
+    const orderedSources = [realPosterSrc, brandingPlaceholderSrc].filter((source): source is string => Boolean(source));
     return Array.from(new Set(orderedSources));
   }, [brandingPlaceholderSrc, realPosterSrc]);
   const [failedSourceState, setFailedSourceState] = useState({ key: sourceKey, index: 0 });
   const sourceIndex = failedSourceState.key === sourceKey ? failedSourceState.index : 0;
-  const currentSrc = sources[Math.min(sourceIndex, sources.length - 1)] || fallbackPlaceholderSrc;
+  const currentSrc = sources[sourceIndex] || null;
   const isRealPoster = Boolean(realPosterSrc && currentSrc === realPosterSrc);
-  const isLocalFallback = currentSrc === fallbackPlaceholderSrc;
+
+  if (!currentSrc) {
+    return <span role="img" aria-label={`Poster no disponible para ${title}`} className={`${placeholderClassName} block`} />;
+  }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -38,10 +40,9 @@ export default function PosterImage({ posterSrc, title, branding = null, classNa
       loading={loading}
       decoding={decoding}
       onError={() => {
-        if (isLocalFallback) return;
         setFailedSourceState((currentState) => {
           const currentIndex = currentState.key === sourceKey ? currentState.index : 0;
-          return { key: sourceKey, index: Math.min(currentIndex + 1, sources.length - 1) };
+          return { key: sourceKey, index: currentIndex + 1 };
         });
       }}
     />

@@ -87,8 +87,8 @@ function getCountryAvailabilityWarning(country: Country, locale: Locale): string
   const countryName = getCountryName(country, locale);
 
   return locale === "en"
-    ? `Availability based on selected country: ${countryName}.\nThis availability corresponds to the country selected in QNext. Actual availability may vary depending on your location, account, or platform region.`
-    : `Disponibilidad según país seleccionado: ${countryName}.\nEsta disponibilidad corresponde al país seleccionado en QNext. La disponibilidad real puede variar según tu ubicación, cuenta o región de la plataforma.`;
+    ? `Availability based on selected country: ${countryName}.\nThis availability corresponds to the country selected in ReCCool. Actual availability may vary depending on your location, account, or platform region.`
+    : `Disponibilidad según país seleccionado: ${countryName}.\nEsta disponibilidad corresponde al país seleccionado en ReCCool. La disponibilidad real puede variar según tu ubicación, cuenta o región de la plataforma.`;
 }
 
 function getTooltipPosition(target: HTMLElement): TooltipPosition {

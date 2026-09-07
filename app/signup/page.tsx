@@ -284,7 +284,7 @@ export default function SignupPage() {
         footerHref="/login"
         brandingSlot="signup_logo_url"
         headerAction={<AuthCountrySelector />}
-        logoAlt="QNext"
+        logoAlt="ReCCool"
         emphasizeLogo
       >
         <div className="space-y-5 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-5 text-sm leading-6 text-emerald-50 shadow-[0_14px_36px_rgba(16,185,129,0.08)]">
@@ -315,7 +315,7 @@ export default function SignupPage() {
         footerHref="/login"
         brandingSlot="signup_logo_url"
         headerAction={<AuthCountrySelector />}
-        logoAlt="QNext"
+        logoAlt="ReCCool"
         emphasizeLogo
       >
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
