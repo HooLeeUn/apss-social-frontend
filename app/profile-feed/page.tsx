@@ -1062,6 +1062,7 @@ function ProfileFeedContent() {
                 <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start xl:contents">
                   <MyActivityColumn
                     key={`my-activity-${initialActivityTab}`}
+                    branding={branding}
                     isOwnProfile
                     initialActiveTab={initialActivityTab}
                     hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}

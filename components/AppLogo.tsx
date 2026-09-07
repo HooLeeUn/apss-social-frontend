@@ -16,7 +16,7 @@ interface AppLogoProps {
 
 export default function AppLogo({ branding, slot, alt, className, imageClassName, textClassName, eager = false, fallbackText }: AppLogoProps) {
   const logoUrl = resolveBrandingLogoUrl(branding, slot);
-  const appName = fallbackText || branding?.app_name || "QNext";
+  const appName = fallbackText || branding?.app_name || "ReCCool";
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
 
 

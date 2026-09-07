@@ -95,7 +95,8 @@ test("expanded viewer opens the selected carousel index with shared localized me
   assert.match(videoCarousel, /visibleCards\.map\(\(\{ item, title, timestamp \}, index\)/);
   assert.match(videoCarousel, /openExpandedViewer\(index\)/);
   assert.match(videoCarousel, /const \{ item, title \} = cards\[expandedIndex\]/);
-  assert.match(videoCarousel, /item\.movie\.image \|\| "\/brand\/qnext-poster-placeholder\.png"/);
+  assert.match(videoCarousel, /posterSrc=\{item\.movie\.image\}/);
+  assert.doesNotMatch(videoCarousel, /qnext-poster-placeholder/);
   assert.match(videoCarousel, /resolveMovieTitles\(locale, item\.movie\.title_spanish, item\.movie\.title_english\)/);
   assert.match(videoCarousel, /data-visited-profile-expanded-viewer/);
   assert.doesNotMatch(videoCarousel.slice(videoCarousel.indexOf("data-visited-profile-expanded-viewer")), /actor\?\.username|video_owner|username/);
@@ -129,7 +130,7 @@ test("each card exposes only the enriched top expand action and suppresses nativ
 });
 
 test("expanded movie metadata is the only header link and targets the canonical movie id", () => {
-  assert.match(videoCarousel, /<Link href=\{`\/movies\/\$\{encodeURIComponent\(String\(item\.movie\.id\)\)\}`\}[\s\S]*<img[\s\S]*\{title\}[\s\S]*<\/Link>/);
+  assert.match(videoCarousel, /<Link href=\{`\/movies\/\$\{encodeURIComponent\(String\(item\.movie\.id\)\)\}`\}[\s\S]*<PosterImage[\s\S]*title=\{title\}[\s\S]*<\/Link>/);
   const expandedHeader = videoCarousel.slice(videoCarousel.indexOf("<header className=\"relative z-10"), videoCarousel.indexOf("</header>", videoCarousel.indexOf("<header className=\"relative z-10")));
   assert.equal((expandedHeader.match(/<Link /g) ?? []).length, 1);
 });

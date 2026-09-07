@@ -10,6 +10,8 @@ import { formatProfileFeedRelativeDate, resolveMovieTitles } from "../../lib/i18
 import type { ProfileFeedActivityMovie, VideoReactionActivityPayload } from "../../lib/profile-feed/types";
 import { useDesktopGuest } from "../../hooks/useDesktopGuest";
 import { useGuestGate } from "../GuestGateProvider";
+import PosterImage from "../PosterImage";
+import type { AppBranding } from "../../lib/branding";
 
 interface VideoReactionActivity {
   id: string | number;
@@ -87,7 +89,7 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
   </>;
 }
 
-export default function VisitedProfileVideoReactions({ username, isActive, guestGateId: providedGuestGateId }: { username: string; isActive: boolean; guestGateId?: string }) {
+export default function VisitedProfileVideoReactions({ username, isActive, guestGateId: providedGuestGateId, branding = null }: { username: string; isActive: boolean; guestGateId?: string; branding?: AppBranding | null }) {
   const { isGuestExperience: isDesktopGuest, isMobile } = useDesktopGuest();
   const { locale, t } = useI18n();
   const [items, setItems] = useState<VideoReactionActivity[]>([]);
@@ -517,8 +519,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
           <article key={item.id} className="mx-auto w-full max-w-[22rem] space-y-3 xl:mx-0 xl:w-auto xl:max-w-none xl:shrink-0 xl:snap-start">
             <div className="flex min-h-14 items-center gap-3">
               <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.movie.image || "/brand/qnext-poster-placeholder.png"} alt={title} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                <PosterImage posterSrc={item.movie.image} title={title} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-1" loading="lazy" decoding="async" />
               </Link>
               <div className="min-w-0 flex-1">
                 <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="line-clamp-2 text-sm font-semibold text-zinc-100 hover:text-blue-200">{title}</Link>
@@ -607,8 +608,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
               <header className="relative z-10 flex min-h-14 w-full items-center gap-2 rounded-xl bg-zinc-950/90 p-2 xl:absolute xl:inset-x-0 xl:top-0 xl:min-h-0 xl:rounded-none xl:bg-transparent xl:p-3 xl:[text-shadow:0_1px_4px_rgb(0_0_0/0.95)]">
                 <div className="flex shrink-0 gap-1 xl:flex-col">{expandedReactions}</div>
                 <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300 xl:max-w-md xl:gap-2" onClick={() => { expandedVideoRef.current?.pause(); if (document.fullscreenElement) void document.exitFullscreen().catch(() => {}); }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={item.movie.image || "/brand/qnext-poster-placeholder.png"} alt="" className="h-12 w-9 shrink-0 rounded-md object-cover xl:h-11 xl:w-8" />
+                  <PosterImage posterSrc={item.movie.image} title={title} branding={branding} className="h-12 w-9 shrink-0 rounded-md object-cover xl:h-11 xl:w-8" placeholderClassName="h-12 w-9 shrink-0 rounded-md bg-zinc-900 object-contain p-1 xl:h-11 xl:w-8" />
                   <span className="line-clamp-2 min-w-0 text-xs font-semibold sm:text-sm xl:text-base">{title}</span>
                 </Link>
                 <button type="button" aria-label={t("movieDetailVideoCloseExpanded")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-2xl hover:bg-white/20" onClick={closeExpandedViewer}>×</button>

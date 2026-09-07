@@ -975,6 +975,7 @@ function MyActivitySkeleton() {
 }
 
 interface MyActivityColumnProps {
+  branding?: import("../../lib/branding").AppBranding | null;
   scope?: "me" | `user:${string}`;
   isOwnProfile?: boolean;
   initialActiveTab?: "activity" | "messages" | "rated";
@@ -987,6 +988,7 @@ interface MyActivityColumnProps {
 }
 
 export default function MyActivityColumn({
+  branding = null,
   scope,
   isOwnProfile = true,
   initialActiveTab = "activity",
@@ -1672,7 +1674,7 @@ export default function MyActivityColumn({
 
             {!isOwnProfile && hasOpenedVisitedVideoReactions ? (
               <div className={visitedActivityTab === "video_reactions" ? "block" : "hidden"}>
-                <VisitedProfileVideoReactions key={normalizedViewedUsername} username={normalizedViewedUsername} isActive={effectiveActiveTab === "activity" && visitedActivityTab === "video_reactions"} guestGateId={guestHistoryGateId} />
+                <VisitedProfileVideoReactions key={normalizedViewedUsername} username={normalizedViewedUsername} isActive={effectiveActiveTab === "activity" && visitedActivityTab === "video_reactions"} guestGateId={guestHistoryGateId} branding={branding} />
               </div>
             ) : null}
 

@@ -32,7 +32,7 @@ export default function EmptyStatePanel({
       <p className="max-w-xl break-words text-sm leading-relaxed text-zinc-400 sm:text-[15px]">{description}</p>
       {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt="QNext" className="mt-1 h-auto max-h-12 w-auto max-w-[8rem] object-contain sm:max-w-[10rem]" />
+        <img src={logoUrl} alt="ReCCool" className="mt-1 h-auto max-h-12 w-auto max-w-[8rem] object-contain sm:max-w-[10rem]" />
       ) : null}
     </div>
   );
