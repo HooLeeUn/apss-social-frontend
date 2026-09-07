@@ -216,7 +216,7 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 export default function FeedPage() {
   const router = useRouter();
   const { showGuestGate } = useGuestGate();
-  const { hydrated: authHydrated, viewportHydrated, isGuest, isGuestExperience: isDesktopGuest, isDesktop } = useDesktopGuest();
+  const { hydrated: authHydrated, viewportHydrated, isGuest, isGuestExperience: isDesktopGuest } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
@@ -630,17 +630,6 @@ export default function FeedPage() {
       return [...current, genre];
     });
   };
-
-  const clearDesktopGenreSelection = useCallback(() => {
-    personalizedAbortControllerRef.current?.abort();
-    personalizedLoadMoreAbortControllerRef.current?.abort();
-    personalizedRequestIdRef.current += 1;
-    personalizedQueryKeyRef.current = "";
-
-    flushSync(() => {
-      setSelectedGenres([]);
-    });
-  }, []);
 
   const shouldDisableGenreChip = useCallback(
     (genre: string) => selectedGenres.length >= MAX_SELECTED_GENRES && !selectedGenres.includes(genre),
@@ -1065,7 +1054,7 @@ export default function FeedPage() {
       <div className="feed-shell mx-auto w-full max-w-[1400px] space-y-14 px-4 py-8 md:px-8">
         <div className="feed-header sticky top-0 z-40 -mx-2 space-y-3 rounded-3xl border border-white/10 bg-black/80 px-2 py-3 backdrop-blur-md md:mx-0 xl:space-y-3 xl:px-0 relative">
           <div className="flex items-center gap-3 xl:block">
-            <div className="feed-header__brand relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 xl:absolute xl:left-0 xl:top-2 xl:h-20 xl:w-[280px] xl:justify-center xl:pl-8">
+            <div className="feed-header__brand relative z-30 flex min-w-0 flex-none items-start justify-start overflow-visible bg-transparent pl-1 xl:pointer-events-none xl:absolute xl:left-0 xl:top-2 xl:h-20 xl:w-[280px] xl:justify-center xl:pl-8">
               <MobileFeedDefaultLogo branding={branding} onClick={handleMobileLogoClick} />
               <AppLogo
                 branding={branding}
@@ -1218,7 +1207,7 @@ export default function FeedPage() {
             genres={FEED_GENRE_OPTIONS}
             selectedGenres={selectedGenres}
             onToggleGenre={toggleGenreSelection}
-            onClearSelection={isDesktop ? clearDesktopGenreSelection : () => setSelectedGenres([])}
+            onClearSelection={() => setSelectedGenres([])}
             showAllChip={selectedGenres.length > 0}
             className="feed-header__genres w-full justify-start overflow-hidden xl:justify-center"
             chipsContainerClassName="w-full flex-none justify-start overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:flex-initial xl:justify-center xl:overflow-visible"

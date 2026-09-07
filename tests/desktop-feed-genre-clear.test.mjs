@@ -3,16 +3,18 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const feed = await readFile(new URL("../app/feed/page.tsx", import.meta.url), "utf8");
+const genreChips = await readFile(new URL("../components/GenreChips.tsx", import.meta.url), "utf8");
 
-test("desktop clears every selected genre atomically and invalidates filtered requests", () => {
-  assert.match(
-    feed,
-    /const clearDesktopGenreSelection = useCallback\(\(\) => \{[\s\S]*?personalizedAbortControllerRef\.current\?\.abort\(\);[\s\S]*?personalizedLoadMoreAbortControllerRef\.current\?\.abort\(\);[\s\S]*?personalizedRequestIdRef\.current \+= 1;[\s\S]*?personalizedQueryKeyRef\.current = "";[\s\S]*?flushSync\(\(\) => \{\s*setSelectedGenres\(\[\]\);\s*\}\);[\s\S]*?\}, \[\]\);/,
-  );
+test("mobile and desktop share the same clear callback and click-driven chip instance", () => {
+  assert.equal(feed.match(/<GenreChips/g)?.length, 1);
+  assert.match(feed, /onClearSelection=\{\(\) => setSelectedGenres\(\[\]\)\}/);
+  assert.doesNotMatch(feed, /clearDesktopGenreSelection/);
+  assert.match(genreChips, /onClick=\{\(\) => \{\s*if \(chip\.isAll\) \{\s*onClearSelection\?\.\(\);/);
+  assert.doesNotMatch(genreChips, /onTouchStart|onPointerDown|onPointerUp/);
 });
 
-test("desktop owns the atomic clear while the existing mobile clear remains unchanged", () => {
-  assert.match(feed, /onClearSelection=\{isDesktop \? clearDesktopGenreSelection : \(\) => setSelectedGenres\(\[\]\)\}/);
+test("the desktop brand layer cannot intercept clicks on the genre row beneath it", () => {
+  assert.match(feed, /feed-header__brand[^\n]+xl:pointer-events-none/);
 });
 
 test("genre selection still uses a functional update and retains the limit of three", () => {
