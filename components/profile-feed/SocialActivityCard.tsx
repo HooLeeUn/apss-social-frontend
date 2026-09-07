@@ -3,6 +3,7 @@ import { SocialActivityItem } from "../../lib/profile-feed/types";
 import { formatAverageRating, formatFollowingRating, formatMyRating } from "../../lib/rating-format";
 import { useI18n } from "../../hooks/useI18n";
 import { formatProfileFeedRatingsCount, formatProfileFeedRelativeDate, translateProfileFeedMovieType } from "../../lib/i18n";
+import { RatingPersonRaisingHandIcon } from "../RatingIcons";
 
 function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
@@ -154,7 +155,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
     <dl className="flex flex-col items-end justify-center gap-2 text-xs">
       <div className="flex items-center gap-1 font-medium text-zinc-200"><dt className="sr-only">{t("profileFeedGeneral")}</dt><dd className="flex items-center gap-1"><span aria-hidden="true">⭐</span><span>{formatAverageRating(item.generalRating)}</span></dd></div>
       <div className="flex items-center gap-1 font-medium text-zinc-200"><dt className="sr-only">{t("profileFeedFollowing")}</dt><dd className="flex items-center gap-1"><span aria-hidden="true">👥</span><span>{formatFollowingRating(item.followingRating)}</span></dd></div>
-      <div className="flex items-center gap-1 font-medium text-zinc-100"><dt className="sr-only">{t("profileFeedMyRatingUpper")}</dt><dd className="flex items-center gap-1"><span aria-hidden="true">🙋</span><span>{formatMyRating(item.myRating)}</span></dd></div>
+      <div className="flex items-center gap-1 font-medium text-zinc-100"><dt className="sr-only">{t("profileFeedMyRatingUpper")}</dt><dd className="flex items-center gap-1"><RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" /><span>{formatMyRating(item.myRating)}</span></dd></div>
     </dl>
   );
 
@@ -189,7 +190,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-[11px] uppercase tracking-wide whitespace-nowrap text-zinc-500">{t("profileFeedMyRatingUpper")}</dt>
-                <dd className="flex items-center gap-1 font-medium text-zinc-100"><span aria-hidden="true">🙋</span><span>{formatMyRating(item.myRating)}</span></dd>
+                <dd className="flex items-center gap-1 font-medium text-zinc-100"><RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" /><span>{formatMyRating(item.myRating)}</span></dd>
               </div>
             </dl>
           </div>

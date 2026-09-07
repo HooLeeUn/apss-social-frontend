@@ -12,6 +12,7 @@ import { resolveMovieTitles, translateProfileFeedMovieType } from "../../lib/i18
 import SocialActivityCard from "./SocialActivityCard";
 import EmptyStatePanel from "./EmptyStatePanel";
 import ProfileRecommendationsLabel from "./ProfileRecommendationsLabel";
+import { RatingPersonRaisingHandIcon } from "../RatingIcons";
 
 type InteractionsTab = SocialTab | "recommendations";
 
@@ -145,7 +146,7 @@ function FollowedRecommendationCard({ recommendation }: { recommendation: Follow
       <div className="flex items-center justify-between gap-3">
         <dt className="whitespace-nowrap text-[11px] uppercase tracking-wide text-zinc-500">{t("profileFeedMyRatingUpper")}</dt>
         <dd className="flex items-center gap-1 font-medium text-zinc-100">
-          <span aria-hidden="true">🙋</span>
+          <RatingPersonRaisingHandIcon className="h-4 w-4 shrink-0 text-violet-400" />
           <span>{formatMyRating(recommendation.myRating)}</span>
         </dd>
       </div>
