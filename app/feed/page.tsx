@@ -216,7 +216,7 @@ function FeedDebugSearchParamsBridge({ onChange }: { onChange: (enabled: boolean
 export default function FeedPage() {
   const router = useRouter();
   const { showGuestGate } = useGuestGate();
-  const { hydrated: authHydrated, viewportHydrated, isGuest, isGuestExperience: isDesktopGuest } = useDesktopGuest();
+  const { hydrated: authHydrated, viewportHydrated, isGuest, isGuestExperience: isDesktopGuest, isDesktop } = useDesktopGuest();
   const branding = useAppBranding();
   const [debugNotificationTarget, setDebugNotificationTarget] = useState(false);
   const [notificationVideo, setNotificationVideo] = useState<{ video: VideoReactionComment; movie: Movie; reaction: VideoReactionKind } | null>(null);
@@ -630,6 +630,17 @@ export default function FeedPage() {
       return [...current, genre];
     });
   };
+
+  const clearDesktopGenreSelection = useCallback(() => {
+    personalizedAbortControllerRef.current?.abort();
+    personalizedLoadMoreAbortControllerRef.current?.abort();
+    personalizedRequestIdRef.current += 1;
+    personalizedQueryKeyRef.current = "";
+
+    flushSync(() => {
+      setSelectedGenres([]);
+    });
+  }, []);
 
   const shouldDisableGenreChip = useCallback(
     (genre: string) => selectedGenres.length >= MAX_SELECTED_GENRES && !selectedGenres.includes(genre),
@@ -1207,7 +1218,7 @@ export default function FeedPage() {
             genres={FEED_GENRE_OPTIONS}
             selectedGenres={selectedGenres}
             onToggleGenre={toggleGenreSelection}
-            onClearSelection={() => setSelectedGenres([])}
+            onClearSelection={isDesktop ? clearDesktopGenreSelection : () => setSelectedGenres([])}
             showAllChip={selectedGenres.length > 0}
             className="feed-header__genres w-full justify-start overflow-hidden xl:justify-center"
             chipsContainerClassName="w-full flex-none justify-start overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:flex-initial xl:justify-center xl:overflow-visible"
