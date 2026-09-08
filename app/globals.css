@@ -183,6 +183,51 @@ textarea,
   scrollbar-color: rgba(161, 161, 170, 0.45) transparent;
 }
 
+/* In the normal mobile Video Reaction view, the detail information and tabs
+   are viewport chrome; only the reaction history below them owns vertical
+   scrolling. Keeping this branch scoped away from Comments, companion mode,
+   recording overlays, and desktop also prevents scroll chaining to the page. */
+@media (max-width: 1279px) {
+  body:not(.detail-trailer-active) [data-mobile-video-reaction-layout="true"] {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:not(.detail-trailer-active) [data-mobile-video-reaction-layout="true"] > [data-detail-movie-content] {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  body:not(.detail-trailer-active) [data-mobile-video-reaction-layout="true"] [data-mobile-detail-sticky="true"] {
+    position: static;
+    flex: 0 0 auto;
+  }
+
+  body:not(.detail-trailer-active) [data-mobile-video-reaction-layout="true"] [data-video-reaction-section],
+  body:not(.detail-trailer-active) [data-mobile-video-reaction-layout="true"] [data-mobile-video-reaction]:not([data-recording-overlay="true"]) {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  body:not(.detail-trailer-active) [data-mobile-video-reaction-layout="true"] [data-mobile-video-reaction-scroll-container="true"] {
+    height: 100%;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 .activity-scrollbar::-webkit-scrollbar {
   width: 0.375rem;
 }

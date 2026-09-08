@@ -3075,7 +3075,7 @@ function MovieDetailPageContent() {
         videoCommentStartRef.current?.querySelector<HTMLElement>("[data-mobile-video-reaction-scroll-container]")?.scrollTo({ top: 0, behavior: "smooth" });
       }
       if (commentInputMode === mode) {
-        scrollCommentStartIntoView(mode);
+        if (mode !== "video-comment") scrollCommentStartIntoView(mode);
         return;
       }
 
@@ -3087,6 +3087,14 @@ function MovieDetailPageContent() {
 
   useEffect(() => {
     if (pendingCommentInputScrollRef.current !== commentInputMode) return;
+
+    // Mobile Video Reactions own the remaining viewport. Scrolling the section
+    // into the document would move the fixed detail block and split the gesture
+    // between the history scroller and the page.
+    if (commentInputMode === "video-comment" && !window.matchMedia("(min-width: 1280px)").matches) {
+      pendingCommentInputScrollRef.current = null;
+      return;
+    }
 
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
@@ -4453,7 +4461,7 @@ function MovieDetailPageContent() {
   };
 
   return (
-    <main className="detail-movie-tablet-framing min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
+    <main data-mobile-video-reaction-layout={commentInputMode === "video-comment" ? "true" : "false"} className="detail-movie-tablet-framing min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
       {debugNotificationTarget ? (
         <aside data-notification-target-debug className="fixed bottom-2 right-2 z-[2000] max-h-[42dvh] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-lg border border-[#86ADE0]/60 bg-black/90 p-2 font-mono text-[10px] leading-4 text-[#c7dcf6] shadow-2xl pointer-events-none" aria-live="polite">
           <strong className="block text-xs text-white">Notification target debug</strong>
@@ -4483,7 +4491,7 @@ function MovieDetailPageContent() {
         {trailerCompanionView === "reaction" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--reaction hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailVideoCommentTitle")}</h2> : null}
         {trailerCompanionView === "directed-comments" ? <h2 className="trailer-companion-desktop-title trailer-companion-desktop-title--directed hidden text-xl font-bold text-[#86ADE0]">{t("movieDetailDirectedComments")}</h2> : null}
       </div>
-      <div className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 xl:px-8 xl:py-8">
+      <div data-detail-movie-content className="mx-auto w-full max-w-[1000px] space-y-6 px-4 py-3 xl:px-8 xl:py-8">
         <div ref={stickyHeaderRef} data-mobile-detail-sticky="true" className="sticky top-0 z-40 -mx-4 space-y-6 bg-black px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] xl:static xl:z-auto xl:mx-0 xl:bg-transparent xl:p-0">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold text-zinc-100">{detailTitle}</h1>
