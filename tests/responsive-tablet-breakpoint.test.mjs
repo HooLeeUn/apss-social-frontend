@@ -17,6 +17,8 @@ test("tablet widths stay on the mobile branches until the xl desktop breakpoint"
   assert.match(detail, /data-desktop-comment-tabs[^\n]+hidden[^\n]+xl:flex/);
   assert.match(feed, /feed-mobile-only[^\n]+xl:hidden/);
   assert.match(feed, /feed-desktop-only[^\n]+hidden[^\n]+xl:/);
+  assert.match(feed, /feed-shell[^\n]+pb-8 pt-0[^\n]+xl:py-8/);
+  assert.match(feed, /feed-header sticky top-0/);
   assert.match(tours, /const mobile =[^\n]+\(max-width: 1279px\)/);
 });
 
