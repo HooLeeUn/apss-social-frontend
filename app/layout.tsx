@@ -5,6 +5,7 @@ import DisableNativeContextMenu from "@/components/DisableNativeContextMenu";
 import OnboardingProvider from "@/components/onboarding/OnboardingProvider";
 import GuestRouteGuard from "@/components/GuestRouteGuard";
 import GuestGateProvider from "@/components/GuestGateProvider";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -50,6 +51,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-black text-zinc-100 antialiased`}
       >
+        <ServiceWorkerRegistration />
         <IOSPinchZoomGuard />
         <DisableNativeContextMenu />
         <GuestRouteGuard />
