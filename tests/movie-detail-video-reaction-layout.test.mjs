@@ -20,14 +20,18 @@ test("REC keeps its button handler and uses the established blue-violet text gra
   assert.match(detail, /onClick=\{\(\) => setRecorderState[\s\S]*bg-gradient-to-r from-\[#168BFF\] via-\[#6558F5\] to-\[#A63DFF\][\s\S]*>Rec<\/span>/);
 });
 
-test("mobile Video Reactions freeze Detail Movie and give the remaining viewport to one scroller", () => {
-  assert.match(detail, /data-mobile-video-reaction-layout=\{commentInputMode === "video-comment"/);
+test("mobile detail keeps the existing upper block sticky in both tabs and uses one page scroller", () => {
+  assert.match(detail, /data-mobile-detail-layout="true"/);
   assert.match(detail, /data-detail-movie-content/);
-  assert.match(css, /@media \(max-width: 1279px\)[\s\S]*data-mobile-video-reaction-layout="true"[\s\S]*position: fixed;[\s\S]*height: 100dvh;[\s\S]*overflow: hidden/);
-  assert.match(css, /data-mobile-detail-sticky="true"\][\s\S]*position: static;[\s\S]*data-mobile-video-reaction-scroll-container="true"\][\s\S]*height: 100%;[\s\S]*max-height: none;[\s\S]*overscroll-behavior-y: contain;[\s\S]*touch-action: pan-y/);
+  assert.match(css, /@media \(max-width: 1279px\)[\s\S]*data-mobile-detail-layout="true"[\s\S]*height: 100dvh;[\s\S]*overflow: hidden/);
+  assert.match(css, /data-detail-movie-content\][\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior-y: contain;[\s\S]*touch-action: pan-y/);
+  assert.match(css, /data-mobile-detail-sticky="true"\][\s\S]*position: sticky;[\s\S]*top: 0/);
+  assert.doesNotMatch(css, /data-mobile-detail-layout="true"\][^{]*\{[^}]*position: fixed/);
 });
 
-test("mobile Video Reactions do not hand their tab gesture to document scrolling", () => {
-  assert.match(detail, /if \(mode !== "video-comment"\) scrollCommentStartIntoView\(mode\)/);
-  assert.match(detail, /commentInputMode === "video-comment" && !window\.matchMedia\("\(min-width: 1280px\)"\)\.matches[\s\S]*pendingCommentInputScrollRef\.current = null;[\s\S]*return;/);
+test("both mobile tabs scroll only the detail content without a nested reaction scroller", () => {
+  assert.match(detail, /target\.closest<HTMLElement>\("\[data-detail-movie-content\]"\)/);
+  assert.match(detail, /if \(mobileDetailScroller\) return mobileDetailScroller/);
+  assert.match(detail, /if \(commentInputMode === mode\) \{\s*scrollCommentStartIntoView\(mode\)/);
+  assert.match(css, /data-mobile-video-reaction-scroll-container="true"\][\s\S]*max-height: none;[\s\S]*overflow-y: visible/);
 });

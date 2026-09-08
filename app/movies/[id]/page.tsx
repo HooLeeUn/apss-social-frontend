@@ -3034,7 +3034,11 @@ function MovieDetailPageContent() {
       if (!target || typeof window === "undefined") return;
 
       const stickyOffset = getMobileStickyOffset();
+      const mobileDetailScroller = window.matchMedia("(max-width: 1279px)").matches
+        ? target.closest<HTMLElement>("[data-detail-movie-content]")
+        : null;
       const scrollableParent = (() => {
+        if (mobileDetailScroller) return mobileDetailScroller;
         let parent = target.parentElement;
         while (parent && parent !== document.body) {
           const style = window.getComputedStyle(parent);
@@ -3075,7 +3079,7 @@ function MovieDetailPageContent() {
         videoCommentStartRef.current?.querySelector<HTMLElement>("[data-mobile-video-reaction-scroll-container]")?.scrollTo({ top: 0, behavior: "smooth" });
       }
       if (commentInputMode === mode) {
-        if (mode !== "video-comment") scrollCommentStartIntoView(mode);
+        scrollCommentStartIntoView(mode);
         return;
       }
 
@@ -3087,14 +3091,6 @@ function MovieDetailPageContent() {
 
   useEffect(() => {
     if (pendingCommentInputScrollRef.current !== commentInputMode) return;
-
-    // Mobile Video Reactions own the remaining viewport. Scrolling the section
-    // into the document would move the fixed detail block and split the gesture
-    // between the history scroller and the page.
-    if (commentInputMode === "video-comment" && !window.matchMedia("(min-width: 1280px)").matches) {
-      pendingCommentInputScrollRef.current = null;
-      return;
-    }
 
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
@@ -4461,7 +4457,7 @@ function MovieDetailPageContent() {
   };
 
   return (
-    <main data-mobile-video-reaction-layout={commentInputMode === "video-comment" ? "true" : "false"} className="detail-movie-tablet-framing min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
+    <main data-mobile-detail-layout="true" className="detail-movie-tablet-framing min-h-screen bg-black" onTouchStart={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchStart(event); }} onTouchMove={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchMove(event); }} onTouchEnd={(event) => { if (document.body.classList.contains("detail-trailer-active")) handleCompanionTouchEnd(event); }}>
       {debugNotificationTarget ? (
         <aside data-notification-target-debug className="fixed bottom-2 right-2 z-[2000] max-h-[42dvh] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto rounded-lg border border-[#86ADE0]/60 bg-black/90 p-2 font-mono text-[10px] leading-4 text-[#c7dcf6] shadow-2xl pointer-events-none" aria-live="polite">
           <strong className="block text-xs text-white">Notification target debug</strong>
