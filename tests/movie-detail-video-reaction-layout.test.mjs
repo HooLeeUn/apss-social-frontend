@@ -35,3 +35,20 @@ test("both mobile tabs scroll only the detail content without a nested reaction 
   assert.match(detail, /if \(commentInputMode === mode\) \{\s*scrollCommentStartIntoView\(mode\)/);
   assert.match(css, /data-mobile-video-reaction-scroll-container="true"\][\s\S]*max-height: none;[\s\S]*overflow-y: visible/);
 });
+
+test("inactive-trailer guest video reactions gate the shared mobile detail scroller", () => {
+  assert.match(detail, /if \(!desktopGuest \|\| !active \|\| trailerCompanionOpen \|\| !mobileViewport\) return/);
+  assert.match(detail, /history\?\.closest<HTMLElement>\("\[data-detail-movie-content\]"\)/);
+  assert.match(detail, /detailScroller\.dataset\.guestVideoReactionScrollLocked = "true"/);
+  assert.match(detail, /detailScroller\.addEventListener\("touchmove", handleTouchMove, \{ passive: false \}\)/);
+  assert.match(detail, /detailScroller\.addEventListener\("wheel", handleWheel, \{ passive: false \}\)/);
+  assert.match(detail, /detailScroller\.addEventListener\("scroll", clampToAllowedContent, \{ passive: true \}\)/);
+  assert.match(detail, /showGuestGate\(guestVideoGateId, "more"\)/);
+});
+
+test("the inactive-trailer guest lock preserves authenticated, comments, trailer, and sticky behavior", () => {
+  assert.match(detail, /if \(!desktopGuest \|\| !active \|\| trailerCompanionOpen \|\| !mobileViewport\) return/);
+  assert.match(detail, /delete detailScroller\.dataset\.guestVideoReactionScrollLocked/);
+  assert.doesNotMatch(css, /data-guest-video-reaction-scroll-locked[\s\S]*position:\s*fixed/);
+  assert.match(css, /data-mobile-detail-sticky="true"\][\s\S]*position: sticky/);
+});
