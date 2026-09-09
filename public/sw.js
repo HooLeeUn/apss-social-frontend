@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "reccool-static-";
-const STATIC_CACHE = `${CACHE_PREFIX}v3`;
+const STATIC_CACHE = `${CACHE_PREFIX}v4`;
 const SAFE_STATIC_PATHS = new Set([
   "/manifest.webmanifest",
   "/icons/pwa/icon-192.png",
