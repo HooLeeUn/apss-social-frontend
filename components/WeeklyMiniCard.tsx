@@ -49,6 +49,8 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const gateInstanceId = useId();
   const gateBaseId = `weekly-mini:${movie?.id ?? fallbackLabel}:${gateInstanceId}`;
   const ratingGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const listGateAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const recommendGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
   const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
@@ -108,8 +110,8 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   return (
     <article className="weekly-mini-card relative h-full min-w-0 pl-3 xl:pl-3">
       <div className="interaction-icons absolute left-11 bottom-[2.85rem] z-20 xl:z-10 xl:left-10 xl:bottom-auto xl:top-[59%]">
-        <span className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:list`, "list"); }} onClick={handleToggleMyList} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}><MyListIcon cardSize className={tagIconClassName} /></button><GuestContentGate gateId={`${gateBaseId}:list`} placement="below-end" /></span>
-        <span className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:recommend`, "recommend"); }} onClick={handleToggleMyRecommendations} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button><GuestContentGate gateId={`${gateBaseId}:recommend`} placement="below-end" /></span>
+        <span ref={listGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:list`, "list"); }} onClick={handleToggleMyList} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}><MyListIcon cardSize className={tagIconClassName} /></button><GuestContentGate gateId={`${gateBaseId}:list`} placement="below-end" mobilePortal anchorRef={listGateAnchorRef} /></span>
+        <span ref={recommendGateAnchorRef} className="relative inline-flex"><button type="button" onMouseEnter={() => { if (desktopGuest) showGuestGate(`${gateBaseId}:recommend`, "recommend"); }} onClick={handleToggleMyRecommendations} className={desktopGuest ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}><img src="/icons/Ticket.png" alt="" className={`interaction-icon interaction-icon--compact interaction-icon--mini interaction-icon--mini-lg ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} /></button><GuestContentGate gateId={`${gateBaseId}:recommend`} placement="below-end" mobilePortal anchorRef={recommendGateAnchorRef} /></span>
       </div>
       {topUserHref ? (
         <Link

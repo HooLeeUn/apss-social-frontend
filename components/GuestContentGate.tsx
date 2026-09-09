@@ -8,11 +8,22 @@ import { GuestGateVariant, useGuestGate } from "./GuestGateProvider";
 
 type Placement = "floating" | "below" | "below-end" | "inline-end" | "section-center" | "viewport-center";
 
-export default function GuestContentGate({ gateId, placement = "floating", className = "", portal = false, anchorRef }: { gateId: string; placement?: Placement; className?: string; portal?: boolean; anchorRef?: RefObject<HTMLElement | null> }) {
+export default function GuestContentGate({ gateId, placement = "floating", className = "", portal = false, mobilePortal = false, anchorRef }: { gateId: string; placement?: Placement; className?: string; portal?: boolean; mobilePortal?: boolean; anchorRef?: RefObject<HTMLElement | null> }) {
   const { t } = useI18n();
   const { activeGate, closeGuestGate, gateRef } = useGuestGate();
   const [portalPosition, setPortalPosition] = useState<{ left: number; top: number } | null>(null);
+  const [mobilePortalActive, setMobilePortalActive] = useState(false);
+  const usePortal = portal || mobilePortalActive;
   const open = activeGate?.id === gateId;
+
+  useEffect(() => {
+    if (!mobilePortal) return;
+    const mediaQuery = window.matchMedia("(max-width: 1279px)");
+    const update = () => setMobilePortalActive(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, [mobilePortal]);
 
   useEffect(() => {
     if (!open) return;
@@ -21,7 +32,7 @@ export default function GuestContentGate({ gateId, placement = "floating", class
   }, [closeGuestGate, open]);
 
   useLayoutEffect(() => {
-    if (!open || !portal || !anchorRef?.current) return;
+    if (!open || !usePortal || !anchorRef?.current) return;
     const update = () => {
       const rect = anchorRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -46,7 +57,7 @@ export default function GuestContentGate({ gateId, placement = "floating", class
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [anchorRef, open, placement, portal]);
+  }, [anchorRef, open, placement, usePortal]);
 
   if (!open) return null;
   const copyKey: Record<GuestGateVariant, "guestSeeMorePrefix" | "guestRatePrefix" | "guestListPrefix" | "guestRecommendPrefix" | "guestExpandPrefix" | "guestSignupPrefix" | "guestProfilePrefix" | "guestExploreProfilePrefix" | "guestProfileLoginPrefix" | "guestExploreProfileLoginPrefix" | "guestNotificationsPrefix" | "guestAvailabilityPrefix"> = { more: "guestSeeMorePrefix", rate: "guestRatePrefix", list: "guestListPrefix", recommend: "guestRecommendPrefix", expand: "guestExpandPrefix", signup: "guestSignupPrefix", profile: "guestProfilePrefix", "explore-profile": "guestExploreProfilePrefix", "profile-login": "guestProfileLoginPrefix", "explore-profile-login": "guestExploreProfileLoginPrefix", notifications: "guestNotificationsPrefix", availability: "guestAvailabilityPrefix" };
@@ -55,11 +66,11 @@ export default function GuestContentGate({ gateId, placement = "floating", class
   const recommendHighlightIndex = activeGate.variant === "recommend" ? prefix.indexOf("Rec") : -1;
   const position = placement === "below" ? "left-1/2 top-full mt-2 -translate-x-1/2" : placement === "below-end" ? "right-0 top-full mt-2" : placement === "inline-end" ? "right-0 top-1/2 -translate-y-1/2" : "bottom-3 left-1/2 -translate-x-1/2";
   const centered = placement === "section-center" || placement === "viewport-center";
-  const content = <div ref={gateRef} role="status" style={portal && portalPosition ? { left: portalPosition.left, top: portalPosition.top } : undefined} className={`${portal ? `fixed -translate-x-1/2 ${centered ? "-translate-y-1/2" : ""}` : `absolute ${position}`} z-[300] flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-zinc-300/80 bg-white/95 px-3 py-2 text-sm text-black shadow-[0_12px_35px_rgba(0,0,0,.28)] backdrop-blur ${className}`}>
+  const content = <div ref={gateRef} role="status" style={usePortal && portalPosition ? { left: portalPosition.left, top: portalPosition.top } : undefined} className={`${usePortal ? `fixed -translate-x-1/2 ${centered ? "-translate-y-1/2" : ""}` : `absolute ${position}`} z-[300] flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-zinc-300/80 bg-white/95 px-3 py-2 text-sm text-black shadow-[0_12px_35px_rgba(0,0,0,.28)] backdrop-blur ${className}`}>
     {prefix ? <span className="text-black">{recommendHighlightIndex >= 0 ? <>{prefix.slice(0, recommendHighlightIndex)}<span className="inline-block bg-gradient-to-r from-[#168BFF] via-[#6558F5] to-[#A63DFF] bg-clip-text text-[1.08em] font-bold leading-none text-transparent drop-shadow-[0_0_5px_rgba(99,88,245,.45)]">Rec</span>{prefix.slice(recommendHighlightIndex + 3)}</> : prefix}</span> : null}
     <Link href={loginGate ? "/login" : "/signup"} className="font-semibold text-black underline decoration-1 underline-offset-2">{t(loginGate ? "guestSignIn" : "guestSignUp")}</Link>
     <button type="button" aria-label={t("trailerClose")} onClick={closeGuestGate} className="ml-1 text-zinc-600 hover:text-black">×</button>
   </div>;
-  if (portal) return portalPosition ? createPortal(content, document.body) : null;
+  if (usePortal) return portalPosition ? createPortal(content, document.body) : null;
   return content;
 }
