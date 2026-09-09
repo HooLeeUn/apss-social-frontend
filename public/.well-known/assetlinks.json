@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.reccool.app",
+        "sha256_cert_fingerprints": ["C8:A5:26:DA:7C:6B:0C:61:5B:36:6E:04:23:54:10:8B:32:A0:0F:01:C7:04:6F:A8:84:CA:C2:3A:9A:10:46:91"]
+      }
+    }]
