@@ -1085,7 +1085,6 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const historyScrollRef = useRef<HTMLDivElement | null>(null);
   const mobileHistoryScrollRef = useRef<HTMLDivElement | null>(null);
   const videoGateAnchorRef = useRef<HTMLDivElement | null>(null);
-  const guestDetailScrollerTouchYRef = useRef<number | null>(null);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const [isHistoryUnderfilled, setIsHistoryUnderfilled] = useState(false);
@@ -1404,47 +1403,51 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
     if (!history || !detailScroller) return;
 
     detailScroller.dataset.guestVideoReactionScrollLocked = "true";
-    const getAllowedScrollTop = () => {
-      const firstCard = history.querySelector<HTMLElement>("[data-video-comment-card]");
-      if (!firstCard) return detailScroller.scrollTop;
-      const sticky = detailScroller.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]');
-      const availableHeight = Math.max(1, detailScroller.clientHeight - (sticky?.getBoundingClientRect().height ?? 0));
-      const firstCardBottom = firstCard.getBoundingClientRect().bottom - detailScroller.getBoundingClientRect().top + detailScroller.scrollTop;
-      return Math.max(0, firstCardBottom - availableHeight);
-    };
+    let lockedScrollTop = detailScroller.scrollTop;
+    let touchStart: { x: number; y: number } | null = null;
+    let touchGateShown = false;
     const blockGuestAdvance = () => showGuestGate(guestVideoGateId, "more");
-    const clampToAllowedContent = () => {
-      const allowedScrollTop = getAllowedScrollTop();
-      if (detailScroller.scrollTop <= allowedScrollTop + 1) return;
-      detailScroller.scrollTop = allowedScrollTop;
-      blockGuestAdvance();
+    const restoreLockedPosition = () => {
+      if (detailScroller.scrollTop !== lockedScrollTop) detailScroller.scrollTop = lockedScrollTop;
     };
     const handleWheel = (event: WheelEvent) => {
-      if (event.deltaY <= 0 || detailScroller.scrollTop + event.deltaY <= getAllowedScrollTop() + 1) return;
+      if (event.deltaY === 0) return;
+      lockedScrollTop = detailScroller.scrollTop;
       event.preventDefault();
+      restoreLockedPosition();
       blockGuestAdvance();
     };
     const handleTouchStart = (event: TouchEvent) => {
-      guestDetailScrollerTouchYRef.current = event.touches[0]?.clientY ?? null;
+      const touch = event.touches[0];
+      touchStart = touch ? { x: touch.clientX, y: touch.clientY } : null;
+      touchGateShown = false;
+      lockedScrollTop = detailScroller.scrollTop;
     };
     const handleTouchMove = (event: TouchEvent) => {
-      const previousY = guestDetailScrollerTouchYRef.current;
-      const currentY = event.touches[0]?.clientY;
-      if (previousY === null || currentY === undefined) return;
-      const delta = previousY - currentY;
-      guestDetailScrollerTouchYRef.current = currentY;
-      if (delta <= 0 || detailScroller.scrollTop + delta <= getAllowedScrollTop() + 1) return;
+      const touch = event.touches[0];
+      if (!touchStart || !touch) return;
+      const deltaX = touch.clientX - touchStart.x;
+      const deltaY = touch.clientY - touchStart.y;
+      if (deltaY === 0 || Math.abs(deltaY) <= Math.abs(deltaX)) return;
       event.preventDefault();
-      blockGuestAdvance();
+      restoreLockedPosition();
+      if (!touchGateShown) {
+        touchGateShown = true;
+        blockGuestAdvance();
+      }
     };
-    const resetTouch = () => { guestDetailScrollerTouchYRef.current = null; };
+    const resetTouch = () => {
+      restoreLockedPosition();
+      touchStart = null;
+      touchGateShown = false;
+    };
 
     detailScroller.addEventListener("wheel", handleWheel, { passive: false });
     detailScroller.addEventListener("touchstart", handleTouchStart, { passive: true });
     detailScroller.addEventListener("touchmove", handleTouchMove, { passive: false });
     detailScroller.addEventListener("touchend", resetTouch, { passive: true });
     detailScroller.addEventListener("touchcancel", resetTouch, { passive: true });
-    detailScroller.addEventListener("scroll", clampToAllowedContent, { passive: true });
+    detailScroller.addEventListener("scroll", restoreLockedPosition, { passive: true });
     return () => {
       delete detailScroller.dataset.guestVideoReactionScrollLocked;
       detailScroller.removeEventListener("wheel", handleWheel);
@@ -1452,8 +1455,9 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       detailScroller.removeEventListener("touchmove", handleTouchMove);
       detailScroller.removeEventListener("touchend", resetTouch);
       detailScroller.removeEventListener("touchcancel", resetTouch);
-      detailScroller.removeEventListener("scroll", clampToAllowedContent);
-      resetTouch();
+      detailScroller.removeEventListener("scroll", restoreLockedPosition);
+      touchStart = null;
+      touchGateShown = false;
     };
   }, [active, commentIds, desktopGuest, guestVideoGateId, mobileViewport, showGuestGate, trailerCompanionOpen]);
 
