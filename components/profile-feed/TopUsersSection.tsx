@@ -683,7 +683,7 @@ export default function TopUsersSection({
       error={followingError}
       onRetry={onRetryFollowing}
       onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
-      mobileHeaderIndicator="→"
+      mobileHeaderIndicator="←  →"
     />
   );
 
@@ -702,7 +702,7 @@ export default function TopUsersSection({
         error={friendsError}
         onRetry={onRetryFriends}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
-        mobileHeaderIndicator="←"
+        mobileHeaderIndicator="←  →"
       />
     ) : (
       <PendingRequestsBlock
@@ -715,7 +715,7 @@ export default function TopUsersSection({
         onReject={onRejectFriendRequest}
         onCancel={onCancelFriendRequest}
         onNavigateUser={redirectOwnClicksToProfileFeed ? handleNavigateUser : undefined}
-        mobileHeaderIndicator="←"
+        mobileHeaderIndicator="←  →"
       />
     );
 

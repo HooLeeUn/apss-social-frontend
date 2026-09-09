@@ -74,7 +74,7 @@ test("each mounted card owns a unique contextual gate id", () => {
 });
 
 test("portal gates wait for measured coordinates instead of rendering a top-left duplicate", () => {
-  assert.match(gate, /if \(portal\) return portalPosition \? createPortal\(content, document\.body\) : null/);
+  assert.match(gate, /if \(usePortal\) return portalPosition \? createPortal\(content, document\.body\) : null/);
 });
 
 test("guest gates expose shared section and viewport centered placements", () => {
