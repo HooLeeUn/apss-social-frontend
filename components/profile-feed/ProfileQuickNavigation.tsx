@@ -140,7 +140,7 @@ export default function ProfileQuickNavigation({
   return (
     <nav aria-label={ariaLabel} className={`profile-quick-navigation fixed inset-x-4 z-[60] xl:hidden bottom-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
       {showBackToTop && onBackToTop ? (
-        <button type="button" aria-label={backToTopLabel} onClick={onBackToTop} className="absolute bottom-[calc(100%+0.35rem)] left-1/2 flex h-7 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-950/65 text-sm text-white/60 shadow-lg backdrop-blur transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
+        <button type="button" aria-label={backToTopLabel} onClick={onBackToTop} className="absolute bottom-[calc(100%+0.35rem)] left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-[#86ADE0] bg-transparent text-sm text-[#86ADE0] shadow-lg transition hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
           ↑
         </button>
       ) : null}

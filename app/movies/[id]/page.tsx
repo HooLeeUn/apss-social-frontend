@@ -1085,7 +1085,6 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const historyScrollRef = useRef<HTMLDivElement | null>(null);
   const mobileHistoryScrollRef = useRef<HTMLDivElement | null>(null);
   const videoGateAnchorRef = useRef<HTMLDivElement | null>(null);
-  const guestMobileHistoryTouchYRef = useRef<number | null>(null);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const [isHistoryUnderfilled, setIsHistoryUnderfilled] = useState(false);
@@ -1396,6 +1395,71 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
       carouselScrollingRef.current = false;
     };
   }, [commentIds, chooseVisibleHistoryVideo, updateHistoryCarouselState]);
+
+  useEffect(() => {
+    if (!desktopGuest || !active || trailerCompanionOpen || !mobileViewport) return;
+    const history = historyScrollRef.current;
+    const detailScroller = history?.closest<HTMLElement>("[data-detail-movie-content]");
+    if (!history || !detailScroller) return;
+
+    detailScroller.dataset.guestVideoReactionScrollLocked = "true";
+    let lockedScrollTop = detailScroller.scrollTop;
+    let touchStart: { x: number; y: number } | null = null;
+    let touchGateShown = false;
+    const blockGuestAdvance = () => showGuestGate(guestVideoGateId, "more");
+    const restoreLockedPosition = () => {
+      if (detailScroller.scrollTop !== lockedScrollTop) detailScroller.scrollTop = lockedScrollTop;
+    };
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return;
+      lockedScrollTop = detailScroller.scrollTop;
+      event.preventDefault();
+      restoreLockedPosition();
+      blockGuestAdvance();
+    };
+    const handleTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      touchStart = touch ? { x: touch.clientX, y: touch.clientY } : null;
+      touchGateShown = false;
+      lockedScrollTop = detailScroller.scrollTop;
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touchStart || !touch) return;
+      const deltaX = touch.clientX - touchStart.x;
+      const deltaY = touch.clientY - touchStart.y;
+      if (deltaY === 0 || Math.abs(deltaY) <= Math.abs(deltaX)) return;
+      event.preventDefault();
+      restoreLockedPosition();
+      if (!touchGateShown) {
+        touchGateShown = true;
+        blockGuestAdvance();
+      }
+    };
+    const resetTouch = () => {
+      restoreLockedPosition();
+      touchStart = null;
+      touchGateShown = false;
+    };
+
+    detailScroller.addEventListener("wheel", handleWheel, { passive: false });
+    detailScroller.addEventListener("touchstart", handleTouchStart, { passive: true });
+    detailScroller.addEventListener("touchmove", handleTouchMove, { passive: false });
+    detailScroller.addEventListener("touchend", resetTouch, { passive: true });
+    detailScroller.addEventListener("touchcancel", resetTouch, { passive: true });
+    detailScroller.addEventListener("scroll", restoreLockedPosition, { passive: true });
+    return () => {
+      delete detailScroller.dataset.guestVideoReactionScrollLocked;
+      detailScroller.removeEventListener("wheel", handleWheel);
+      detailScroller.removeEventListener("touchstart", handleTouchStart);
+      detailScroller.removeEventListener("touchmove", handleTouchMove);
+      detailScroller.removeEventListener("touchend", resetTouch);
+      detailScroller.removeEventListener("touchcancel", resetTouch);
+      detailScroller.removeEventListener("scroll", restoreLockedPosition);
+      touchStart = null;
+      touchGateShown = false;
+    };
+  }, [active, commentIds, desktopGuest, guestVideoGateId, mobileViewport, showGuestGate, trailerCompanionOpen]);
 
   useEffect(() => {
     if (recorderState !== "idle") {
@@ -2703,7 +2767,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
 
 
   const reactionContent = <section data-mobile-video-reaction data-recording-overlay={isRecordingOverlay} data-active={active} data-video-sound-preference={soundPreference} className={`${isRecordingOverlay ? "fixed inset-0 z-50 overflow-hidden bg-black px-3 py-3" : "rounded-2xl bg-zinc-950/55 p-4"} ${active || expandedVideoId !== null ? "block" : "hidden"}`}>
-    <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : `max-h-[50dvh] ${desktopGuest ? "overflow-y-hidden" : "overflow-y-auto overscroll-contain"} xl:contents`} onTouchStart={(event) => { guestMobileHistoryTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileHistoryTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!desktopGuest || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileHistoryTouchYRef.current = currentY; if (delta <= 0 || event.currentTarget.scrollHeight <= event.currentTarget.clientHeight + 1) return; if (event.cancelable) event.preventDefault(); showGuestGate(guestVideoGateId, "more"); const outer = event.currentTarget.ownerDocument.scrollingElement; if (outer) outer.scrollTop += delta; }} onTouchEnd={() => { guestMobileHistoryTouchYRef.current = null; }} onTouchCancel={() => { guestMobileHistoryTouchYRef.current = null; }}>
+    <div ref={mobileHistoryScrollRef} data-mobile-video-reaction-scroll-container="true" className={isRecordingOverlay ? "contents" : `max-h-[50dvh] ${desktopGuest ? "overflow-y-hidden" : "overflow-y-auto overscroll-contain"} xl:contents`}>
     <div className="flex flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)] xl:mx-auto xl:max-w-2xl">
       <div ref={menuRef} data-video-reaction-rec data-tour-desktop="detail-rec" data-tour-mobile="detail-rec-mobile" className={desktopGuest ? "hidden" : "relative flex justify-center"}>
         {!isLocalVideoState ? <button type="button" className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#86ADE0]/70 bg-[#0b1f3a]/80 text-sm font-bold uppercase tracking-[0.18em] shadow-[0_0_24px_rgba(134,173,224,0.18)] xl:h-20 xl:w-20 xl:transition xl:hover:border-[#86ADE0] xl:hover:bg-[#12345c]" aria-label={t("movieDetailVideoCommentTitle")} onClick={() => setRecorderState((state) => state === "menu" ? "idle" : "menu")}><span className="bg-gradient-to-r from-[#168BFF] via-[#6558F5] to-[#A63DFF] bg-clip-text text-transparent drop-shadow-[0_0_5px_rgba(99,88,245,.45)]">Rec</span></button> : null}

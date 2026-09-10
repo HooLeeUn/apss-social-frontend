@@ -35,3 +35,30 @@ test("both mobile tabs scroll only the detail content without a nested reaction 
   assert.match(detail, /if \(commentInputMode === mode\) \{\s*scrollCommentStartIntoView\(mode\)/);
   assert.match(css, /data-mobile-video-reaction-scroll-container="true"\][\s\S]*max-height: none;[\s\S]*overflow-y: visible/);
 });
+
+test("inactive-trailer guest touchmove immediately locks the shared mobile detail scroller", () => {
+  assert.match(detail, /if \(!desktopGuest \|\| !active \|\| trailerCompanionOpen \|\| !mobileViewport\) return/);
+  assert.match(detail, /history\?\.closest<HTMLElement>\("\[data-detail-movie-content\]"\)/);
+  assert.match(detail, /detailScroller\.dataset\.guestVideoReactionScrollLocked = "true"/);
+  assert.match(detail, /detailScroller\.addEventListener\("touchmove", handleTouchMove, \{ passive: false \}\)/);
+  assert.match(detail, /const handleTouchMove[\s\S]*event\.preventDefault\(\);\s*restoreLockedPosition\(\);[\s\S]*blockGuestAdvance\(\)/);
+  assert.match(detail, /if \(!touchGateShown\)[\s\S]*touchGateShown = true;[\s\S]*blockGuestAdvance\(\)/);
+  assert.match(detail, /const restoreLockedPosition[\s\S]*detailScroller\.scrollTop = lockedScrollTop/);
+  assert.match(detail, /showGuestGate\(guestVideoGateId, "more"\)/);
+});
+
+test("inactive-trailer guest wheel immediately locks the shared mobile detail scroller", () => {
+  assert.match(detail, /if \(!desktopGuest \|\| !active \|\| trailerCompanionOpen \|\| !mobileViewport\) return/);
+  assert.match(detail, /detailScroller\.addEventListener\("wheel", handleWheel, \{ passive: false \}\)/);
+  assert.match(detail, /const handleWheel[\s\S]*event\.preventDefault\(\);\s*restoreLockedPosition\(\);\s*blockGuestAdvance\(\)/);
+  assert.match(detail, /detailScroller\.addEventListener\("scroll", restoreLockedPosition, \{ passive: true \}\)/);
+  assert.match(detail, /showGuestGate\(guestVideoGateId, "more"\)/);
+  assert.doesNotMatch(detail, /getAllowedScrollTop|clampToAllowedContent/);
+});
+
+test("the inactive-trailer guest lock preserves authenticated, comments, trailer, and sticky behavior", () => {
+  assert.match(detail, /if \(!desktopGuest \|\| !active \|\| trailerCompanionOpen \|\| !mobileViewport\) return/);
+  assert.match(detail, /delete detailScroller\.dataset\.guestVideoReactionScrollLocked/);
+  assert.doesNotMatch(css, /data-guest-video-reaction-scroll-locked[\s\S]*position:\s*fixed/);
+  assert.match(css, /data-mobile-detail-sticky="true"\][\s\S]*position: sticky/);
+});
