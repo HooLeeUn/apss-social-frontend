@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const ts = require("typescript");
 const authSource = await readFile(new URL("../lib/auth.ts", import.meta.url), "utf8");
 const loginSource = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const authStateSource = readFileSync(new URL("../hooks/useAuthState.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(authSource, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
@@ -51,7 +52,8 @@ test("login token survives a fresh auth initialization and the launcher route re
   assert.deepEqual(reopened.auth.getAuthState(), { isAuthenticated: true, isGuest: false });
   reopened.restore();
 
-  assert.match(loginSource, /useEffect\(\(\) => \{\s*if \(getToken\(\)\) router\.replace\("\/feed"\);/);
+  assert.match(authStateSource, /authStatus: authState\.isAuthenticated \? "authenticated" : "unauthenticated"/);
+  assert.match(loginSource, /if \(authStatus === "authenticated"\) router\.replace\("\/feed"\);/);
 });
 
 test("explicit logout removes the persisted token and guest mode remains credential-free", () => {
