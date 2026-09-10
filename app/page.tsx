@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { enterGuestMode, getToken, setToken } from "../lib/auth";
 import { API_BASE_URL } from "../lib/api";
+import { useAuthState } from "../hooks/useAuthState";
 import AuthShell from "../components/auth/AuthShell";
 import AuthCountrySelector, { useAuthLocale } from "../components/auth/AuthCountrySelector";
 import AuthDialog from "../components/auth/AuthDialog";
@@ -13,6 +14,21 @@ const inputBaseClassName = "w-full rounded-xl border border-zinc-700/85 bg-zinc-
 type LoginError = "credentials" | "connection" | null;
 
 function LoginPageContent() {
+  const { authStatus } = useAuthState();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (authStatus === "authenticated") router.replace("/feed");
+  }, [authStatus, router]);
+
+  if (authStatus !== "unauthenticated") {
+    return <main data-auth-bootstrap className="min-h-screen bg-black" aria-busy="true" />;
+  }
+
+  return <LoginForm />;
+}
+
+function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
