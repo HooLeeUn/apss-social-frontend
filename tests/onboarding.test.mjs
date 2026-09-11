@@ -103,17 +103,45 @@ test("desktop Feed exposes every exact tour control and ten conceptual steps", (
   assert.match(tours, /steps\[9\]\.callouts/);
 });
 
-test("Profile Feed completion returns both responsive tours to the document top", () => {
+test("Profile Feed completion returns desktop and mobile tours through their own scrollers", () => {
   const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
   const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
   assert.match(tours, /Aquí puedes seleccionar y dar a conocer tus tres producciones favoritas \+/);
   assert.match(provider, /await closeWithStatus\("completed"\)/);
   assert.match(provider, /shouldResetProfileDesktop/);
-  assert.match(provider, /shouldResetProfileMobile/);
+  assert.match(provider, /completeProfileMobileView/);
+  assert.match(provider, /action: "profile-mobile-complete"/);
   assert.match(provider, /matchMedia\("\(min-width: 1280px\)"\)/);
   assert.match(provider, /requestAnimationFrame\(\(\) => window\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)\)/);
   const skipBody = provider.match(/const handleSkip = useCallback\(\(\) => \{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(skipBody, /scrollTo/);
+});
+
+test("mobile Profile Feed tour prepares state before scrolling its real container and measuring", () => {
+  const page = fs.readFileSync("app/profile-feed/page.tsx", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  const types = fs.readFileSync("lib/onboarding/types.ts", "utf8");
+
+  assert.match(page, /const navigateToMobileSection[\s\S]*profileFeedScrollerRef\.current[\s\S]*scroller\.scrollTo/);
+  assert.match(page, /action === "profile-mobile-connections"[\s\S]*setConnectionBlockRequest\(\{ block: 0/);
+  assert.match(page, /action === "profile-mobile-inbox" \? "messages" : action === "profile-mobile-ratings" \? "rated" : "activity"/);
+  assert.match(page, /action === "profile-mobile-list" \? "my-list" : "recommended"/);
+  assert.match(page, /selectMobileContentSlide\(0, "auto"\)/);
+  assert.match(page, /selectMobileContentSlide\(1, "auto"\)/);
+  assert.match(page, /navigateToMobileSection\(section, "auto"\)/);
+  assert.match(page, /waitForStableTarget/);
+  assert.match(types, /complete\?: \(\) => void/);
+  assert.match(provider, /waitsForProfileScroller[\s\S]*detail\.complete = setupTarget/);
+  assert.match(provider, /tour\.id === "profile_feed" && index >= 2\) firstFrame = window\.requestAnimationFrame\(update\)/);
+  assert.match(provider, /chooseSafeMobileCenter/);
+  assert.match(provider, /centeredProfileTooltip = mobile && tour\.id === "profile_feed" && index >= 2/);
+  assert.doesNotMatch(provider, /shouldResetProfileMobile/);
+
+  const mobilePreparation = page.match(/const prepareMobileOnboardingStep[\s\S]*?window\.addEventListener\(onboardingPrepareStepEventName/)?.[0] ?? "";
+  assert.doesNotMatch(mobilePreparation, /window\.scroll(?:To|By)|scrollIntoView/);
+  const skip = provider.match(/const handleSkip[\s\S]*?const handleFinish/)?.[0] ?? "";
+  assert.match(skip, /restoreProfileMobileView\(\)/);
+  assert.doesNotMatch(skip, /completeProfileMobileView/);
 });
 
 test("mobile Profile Feed has nine prepared structural steps and five dock targets", () => {

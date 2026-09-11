@@ -8,7 +8,7 @@ import { getMyProfile } from "../../lib/profile-feed/adapters";
 import { getOnboardingStates, onboardingQueueKey, updateOnboardingState } from "../../lib/onboarding/api";
 import { commonTourCopy, getTourDefinitions } from "../../lib/onboarding/tours";
 import { onboardingPrepareStepEventName } from "../../lib/onboarding/types";
-import type { OnboardingState, OnboardingStatus, TourDefinition, TourStepDefinition } from "../../lib/onboarding/types";
+import type { OnboardingPrepareStepDetail, OnboardingState, OnboardingStatus, TourDefinition, TourStepDefinition } from "../../lib/onboarding/types";
 import MyListIcon from "../MyListIcon";
 import { getAuthState } from "../../lib/auth";
 
@@ -22,6 +22,15 @@ type CalloutGeometry = {
   anchorX: number;
   labelBox: { left: number; top: number; width: number; height: number } | null;
 };
+
+function chooseSafeMobileCenter(tooltipWidth: number, tooltipHeight: number): TooltipPosition {
+  const viewport = window.visualViewport;
+  const left = (viewport?.offsetLeft ?? 0) + ((viewport?.width ?? window.innerWidth) - tooltipWidth) / 2;
+  const viewportTop = viewport?.offsetTop ?? 0;
+  const usableHeight = Math.max(0, (viewport?.height ?? window.innerHeight) - Math.max(72, (viewport?.height ?? window.innerHeight) * 0.1));
+  const centeredTop = viewportTop + (usableHeight - tooltipHeight) / 2;
+  return { left: Math.max(8, left), top: Math.max(viewportTop + 8, centeredTop) };
+}
 const FEED_CARD_SELECTOR = '[data-tour="feed-card"]';
 const TOUR_BORDER_COLOR = "#20D98B";
 const TOUR_SPOTLIGHT_COLOR = "rgba(32, 217, 139, 0.12)";
@@ -244,7 +253,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
         const safeBottom = viewportBottom - 12;
         if (targetRect.top < safeTop) window.scrollBy({ top: targetRect.top - safeTop, behavior: "smooth" });
         else if (targetRect.bottom > safeBottom) window.scrollBy({ top: targetRect.bottom - safeBottom, behavior: "smooth" });
-      } else if (mobile && (tour.id === "profile_feed" || tour.id === "detail_movie") && step.mobileScroll === "below-tooltip") {
+      } else if (mobile && tour.id === "detail_movie" && step.mobileScroll === "below-tooltip") {
         const targetRect = target.getBoundingClientRect();
         const viewportTop = window.visualViewport?.offsetTop ?? 0;
         const tooltipHeight = tooltipRef.current?.getBoundingClientRect().height ?? 250;
@@ -263,11 +272,15 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
           initialRevealFrameRef.current = window.requestAnimationFrame(() => setInitialSpotlightVisible(true));
         }
         const tooltipRect = tooltipRef.current?.getBoundingClientRect();
-        const fixedMobileTooltip = mobile && (tour.id === "feed" && lockToCard || (tour.id === "profile_feed" || tour.id === "detail_movie") && step.mobileScroll === "below-tooltip");
-        setTooltipPosition(fixedMobileTooltip ? { left: 16, top: (window.visualViewport?.offsetTop ?? 0) + 12 } : chooseTooltipPosition(targetRect, tooltipRect?.width ?? 420, tooltipRect?.height ?? 250));
+        const fixedMobileTooltip = mobile && (tour.id === "feed" && lockToCard || tour.id === "detail_movie" && step.mobileScroll === "below-tooltip");
+        const centeredProfileTooltip = mobile && tour.id === "profile_feed" && index >= 2;
+        setTooltipPosition(centeredProfileTooltip
+          ? chooseSafeMobileCenter(tooltipRect?.width ?? Math.min(window.innerWidth * 0.92, 420), tooltipRect?.height ?? 250)
+          : fixedMobileTooltip ? { left: 16, top: (window.visualViewport?.offsetTop ?? 0) + 12 } : chooseTooltipPosition(targetRect, tooltipRect?.width ?? 420, tooltipRect?.height ?? 250));
         setCallouts(buildCalloutGeometries(step.callouts ?? [], (selector) => resolveStepElement(selector, lockToCard), tour.id === "feed" || mobile && (tour.id === "profile_feed" || tour.id === "detail_movie")));
       };
-      timer = window.setTimeout(update, 350);
+      if (mobile && tour.id === "profile_feed" && index >= 2) firstFrame = window.requestAnimationFrame(update);
+      else timer = window.setTimeout(update, 350);
       resizeObserver = new ResizeObserver(update);
       resizeObserver.observe(target);
       if (tour.id === "detail_movie" && !mobile && step.target === '[data-tour-desktop="detail-info"]') {
@@ -281,8 +294,11 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
     };
     const prepareAction = mobile ? step.mobilePrepare : step.prepare;
     if (prepareAction) {
-      window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: prepareAction } }));
-      firstFrame = window.requestAnimationFrame(() => { secondFrame = window.requestAnimationFrame(setupTarget); });
+      const waitsForProfileScroller = mobile && tour.id === "profile_feed" && index >= 2;
+      const detail: OnboardingPrepareStepDetail = { action: prepareAction };
+      if (waitsForProfileScroller) detail.complete = setupTarget;
+      window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail }));
+      if (!waitsForProfileScroller) firstFrame = window.requestAnimationFrame(() => { secondFrame = window.requestAnimationFrame(setupTarget); });
     } else setupTarget();
     return () => { cancelled = true; window.clearTimeout(timer); window.cancelAnimationFrame(firstFrame); window.cancelAnimationFrame(secondFrame); window.cancelAnimationFrame(retryFrame); if (initialRevealFrameRef.current !== null) window.cancelAnimationFrame(initialRevealFrameRef.current); resizeObserver?.disconnect(); if (update) { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); window.visualViewport?.removeEventListener("resize", update); } };
   }, [available.length, index, isFeedFinal, mobile, onFinish, resolveStepElement, step, tour.id]);
@@ -378,6 +394,10 @@ export default function OnboardingProvider() {
     if (tourId !== "profile_feed" || !window.matchMedia("(max-width: 1279px)").matches) return;
     window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "profile-mobile-release" } }));
   }, [tourId]);
+  const completeProfileMobileView = useCallback(() => {
+    if (tourId !== "profile_feed" || !window.matchMedia("(max-width: 1279px)").matches) return;
+    window.dispatchEvent(new CustomEvent(onboardingPrepareStepEventName, { detail: { action: "profile-mobile-complete" } }));
+  }, [tourId]);
   const handleSkip = useCallback(() => {
     void (async () => {
       await closeWithStatus("skipped");
@@ -393,14 +413,14 @@ export default function OnboardingProvider() {
       restoreDetailView();
       restoreDetailMobileView();
       restoreFeedMobilePanel();
-      restoreProfileMobileView();
+      if (tourId === "profile_feed" && window.matchMedia("(max-width: 1279px)").matches) completeProfileMobileView();
+      else restoreProfileMobileView();
       const shouldResetProfileDesktop = tourId === "profile_feed" && window.matchMedia("(min-width: 1280px)").matches;
-      const shouldResetProfileMobile = tourId === "profile_feed" && window.matchMedia("(max-width: 1279px)").matches;
       const shouldResetFeedMobile = tourId === "feed" && window.matchMedia("(max-width: 1279px)").matches;
       const shouldResetDetailMobile = tourId === "detail_movie" && window.matchMedia("(max-width: 1279px)").matches;
-      if (shouldResetProfileDesktop || shouldResetProfileMobile || shouldResetFeedMobile || shouldResetDetailMobile) window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+      if (shouldResetProfileDesktop || shouldResetFeedMobile || shouldResetDetailMobile) window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
     })();
-  }, [closeWithStatus, restoreDetailMobileView, restoreDetailView, restoreFeedMobilePanel, restoreProfileMobileView, tourId]);
+  }, [closeWithStatus, completeProfileMobileView, restoreDetailMobileView, restoreDetailView, restoreFeedMobilePanel, restoreProfileMobileView, tourId]);
   const handleStart = useCallback(() => { if (state?.status === "pending") void persist("in_progress", 0); setRunning(true); }, [persist, state?.status]);
 
   if (!tour || !state || !ready || !["pending", "in_progress"].includes(state.status)) return null;
