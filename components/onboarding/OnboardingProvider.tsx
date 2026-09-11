@@ -221,8 +221,9 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
     const lockToCard = tour.id === "feed" && index >= 5;
     const setupTarget = () => {
       if (cancelled) return;
-      const target = resolveStepElement(step.spotlightTarget ?? step.target, lockToCard);
-      if (!target) {
+      const target = resolveStepElement(step.target, lockToCard);
+      const spotlightTarget = resolveStepElement(step.spotlightTarget ?? step.target, lockToCard);
+      if (!target || !spotlightTarget) {
         if (mobile && (tour.id === "profile_feed" || tour.id === "detail_movie")) {
           if (targetRetries < 12) { targetRetries += 1; retryFrame = window.requestAnimationFrame(setupTarget); }
           else console.error(`Onboarding target not found after preparation: ${step.target}`);
@@ -261,11 +262,11 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
         const stickyBottom = tour.id === "detail_movie" ? document.querySelector<HTMLElement>('[data-mobile-detail-sticky="true"]')?.getBoundingClientRect().bottom ?? viewportTop : viewportTop;
         const desiredTop = Math.max(viewportTop + tooltipHeight + 36, stickyBottom + 16);
         window.scrollBy({ top: targetRect.top - desiredTop, behavior: "smooth" });
-      } else {
+      } else if (!(mobile && tour.id === "profile_feed")) {
         target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       }
       update = () => {
-        const targetRect = measureSpotlightRect(target, step.spotlightTarget ?? step.target, tour.id, mobile, mobile ? step.spotlightPaddingBottom : 0);
+        const targetRect = measureSpotlightRect(spotlightTarget, step.spotlightTarget ?? step.target, tour.id, mobile, mobile ? step.spotlightPaddingBottom : 0);
         setRect(targetRect);
         if ((tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && index === 0 && !initialSpotlightRevealedRef.current) {
           initialSpotlightRevealedRef.current = true;
@@ -284,6 +285,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
       else timer = window.setTimeout(update, 350);
       resizeObserver = new ResizeObserver(update);
       resizeObserver.observe(target);
+      if (spotlightTarget !== target) resizeObserver.observe(spotlightTarget);
       if (tour.id === "detail_movie" && !mobile && step.target === '[data-tour-desktop="detail-info"]') {
         const poster = resolveVisible('[data-tour-desktop="detail-trailer"]');
         if (poster) resizeObserver.observe(poster);
