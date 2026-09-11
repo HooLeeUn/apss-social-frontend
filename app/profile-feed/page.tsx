@@ -197,6 +197,7 @@ function ProfileFeedContent() {
   const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity" | "messages" | "rated"; id: number } | null>(null);
   const [forceMobileQuickNavigation, setForceMobileQuickNavigation] = useState(false);
   const mobileOnboardingSnapshotRef = useRef<{ listView: "my-list" | "recommended"; slide: number } | null>(null);
+  const mobileOnboardingSectionRef = useRef<MobileSection | null>(null);
   const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
   const initialConnectionView = "friends";
   const canRenderPrivateInbox = profileUser?.friendRequestsRestricted === false;
@@ -598,7 +599,7 @@ function ProfileFeedContent() {
     }
   }, []);
 
-  const navigateToMobileSection = useCallback((target: MobileSection, behavior?: ScrollBehavior) => {
+  const navigateToMobileSection = useCallback((target: MobileSection, behavior?: ScrollBehavior, topInset = 0) => {
     const scroller = profileFeedScrollerRef.current;
     const destination = target === "top"
       ? topSectionRef.current
@@ -618,7 +619,7 @@ function ProfileFeedContent() {
       element = element.offsetParent as HTMLElement | null;
     }
     scroller.scrollTo({
-      top: offset,
+      top: Math.max(0, offset - topInset),
       behavior: behavior ?? (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"),
     });
   }, []);
@@ -663,6 +664,7 @@ function ProfileFeedContent() {
         }
       };
       if (action === "profile-mobile-release" || action === "profile-mobile-complete") {
+        mobileOnboardingSectionRef.current = null;
         restoreSnapshot();
         if (action === "profile-mobile-complete") navigateToMobileSection("top", "auto");
         detail.complete?.();
@@ -705,7 +707,10 @@ function ProfileFeedContent() {
                   : '[data-tour-mobile="profile-following-activity-mobile"]';
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          navigateToMobileSection(section, "auto");
+          if (mobileOnboardingSectionRef.current !== section) {
+            navigateToMobileSection(section, "auto", section === "activity" ? 16 : 0);
+            mobileOnboardingSectionRef.current = section;
+          }
           let previousGeometry = "";
           let stableFrames = 0;
           let frameCount = 0;

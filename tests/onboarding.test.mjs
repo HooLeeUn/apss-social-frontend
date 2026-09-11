@@ -128,7 +128,8 @@ test("mobile Profile Feed tour prepares state before scrolling its real containe
   assert.match(page, /action === "profile-mobile-list" \? "my-list" : "recommended"/);
   assert.match(page, /selectMobileContentSlide\(0, "auto"\)/);
   assert.match(page, /selectMobileContentSlide\(1, "auto"\)/);
-  assert.match(page, /navigateToMobileSection\(section, "auto"\)/);
+  assert.match(page, /mobileOnboardingSectionRef\.current !== section/);
+  assert.match(page, /navigateToMobileSection\(section, "auto", section === "activity" \? 16 : 0\)/);
   assert.match(page, /waitForStableTarget/);
   assert.match(types, /complete\?: \(\) => void/);
   assert.match(provider, /waitsForProfileScroller[\s\S]*detail\.complete = setupTarget/);
@@ -167,16 +168,16 @@ test("mobile Profile Feed has nine prepared structural steps and five dock targe
   assert.match(tours, /Your Profile Feed is ready!/);
 });
 
-test("mobile Profile Feed extends only the connection and following-activity spotlights", () => {
+test("mobile Profile Feed spotlights only each step's exact control", () => {
   const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
   const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
-  const types = fs.readFileSync("lib/onboarding/types.ts", "utf8");
 
-  assert.match(tours, /mobileSteps\[2\]\.spotlightPaddingBottom = 72/);
-  assert.match(tours, /mobileSteps\[8\]\.spotlightPaddingBottom = 72/);
-  assert.equal((tours.match(/spotlightPaddingBottom = 72/g) ?? []).length, 2);
-  assert.match(types, /spotlightPaddingBottom\?: number/);
-  assert.match(provider, /mobile \? step\.spotlightPaddingBottom : 0/);
+  for (const [step, target] of [[2, "profile-quick-following"], [3, "profile-quick-activity"], [4, "profile-inbox"], [5, "profile-ratings"], [6, "profile-quick-list"], [7, "profile-quick-recommendations"], [8, "profile-quick-following-activity"]]) {
+    assert.match(tours, new RegExp(`mobileSteps\\[${step}\\]\\.spotlightTarget = '[^']*${target}`));
+  }
+  assert.match(provider, /const spotlightTarget = resolveStepElement\(step\.spotlightTarget \?\? step\.target/);
+  assert.match(provider, /measureSpotlightRect\(spotlightTarget/);
+  assert.match(provider, /mobile && tour\.id === "profile_feed"/);
 });
 
 test("tour navigation keeps a locked Feed card and has a dedicated final screen", () => {
