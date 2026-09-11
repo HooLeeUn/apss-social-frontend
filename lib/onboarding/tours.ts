@@ -113,10 +113,12 @@ export function getTourDefinitions(locale: Locale): TourDefinition[] {
       mobileSteps[2].callouts = [
         { target: '[data-tour-mobile="profile-quick-following"]', label: locale === "en" ? "Following/Friends" : "Seguidos/Amigos", placement: "top" },
       ];
+      mobileSteps[2].spotlightPaddingBottom = 72;
       mobileSteps[3].callouts = [{ target: '[data-tour-mobile="profile-quick-activity"]', label: locale === "en" ? "My Activity" : "Mi Actividad", placement: "top" }];
       mobileSteps[6].callouts = [{ target: '[data-tour-mobile="profile-quick-list"]', label: locale === "en" ? "My List" : "Mi Lista", placement: "top" }];
       mobileSteps[7].callouts = [{ target: '[data-tour-mobile="profile-quick-recommendations"]', label: locale === "en" ? "My Recommendations" : "Mis Recomendadas", placement: "top" }];
       mobileSteps[8].callouts = [{ target: '[data-tour-mobile="profile-quick-following-activity"]', label: locale === "en" ? "Following activity" : "Actividad de seguidos", placement: "top" }];
+      mobileSteps[8].spotlightPaddingBottom = 72;
     }
     const desktopSteps = id === "detail_movie" ? detailDesktopSelectors.map((target, index): TourStepDefinition => ({
       target: `[data-tour-desktop="${target}"]`,

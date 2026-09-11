@@ -82,7 +82,7 @@ function resolveVisible(selector: string, root: ParentNode = document): HTMLElem
   return [...root.querySelectorAll(selector)].find(isVisible) ?? null;
 }
 
-function measureSpotlightRect(target: HTMLElement, selector: string, tourId: TourDefinition["id"], mobile: boolean): DOMRect {
+function measureSpotlightRect(target: HTMLElement, selector: string, tourId: TourDefinition["id"], mobile: boolean, paddingBottom = 0): DOMRect {
   const targetRect = target.getBoundingClientRect();
   if (tourId === "detail_movie" && mobile && selector.includes("comments-section-mobile")) {
     const viewport = window.visualViewport;
@@ -91,6 +91,7 @@ function measureSpotlightRect(target: HTMLElement, selector: string, tourId: Tou
     const height = Math.min(targetRect.height, visibleHeight, (viewport?.height ?? window.innerHeight) * 0.48);
     return new DOMRect(targetRect.left, targetRect.top, targetRect.width, height);
   }
+  if (paddingBottom > 0) return new DOMRect(targetRect.left, targetRect.top, targetRect.width, targetRect.height + paddingBottom);
   if (tourId !== "detail_movie" || mobile || selector !== '[data-tour-desktop="detail-info"]') return targetRect;
   const poster = resolveVisible('[data-tour-desktop="detail-trailer"]');
   if (!poster) return targetRect;
@@ -264,7 +265,7 @@ function GuidedTour({ tour, initialStep, onStep, onSkip, onFinish }: { tour: Tou
         target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       }
       update = () => {
-        const targetRect = measureSpotlightRect(target, step.spotlightTarget ?? step.target, tour.id, mobile);
+        const targetRect = measureSpotlightRect(target, step.spotlightTarget ?? step.target, tour.id, mobile, mobile ? step.spotlightPaddingBottom : 0);
         setRect(targetRect);
         if ((tour.id === "feed" || tour.id === "profile_feed" || tour.id === "detail_movie") && index === 0 && !initialSpotlightRevealedRef.current) {
           initialSpotlightRevealedRef.current = true;
