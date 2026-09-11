@@ -167,6 +167,18 @@ test("mobile Profile Feed has nine prepared structural steps and five dock targe
   assert.match(tours, /Your Profile Feed is ready!/);
 });
 
+test("mobile Profile Feed extends only the connection and following-activity spotlights", () => {
+  const tours = fs.readFileSync("lib/onboarding/tours.ts", "utf8");
+  const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
+  const types = fs.readFileSync("lib/onboarding/types.ts", "utf8");
+
+  assert.match(tours, /mobileSteps\[2\]\.spotlightPaddingBottom = 72/);
+  assert.match(tours, /mobileSteps\[8\]\.spotlightPaddingBottom = 72/);
+  assert.equal((tours.match(/spotlightPaddingBottom = 72/g) ?? []).length, 2);
+  assert.match(types, /spotlightPaddingBottom\?: number/);
+  assert.match(provider, /mobile \? step\.spotlightPaddingBottom : 0/);
+});
+
 test("tour navigation keeps a locked Feed card and has a dedicated final screen", () => {
   const provider = fs.readFileSync("components/onboarding/OnboardingProvider.tsx", "utf8");
   assert.match(provider, /lockedCardRef/);

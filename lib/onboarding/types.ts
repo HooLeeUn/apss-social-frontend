@@ -23,6 +23,8 @@ export interface TourStepDefinition {
   mobilePrepare?: OnboardingPrepareAction;
   /** Keep the spotlight on a parent while callouts point at controls inside it. */
   spotlightTarget?: string;
+  /** Extend only the bottom edge of the measured spotlight, without affecting tooltip placement. */
+  spotlightPaddingBottom?: number;
   callouts?: Array<{
     target: string;
     label?: string;
