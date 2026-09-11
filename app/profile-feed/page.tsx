@@ -31,7 +31,7 @@ import { getPersonalData } from "../../lib/personal-data";
 import { getProfilePrivacySettings } from "../../lib/privacy";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { useI18n } from "../../hooks/useI18n";
-import { onboardingPrepareStepEventName, type OnboardingPrepareAction } from "../../lib/onboarding/types";
+import { onboardingPrepareStepEventName, type OnboardingPrepareAction, type OnboardingPrepareStepDetail } from "../../lib/onboarding/types";
 import { interpolate, resolveMovieTitles } from "../../lib/i18n";
 import { getMyMovieList, getMyMovieRecommendations, Movie, removeMovieFromMyList, removeMovieFromMyRecommendations } from "../../lib/movies";
 
@@ -197,6 +197,7 @@ function ProfileFeedContent() {
   const [activityTabRequest, setActivityTabRequest] = useState<{ tab: "activity" | "messages" | "rated"; id: number } | null>(null);
   const [forceMobileQuickNavigation, setForceMobileQuickNavigation] = useState(false);
   const mobileOnboardingSnapshotRef = useRef<{ listView: "my-list" | "recommended"; slide: number } | null>(null);
+  const mobileOnboardingSectionRef = useRef<MobileSection | null>(null);
   const requestedPrivateInboxTab = requestedTab === "private_inbox" || requestedTab === "messages";
   const initialConnectionView = "friends";
   const canRenderPrivateInbox = profileUser?.friendRequestsRestricted === false;
@@ -583,46 +584,12 @@ function ProfileFeedContent() {
     setActiveMobileProfileFeedSlide(Math.max(0, Math.min(1, nextSlide)));
   }, []);
 
-  const selectMobileContentSlide = useCallback((slide: 0 | 1) => {
+  const selectMobileContentSlide = useCallback((slide: 0 | 1, behavior: ScrollBehavior = "smooth") => {
     const carousel = mobileProfileFeedCarouselRef.current;
     if (!carousel) return;
-    carousel.scrollTo({ left: slide * carousel.clientWidth, behavior: "smooth" });
+    carousel.scrollTo({ left: slide * carousel.clientWidth, behavior });
     setActiveMobileProfileFeedSlide(slide);
   }, []);
-
-  useEffect(() => {
-    const prepareMobileOnboardingStep = (event: Event) => {
-      if (!window.matchMedia("(max-width: 1279px)").matches) return;
-      const action = (event as CustomEvent<{ action?: OnboardingPrepareAction }>).detail?.action;
-      if (!action?.startsWith("profile-mobile-")) return;
-      const requestId = ++navigationRequestId.current;
-      if (action === "profile-mobile-release") {
-        setForceMobileQuickNavigation(false);
-        const snapshot = mobileOnboardingSnapshotRef.current;
-        if (snapshot) {
-          setActiveListView(snapshot.listView);
-          selectMobileContentSlide(snapshot.slide === 1 ? 1 : 0);
-          mobileOnboardingSnapshotRef.current = null;
-        }
-        return;
-      }
-      if (!mobileOnboardingSnapshotRef.current) mobileOnboardingSnapshotRef.current = { listView: activeListView, slide: activeMobileProfileFeedSlide };
-      const forceQuickNavigation = ["profile-mobile-connections", "profile-mobile-activity", "profile-mobile-list", "profile-mobile-recommendations", "profile-mobile-following-activity"].includes(action);
-      setForceMobileQuickNavigation(forceQuickNavigation);
-      if (action === "profile-mobile-connections") setConnectionBlockRequest({ block: 0, id: requestId });
-      if (action === "profile-mobile-activity" || action === "profile-mobile-inbox" || action === "profile-mobile-ratings") {
-        const tab = action === "profile-mobile-inbox" ? "messages" : action === "profile-mobile-ratings" ? "rated" : "activity";
-        setActivityTabRequest({ tab, id: requestId });
-        selectMobileContentSlide(0);
-      }
-      if (action === "profile-mobile-list" || action === "profile-mobile-recommendations") {
-        setActiveListView(action === "profile-mobile-list" ? "my-list" : "recommended");
-        selectMobileContentSlide(1);
-      }
-    };
-    window.addEventListener(onboardingPrepareStepEventName, prepareMobileOnboardingStep);
-    return () => window.removeEventListener(onboardingPrepareStepEventName, prepareMobileOnboardingStep);
-  }, [activeListView, activeMobileProfileFeedSlide, selectMobileContentSlide]);
 
   const navigateToFriends = useCallback((options?: { pendingTab?: boolean }) => {
     const requestId = ++navigationRequestId.current;
@@ -632,7 +599,7 @@ function ProfileFeedContent() {
     }
   }, []);
 
-  const navigateToMobileSection = useCallback((target: MobileSection) => {
+  const navigateToMobileSection = useCallback((target: MobileSection, behavior?: ScrollBehavior, topInset = 0) => {
     const scroller = profileFeedScrollerRef.current;
     const destination = target === "top"
       ? topSectionRef.current
@@ -652,8 +619,8 @@ function ProfileFeedContent() {
       element = element.offsetParent as HTMLElement | null;
     }
     scroller.scrollTo({
-      top: offset,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      top: Math.max(0, offset - topInset),
+      behavior: behavior ?? (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"),
     });
   }, []);
 
@@ -679,6 +646,91 @@ function ProfileFeedContent() {
       target === "following" ? "connections" : target === "following-activity" ? "following-activity" : target === "activity" ? "activity" : "lists",
     );
   }, [navigateToFriends, navigateToMobileSection, selectMobileContentSlide]);
+
+  useEffect(() => {
+    const prepareMobileOnboardingStep = (event: Event) => {
+      if (!window.matchMedia("(max-width: 1279px)").matches) return;
+      const detail = (event as CustomEvent<OnboardingPrepareStepDetail>).detail;
+      const action = detail?.action;
+      if (!action?.startsWith("profile-mobile-")) return;
+      const requestId = ++navigationRequestId.current;
+      const restoreSnapshot = () => {
+        setForceMobileQuickNavigation(false);
+        const snapshot = mobileOnboardingSnapshotRef.current;
+        if (snapshot) {
+          setActiveListView(snapshot.listView);
+          selectMobileContentSlide(snapshot.slide === 1 ? 1 : 0);
+          mobileOnboardingSnapshotRef.current = null;
+        }
+      };
+      if (action === "profile-mobile-release" || action === "profile-mobile-complete") {
+        mobileOnboardingSectionRef.current = null;
+        restoreSnapshot();
+        if (action === "profile-mobile-complete") navigateToMobileSection("top", "auto");
+        detail.complete?.();
+        return;
+      }
+
+      if (!mobileOnboardingSnapshotRef.current) mobileOnboardingSnapshotRef.current = { listView: activeListView, slide: activeMobileProfileFeedSlide };
+      const forceQuickNavigation = ["profile-mobile-connections", "profile-mobile-activity", "profile-mobile-list", "profile-mobile-recommendations", "profile-mobile-following-activity"].includes(action);
+      setForceMobileQuickNavigation(forceQuickNavigation);
+      if (action === "profile-mobile-connections") setConnectionBlockRequest({ block: 0, id: requestId });
+      if (action === "profile-mobile-activity" || action === "profile-mobile-inbox" || action === "profile-mobile-ratings") {
+        const tab = action === "profile-mobile-inbox" ? "messages" : action === "profile-mobile-ratings" ? "rated" : "activity";
+        setActivityTabRequest({ tab, id: requestId });
+        selectMobileContentSlide(0, "auto");
+      }
+      if (action === "profile-mobile-list" || action === "profile-mobile-recommendations") {
+        setActiveListView(action === "profile-mobile-list" ? "my-list" : "recommended");
+        selectMobileContentSlide(1, "auto");
+      }
+
+      const section: MobileSection = action === "profile-mobile-connections"
+        ? "connections"
+        : action === "profile-mobile-following-activity"
+          ? "following-activity"
+          : action === "profile-mobile-list" || action === "profile-mobile-recommendations"
+            ? "lists"
+            : "activity";
+      const targetSelector = action === "profile-mobile-connections"
+        ? '[data-tour-mobile="profile-connections-mobile"]'
+        : action === "profile-mobile-activity"
+          ? '[data-tour-mobile="profile-activity-mobile"]'
+          : action === "profile-mobile-inbox"
+            ? '[data-tour-mobile="profile-inbox-mobile"]'
+            : action === "profile-mobile-ratings"
+              ? '[data-tour-mobile="profile-ratings-mobile"]'
+              : action === "profile-mobile-list"
+                ? '[data-tour-mobile="profile-list-mobile"]'
+                : action === "profile-mobile-recommendations"
+                  ? '[data-tour-mobile="profile-recommendations-mobile"]'
+                  : '[data-tour-mobile="profile-following-activity-mobile"]';
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          if (mobileOnboardingSectionRef.current !== section) {
+            navigateToMobileSection(section, "auto", section === "activity" ? 16 : 0);
+            mobileOnboardingSectionRef.current = section;
+          }
+          let previousGeometry = "";
+          let stableFrames = 0;
+          let frameCount = 0;
+          const waitForStableTarget = () => {
+            const target = document.querySelector<HTMLElement>(targetSelector);
+            const rect = target?.getBoundingClientRect();
+            const geometry = rect ? `${Math.round(rect.left)}:${Math.round(rect.top)}:${Math.round(rect.width)}:${Math.round(rect.height)}` : "";
+            stableFrames = geometry && geometry === previousGeometry ? stableFrames + 1 : 0;
+            previousGeometry = geometry;
+            frameCount += 1;
+            if (stableFrames >= 2 || frameCount >= 60) detail.complete?.();
+            else window.requestAnimationFrame(waitForStableTarget);
+          };
+          window.requestAnimationFrame(waitForStableTarget);
+        });
+      });
+    };
+    window.addEventListener(onboardingPrepareStepEventName, prepareMobileOnboardingStep);
+    return () => window.removeEventListener(onboardingPrepareStepEventName, prepareMobileOnboardingStep);
+  }, [activeListView, activeMobileProfileFeedSlide, navigateToMobileSection, selectMobileContentSlide]);
 
   const completeConnectionBlockRequest = useCallback((requestId: number) => {
     setConnectionBlockRequest((current) => current?.id === requestId ? null : current);
