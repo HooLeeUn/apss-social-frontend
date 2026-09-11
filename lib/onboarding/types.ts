@@ -1,7 +1,13 @@
 export type TourId = "feed" | "profile_feed" | "detail_movie";
 export type OnboardingStatus = "pending" | "in_progress" | "completed" | "skipped";
-export type OnboardingPrepareAction = "profile-activity" | "profile-inbox" | "profile-ratings" | "profile-list" | "profile-recommendations" | "profile-mobile-connections" | "profile-mobile-activity" | "profile-mobile-inbox" | "profile-mobile-ratings" | "profile-mobile-list" | "profile-mobile-recommendations" | "profile-mobile-following-activity" | "profile-mobile-release" | "detail-video" | "detail-comments-public" | "detail-comments-directed" | "detail-restore" | "detail-mobile-video" | "detail-mobile-comments-public" | "detail-mobile-comments-directed" | "detail-mobile-restore" | "feed-mobile-panel-show" | "feed-mobile-panel-release";
+export type OnboardingPrepareAction = "profile-activity" | "profile-inbox" | "profile-ratings" | "profile-list" | "profile-recommendations" | "profile-mobile-connections" | "profile-mobile-activity" | "profile-mobile-inbox" | "profile-mobile-ratings" | "profile-mobile-list" | "profile-mobile-recommendations" | "profile-mobile-following-activity" | "profile-mobile-release" | "profile-mobile-complete" | "detail-video" | "detail-comments-public" | "detail-comments-directed" | "detail-restore" | "detail-mobile-video" | "detail-mobile-comments-public" | "detail-mobile-comments-directed" | "detail-mobile-restore" | "feed-mobile-panel-show" | "feed-mobile-panel-release";
 export const onboardingPrepareStepEventName = "qnext:onboarding:prepare-step";
+
+export interface OnboardingPrepareStepDetail {
+  action?: OnboardingPrepareAction;
+  /** Called after the owning view has committed state, positioned its scroller, and settled layout. */
+  complete?: () => void;
+}
 
 export interface OnboardingState {
   tour: TourId;
