@@ -129,7 +129,33 @@ export async function updateFriendRequestsRestriction(friendRequestsRestricted: 
 
 export async function getBlockedUsers(): Promise<BlockedUser[]> {
   const payload = await apiFetch(BLOCKED_USERS_ENDPOINT);
-  return parseBlockedUsers(payload);
+  const users = parseBlockedUsers(payload);
+  blockedUserIds = new Set(users.map((user) => String(user.id)));
+  notifyBlockedUsersChanged();
+  return users;
+}
+
+let blockedUserIds: Set<string> | null = null;
+let blockedUsersRequest: Promise<BlockedUser[]> | null = null;
+const blockedUsersListeners = new Set<() => void>();
+
+function notifyBlockedUsersChanged() {
+  blockedUsersListeners.forEach((listener) => listener());
+}
+
+export function isBlockedUser(userId: number | string): boolean | undefined {
+  return blockedUserIds?.has(String(userId));
+}
+
+export function subscribeToBlockedUsers(listener: () => void): () => void {
+  blockedUsersListeners.add(listener);
+  return () => blockedUsersListeners.delete(listener);
+}
+
+export function ensureBlockedUsers(): Promise<BlockedUser[]> {
+  if (blockedUserIds) return Promise.resolve([]);
+  blockedUsersRequest ??= getBlockedUsers().finally(() => { blockedUsersRequest = null; });
+  return blockedUsersRequest;
 }
 
 export async function blockUser(userId: number | string): Promise<void> {
@@ -137,12 +163,17 @@ export async function blockUser(userId: number | string): Promise<void> {
     method: "POST",
     body: JSON.stringify({ user_id: userId }),
   });
+  blockedUserIds ??= new Set();
+  blockedUserIds.add(String(userId));
+  notifyBlockedUsersChanged();
 }
 
 export async function unblockUser(userId: number | string): Promise<void> {
   await apiFetch(`${BLOCKED_USERS_ENDPOINT}${encodeURIComponent(String(userId))}/`, {
     method: "DELETE",
   });
+  blockedUserIds?.delete(String(userId));
+  notifyBlockedUsersChanged();
 }
 
 export async function searchUsersToRestrict(query: string): Promise<BlockedUser[]> {
