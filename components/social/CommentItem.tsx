@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { formatSocialDate, SocialComment } from "../../lib/social";
 import ReactionButtons from "./ReactionButtons";
+import UgcModerationMenu from "../moderation/UgcModerationMenu";
 
 interface CommentItemProps {
   comment: SocialComment;
@@ -22,6 +23,7 @@ interface CommentItemProps {
   onDelete?: (comment: SocialComment) => Promise<void>;
   deleting?: boolean;
   displayText?: string;
+  showModeration?: boolean;
 }
 
 export default function CommentItem({
@@ -43,6 +45,7 @@ export default function CommentItem({
   onDelete,
   deleting = false,
   displayText,
+  showModeration = false,
 }: CommentItemProps) {
   const initial = comment.authorName.charAt(0).toUpperCase() || "U";
   const [menuOpen, setMenuOpen] = useState(false);
@@ -86,6 +89,7 @@ export default function CommentItem({
           <span className="rounded-full border border-white/15 bg-black/25 px-2 py-1 text-[11px] font-medium text-zinc-300">
             {badgeLabel ?? (comment.type === "public" ? t("movieDetailPublicBadge") : t("movieDetailDirectedBadge"))}
           </span>
+          {showModeration && comment.type === "public" && comment.authorId !== null ? <UgcModerationMenu contentKind="comment" objectId={comment.id} userId={comment.authorId} username={comment.authorUsername} /> : null}
           {canManage ? (
             <div className="relative">
               <button
