@@ -217,7 +217,7 @@ test("video surface toggles playback without persistent transport controls", () 
   assert.match(videoCarousel, /const togglePlayback = \(\) =>/);
   assert.match(videoCarousel, /if \(willPlay\) void video\.play\(\)\.catch/);
   assert.match(videoCarousel, /else video\.pause\(\)/);
-  assert.match(videoCarousel, /onClick=\{interactive \? togglePlayback : undefined\}/);
+  assert.match(videoCarousel, /onClick=\{interactive \? \(\) => \{[\s\S]*if \(!wasSwipe\) togglePlayback\(\);[\s\S]*\} : undefined\}/);
   assert.match(videoCarousel, /manuallyPausedVideoId\.current === nextId/);
   assert.match(videoCarousel, /onManualToggle=\{\(paused\)/);
   assert.match(videoCarousel, /event\.stopPropagation\(\); onMutedChange/);
