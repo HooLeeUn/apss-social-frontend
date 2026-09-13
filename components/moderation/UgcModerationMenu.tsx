@@ -11,7 +11,7 @@ const copy = {
   en: { more: "More options", reportContent: "Report content", reportUser: "Report user", restrict: "Restrict user", titleContent: "Report content", titleUser: "Report user", reason: "Reason", details: "Details (optional)", detailsPlaceholder: "Add information that may help us review this report", cancel: "Cancel", send: "Submit report", sending: "Submitting…", success: "Report submitted successfully.", duplicate: "There is already an active report for this content.", own: "You cannot report your own content.", missing: "This content is no longer available.", auth: "Your session is invalid. Please sign in again.", failed: "We couldn't submit the report. Please try again.", restrictTitle: "Restrict user", confirmRestrict: (u: string) => `By restricting @${u}, you will no longer be able to see their content and @${u} will no longer be able to see yours.\n\nAre you sure you want to restrict @${u}?`, restrictButton: "Restrict", restricted: "User restricted successfully. To remove the restriction, go to Privacy & Security.", restrictFailed: "We couldn't update this user's restriction.", reasons: ["Inappropriate content", "Harassment or threats", "Sexual content", "Spam or scam", "Hate or discrimination", "Other"] },
 } as const;
 
-export default function UgcModerationMenu({ contentKind, objectId, userId, username, placement = "header" }: { contentKind: ContentKind; objectId: string | number; userId: string | number; username: string; placement?: "header" | "mobile-reactions" }) {
+export default function UgcModerationMenu({ contentKind, objectId, userId, username, placement = "header", showReportContent = true }: { contentKind: ContentKind; objectId?: string | number; userId: string | number; username: string; placement?: "header" | "mobile-reactions"; showReportContent?: boolean }) {
   const { locale } = useI18n();
   const c = copy[locale];
   const [open, setOpen] = useState(false);
@@ -62,7 +62,7 @@ export default function UgcModerationMenu({ contentKind, objectId, userId, usern
     if (restrictionAction) cancelRestrictionRef.current?.focus();
   }, [restrictionAction]);
 
-  const target: ReportTarget | null = reportKind === "user" ? { kind: "user", userId, username } : reportKind ? { kind: reportKind, objectId, userId, username } : null;
+  const target: ReportTarget | null = reportKind === "user" ? { kind: "user", userId, username } : reportKind && objectId !== undefined ? { kind: reportKind, objectId, userId, username } : null;
   async function send() { if (!target || !reason || busy) return; setBusy(true); setMessage(""); try { await submitReport(target, reason, details); setMessage(c.success); window.setTimeout(() => { setReportKind(null); setMessage(""); }, 900); } catch (error) { const status = reportErrorStatus(error); setMessage(status === 400 ? c.duplicate : status === 403 ? c.own : status === 404 ? c.missing : status === 401 ? c.auth : c.failed); } finally { setBusy(false); } }
   async function updateRestriction() {
     if (!restrictionAction || busy) return;
@@ -81,7 +81,7 @@ export default function UgcModerationMenu({ contentKind, objectId, userId, usern
     <div ref={rootRef} className={`relative shrink-0 ${placement === "mobile-reactions" ? "xl:hidden" : ""}`} data-ugc-menu>
       <button type="button" aria-label={c.more} aria-haspopup="menu" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }} className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]">⋮</button>
       {open ? <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-52 rounded-xl border border-white/15 bg-zinc-950 p-1 shadow-xl shadow-black/50">
-        <button role="menuitem" type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-100 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none" onClick={() => { setOpen(false); setReportKind(contentKind); }}>{c.reportContent}</button>
+        {showReportContent && objectId !== undefined ? <button role="menuitem" type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-100 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none" onClick={() => { setOpen(false); setReportKind(contentKind); }}>{c.reportContent}</button> : null}
         <button role="menuitem" type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-100 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none" onClick={() => { setOpen(false); setReportKind("user"); }}>{c.reportUser}</button>
         {!blocked ? <button role="menuitem" type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-100 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none" onClick={() => { setOpen(false); setMessage(""); setRestrictionAction(true); }}>{c.restrict}</button> : null}
       </div> : null}

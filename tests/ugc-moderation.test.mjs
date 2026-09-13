@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { shouldRenderActivityModerationMenu } from "../lib/profile-feed/activity-moderation.mjs";
+import { shouldRenderActivityModerationMenu, shouldShowActivityContentReport } from "../lib/profile-feed/activity-moderation.mjs";
 
 const moderation = readFileSync("lib/moderation.ts", "utf8");
 const menu = readFileSync("components/moderation/UgcModerationMenu.tsx", "utf8");
@@ -38,29 +38,47 @@ test("a realistic following public-comment payload keeps its object and actor id
   assert.equal(payload.activity_type, "public_comment");
   assert.equal(payload.object_id, 991);
   assert.match(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
-  assert.match(activityModeration, /activity\.activityType === "public_comment"/);
+  assert.equal(shouldRenderActivityModerationMenu({ actorId: "44" }), true);
   assert.match(socialCard, /shouldRenderActivityModerationMenu\(item\)/);
   assert.match(socialCard, /UgcModerationMenu contentKind="comment" objectId=\{item\.commentId\}/);
 });
 
-test("rating and comment-reaction fixtures cannot expose the public-comment menu", () => {
+test("rating and comment-reaction fixtures expose user moderation but not content reporting", () => {
   const fixtures = [
     { activity_type: "rating", payload: { score: 8 } },
     { activity_type: "public_comment_like", payload: { comment_id: 991, reaction: "like" } },
     { activity_type: "public_comment_dislike", payload: { comment_id: 991, reaction: "dislike" } },
   ];
-  for (const fixture of fixtures) assert.notEqual(fixture.activity_type, "public_comment");
+  for (const fixture of fixtures) {
+    const activity = { activityType: fixture.activity_type, interactionType: fixture.payload.reaction ?? "rating", actorId: "44", commentId: fixture.payload.comment_id };
+    assert.equal(shouldRenderActivityModerationMenu(activity), true);
+    assert.equal(shouldShowActivityContentReport(activity), false);
+  }
   assert.match(adapters, /const isPublicCommentType = normalizedActivityType === "public_comment"/);
   assert.match(activityModeration, /activity\.activityType === "public_comment"/);
 });
 
-test("the real card predicate renders only a valid, textual public comment", () => {
+test("every activity with a real actor exposes user moderation", () => {
   const base = { interactionType: "comment", commentId: "991", actorId: "44" };
   assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment" }), true);
-  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "rating", interactionType: "rating" }), false);
-  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment_like", interactionType: "like" }), false);
-  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment_dislike", interactionType: "dislike" }), false);
-  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment", isDirectedComment: true }), false);
+  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "rating", interactionType: "rating" }), true);
+  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment_like", interactionType: "like" }), true);
+  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment_dislike", interactionType: "dislike" }), true);
+  assert.equal(shouldRenderActivityModerationMenu({ activityType: "something_new", actorId: "44" }), true);
+  assert.equal(shouldRenderActivityModerationMenu({ activityType: "rating" }), false);
+  assert.equal(shouldRenderActivityModerationMenu({ activityType: "rating", actorId: "  " }), false);
+});
+
+test("only a public comment with a real comment id exposes content reporting", () => {
+  const base = { interactionType: "comment", commentId: "991", actorId: "44" };
+  assert.equal(shouldShowActivityContentReport({ ...base, activityType: "public_comment" }), true);
+  assert.equal(shouldShowActivityContentReport({ ...base, activityType: "rating", interactionType: "rating" }), false);
+  assert.equal(shouldShowActivityContentReport({ ...base, activityType: "public_comment_like", interactionType: "like" }), false);
+  assert.equal(shouldShowActivityContentReport({ ...base, activityType: "public_comment_dislike", interactionType: "dislike" }), false);
+  assert.equal(shouldShowActivityContentReport({ ...base, activityType: "public_comment", commentId: undefined }), false);
+  assert.equal(shouldShowActivityContentReport({ ...base, activityType: "public_comment", isDirectedComment: true }), false);
+  assert.match(menu, /showReportContent && objectId !== undefined/);
+  assert.match(socialCard, /showReportContent=\{shouldShowContentReport\}/);
 });
 
 test("video reactions use the video comment and exposed author IDs", () => {
