@@ -50,7 +50,8 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const activity = getActivityText(item, locale, t);
   const movieType = translateProfileFeedMovieType(locale, item.movieType);
   const movieGenre = item.movieGenre || "-";
-  const isReportablePublicComment = item.interactionType === "comment" && !item.isDirectedComment && Boolean(item.commentId);
+  const isPublicComment = item.activityType === "public_comment" && item.interactionType === "comment" && !item.isDirectedComment;
+  const shouldRenderModerationMenu = isPublicComment && Boolean(item.commentId) && Boolean(item.user.id);
 
   const userHeader = (
     <div className="min-w-0">
@@ -98,7 +99,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
                 {formatProfileFeedRelativeDate(locale, item.createdAt)}
               </span>
-              {isReportablePublicComment && item.commentId ? <UgcModerationMenu contentKind="comment" objectId={item.commentId} userId={item.user.id} username={item.user.username} /> : null}
+              {shouldRenderModerationMenu && item.commentId ? <UgcModerationMenu contentKind="comment" objectId={item.commentId} userId={item.user.id} username={item.user.username} /> : null}
             </div>
           </div>
           <p className="mt-1 text-sm text-zinc-300">

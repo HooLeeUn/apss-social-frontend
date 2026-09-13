@@ -33,6 +33,16 @@ test("short recommendations grow naturally and long recommendations alone activa
   assert.match(tabs, /new ResizeObserver\(update\)/);
 });
 
+test("the common mobile panel changes overflow with the active tab and clears recordings overflow", () => {
+  const css = readFileSync("app/globals.css", "utf8");
+  assert.match(tabs, /profile-feed-following-activity-panel--\$\{activeTab\}/);
+  assert.match(tabs, /data-active-tab=\{activeTab\}/);
+  assert.match(css, /activity-panel--recommendations[\s\S]*height: auto;[\s\S]*max-height: none;[\s\S]*overflow-y: visible;/);
+  assert.match(css, /activity-panel--recordings[\s\S]*overflow-y: auto;/);
+  const commonPanel = css.slice(css.indexOf(".profile-feed-following-activity-panel {"), css.indexOf(".profile-feed-following-activity:has"));
+  assert.doesNotMatch(commonPanel, /overflow-y: auto/);
+});
+
 test("Recordings use the common mobile activity scroll and never cancel vertical touchmove", () => {
   const inlinePlayer = videos.slice(videos.indexOf("function VisitedProfileVideoPlayer"), videos.indexOf("export default function"));
   const touchMove = inlinePlayer.slice(inlinePlayer.indexOf("onTouchMove="), inlinePlayer.indexOf("onClick=", inlinePlayer.indexOf("onTouchMove=")));
