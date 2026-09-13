@@ -29,7 +29,8 @@ test("Recordings reuse the video player, reaction contract, UGC menu and paginat
 
 test("recommendations only activate their inner scroller when content really overflows", () => {
   assert.match(tabs, /container\.scrollHeight > container\.clientHeight \+ 1/);
-  assert.match(tabs, /recommendationsOverflow \? "overflow-y-auto" : "overflow-y-visible xl:overflow-y-auto"/);
+  assert.match(tabs, /recommendationsOverflow \? "activity-scrollbar overflow-y-auto" : "overflow-y-visible"/);
+  assert.match(tabs, /new ResizeObserver\(update\)/);
 });
 
 test("both Rec-prefixed tabs reuse the established gradient label", () => {

@@ -4,6 +4,7 @@ import { formatAverageRating, formatFollowingRating, formatMyRating } from "../.
 import { useI18n } from "../../hooks/useI18n";
 import { formatProfileFeedRatingsCount, formatProfileFeedRelativeDate, translateProfileFeedMovieType } from "../../lib/i18n";
 import { RatingPersonRaisingHandIcon } from "../RatingIcons";
+import UgcModerationMenu from "../moderation/UgcModerationMenu";
 
 function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
@@ -49,6 +50,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const activity = getActivityText(item, locale, t);
   const movieType = translateProfileFeedMovieType(locale, item.movieType);
   const movieGenre = item.movieGenre || "-";
+  const isReportablePublicComment = item.activityType === "public_comment" && Boolean(item.commentId);
 
   const userHeader = (
     <div className="min-w-0">
@@ -92,9 +94,12 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
             ) : (
               <p className="text-sm font-semibold text-blue-200">@{item.user.username}</p>
             )}
-            <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
-              {formatProfileFeedRelativeDate(locale, item.createdAt)}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
+                {formatProfileFeedRelativeDate(locale, item.createdAt)}
+              </span>
+              {isReportablePublicComment && item.commentId ? <UgcModerationMenu contentKind="comment" objectId={item.commentId} userId={item.user.id} username={item.user.username} /> : null}
+            </div>
           </div>
           <p className="mt-1 text-sm text-zinc-300">
             <span className="font-medium text-zinc-200">{activity.label}</span>{" "}

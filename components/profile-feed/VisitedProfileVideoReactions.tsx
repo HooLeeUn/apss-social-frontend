@@ -57,6 +57,7 @@ interface VideoReactionResponse {
 
 const VISIBILITY_THRESHOLDS = [0, 0.25, 0.5, 0.75, 1];
 const MIN_AUTOPLAY_VISIBILITY = 0.25;
+const FULL_VISIBILITY_TOLERANCE_PX = 2;
 
 function normalizeNextEndpoint(next: string): string {
   if (next.startsWith("http://") || next.startsWith("https://")) {
@@ -133,6 +134,7 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
   const activeVideoIndex = useRef(0);
   const desktopSequenceStarted = useRef(false);
   const desktopAdvancePending = useRef<number | null>(null);
+  const carouselScrollTimer = useRef<number | null>(null);
   const reactingIds = useRef(new Set<string>());
   const [reacting, setReacting] = useState<Record<string, boolean>>({});
   const [isMuted, setIsMuted] = useState(true);
@@ -175,11 +177,9 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
         nextIndex = activeVideoIndex.current;
         if ((visibilityRatios.current.get(currentId) ?? 0) >= MIN_AUTOPLAY_VISIBILITY) desktopAdvancePending.current = null;
       } else if (!desktopSequenceStarted.current) {
-        const firstItem = itemsRef.current[0];
-        const firstId = firstItem ? String(firstItem.payload.video_comment_id ?? firstItem.id) : null;
-        if (firstId && (visibilityRatios.current.get(firstId) ?? 0) >= MIN_AUTOPLAY_VISIBILITY) {
-          nextId = firstId;
-          nextIndex = 0;
+        nextIndex = itemsRef.current.findIndex((item) => (visibilityRatios.current.get(String(item.payload.video_comment_id ?? item.id)) ?? 0) === 1);
+        if (nextIndex >= 0) {
+          nextId = String(itemsRef.current[nextIndex].payload.video_comment_id ?? itemsRef.current[nextIndex].id);
           desktopSequenceStarted.current = true;
         }
       } else if (currentId && (visibilityRatios.current.get(currentId) ?? 0) >= MIN_AUTOPLAY_VISIBILITY) {
@@ -213,6 +213,33 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
       // Autoplay can still be denied by browser/user policy; native controls remain available.
     });
   }, [pauseAllExcept]);
+
+  const updateDesktopVisibility = useCallback((restartFromLeft = false) => {
+    const carousel = carouselRef.current;
+    if (!carousel || !window.matchMedia("(min-width: 1280px)").matches) return;
+    const carouselRect = carousel.getBoundingClientRect();
+    let firstFullyVisibleIndex = -1;
+
+    itemsRef.current.forEach((item, index) => {
+      const id = String(item.payload.video_comment_id ?? item.id);
+      const video = videoRefs.current.get(id);
+      if (!video) return;
+      const rect = video.getBoundingClientRect();
+      const fullyVisible = rect.left >= carouselRect.left - FULL_VISIBILITY_TOLERANCE_PX
+        && rect.right <= carouselRect.right + FULL_VISIBILITY_TOLERANCE_PX;
+      visibilityRatios.current.set(id, fullyVisible ? 1 : 0);
+      if (fullyVisible && firstFullyVisibleIndex < 0) firstFullyVisibleIndex = index;
+    });
+
+    if (restartFromLeft) {
+      pauseAllExcept(null);
+      activeVideoIndex.current = Math.max(0, firstFullyVisibleIndex);
+      desktopSequenceStarted.current = false;
+      desktopAdvancePending.current = null;
+      manuallyPausedVideoId.current = null;
+    }
+    playMostVisibleVideo();
+  }, [pauseAllExcept, playMostVisibleVideo]);
 
   const pauseForInterruption = useCallback(() => {
     const expanded = expandedVideoRef.current;
@@ -356,17 +383,23 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
     return () => window.removeEventListener(USER_RESTRICTED_EVENT, refresh);
   }, [source]);
 
+  useEffect(() => () => {
+    if (carouselScrollTimer.current !== null) window.clearTimeout(carouselScrollTimer.current);
+  }, []);
+
   useEffect(() => {
     if (state !== "ready" || videoRefs.current.size === 0) return;
     const videos = videoRefs.current;
     const ratios = visibilityRatios.current;
+    const carousel = carouselRef.current;
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         const id = (entry.target as HTMLVideoElement).dataset.visitedProfileVideoId;
         if (id) visibilityRatios.current.set(id, entry.isIntersecting ? entry.intersectionRatio : 0);
       });
-      playMostVisibleVideo();
-    }, { threshold: VISIBILITY_THRESHOLDS });
+      if (window.matchMedia("(min-width: 1280px)").matches) updateDesktopVisibility();
+      else playMostVisibleVideo();
+    }, { root: window.matchMedia("(min-width: 1280px)").matches ? carousel : null, threshold: VISIBILITY_THRESHOLDS });
 
     videos.forEach((video) => observer.observe(video));
     return () => {
@@ -375,7 +408,7 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
       activeVideoId.current = null;
       videos.forEach((video) => video.pause());
     };
-  }, [items, playMostVisibleVideo, state]);
+  }, [items, playMostVisibleVideo, state, updateDesktopVisibility]);
 
   const setVideoRef = useCallback((id: string, video: HTMLVideoElement | null) => {
     if (video) videoRefs.current.set(id, video);
@@ -384,7 +417,7 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
 
   const playNextDesktopVideo = useCallback((index: number) => {
     if (!window.matchMedia("(min-width: 1280px)").matches || expandedIndexRef.current !== null) return;
-    const nextIndex = itemsRef.current.length > 0 ? (index + 1) % itemsRef.current.length : -1;
+    const nextIndex = itemsRef.current.findIndex((item, itemIndex) => itemIndex > index && (visibilityRatios.current.get(String(item.payload.video_comment_id ?? item.id)) ?? 0) === 1);
     if (isDesktopGuest && guestVisibleCount !== null && nextIndex >= guestVisibleCount) return;
     const nextItem = itemsRef.current[nextIndex];
     if (!nextItem) return;
@@ -394,7 +427,6 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
     activeVideoIndex.current = nextIndex;
     desktopAdvancePending.current = nextIndex;
     pauseAllExcept(nextId);
-    if (!isDesktopGuest) nextVideo.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     nextVideo.muted = isMutedRef.current;
     if (nextVideo.ended) nextVideo.currentTime = 0;
     const playPromise = nextVideo.play();
@@ -445,9 +477,10 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
 
   useEffect(() => {
     updateNavigation();
-    window.addEventListener("resize", updateNavigation);
-    return () => window.removeEventListener("resize", updateNavigation);
-  }, [items, updateNavigation]);
+    const update = () => { updateNavigation(); updateDesktopVisibility(true); };
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [items, updateDesktopVisibility, updateNavigation]);
 
   const scrollCarousel = (direction: -1 | 1) => {
     const carousel = carouselRef.current;
@@ -552,7 +585,7 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
   return (
     <div className="relative">
       <button type="button" onClick={() => scrollCarousel(-1)} disabled={!canScrollLeft} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">←</button>
-      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); const carousel = carouselRef.current; if (carousel && carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 320) void loadNextFollowingPage(); }} onTouchStart={(event) => { guestMobileTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileTouchYRef.current; const currentY = event.touches[0]?.clientY; if (previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileTouchYRef.current = currentY; if (source === "following" && delta > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500) void loadNextFollowingPage(); if (!isDesktopGuest || !isMobile || delta <= 0 || guestVisibleCount === null || guestVisibleCount >= cards.length) return; showGuestGate(guestGateId, "more"); }} onTouchEnd={() => { guestMobileTouchYRef.current = null; }} onTouchCancel={() => { guestMobileTouchYRef.current = null; }} className="space-y-8 overflow-x-visible px-1 pb-4 xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
+      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); if (window.matchMedia("(min-width: 1280px)").matches) { pauseAllExcept(null); if (carouselScrollTimer.current !== null) window.clearTimeout(carouselScrollTimer.current); carouselScrollTimer.current = window.setTimeout(() => updateDesktopVisibility(true), 120); } const carousel = carouselRef.current; if (carousel && carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 320) void loadNextFollowingPage(); }} onTouchStart={(event) => { guestMobileTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileTouchYRef.current; const currentY = event.touches[0]?.clientY; if (previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileTouchYRef.current = currentY; if (source === "following" && delta > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500) void loadNextFollowingPage(); if (!isDesktopGuest || !isMobile || delta <= 0 || guestVisibleCount === null || guestVisibleCount >= cards.length) return; showGuestGate(guestGateId, "more"); }} onTouchEnd={() => { guestMobileTouchYRef.current = null; }} onTouchCancel={() => { guestMobileTouchYRef.current = null; }} className="space-y-6 overflow-x-visible px-1 pb-4 touch-pan-y xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:touch-auto xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
         {visibleCards.map(({ item, title, timestamp }, index) => {
           const commentId = item.payload.video_comment_id;
           const videoId = String(commentId ?? item.id);
@@ -580,7 +613,7 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
               <div className="xl:hidden">{reactionButtons}</div>
               {source === "following" && item.actor?.id !== undefined && item.actor.username ? <UgcModerationMenu contentKind="video_comment" objectId={commentId ?? item.id} userId={item.actor.id} username={item.actor.username} /> : null}
             </div>
-            <div className="group relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)] xl:h-[clamp(260px,calc(100dvh-16rem),520px)] xl:w-auto">
+            <div className="group relative mx-auto aspect-[9/16] h-[clamp(22rem,62dvh,34rem)] max-h-[calc(100dvh-11rem)] max-w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)] xl:h-[clamp(260px,calc(100dvh-16rem),520px)] xl:max-h-none xl:w-auto">
               <div data-visited-profile-video-id={videoId} className="relative h-full w-full">
                 <VisitedProfileVideoPlayer src={item.payload.video_url} muted={isMuted} className="h-full w-full object-contain" onRegister={(video) => { if (video) video.dataset.visitedProfileVideoId = videoId; setVideoRef(videoId, video); }} onPlay={() => { activeVideoId.current = videoId; activeVideoIndex.current = index; pauseAllExcept(videoId); }} onEnded={() => playNextDesktopVideo(index)} onMutedChange={setIsMuted} onManualToggle={(paused) => { manuallyPausedVideoId.current = paused ? videoId : null; }} />
               </div>
