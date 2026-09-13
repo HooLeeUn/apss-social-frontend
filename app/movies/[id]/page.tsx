@@ -14,6 +14,7 @@ import VideoReactionMovieMetadata from "../../../components/VideoReactionMovieMe
 import UgcModerationMenu from "../../../components/moderation/UgcModerationMenu";
 import { apiFetch, ApiError, API_BASE_URL } from "../../../lib/api";
 import { getToken } from "../../../lib/auth";
+import { USER_RESTRICTED_EVENT } from "../../../lib/privacy";
 import {
   buildMovieDetailEndpoint,
   MOVIE_DETAIL_ENDPOINT_TEMPLATE,
@@ -1665,6 +1666,12 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
     reloadFirstPageRef.current = reloadFirstPage;
   }, [reloadFirstPage]);
 
+  useEffect(() => {
+    const refreshRestrictedContent = () => { void reloadFirstPageRef.current?.(); };
+    window.addEventListener(USER_RESTRICTED_EVENT, refreshRestrictedContent);
+    return () => window.removeEventListener(USER_RESTRICTED_EVENT, refreshRestrictedContent);
+  }, []);
+
 
   useEffect(() => {
     try {
@@ -2910,9 +2917,33 @@ function MovieDetailPageContent() {
   const [friendRequestsRestricted, setFriendRequestsRestricted] = useState<boolean | null>(null);
 
   const [publicComments, setPublicComments] = useState<SocialComment[]>([]);
+  const [restrictionToast, setRestrictionToast] = useState(false);
   const [publicCommentsTotal, setPublicCommentsTotal] = useState(0);
   const [videoReactionTotal, setVideoReactionTotal] = useState(0);
   const [publicNext, setPublicNext] = useState<string | null>(null);
+
+  useEffect(() => {
+    let toastTimer: number | undefined;
+    const refreshRestrictedContent = async () => {
+      setRestrictionToast(true);
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => setRestrictionToast(false), 2500);
+      try {
+        const payload = await apiFetch(buildMoviePublicSubmitEndpoint(movieId));
+        const parsed = parseCommentsPage(payload, "public");
+        setPublicComments(parsed.comments);
+        setPublicCommentsTotal(parsed.total ?? parsed.comments.length);
+        setPublicNext(normalizeEndpointPath(parsed.next));
+      } catch {
+        // Preserve the current data if the authoritative refresh cannot be completed.
+      }
+    };
+    window.addEventListener(USER_RESTRICTED_EVENT, refreshRestrictedContent);
+    return () => {
+      window.removeEventListener(USER_RESTRICTED_EVENT, refreshRestrictedContent);
+      window.clearTimeout(toastTimer);
+    };
+  }, [movieId]);
   const [loadingPublicMore, setLoadingPublicMore] = useState(false);
   const [directedConversations, setDirectedConversations] = useState<DirectedConversation[]>([]);
   const [expandedConversationKey, setExpandedConversationKey] = useState<string | null>(null);
@@ -4893,6 +4924,7 @@ function MovieDetailPageContent() {
           ) : null}
         </div>
       </div>
+      {restrictionToast ? <div role="status" aria-live="polite" className="fixed bottom-5 left-1/2 z-[1500] -translate-x-1/2 rounded-xl border border-emerald-400/30 bg-zinc-950 px-4 py-3 text-sm text-emerald-300 shadow-2xl">{locale === "es" ? "Usuario restringido correctamente. Para quitar la restricción, dirígete a Privacidad y seguridad." : "User restricted successfully. To remove the restriction, go to Privacy & Security."}</div> : null}
     </main>
   );
 }
