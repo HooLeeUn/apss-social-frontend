@@ -492,6 +492,14 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     activityRecord.commentId,
     isPublicCommentType ? activityRecord.object_id : undefined,
   ));
+  const actorUserId = toStringOrNull(pickFirst(
+    actor.id,
+    actor.user_id,
+    activityRecord.actor_id,
+    activityRecord.actor_user_id,
+    payload.actor_id,
+    payload.actor_user_id,
+  ));
   const likedCommentSnippet = toStringOrNull(
     pickFirst(payload.comment_excerpt, activityRecord.comment_text, payload.content, payload.text),
   );
@@ -572,7 +580,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     id: item.id,
     activityType: normalizedActivityType || undefined,
     user: {
-      id: String(pickFirst(actor.id, `actor-${item.id}`)),
+      id: actorUserId ?? `actor-${item.id}`,
       username: toStringOrNull(actor.username) || "usuario",
       displayName: toStringOrNull(actor.display_name),
       avatarUrl: toStringOrNull(actor.avatar),
@@ -605,7 +613,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     reactionActorUsername: reactionActorUsername ?? undefined,
     commentId: commentId ?? undefined,
     reactionId: reactionId ?? undefined,
-    actorId: toStringOrNull(actor.id) ?? undefined,
+    actorId: actorUserId ?? undefined,
     isGivenReaction: isReactionType ? isGivenReaction : undefined,
     isReceivedReaction: isReactionType ? isReceivedReaction : undefined,
     scope,

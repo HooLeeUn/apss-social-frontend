@@ -5,6 +5,7 @@ import { useI18n } from "../../hooks/useI18n";
 import { formatProfileFeedRatingsCount, formatProfileFeedRelativeDate, translateProfileFeedMovieType } from "../../lib/i18n";
 import { RatingPersonRaisingHandIcon } from "../RatingIcons";
 import UgcModerationMenu from "../moderation/UgcModerationMenu";
+import { shouldRenderActivityModerationMenu } from "../../lib/profile-feed/activity-moderation.mjs";
 
 function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
@@ -50,8 +51,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const activity = getActivityText(item, locale, t);
   const movieType = translateProfileFeedMovieType(locale, item.movieType);
   const movieGenre = item.movieGenre || "-";
-  const isPublicComment = item.activityType === "public_comment" && item.interactionType === "comment" && !item.isDirectedComment;
-  const shouldRenderModerationMenu = isPublicComment && Boolean(item.commentId) && Boolean(item.user.id);
+  const shouldRenderModerationMenu = shouldRenderActivityModerationMenu(item);
 
   const userHeader = (
     <div className="min-w-0">
@@ -83,23 +83,23 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1">
             {profileHref ? (
               <Link
                 href={profileHref}
                 onClick={(event) => event.stopPropagation()}
-                className="cursor-pointer text-sm font-semibold text-blue-200 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
+                className="min-w-0 truncate text-sm font-semibold text-blue-200 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
               >
                 @{item.user.username}
               </Link>
             ) : (
-              <p className="text-sm font-semibold text-blue-200">@{item.user.username}</p>
+              <p className="min-w-0 truncate text-sm font-semibold text-blue-200">@{item.user.username}</p>
             )}
-            <div className="flex items-center gap-1">
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              {shouldRenderModerationMenu && item.commentId && item.actorId ? <UgcModerationMenu contentKind="comment" objectId={item.commentId} userId={item.actorId} username={item.user.username} /> : null}
               <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
                 {formatProfileFeedRelativeDate(locale, item.createdAt)}
               </span>
-              {shouldRenderModerationMenu && item.commentId ? <UgcModerationMenu contentKind="comment" objectId={item.commentId} userId={item.user.id} username={item.user.username} /> : null}
             </div>
           </div>
           <p className="mt-1 text-sm text-zinc-300">
