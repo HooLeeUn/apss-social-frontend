@@ -511,7 +511,10 @@ export default function SocialActivityTabsBlock() {
   ];
 
   return (
-    <section className="profile-feed-following-activity-panel ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 pt-4 [overflow-anchor:none] xl:pt-6">
+    <section
+      className={`profile-feed-following-activity-panel profile-feed-following-activity-panel--${activeTab} ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 pt-4 [overflow-anchor:none] xl:pt-6`}
+      data-active-tab={activeTab}
+    >
       <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 xl:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
       <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md xl:mt-4" style={activityTabsLayoutStyle}>
         <div className="grid grid-cols-3 items-center gap-1.5 sm:gap-3 xl:gap-8">

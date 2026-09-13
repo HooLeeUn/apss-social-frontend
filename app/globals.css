@@ -904,10 +904,22 @@ textarea,
     min-height: 0;
     flex-direction: column;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
     overscroll-behavior-y: auto;
     touch-action: pan-y pinch-zoom;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-activity:has(.profile-feed-following-activity-panel--recommendations),
+  .profile-feed-mobile-framing .profile-feed-following-activity-panel--recommendations {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-activity-panel--recordings {
+    overflow-y: auto;
   }
 
   .profile-feed-mobile-framing .profile-feed-following-activity-body,

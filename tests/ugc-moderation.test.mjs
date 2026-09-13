@@ -25,7 +25,7 @@ test("public comments expose moderation only for non-own comments", () => {
   assert.match(movie, /currentUserId=\{authenticatedUser\?\.id\}/);
 });
 
-test("a realistic following public-comment payload keeps its real object id for moderation", () => {
+test("a realistic following public-comment payload keeps its object and actor ids for moderation", () => {
   const payload = {
     id: "activity-812",
     activity_type: "public_comment",
@@ -36,7 +36,8 @@ test("a realistic following public-comment payload keeps its real object id for 
   assert.equal(payload.activity_type, "public_comment");
   assert.equal(payload.object_id, 991);
   assert.match(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
-  assert.match(socialCard, /item\.interactionType === "comment" && !item\.isDirectedComment && Boolean\(item\.commentId\)/);
+  assert.match(socialCard, /item\.activityType === "public_comment" && item\.interactionType === "comment" && !item\.isDirectedComment/);
+  assert.match(socialCard, /isPublicComment && Boolean\(item\.commentId\) && Boolean\(item\.user\.id\)/);
   assert.match(socialCard, /UgcModerationMenu contentKind="comment" objectId=\{item\.commentId\}/);
 });
 
@@ -48,6 +49,7 @@ test("rating and comment-reaction fixtures cannot expose the public-comment menu
   ];
   for (const fixture of fixtures) assert.notEqual(fixture.activity_type, "public_comment");
   assert.match(adapters, /const isPublicCommentType = normalizedActivityType === "public_comment"/);
+  assert.match(socialCard, /item\.activityType === "public_comment"/);
 });
 
 test("video reactions use the video comment and exposed author IDs", () => {
