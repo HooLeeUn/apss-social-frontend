@@ -4,6 +4,8 @@ import test from "node:test";
 
 const moderation = readFileSync("lib/moderation.ts", "utf8");
 const menu = readFileSync("components/moderation/UgcModerationMenu.tsx", "utf8");
+const socialCard = readFileSync("components/profile-feed/SocialActivityCard.tsx", "utf8");
+const adapters = readFileSync("lib/profile-feed/adapters.ts", "utf8");
 const comments = readFileSync("components/social/CommentItem.tsx", "utf8");
 const movie = readFileSync("app/movies/[id]/page.tsx", "utf8");
 const signup = readFileSync("app/signup/page.tsx", "utf8");
@@ -21,6 +23,31 @@ test("public comments expose moderation only for non-own comments", () => {
   assert.match(comments, /showModeration && comment\.type === "public"/);
   assert.match(movie, /enablePublicModeration=\{!isDesktopGuest\}/);
   assert.match(movie, /currentUserId=\{authenticatedUser\?\.id\}/);
+});
+
+test("a realistic following public-comment payload keeps its real object id for moderation", () => {
+  const payload = {
+    id: "activity-812",
+    activity_type: "public_comment",
+    actor: { id: 44, username: "DennisseJamaica" },
+    object_id: 991,
+    payload: { content: "Excelente película" },
+  };
+  assert.equal(payload.activity_type, "public_comment");
+  assert.equal(payload.object_id, 991);
+  assert.match(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
+  assert.match(socialCard, /item\.interactionType === "comment" && !item\.isDirectedComment && Boolean\(item\.commentId\)/);
+  assert.match(socialCard, /UgcModerationMenu contentKind="comment" objectId=\{item\.commentId\}/);
+});
+
+test("rating and comment-reaction fixtures cannot expose the public-comment menu", () => {
+  const fixtures = [
+    { activity_type: "rating", payload: { score: 8 } },
+    { activity_type: "public_comment_like", payload: { comment_id: 991, reaction: "like" } },
+    { activity_type: "public_comment_dislike", payload: { comment_id: 991, reaction: "dislike" } },
+  ];
+  for (const fixture of fixtures) assert.notEqual(fixture.activity_type, "public_comment");
+  assert.match(adapters, /const isPublicCommentType = normalizedActivityType === "public_comment"/);
 });
 
 test("video reactions use the video comment and exposed author IDs", () => {

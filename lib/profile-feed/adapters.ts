@@ -485,7 +485,13 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const commentText = toStringOrNull(
     pickFirst(payload.comment_text, payload.content, payload.text, activityRecord.comment_text),
   );
-  const commentId = toStringOrNull(pickFirst(payload.comment_id, payload.commentId));
+  const commentId = toStringOrNull(pickFirst(
+    payload.comment_id,
+    payload.commentId,
+    activityRecord.comment_id,
+    activityRecord.commentId,
+    isPublicCommentType ? activityRecord.object_id : undefined,
+  ));
   const likedCommentSnippet = toStringOrNull(
     pickFirst(payload.comment_excerpt, activityRecord.comment_text, payload.content, payload.text),
   );

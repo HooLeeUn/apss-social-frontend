@@ -36,6 +36,7 @@ type FollowedRecommendation = UserMovieRecommendation & {
 
 const FOLLOWED_RECOMMENDATIONS_BATCH_SIZE = 15;
 const INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT = 25;
+const FOLLOWED_RECOMMENDATIONS_MAX_HEIGHT_REM = 39;
 
 function getRecommendationRating(recommendation: UserMovieRecommendation): number {
   return typeof recommendation.displayRating === "number" && Number.isFinite(recommendation.displayRating) ? recommendation.displayRating : -Infinity;
@@ -260,7 +261,11 @@ export default function SocialActivityTabsBlock() {
   useEffect(() => {
     const container = recommendationsScrollRef.current;
     if (!container || !isRecommendationsActive) return;
-    const update = () => setRecommendationsOverflow(container.scrollHeight > container.clientHeight + 1);
+    const update = () => {
+      const content = container.firstElementChild;
+      const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setRecommendationsOverflow(Boolean(content && content.scrollHeight > FOLLOWED_RECOMMENDATIONS_MAX_HEIGHT_REM * rootFontSize));
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(container);
@@ -544,7 +549,7 @@ export default function SocialActivityTabsBlock() {
         </div>
       </header>
 
-      <div className="profile-feed-following-activity-body px-4 pt-5">
+      <div className={`profile-feed-following-activity-body px-4 pt-5 xl:min-h-[49rem] ${isRecordingsActive ? "profile-feed-following-recordings" : ""}`}>
         {isRecommendationsActive ? (
           <div className="profile-feed-following-recommendations space-y-3">
             <div className="flex items-center justify-start">
@@ -563,7 +568,7 @@ export default function SocialActivityTabsBlock() {
 
             <div
               ref={recommendationsScrollRef}
-              className={`profile-feed-following-scroll max-h-[39rem] pr-2 ${recommendationsOverflow ? "activity-scrollbar overflow-y-auto" : "overflow-y-visible"}`}
+              className={`profile-feed-following-recommendations-scroll pr-2 ${recommendationsOverflow ? "activity-scrollbar max-h-[39rem] overflow-y-auto" : "max-h-none overflow-y-visible"}`}
               role="listbox"
               aria-label={t("profileFeedRecommendations")}
               onScroll={handleFollowedRecommendationsScroll}

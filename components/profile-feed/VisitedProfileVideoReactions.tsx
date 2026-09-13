@@ -75,6 +75,7 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const feedbackTimer = useRef<number | null>(null);
   const [feedback, setFeedback] = useState<"play" | "pause" | null>(null);
+  const touchGesture = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const registerVideo = useCallback((video: HTMLVideoElement | null) => {
     videoRef.current = video;
     onRegister(video);
@@ -101,7 +102,7 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
   };
 
   return <>
-    <video ref={registerVideo} src={src} autoPlay={autoPlay} preload="auto" muted={muted} playsInline controls={false} disablePictureInPicture disableRemotePlayback className={`${className} ${interactive ? "cursor-pointer" : "pointer-events-none"}`} onClick={interactive ? togglePlayback : undefined} onLoadedData={onLoadedData} onPlay={onPlay} onEnded={onEnded} onVolumeChange={(event) => onMutedChange(event.currentTarget.muted)} />
+    <video ref={registerVideo} src={src} autoPlay={autoPlay} preload="auto" muted={muted} playsInline controls={false} disablePictureInPicture disableRemotePlayback className={`${className} ${interactive ? "cursor-pointer touch-pan-y" : "pointer-events-none"}`} onTouchStart={interactive ? (event) => { const touch = event.touches[0]; touchGesture.current = touch ? { x: touch.clientX, y: touch.clientY, moved: false } : null; } : undefined} onTouchMove={interactive ? (event) => { const touch = event.touches[0]; const gesture = touchGesture.current; if (touch && gesture && Math.hypot(touch.clientX - gesture.x, touch.clientY - gesture.y) > 8) gesture.moved = true; } : undefined} onClick={interactive ? () => { const wasSwipe = touchGesture.current?.moved === true; touchGesture.current = null; if (!wasSwipe) togglePlayback(); } : undefined} onLoadedData={onLoadedData} onPlay={onPlay} onEnded={onEnded} onVolumeChange={(event) => onMutedChange(event.currentTarget.muted)} />
     {feedback ? <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 z-20 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-xl text-white transition-opacity">{feedback === "play" ? "▶" : "❚❚"}</span> : null}
     {showMuteControl ? <button type="button" data-video-mute-control className="absolute bottom-2 left-2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white shadow-md hover:bg-black/70" aria-label={muted ? "Unmute" : "Mute"} onClick={(event) => { event.stopPropagation(); onMutedChange(!muted); }}>{muted ? "🔇" : "🔊"}</button> : null}
   </>;

@@ -27,10 +27,26 @@ test("Recordings reuse the video player, reaction contract, UGC menu and paginat
   assert.match(videos, /incoming\.filter\(\(item\) => !ids\.has\(String\(item\.id\)\)\)/);
 });
 
-test("recommendations only activate their inner scroller when content really overflows", () => {
-  assert.match(tabs, /container\.scrollHeight > container\.clientHeight \+ 1/);
-  assert.match(tabs, /recommendationsOverflow \? "activity-scrollbar overflow-y-auto" : "overflow-y-visible"/);
+test("short recommendations grow naturally and long recommendations alone activate the inner scroller", () => {
+  assert.match(tabs, /content\.scrollHeight > FOLLOWED_RECOMMENDATIONS_MAX_HEIGHT_REM \* rootFontSize/);
+  assert.match(tabs, /recommendationsOverflow \? "activity-scrollbar max-h-\[39rem\] overflow-y-auto" : "max-h-none overflow-y-visible"/);
   assert.match(tabs, /new ResizeObserver\(update\)/);
+});
+
+test("Recordings use the common mobile activity scroll and never cancel vertical touchmove", () => {
+  const inlinePlayer = videos.slice(videos.indexOf("function VisitedProfileVideoPlayer"), videos.indexOf("export default function"));
+  const touchMove = inlinePlayer.slice(inlinePlayer.indexOf("onTouchMove="), inlinePlayer.indexOf("onClick=", inlinePlayer.indexOf("onTouchMove=")));
+  assert.match(touchMove, /onTouchMove=/);
+  assert.doesNotMatch(touchMove, /preventDefault|stopPropagation/);
+  assert.match(inlinePlayer, /Math\.hypot[\s\S]*> 8/);
+  assert.match(inlinePlayer, /if \(!wasSwipe\) togglePlayback\(\)/);
+  assert.match(tabs, /profile-feed-following-recordings/);
+});
+
+test("following tab selection contains no viewport repositioning API", () => {
+  const handlers = tabs.slice(tabs.indexOf("const handleRecommendationsTabClick"), tabs.indexOf("const getTabClassName"));
+  assert.doesNotMatch(handlers, /scrollIntoView|scrollTo|scrollTop|\.focus\(/);
+  assert.match(tabs, /xl:min-h-\[49rem\]/);
 });
 
 test("both Rec-prefixed tabs reuse the established gradient label", () => {

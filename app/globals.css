@@ -903,7 +903,11 @@ textarea,
     height: 100%;
     min-height: 0;
     flex-direction: column;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
   }
 
   .profile-feed-mobile-framing .profile-feed-following-activity-body,
@@ -913,6 +917,22 @@ textarea,
     flex: 1 1 auto;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-activity-body:has(.profile-feed-following-recommendations) {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-recommendations-scroll {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow-x: hidden;
+  }
+
+  .profile-feed-mobile-framing .profile-feed-following-recordings {
+    flex: 0 0 auto;
+    overflow: visible;
   }
 
   .profile-feed-mobile-framing .profile-feed-following-scroll {

@@ -50,7 +50,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const activity = getActivityText(item, locale, t);
   const movieType = translateProfileFeedMovieType(locale, item.movieType);
   const movieGenre = item.movieGenre || "-";
-  const isReportablePublicComment = item.activityType === "public_comment" && Boolean(item.commentId);
+  const isReportablePublicComment = item.interactionType === "comment" && !item.isDirectedComment && Boolean(item.commentId);
 
   const userHeader = (
     <div className="min-w-0">
