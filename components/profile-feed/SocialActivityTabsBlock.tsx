@@ -13,6 +13,7 @@ import SocialActivityCard from "./SocialActivityCard";
 import EmptyStatePanel from "./EmptyStatePanel";
 import ProfileRecommendationsLabel from "./ProfileRecommendationsLabel";
 import { RatingPersonRaisingHandIcon } from "../RatingIcons";
+import { USER_RESTRICTED_EVENT } from "../../lib/privacy";
 
 type InteractionsTab = SocialTab | "recommendations";
 
@@ -234,6 +235,13 @@ export default function SocialActivityTabsBlock() {
     { value: "following", label: t("profileFeedActions"), emptyCopy: t("profileFeedNoItems") },
   ];
   const followingActivity = useInfiniteSocialActivity("following");
+  const reloadFollowingActivity = followingActivity.reload;
+
+  useEffect(() => {
+    const refreshRestrictedActivity = () => reloadFollowingActivity();
+    window.addEventListener(USER_RESTRICTED_EVENT, refreshRestrictedActivity);
+    return () => window.removeEventListener(USER_RESTRICTED_EVENT, refreshRestrictedActivity);
+  }, [reloadFollowingActivity]);
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
   const isRecommendationsActive = activeTab === "recommendations";
 

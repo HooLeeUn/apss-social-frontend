@@ -9,6 +9,7 @@ import AuthDialog from "../../components/auth/AuthDialog";
 import PasswordVisibilityButton from "../../components/auth/PasswordVisibilityButton";
 import { getAgeFromBirthDate, MINIMUM_AGE } from "../../lib/personal-data";
 import { clearGuestMode } from "../../lib/auth";
+import { TERMS_VERSION } from "../../lib/legal-constants";
 
 type FieldName =
   | "first_name"
@@ -18,6 +19,8 @@ type FieldName =
   | "birth_date"
   | "password"
   | "password_confirmation"
+  | "accept_terms"
+  | "terms_version"
   | "non_field_errors";
 type FieldErrors = Partial<Record<FieldName, string>>;
 type UsernameAvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
@@ -58,6 +61,7 @@ export default function SignupPage() {
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showBirthDateModal, setShowBirthDateModal] = useState(false);
@@ -105,6 +109,7 @@ export default function SignupPage() {
     if (form.password !== form.password_confirmation) {
       nextErrors.password_confirmation = text.passwordsMismatch;
     }
+    if (!acceptTerms) nextErrors.accept_terms = text.termsRequired;
 
     return nextErrors;
   };
@@ -119,6 +124,8 @@ export default function SignupPage() {
       "birth_date",
       "password",
       "password_confirmation",
+      "accept_terms",
+      "terms_version",
       "non_field_errors",
     ];
 
@@ -133,6 +140,10 @@ export default function SignupPage() {
               ? text.passwordRequirements
               : field === "password_confirmation"
                 ? text.passwordsMismatch
+                : field === "accept_terms"
+                  ? text.termsRequired
+                  : field === "terms_version"
+                    ? text.termsVersionError
                 : text.registrationError;
       }
     });
@@ -208,7 +219,7 @@ export default function SignupPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, accept_terms: true, terms_version: TERMS_VERSION }),
       });
 
       const contentType = res.headers.get("content-type") || "";
@@ -266,7 +277,7 @@ export default function SignupPage() {
   const normalizedUsername = form.username.trim();
   const hasUsernameReadyForSubmit =
     usernameStatus === "available" && lastCheckedUsernameRef.current === normalizedUsername;
-  const isSubmitDisabled = loading || usernameStatus === "checking" || (normalizedUsername.length >= MIN_USERNAME_LENGTH && !hasUsernameReadyForSubmit);
+  const isSubmitDisabled = loading || !acceptTerms || usernameStatus === "checking" || (normalizedUsername.length >= MIN_USERNAME_LENGTH && !hasUsernameReadyForSubmit);
   const usernameStatusClassName =
     usernameStatus === "available"
       ? "text-sm text-emerald-300/95"
@@ -432,6 +443,15 @@ export default function SignupPage() {
           </div>
 
           {errors.non_field_errors && <p className={errorClassName}>{errors.non_field_errors}</p>}
+
+          <div className="space-y-2">
+            <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-zinc-300">
+              <input type="checkbox" checked={acceptTerms} onChange={(event) => { setAcceptTerms(event.target.checked); setErrors((current) => ({ ...current, accept_terms: "" })); }} className="mt-1 h-5 w-5 shrink-0 accent-[#86ADE0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]" />
+              <span>{text.termsPrefix} <Link href="/policies" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#a9c9ef] underline underline-offset-2">{text.termsLink}</Link>{text.termsSuffix}</span>
+            </label>
+            {errors.accept_terms ? <p className={errorClassName}>{errors.accept_terms}</p> : null}
+            {errors.terms_version ? <p className={errorClassName}>{errors.terms_version}</p> : null}
+          </div>
 
           <button
             type="submit"

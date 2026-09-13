@@ -35,6 +35,9 @@ interface CommentsListProps {
   containerRef?: Ref<HTMLDivElement>;
   readOnly?: boolean;
   onReadOnlyBoundaryAttempt?: () => void;
+  enablePublicModeration?: boolean;
+  currentUserId?: string | number | null;
+  currentUsername?: string;
 }
 
 export default function CommentsList({
@@ -69,6 +72,9 @@ export default function CommentsList({
   containerRef,
   readOnly = false,
   onReadOnlyBoundaryAttempt,
+  enablePublicModeration = false,
+  currentUserId = null,
+  currentUsername = "",
 }: CommentsListProps) {
   const { t } = useI18n();
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -136,6 +142,7 @@ export default function CommentsList({
               actionError={actionErrorByCommentId[String(comment.id)]}
               displayText={getDisplayText?.(comment)}
               disabled={readOnly}
+              showModeration={enablePublicModeration && comment.authorId !== null && String(comment.authorId) !== String(currentUserId) && comment.authorUsername.toLowerCase() !== currentUsername.toLowerCase()}
             />
           </div>
         ))}
@@ -199,6 +206,7 @@ export default function CommentsList({
               actionError={actionErrorByCommentId[String(comment.id)]}
               displayText={getDisplayText?.(comment)}
               disabled={readOnly}
+              showModeration={enablePublicModeration && comment.authorId !== null && String(comment.authorId) !== String(currentUserId) && comment.authorUsername.toLowerCase() !== currentUsername.toLowerCase()}
             />
           </div>
         ))}
