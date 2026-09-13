@@ -5,7 +5,7 @@ import { useI18n } from "../../hooks/useI18n";
 import { formatProfileFeedRatingsCount, formatProfileFeedRelativeDate, translateProfileFeedMovieType } from "../../lib/i18n";
 import { RatingPersonRaisingHandIcon } from "../RatingIcons";
 import UgcModerationMenu from "../moderation/UgcModerationMenu";
-import { getActivityPublicCommentReportId } from "../../lib/profile-feed/activity-moderation.mjs";
+import { getActivityCommentReportId } from "../../lib/profile-feed/activity-moderation.mjs";
 
 function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
@@ -55,10 +55,9 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   // Use its canonical user id directly so Actions cards do not depend on activity classification fields.
   const actorUserId = item.user.id;
   const hasActivityActor = Boolean(actorUserId);
-  // Only the canonical public-comment activity may provide a report target.
-  // Reaction activities can also carry a commentId, but reporting that comment
-  // from a like/dislike card is intentionally not offered.
-  const publicCommentReportId = getActivityPublicCommentReportId(item);
+  // A structured comment reference is the report target, including the original
+  // comment referenced by like/dislike activities. Activity text is never used.
+  const commentReportId = getActivityCommentReportId(item);
 
   const userHeader = (
     <div className="min-w-0">
@@ -106,10 +105,10 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               {hasActivityActor ? (
                 <UgcModerationMenu
                   contentKind="comment"
-                  objectId={publicCommentReportId}
+                  objectId={commentReportId}
                   userId={actorUserId}
                   username={item.user.username}
-                  showReportContent={publicCommentReportId !== undefined}
+                  showReportContent={commentReportId !== undefined}
                 />
               ) : null}
               <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
