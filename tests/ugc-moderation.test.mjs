@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { shouldRenderActivityModerationMenu, shouldShowActivityContentReport } from "../lib/profile-feed/activity-moderation.mjs";
+import { getActivityPublicCommentReportId, shouldRenderActivityModerationMenu, shouldShowActivityContentReport } from "../lib/profile-feed/activity-moderation.mjs";
 
 const moderation = readFileSync("lib/moderation.ts", "utf8");
 const menu = readFileSync("components/moderation/UgcModerationMenu.tsx", "utf8");
@@ -40,8 +40,8 @@ test("a realistic following public-comment payload keeps its object and actor id
   assert.match(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
   assert.equal(shouldRenderActivityModerationMenu({ actorId: "44" }), true);
   assert.match(socialCard, /const actorUserId = item\.user\.id/);
-  assert.match(socialCard, /\{hasActivityActor \? <UgcModerationMenu/);
-  assert.match(socialCard, /UgcModerationMenu contentKind="comment" objectId=\{item\.commentId\}/);
+  assert.match(socialCard, /\{hasActivityActor \? \([\s\S]*<UgcModerationMenu/);
+  assert.match(socialCard, /objectId=\{publicCommentReportId\}/);
 });
 
 test("rating and comment-reaction fixtures expose user moderation but not content reporting", () => {
@@ -78,8 +78,22 @@ test("only a public comment with a real comment id exposes content reporting", (
   assert.equal(shouldShowActivityContentReport({ ...base, activityType: "public_comment_dislike", interactionType: "dislike" }), false);
   assert.equal(shouldShowActivityContentReport({ ...base, activityType: "public_comment", commentId: undefined }), false);
   assert.equal(shouldShowActivityContentReport({ ...base, activityType: "public_comment", isDirectedComment: true }), false);
+  assert.equal(getActivityPublicCommentReportId({ ...base, activityType: "public_comment" }), "991");
+  assert.equal(getActivityPublicCommentReportId({ ...base, activityType: "rating", interactionType: "rating" }), undefined);
+  assert.equal(getActivityPublicCommentReportId({ ...base, activityType: "public_comment_like", interactionType: "like" }), undefined);
+  assert.equal(getActivityPublicCommentReportId({ ...base, activityType: "public_comment_dislike", interactionType: "dislike" }), undefined);
   assert.match(menu, /showReportContent && objectId !== undefined/);
-  assert.match(socialCard, /showReportContent=\{shouldShowContentReport\}/);
+  assert.match(socialCard, /showReportContent=\{publicCommentReportId !== undefined\}/);
+});
+
+test("the Actions menu keeps content reporting first and targets the Comment report type", () => {
+  const reportContent = menu.indexOf("{c.reportContent}");
+  const reportUser = menu.indexOf("{c.reportUser}");
+  const restrictUser = menu.indexOf("{c.restrict}");
+  assert.ok(reportContent >= 0 && reportContent < reportUser && reportUser < restrictUser);
+  assert.match(socialCard, /contentKind="comment"[\s\S]*objectId=\{publicCommentReportId\}/);
+  assert.match(moderation, /payload: Record<string, string \| number> = \{ type: target\.kind, reason \}/);
+  assert.match(moderation, /else payload\.object_id = target\.objectId/);
 });
 
 test("video reactions use the video comment and exposed author IDs", () => {

@@ -141,7 +141,7 @@ export interface SocialActivityItem {
   likedCommentSnippet?: string;
   likedCommentAuthorUsername?: string;
   reactionActorUsername?: string;
-  commentId?: string;
+  commentId?: string | number;
   reactionId?: string;
   actorId?: string;
   isGivenReaction?: boolean;
