@@ -12,11 +12,13 @@ import { useDesktopGuest } from "../../hooks/useDesktopGuest";
 import { useGuestGate } from "../GuestGateProvider";
 import PosterImage from "../PosterImage";
 import type { AppBranding } from "../../lib/branding";
+import UgcModerationMenu from "../moderation/UgcModerationMenu";
+import { USER_RESTRICTED_EVENT } from "../../lib/privacy";
 
 interface VideoReactionActivity {
   id: string | number;
   activity_type: string;
-  actor?: { username?: string | null } | null;
+  actor?: { id?: string | number; username?: string | null; avatar?: string | null } | null;
   movie: ProfileFeedActivityMovie;
   timestamp?: string | null;
   created_at?: string | null;
@@ -30,6 +32,21 @@ interface ActivityPage {
 }
 
 type VideoReaction = "like" | "dislike";
+
+interface FollowingVideoReaction {
+  id: string | number;
+  user: { id: string | number; username: string; avatar: string | null };
+  video_url: string;
+  created_at: string;
+  likes_count: number;
+  dislikes_count: number;
+  my_reaction: VideoReaction | null;
+  movie: ProfileFeedActivityMovie;
+}
+
+function mapFollowingReaction(item: FollowingVideoReaction): VideoReactionActivity {
+  return { id: item.id, activity_type: "video_comment", actor: item.user, movie: item.movie, created_at: item.created_at, payload: { video_comment_id: item.id, video_url: item.video_url, likes_count: item.likes_count, dislikes_count: item.dislikes_count, my_reaction: item.my_reaction } };
+}
 
 interface VideoReactionResponse {
   video_comment_id: string | number;
@@ -89,13 +106,16 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
   </>;
 }
 
-export default function VisitedProfileVideoReactions({ username, isActive, guestGateId: providedGuestGateId, branding = null }: { username: string; isActive: boolean; guestGateId?: string; branding?: AppBranding | null }) {
+export default function VisitedProfileVideoReactions({ username = "", isActive, guestGateId: providedGuestGateId, branding = null, source = "visited" }: { username?: string; isActive: boolean; guestGateId?: string; branding?: AppBranding | null; source?: "visited" | "following" }) {
   const { isGuestExperience: isDesktopGuest, isMobile } = useDesktopGuest();
   const { locale, t } = useI18n();
   const [items, setItems] = useState<VideoReactionActivity[]>([]);
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [reloadToken, setReloadToken] = useState(0);
+  const [nextEndpoint, setNextEndpoint] = useState<string | null>(null);
+  const loadingNextRef = useRef(false);
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const guestMobileTouchYRef = useRef<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -262,7 +282,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
       resumeAfterInterruption.current = null;
       setIsMuted(true);
       const visitedEndpoints = new Set<string>();
-      const initialEndpoint = `/users/${encodeURIComponent(username)}/video-reactions/`;
+      const initialEndpoint = source === "following" ? "/profile-feed/following-video-reactions/" : `/users/${encodeURIComponent(username)}/video-reactions/`;
 
       try {
         visitedEndpoints.add(initialEndpoint);
@@ -270,10 +290,14 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
         if (!Array.isArray(firstPage?.results)) throw new Error("Invalid video reactions response.");
 
         if (!active) return;
-        setItems(firstPage.results);
+        setItems(source === "following" ? (firstPage.results as unknown as FollowingVideoReaction[]).map(mapFollowingReaction) : firstPage.results);
         setState("ready");
 
         let nextEndpoint = typeof firstPage.next === "string" && firstPage.next ? firstPage.next : null;
+        if (source === "following") {
+          setNextEndpoint(nextEndpoint ? normalizeNextEndpoint(nextEndpoint) : null);
+          return;
+        }
         if (!nextEndpoint) return;
 
         // Give React an opportunity to paint the first page before fetching more results.
@@ -288,7 +312,11 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
           if (!Array.isArray(page?.results)) throw new Error("Invalid video reactions response.");
 
           if (!active) return;
-          setItems((currentItems) => [...currentItems, ...page.results]);
+          setItems((currentItems) => {
+            const incoming = page.results;
+            const existingIds = new Set(currentItems.map((item) => String(item.id)));
+            return [...currentItems, ...incoming.filter((item) => !existingIds.has(String(item.id)))];
+          });
           nextEndpoint = typeof page.next === "string" && page.next ? page.next : null;
         }
       } catch (error) {
@@ -303,7 +331,30 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
       active = false;
       abortController.abort();
     };
-  }, [username]);
+  }, [reloadToken, source, username]);
+
+  const loadNextFollowingPage = useCallback(async () => {
+    if (source !== "following" || !nextEndpoint || loadingNextRef.current) return;
+    loadingNextRef.current = true;
+    try {
+      const page = await apiFetch(nextEndpoint, { cache: "no-store" }) as ActivityPage;
+      if (!Array.isArray(page.results)) throw new Error("Invalid video reactions response.");
+      const incoming = (page.results as unknown as FollowingVideoReaction[]).map(mapFollowingReaction);
+      setItems((current) => {
+        const ids = new Set(current.map((item) => String(item.id)));
+        return [...current, ...incoming.filter((item) => !ids.has(String(item.id)))];
+      });
+      setNextEndpoint(typeof page.next === "string" && page.next ? normalizeNextEndpoint(page.next) : null);
+    } catch (error) { console.error("No se pudo cargar la siguiente página de Recados.", error); }
+    finally { loadingNextRef.current = false; }
+  }, [nextEndpoint, source]);
+
+  useEffect(() => {
+    if (source !== "following") return;
+    const refresh = () => setReloadToken((value) => value + 1);
+    window.addEventListener(USER_RESTRICTED_EVENT, refresh);
+    return () => window.removeEventListener(USER_RESTRICTED_EVENT, refresh);
+  }, [source]);
 
   useEffect(() => {
     if (state !== "ready" || videoRefs.current.size === 0) return;
@@ -495,13 +546,13 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
 
   if (state === "loading") return <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p>;
   if (state === "error") return <p className="text-sm text-red-200">{t("visitedProfileVideoReactionsError")}</p>;
-  if (cards.length === 0) return <p className="text-sm text-zinc-500">{t("visitedProfileNoVideoReactions")}</p>;
+  if (cards.length === 0) return <p className="text-sm text-zinc-500">{t(source === "following" ? "profileFeedNoRecordings" : "visitedProfileNoVideoReactions")}</p>;
   const visibleCards = isDesktopGuest && isMobile && guestVisibleCount !== null ? cards.slice(0, Math.max(1, guestVisibleCount)) : cards;
 
   return (
     <div className="relative">
       <button type="button" onClick={() => scrollCarousel(-1)} disabled={!canScrollLeft} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">←</button>
-      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); }} onTouchStart={(event) => { guestMobileTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!isDesktopGuest || !isMobile || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileTouchYRef.current = currentY; if (delta <= 0 || guestVisibleCount === null || guestVisibleCount >= cards.length) return; showGuestGate(guestGateId, "more"); }} onTouchEnd={() => { guestMobileTouchYRef.current = null; }} onTouchCancel={() => { guestMobileTouchYRef.current = null; }} className="space-y-8 overflow-x-visible px-1 pb-4 xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
+      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); const carousel = carouselRef.current; if (carousel && carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 320) void loadNextFollowingPage(); }} onTouchStart={(event) => { guestMobileTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileTouchYRef.current; const currentY = event.touches[0]?.clientY; if (previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileTouchYRef.current = currentY; if (source === "following" && delta > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500) void loadNextFollowingPage(); if (!isDesktopGuest || !isMobile || delta <= 0 || guestVisibleCount === null || guestVisibleCount >= cards.length) return; showGuestGate(guestGateId, "more"); }} onTouchEnd={() => { guestMobileTouchYRef.current = null; }} onTouchCancel={() => { guestMobileTouchYRef.current = null; }} className="space-y-8 overflow-x-visible px-1 pb-4 xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
         {visibleCards.map(({ item, title, timestamp }, index) => {
           const commentId = item.payload.video_comment_id;
           const videoId = String(commentId ?? item.id);
@@ -522,10 +573,12 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
                 <PosterImage posterSrc={item.movie.image} title={title} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-1" loading="lazy" decoding="async" />
               </Link>
               <div className="min-w-0 flex-1">
+                {source === "following" && item.actor?.username ? <Link href={`/users/${encodeURIComponent(item.actor.username)}`} className="mb-0.5 flex items-center gap-2 text-sm font-bold text-blue-200">{item.actor.avatar ? <img src={item.actor.avatar} alt="" className="h-7 w-7 rounded-full object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-[10px]">{item.actor.username.slice(0, 2).toUpperCase()}</span>}<span className="truncate">@{item.actor.username}</span></Link> : null}
                 <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="line-clamp-2 text-sm font-semibold text-zinc-100 hover:text-blue-200">{title}</Link>
                 <time dateTime={timestamp} className="mt-0.5 block text-xs text-zinc-500">{formatProfileFeedRelativeDate(locale, timestamp)}</time>
               </div>
               <div className="xl:hidden">{reactionButtons}</div>
+              {source === "following" && item.actor?.id !== undefined && item.actor.username ? <UgcModerationMenu contentKind="video_comment" objectId={commentId ?? item.id} userId={item.actor.id} username={item.actor.username} /> : null}
             </div>
             <div className="group relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)] xl:h-[clamp(260px,calc(100dvh-16rem),520px)] xl:w-auto">
               <div data-visited-profile-video-id={videoId} className="relative h-full w-full">
@@ -538,7 +591,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
           );
         })}
       </div>
-      <button type="button" onClick={() => scrollCarousel(1)} disabled={!canScrollRight} aria-label={t("visitedProfileNextVideoReaction")} className="absolute right-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">→</button>
+      <button type="button" onClick={() => { scrollCarousel(1); if (!canScrollRight) void loadNextFollowingPage(); }} disabled={!canScrollRight && !nextEndpoint} aria-label={t("visitedProfileNextVideoReaction")} className="absolute right-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">→</button>
       {expandedIndex !== null && cards[expandedIndex] ? (() => {
         const { item, title } = cards[expandedIndex];
         const commentId = item.payload.video_comment_id;

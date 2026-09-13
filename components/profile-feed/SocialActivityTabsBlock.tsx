@@ -14,8 +14,9 @@ import EmptyStatePanel from "./EmptyStatePanel";
 import ProfileRecommendationsLabel from "./ProfileRecommendationsLabel";
 import { RatingPersonRaisingHandIcon } from "../RatingIcons";
 import { USER_RESTRICTED_EVENT } from "../../lib/privacy";
+import VisitedProfileVideoReactions from "./VisitedProfileVideoReactions";
 
-type InteractionsTab = SocialTab | "recommendations";
+type InteractionsTab = SocialTab | "recommendations" | "recordings";
 
 
 const tabButtonBaseClass =
@@ -231,6 +232,8 @@ export default function SocialActivityTabsBlock() {
   const followedRecommendationsLoadedRef = useRef(false);
   const movieRatingCacheRef = useRef<Map<string, Pick<UserMovieRecommendation, "displayRating" | "followingAvgRating" | "myRating">>>(new Map());
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
+  const recommendationsScrollRef = useRef<HTMLDivElement | null>(null);
+  const [recommendationsOverflow, setRecommendationsOverflow] = useState(false);
   const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
     { value: "following", label: t("profileFeedActions"), emptyCopy: t("profileFeedNoItems") },
   ];
@@ -244,6 +247,18 @@ export default function SocialActivityTabsBlock() {
   }, [reloadFollowingActivity]);
   const activeTabMeta = tabs.find((tab) => tab.value === activityTab) || tabs[0];
   const isRecommendationsActive = activeTab === "recommendations";
+  const isRecordingsActive = activeTab === "recordings";
+
+  useEffect(() => {
+    const container = recommendationsScrollRef.current;
+    if (!container || !isRecommendationsActive) return;
+    const update = () => setRecommendationsOverflow(container.scrollHeight > container.clientHeight + 1);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    if (container.firstElementChild) observer.observe(container.firstElementChild);
+    return () => observer.disconnect();
+  }, [followedRecommendations.length, followedRecommendationsLoading, isRecommendationsActive, visibleRecommendationsLimit]);
 
   useEffect(() => {
     const loadAuthenticatedUser = async () => {
@@ -461,6 +476,11 @@ export default function SocialActivityTabsBlock() {
     setActiveTab(nextTab);
   };
 
+  const handleRecordingsTabClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setActiveTab("recordings");
+  };
+
   const getTabClassName = (isActive: boolean, extraClassName = "") =>
     `${tabButtonBaseClass} ${isActive ? activeTabClass : inactiveTabClass} ${extraClassName}`;
 
@@ -481,31 +501,30 @@ export default function SocialActivityTabsBlock() {
     <section className="profile-feed-following-activity-panel ml-auto w-full max-w-[1100px] bg-zinc-950/35 pb-5 pt-4 [overflow-anchor:none] xl:pt-6">
       <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 xl:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
       <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md xl:mt-4" style={activityTabsLayoutStyle}>
-        <div className="grid grid-cols-[max-content_var(--activity-slot-width)] items-center gap-x-[var(--activity-tab-gap)] gap-y-2">
+        <div className="grid grid-cols-3 items-center gap-1.5 sm:gap-3 xl:gap-8">
           <button
             type="button"
             onMouseDown={preventPointerFocus}
             onClick={handleRecommendationsTabClick}
-            className={getTabClassName(isRecommendationsActive, "h-12 min-h-12 min-w-[9.25rem] flex-col gap-0.5 justify-self-start py-2 leading-tight")}
+            className={getTabClassName(isRecommendationsActive, "h-12 min-h-12 w-full px-2 text-xs sm:px-4 sm:text-sm")}
           >
-            <span className="xl:hidden"><ProfileRecommendationsLabel label={t("profileFeedRecommendations")} /></span>
-            <span className="hidden xl:inline">{t("profileFeedRecommendations")}</span>
+            <ProfileRecommendationsLabel label={t("profileFeedRecommendations")} />
           </button>
 
-          <div className="relative col-start-2 h-10 w-[var(--activity-slot-width)] overflow-visible">
+          <div className="relative h-10 w-full overflow-visible">
             {tabs.map((tab) => {
               const isActive = tab.value === activeTab;
 
               return (
                 <div
                   key={tab.value}
-                  className="absolute left-0 top-0 w-[var(--activity-slot-width)] transition duration-300 ease-out will-change-transform"
+                  className="absolute left-0 top-0 w-full transition duration-300 ease-out will-change-transform"
                 >
                   <button
                     type="button"
                     onMouseDown={preventPointerFocus}
                     onClick={(event) => handleActivityTabClick(event, tab.value)}
-                    className={getTabClassName(isActive, "mx-auto")}
+                    className={getTabClassName(isActive, "mx-auto w-full px-2 text-xs sm:px-4 sm:text-sm")}
                   >
                     {tab.label}
                   </button>
@@ -513,6 +532,7 @@ export default function SocialActivityTabsBlock() {
               );
             })}
           </div>
+          <button type="button" onMouseDown={preventPointerFocus} onClick={handleRecordingsTabClick} className={getTabClassName(isRecordingsActive, "h-12 min-h-12 w-full px-2 text-xs sm:px-4 sm:text-sm")}><ProfileRecommendationsLabel label={t("profileFeedRecordings")} /></button>
         </div>
       </header>
 
@@ -534,7 +554,8 @@ export default function SocialActivityTabsBlock() {
             </div>
 
             <div
-              className="profile-feed-following-scroll activity-scrollbar max-h-[39rem] overflow-y-auto pr-2"
+              ref={recommendationsScrollRef}
+              className={`profile-feed-following-scroll activity-scrollbar max-h-[39rem] pr-2 ${recommendationsOverflow ? "overflow-y-auto" : "overflow-y-visible xl:overflow-y-auto"}`}
               role="listbox"
               aria-label={t("profileFeedRecommendations")}
               onScroll={handleFollowedRecommendationsScroll}
@@ -568,6 +589,8 @@ export default function SocialActivityTabsBlock() {
               </div>
             </div>
           </div>
+        ) : isRecordingsActive ? (
+          <VisitedProfileVideoReactions source="following" isActive={isRecordingsActive} />
         ) : (
           <div className="profile-feed-following-actions relative h-[49rem] overflow-hidden [overflow-anchor:none]" aria-label={`Actividad de ${activeTabMeta.label}`}>
             {activityPanels.map(({ tab, meta, visibleItems, activity }) => {
