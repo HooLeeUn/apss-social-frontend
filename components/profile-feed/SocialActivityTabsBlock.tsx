@@ -234,6 +234,7 @@ export default function SocialActivityTabsBlock() {
   const [visibleRecommendationsLimit, setVisibleRecommendationsLimit] = useState(INITIAL_FOLLOWED_RECOMMENDATIONS_LIMIT);
   const recommendationsScrollRef = useRef<HTMLDivElement | null>(null);
   const [recommendationsOverflow, setRecommendationsOverflow] = useState(false);
+  const [restrictedRefreshToken, setRestrictedRefreshToken] = useState(0);
   const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
     { value: "following", label: t("profileFeedActions"), emptyCopy: t("profileFeedNoItems") },
   ];
@@ -241,7 +242,14 @@ export default function SocialActivityTabsBlock() {
   const reloadFollowingActivity = followingActivity.reload;
 
   useEffect(() => {
-    const refreshRestrictedActivity = () => reloadFollowingActivity();
+    const refreshRestrictedActivity = () => {
+      reloadFollowingActivity();
+      followedRecommendationsLoadedRef.current = false;
+      followedRecommendationsLoadingRef.current = false;
+      movieRatingCacheRef.current.clear();
+      setFollowedRecommendations([]);
+      setRestrictedRefreshToken((value) => value + 1);
+    };
     window.addEventListener(USER_RESTRICTED_EVENT, refreshRestrictedActivity);
     return () => window.removeEventListener(USER_RESTRICTED_EVENT, refreshRestrictedActivity);
   }, [reloadFollowingActivity]);
@@ -284,7 +292,7 @@ export default function SocialActivityTabsBlock() {
     };
 
     void loadRelationshipSets();
-  }, []);
+  }, [restrictedRefreshToken]);
 
   const eligibleFollowingUsers = useMemo(() => {
     const normalizedAuthenticatedUsername = authenticatedUsername?.trim().toLocaleLowerCase();
@@ -387,7 +395,7 @@ export default function SocialActivityTabsBlock() {
     };
 
     void loadFollowedRecommendations();
-  }, [authenticatedUserLoaded, eligibleFollowingUsers, followingUsersLoaded, isRecommendationsActive]);
+  }, [authenticatedUserLoaded, eligibleFollowingUsers, followingUsersLoaded, isRecommendationsActive, restrictedRefreshToken]);
 
   const filteredFollowedRecommendations = useMemo(() => {
     const normalizedQuery = followedRecommendationQuery.trim().toLocaleLowerCase();
@@ -555,7 +563,7 @@ export default function SocialActivityTabsBlock() {
 
             <div
               ref={recommendationsScrollRef}
-              className={`profile-feed-following-scroll activity-scrollbar max-h-[39rem] pr-2 ${recommendationsOverflow ? "overflow-y-auto" : "overflow-y-visible xl:overflow-y-auto"}`}
+              className={`profile-feed-following-scroll max-h-[39rem] pr-2 ${recommendationsOverflow ? "activity-scrollbar overflow-y-auto" : "overflow-y-visible"}`}
               role="listbox"
               aria-label={t("profileFeedRecommendations")}
               onScroll={handleFollowedRecommendationsScroll}

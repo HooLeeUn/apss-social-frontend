@@ -33,7 +33,8 @@ test("visited profile layout uses sticky mobile tabs and a vertical mobile video
   assert.match(activityColumn, /sticky top-0.*env\(safe-area-inset-top\)[\s\S]*<h2[^>]*>\{resolvedTitle\}<\/h2>[\s\S]*ref=\{visitedTabsRef\}/);
   assert.match(activityColumn, /!isOwnProfile[\s\S]*h-\[calc\(100dvh-max\(6rem,[\s\S]*overflow-y-auto/);
   assert.match(activityColumn, /visitedActivityTab === "video_reactions"[\s\S]*xl:h-auto xl:min-h-\[425px\] xl:overflow-y-visible/);
-  assert.match(videoCarousel, /space-y-8 overflow-x-visible/);
+  assert.match(videoCarousel, /space-y-6 overflow-x-visible/);
+  assert.match(videoCarousel, /touch-pan-y/);
   assert.match(videoCarousel, /xl:\[scrollbar-width:thin\]/);
   assert.match(videoCarousel, /xl:h-\[clamp\(260px,calc\(100dvh-16rem\),520px\)\]/);
 });
@@ -51,7 +52,8 @@ test("the shared sticky header is bounded by the complete activity section", () 
 
 test("mobile video geometry is stable when the dynamic viewport changes", () => {
   assert.match(videoCarousel, /w-full max-w-\[22rem\]/);
-  assert.match(videoCarousel, /aspect-\[9\/16\] w-full/);
+  assert.match(videoCarousel, /aspect-\[9\/16\] h-\[clamp\(22rem,62dvh,34rem\)\]/);
+  assert.match(videoCarousel, /max-h-\[calc\(100dvh-11rem\)\]/);
   assert.doesNotMatch(videoCarousel, /w-\[min\(100%,calc\(\(100dvh/);
 });
 
@@ -155,11 +157,13 @@ test("desktop enriched viewer owns real fullscreen and synchronizes native exit"
   assert.match(videoCarousel, /document\.exitFullscreen\(\)/);
 });
 
-test("desktop minimized autoplay starts at zero and loops in order on ended", () => {
+test("desktop minimized autoplay restarts from the first fully visible video without moving the carousel", () => {
   assert.match(videoCarousel, /const activeVideoIndex = useRef\(0\)/);
   assert.match(videoCarousel, /const desktopSequenceStarted = useRef\(false\)/);
-  assert.match(videoCarousel, /const firstItem = itemsRef\.current\[0\]/);
-  assert.match(videoCarousel, /\(index \+ 1\) % itemsRef\.current\.length/);
+  assert.match(videoCarousel, /rect\.left >= carouselRect\.left - FULL_VISIBILITY_TOLERANCE_PX/);
+  assert.match(videoCarousel, /rect\.right <= carouselRect\.right \+ FULL_VISIBILITY_TOLERANCE_PX/);
+  assert.match(videoCarousel, /updateDesktopVisibility\(true\)/);
+  assert.doesNotMatch(videoCarousel, /scrollIntoView/);
   assert.match(videoCarousel, /onEnded=\{\(\) => playNextDesktopVideo\(index\)\}/);
   assert.match(videoCarousel, /pauseAllExcept\(nextId\)/);
 });
