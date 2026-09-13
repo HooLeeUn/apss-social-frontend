@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { shouldRenderActivityModerationMenu } from "../lib/profile-feed/activity-moderation.mjs";
 
 const moderation = readFileSync("lib/moderation.ts", "utf8");
 const menu = readFileSync("components/moderation/UgcModerationMenu.tsx", "utf8");
 const socialCard = readFileSync("components/profile-feed/SocialActivityCard.tsx", "utf8");
+const activityModeration = readFileSync("lib/profile-feed/activity-moderation.mjs", "utf8");
 const adapters = readFileSync("lib/profile-feed/adapters.ts", "utf8");
 const comments = readFileSync("components/social/CommentItem.tsx", "utf8");
 const movie = readFileSync("app/movies/[id]/page.tsx", "utf8");
@@ -36,8 +38,8 @@ test("a realistic following public-comment payload keeps its object and actor id
   assert.equal(payload.activity_type, "public_comment");
   assert.equal(payload.object_id, 991);
   assert.match(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
-  assert.match(socialCard, /item\.activityType === "public_comment" && item\.interactionType === "comment" && !item\.isDirectedComment/);
-  assert.match(socialCard, /isPublicComment && Boolean\(item\.commentId\) && Boolean\(item\.user\.id\)/);
+  assert.match(activityModeration, /activity\.activityType === "public_comment"/);
+  assert.match(socialCard, /shouldRenderActivityModerationMenu\(item\)/);
   assert.match(socialCard, /UgcModerationMenu contentKind="comment" objectId=\{item\.commentId\}/);
 });
 
@@ -49,7 +51,16 @@ test("rating and comment-reaction fixtures cannot expose the public-comment menu
   ];
   for (const fixture of fixtures) assert.notEqual(fixture.activity_type, "public_comment");
   assert.match(adapters, /const isPublicCommentType = normalizedActivityType === "public_comment"/);
-  assert.match(socialCard, /item\.activityType === "public_comment"/);
+  assert.match(activityModeration, /activity\.activityType === "public_comment"/);
+});
+
+test("the real card predicate renders only a valid, textual public comment", () => {
+  const base = { interactionType: "comment", commentId: "991", actorId: "44" };
+  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment" }), true);
+  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "rating", interactionType: "rating" }), false);
+  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment_like", interactionType: "like" }), false);
+  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment_dislike", interactionType: "dislike" }), false);
+  assert.equal(shouldRenderActivityModerationMenu({ ...base, activityType: "public_comment", isDirectedComment: true }), false);
 });
 
 test("video reactions use the video comment and exposed author IDs", () => {
@@ -89,6 +100,8 @@ test("a successful restriction refetches public comments, video reactions, and p
   assert.match(movie, /reloadFirstPageRef\.current/);
   assert.match(movie, /parseCommentsPage\(payload, "public"\)/);
   assert.match(profileActivity, /reloadFollowingActivity\(\)/);
+  assert.match(profileActivity, /setRestrictedActorIds/);
+  assert.match(profileActivity, /!restrictedActorIds\.has\(String\(item\.actorId\)\)/);
 });
 
 test("mobile movement closes menus without preventing scrolling", () => {

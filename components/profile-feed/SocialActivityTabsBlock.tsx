@@ -212,7 +212,7 @@ function SocialActivitySkeleton() {
   );
 }
 
-export default function SocialActivityTabsBlock() {
+export default function SocialActivityTabsBlock({ onSectionChange }: { onSectionChange?: () => void }) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<InteractionsTab>("recommendations");
   const [activityTab, setActivityTab] = useState<SocialTab>("following");
@@ -236,6 +236,7 @@ export default function SocialActivityTabsBlock() {
   const recommendationsScrollRef = useRef<HTMLDivElement | null>(null);
   const [recommendationsOverflow, setRecommendationsOverflow] = useState(false);
   const [restrictedRefreshToken, setRestrictedRefreshToken] = useState(0);
+  const [restrictedActorIds, setRestrictedActorIds] = useState<Set<string>>(() => new Set());
   const tabs: Array<{ value: SocialTab; label: string; emptyCopy: string }> = [
     { value: "following", label: t("profileFeedActions"), emptyCopy: t("profileFeedNoItems") },
   ];
@@ -243,7 +244,11 @@ export default function SocialActivityTabsBlock() {
   const reloadFollowingActivity = followingActivity.reload;
 
   useEffect(() => {
-    const refreshRestrictedActivity = () => {
+    const refreshRestrictedActivity = (event: Event) => {
+      const restrictedUserId = (event as CustomEvent<{ userId?: string }>).detail?.userId;
+      if (restrictedUserId) {
+        setRestrictedActorIds((current) => new Set(current).add(String(restrictedUserId)));
+      }
       reloadFollowingActivity();
       followedRecommendationsLoadedRef.current = false;
       followedRecommendationsLoadingRef.current = false;
@@ -475,22 +480,26 @@ export default function SocialActivityTabsBlock() {
   );
 
   const followingVisibleItems = useMemo(
-    () => getVisibleItemsForTab("following", followingActivity.items),
-    [followingActivity.items, getVisibleItemsForTab],
+    () => getVisibleItemsForTab("following", followingActivity.items)
+      .filter((item) => !item.actorId || !restrictedActorIds.has(String(item.actorId))),
+    [followingActivity.items, getVisibleItemsForTab, restrictedActorIds],
   );
   const handleRecommendationsTabClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    onSectionChange?.();
     setActiveTab("recommendations");
   };
 
   const handleActivityTabClick = (event: MouseEvent<HTMLButtonElement>, nextTab: SocialTab) => {
     event.preventDefault();
+    onSectionChange?.();
     setActivityTab(nextTab);
     setActiveTab(nextTab);
   };
 
   const handleRecordingsTabClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    onSectionChange?.();
     setActiveTab("recordings");
   };
 
