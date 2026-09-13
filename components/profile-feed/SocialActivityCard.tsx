@@ -4,6 +4,8 @@ import { formatAverageRating, formatFollowingRating, formatMyRating } from "../.
 import { useI18n } from "../../hooks/useI18n";
 import { formatProfileFeedRatingsCount, formatProfileFeedRelativeDate, translateProfileFeedMovieType } from "../../lib/i18n";
 import { RatingPersonRaisingHandIcon } from "../RatingIcons";
+import UgcModerationMenu from "../moderation/UgcModerationMenu";
+import { getActivityCommentReportId } from "../../lib/profile-feed/activity-moderation.mjs";
 
 function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
@@ -49,6 +51,13 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const activity = getActivityText(item, locale, t);
   const movieType = translateProfileFeedMovieType(locale, item.movieType);
   const movieGenre = item.movieGenre || "-";
+  // This is the actor object rendered by this card (avatar and @username included).
+  // Use its canonical user id directly so Actions cards do not depend on activity classification fields.
+  const actorUserId = item.user.id;
+  const hasActivityActor = Boolean(actorUserId);
+  // A structured comment reference is the report target, including the original
+  // comment referenced by like/dislike activities. Activity text is never used.
+  const commentReportId = getActivityCommentReportId(item);
 
   const userHeader = (
     <div className="min-w-0">
@@ -80,21 +89,32 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1">
             {profileHref ? (
               <Link
                 href={profileHref}
                 onClick={(event) => event.stopPropagation()}
-                className="cursor-pointer text-sm font-semibold text-blue-200 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
+                className="min-w-0 truncate text-sm font-semibold text-blue-200 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none"
               >
                 @{item.user.username}
               </Link>
             ) : (
-              <p className="text-sm font-semibold text-blue-200">@{item.user.username}</p>
+              <p className="min-w-0 truncate text-sm font-semibold text-blue-200">@{item.user.username}</p>
             )}
-            <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
-              {formatProfileFeedRelativeDate(locale, item.createdAt)}
-            </span>
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              {hasActivityActor ? (
+                <UgcModerationMenu
+                  contentKind="comment"
+                  objectId={commentReportId}
+                  userId={actorUserId}
+                  username={item.user.username}
+                  showReportContent={commentReportId !== undefined}
+                />
+              ) : null}
+              <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
+                {formatProfileFeedRelativeDate(locale, item.createdAt)}
+              </span>
+            </div>
           </div>
           <p className="mt-1 text-sm text-zinc-300">
             <span className="font-medium text-zinc-200">{activity.label}</span>{" "}

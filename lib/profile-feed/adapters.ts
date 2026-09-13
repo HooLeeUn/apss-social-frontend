@@ -456,6 +456,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     normalizedActivityType.includes("comment_dislike");
   const normalizedReactionValue = safeTrim(
     pickFirst(
+      item.reaction_type,
       payload.reaction_value,
       payload.reactionValue,
       payload.reaction_type,
@@ -485,7 +486,17 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const commentText = toStringOrNull(
     pickFirst(payload.comment_text, payload.content, payload.text, activityRecord.comment_text),
   );
-  const commentId = toStringOrNull(pickFirst(payload.comment_id, payload.commentId));
+  // For public_comment_reaction this is the original comment, not the reaction.
+  // Do not derive it from activity, reaction, actor, target-user, or movie ids.
+  const commentId = item.comment_id ?? (payload.comment_id as string | number | null | undefined) ?? null;
+  const actorUserId = toStringOrNull(pickFirst(
+    actor.id,
+    actor.user_id,
+    activityRecord.actor_id,
+    activityRecord.actor_user_id,
+    payload.actor_id,
+    payload.actor_user_id,
+  ));
   const likedCommentSnippet = toStringOrNull(
     pickFirst(payload.comment_excerpt, activityRecord.comment_text, payload.content, payload.text),
   );
@@ -517,7 +528,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const videoMyReaction = videoMyReactionValue === "like" || videoMyReactionValue === "dislike" ? videoMyReactionValue : null;
   const reactionActor = toRecord(payload.actor);
   const reactionActorUsername = toStringOrNull(pickFirst(reactionActor?.username, actor.username));
-  const reactionId = toStringOrNull(pickFirst(payload.reaction_id, payload.reactionId, payload.active_reaction_id, payload.current_reaction_id));
+  const reactionId = item.reaction_id ?? (payload.reaction_id as string | number | null | undefined) ?? null;
   const isGivenReaction = isVideoGivenType || isTrueValue(
     pickFirst(payload.is_given_reaction, payload.isGivenReaction, activityRecord.is_given_reaction, activityRecord.isGivenReaction),
   );
@@ -566,7 +577,7 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     id: item.id,
     activityType: normalizedActivityType || undefined,
     user: {
-      id: String(pickFirst(actor.id, `actor-${item.id}`)),
+      id: actorUserId ?? `actor-${item.id}`,
       username: toStringOrNull(actor.username) || "usuario",
       displayName: toStringOrNull(actor.display_name),
       avatarUrl: toStringOrNull(actor.avatar),
@@ -597,9 +608,10 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
     likedCommentSnippet: likedCommentSnippet ?? undefined,
     likedCommentAuthorUsername: likedCommentAuthorUsername ?? undefined,
     reactionActorUsername: reactionActorUsername ?? undefined,
-    commentId: commentId ?? undefined,
-    reactionId: reactionId ?? undefined,
-    actorId: toStringOrNull(actor.id) ?? undefined,
+    commentId,
+    reactionId,
+    reactionType: reactionValue ?? null,
+    actorId: actorUserId ?? undefined,
     isGivenReaction: isReactionType ? isGivenReaction : undefined,
     isReceivedReaction: isReactionType ? isReceivedReaction : undefined,
     scope,
