@@ -20,7 +20,7 @@ test("the real Actions card DOM keeps actor, moderation trigger, and date in one
   assert.match(card, /const actorUserId = item\.user\.id/);
   assert.match(card, /const hasActivityActor = Boolean\(actorUserId\)/);
   assert.match(card, /<div className="flex min-w-0 items-center gap-1">[\s\S]*<div className="ml-auto flex shrink-0 items-center gap-1">[\s\S]*<UgcModerationMenu[\s\S]*formatProfileFeedRelativeDate\(locale, item\.createdAt\)/);
-  assert.match(card, /UgcModerationMenu contentKind="comment" objectId=\{item\.commentId\} userId=\{actorUserId\}/);
+  assert.match(card, /<UgcModerationMenu[\s\S]*contentKind="comment"[\s\S]*objectId=\{publicCommentReportId\}[\s\S]*userId=\{actorUserId\}/);
   assert.doesNotMatch(card, /DEBUG-ACTIONS-/);
 });
 
