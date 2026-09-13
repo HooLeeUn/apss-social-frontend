@@ -980,6 +980,7 @@ interface MyActivityColumnProps {
   isOwnProfile?: boolean;
   initialActiveTab?: "activity" | "messages" | "rated";
   activeTabRequest?: { tab: "activity" | "messages" | "rated"; id: number } | null;
+  onSectionChange?: () => void;
   hidePrivateInbox?: boolean | null;
   viewedUsername?: string;
   title?: string;
@@ -993,6 +994,7 @@ export default function MyActivityColumn({
   isOwnProfile = true,
   initialActiveTab = "activity",
   activeTabRequest,
+  onSectionChange,
   hidePrivateInbox = null,
   viewedUsername,
   title,
@@ -1483,7 +1485,10 @@ export default function MyActivityColumn({
               data-tour={tab.value === "messages" ? "profile-inbox" : tab.value === "rated" ? "profile-ratings" : undefined}
               key={tab.value}
               type="button"
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => {
+                onSectionChange?.();
+                setActiveTab(tab.value);
+              }}
               className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
                 effectiveActiveTab === tab.value
                   ? "border-blue-300/80 bg-gradient-to-b from-blue-300/30 to-blue-600/50 text-blue-50 shadow-[0_8px_18px_rgba(56,189,248,0.28)]"

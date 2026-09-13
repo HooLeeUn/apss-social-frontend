@@ -12,11 +12,13 @@ import { useDesktopGuest } from "../../hooks/useDesktopGuest";
 import { useGuestGate } from "../GuestGateProvider";
 import PosterImage from "../PosterImage";
 import type { AppBranding } from "../../lib/branding";
+import UgcModerationMenu from "../moderation/UgcModerationMenu";
+import { USER_RESTRICTED_EVENT } from "../../lib/privacy";
 
 interface VideoReactionActivity {
   id: string | number;
   activity_type: string;
-  actor?: { username?: string | null } | null;
+  actor?: { id?: string | number; username?: string | null; avatar?: string | null } | null;
   movie: ProfileFeedActivityMovie;
   timestamp?: string | null;
   created_at?: string | null;
@@ -31,6 +33,21 @@ interface ActivityPage {
 
 type VideoReaction = "like" | "dislike";
 
+interface FollowingVideoReaction {
+  id: string | number;
+  user: { id: string | number; username: string; avatar: string | null };
+  video_url: string;
+  created_at: string;
+  likes_count: number;
+  dislikes_count: number;
+  my_reaction: VideoReaction | null;
+  movie: ProfileFeedActivityMovie;
+}
+
+function mapFollowingReaction(item: FollowingVideoReaction): VideoReactionActivity {
+  return { id: item.id, activity_type: "video_comment", actor: item.user, movie: item.movie, created_at: item.created_at, payload: { video_comment_id: item.id, video_url: item.video_url, likes_count: item.likes_count, dislikes_count: item.dislikes_count, my_reaction: item.my_reaction } };
+}
+
 interface VideoReactionResponse {
   video_comment_id: string | number;
   my_reaction: VideoReaction | null;
@@ -40,6 +57,7 @@ interface VideoReactionResponse {
 
 const VISIBILITY_THRESHOLDS = [0, 0.25, 0.5, 0.75, 1];
 const MIN_AUTOPLAY_VISIBILITY = 0.25;
+const FULL_VISIBILITY_TOLERANCE_PX = 2;
 
 function normalizeNextEndpoint(next: string): string {
   if (next.startsWith("http://") || next.startsWith("https://")) {
@@ -57,6 +75,7 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const feedbackTimer = useRef<number | null>(null);
   const [feedback, setFeedback] = useState<"play" | "pause" | null>(null);
+  const touchGesture = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const registerVideo = useCallback((video: HTMLVideoElement | null) => {
     videoRef.current = video;
     onRegister(video);
@@ -83,19 +102,22 @@ function VisitedProfileVideoPlayer({ src, muted, autoPlay = false, interactive =
   };
 
   return <>
-    <video ref={registerVideo} src={src} autoPlay={autoPlay} preload="auto" muted={muted} playsInline controls={false} disablePictureInPicture disableRemotePlayback className={`${className} ${interactive ? "cursor-pointer" : "pointer-events-none"}`} onClick={interactive ? togglePlayback : undefined} onLoadedData={onLoadedData} onPlay={onPlay} onEnded={onEnded} onVolumeChange={(event) => onMutedChange(event.currentTarget.muted)} />
+    <video ref={registerVideo} src={src} autoPlay={autoPlay} preload="auto" muted={muted} playsInline controls={false} disablePictureInPicture disableRemotePlayback className={`${className} ${interactive ? "cursor-pointer touch-pan-y" : "pointer-events-none"}`} onTouchStart={interactive ? (event) => { const touch = event.touches[0]; touchGesture.current = touch ? { x: touch.clientX, y: touch.clientY, moved: false } : null; } : undefined} onTouchMove={interactive ? (event) => { const touch = event.touches[0]; const gesture = touchGesture.current; if (touch && gesture && Math.hypot(touch.clientX - gesture.x, touch.clientY - gesture.y) > 8) gesture.moved = true; } : undefined} onClick={interactive ? () => { const wasSwipe = touchGesture.current?.moved === true; touchGesture.current = null; if (!wasSwipe) togglePlayback(); } : undefined} onLoadedData={onLoadedData} onPlay={onPlay} onEnded={onEnded} onVolumeChange={(event) => onMutedChange(event.currentTarget.muted)} />
     {feedback ? <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 z-20 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-xl text-white transition-opacity">{feedback === "play" ? "▶" : "❚❚"}</span> : null}
     {showMuteControl ? <button type="button" data-video-mute-control className="absolute bottom-2 left-2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white shadow-md hover:bg-black/70" aria-label={muted ? "Unmute" : "Mute"} onClick={(event) => { event.stopPropagation(); onMutedChange(!muted); }}>{muted ? "🔇" : "🔊"}</button> : null}
   </>;
 }
 
-export default function VisitedProfileVideoReactions({ username, isActive, guestGateId: providedGuestGateId, branding = null }: { username: string; isActive: boolean; guestGateId?: string; branding?: AppBranding | null }) {
+export default function VisitedProfileVideoReactions({ username = "", isActive, guestGateId: providedGuestGateId, branding = null, source = "visited" }: { username?: string; isActive: boolean; guestGateId?: string; branding?: AppBranding | null; source?: "visited" | "following" }) {
   const { isGuestExperience: isDesktopGuest, isMobile } = useDesktopGuest();
   const { locale, t } = useI18n();
   const [items, setItems] = useState<VideoReactionActivity[]>([]);
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [reloadToken, setReloadToken] = useState(0);
+  const [nextEndpoint, setNextEndpoint] = useState<string | null>(null);
+  const loadingNextRef = useRef(false);
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const guestMobileTouchYRef = useRef<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -113,6 +135,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
   const activeVideoIndex = useRef(0);
   const desktopSequenceStarted = useRef(false);
   const desktopAdvancePending = useRef<number | null>(null);
+  const carouselScrollTimer = useRef<number | null>(null);
   const reactingIds = useRef(new Set<string>());
   const [reacting, setReacting] = useState<Record<string, boolean>>({});
   const [isMuted, setIsMuted] = useState(true);
@@ -155,11 +178,9 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
         nextIndex = activeVideoIndex.current;
         if ((visibilityRatios.current.get(currentId) ?? 0) >= MIN_AUTOPLAY_VISIBILITY) desktopAdvancePending.current = null;
       } else if (!desktopSequenceStarted.current) {
-        const firstItem = itemsRef.current[0];
-        const firstId = firstItem ? String(firstItem.payload.video_comment_id ?? firstItem.id) : null;
-        if (firstId && (visibilityRatios.current.get(firstId) ?? 0) >= MIN_AUTOPLAY_VISIBILITY) {
-          nextId = firstId;
-          nextIndex = 0;
+        nextIndex = itemsRef.current.findIndex((item) => (visibilityRatios.current.get(String(item.payload.video_comment_id ?? item.id)) ?? 0) === 1);
+        if (nextIndex >= 0) {
+          nextId = String(itemsRef.current[nextIndex].payload.video_comment_id ?? itemsRef.current[nextIndex].id);
           desktopSequenceStarted.current = true;
         }
       } else if (currentId && (visibilityRatios.current.get(currentId) ?? 0) >= MIN_AUTOPLAY_VISIBILITY) {
@@ -193,6 +214,33 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
       // Autoplay can still be denied by browser/user policy; native controls remain available.
     });
   }, [pauseAllExcept]);
+
+  const updateDesktopVisibility = useCallback((restartFromLeft = false) => {
+    const carousel = carouselRef.current;
+    if (!carousel || !window.matchMedia("(min-width: 1280px)").matches) return;
+    const carouselRect = carousel.getBoundingClientRect();
+    let firstFullyVisibleIndex = -1;
+
+    itemsRef.current.forEach((item, index) => {
+      const id = String(item.payload.video_comment_id ?? item.id);
+      const video = videoRefs.current.get(id);
+      if (!video) return;
+      const rect = video.getBoundingClientRect();
+      const fullyVisible = rect.left >= carouselRect.left - FULL_VISIBILITY_TOLERANCE_PX
+        && rect.right <= carouselRect.right + FULL_VISIBILITY_TOLERANCE_PX;
+      visibilityRatios.current.set(id, fullyVisible ? 1 : 0);
+      if (fullyVisible && firstFullyVisibleIndex < 0) firstFullyVisibleIndex = index;
+    });
+
+    if (restartFromLeft) {
+      pauseAllExcept(null);
+      activeVideoIndex.current = Math.max(0, firstFullyVisibleIndex);
+      desktopSequenceStarted.current = false;
+      desktopAdvancePending.current = null;
+      manuallyPausedVideoId.current = null;
+    }
+    playMostVisibleVideo();
+  }, [pauseAllExcept, playMostVisibleVideo]);
 
   const pauseForInterruption = useCallback(() => {
     const expanded = expandedVideoRef.current;
@@ -262,7 +310,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
       resumeAfterInterruption.current = null;
       setIsMuted(true);
       const visitedEndpoints = new Set<string>();
-      const initialEndpoint = `/users/${encodeURIComponent(username)}/video-reactions/`;
+      const initialEndpoint = source === "following" ? "/profile-feed/following-video-reactions/" : `/users/${encodeURIComponent(username)}/video-reactions/`;
 
       try {
         visitedEndpoints.add(initialEndpoint);
@@ -270,10 +318,14 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
         if (!Array.isArray(firstPage?.results)) throw new Error("Invalid video reactions response.");
 
         if (!active) return;
-        setItems(firstPage.results);
+        setItems(source === "following" ? (firstPage.results as unknown as FollowingVideoReaction[]).map(mapFollowingReaction) : firstPage.results);
         setState("ready");
 
         let nextEndpoint = typeof firstPage.next === "string" && firstPage.next ? firstPage.next : null;
+        if (source === "following") {
+          setNextEndpoint(nextEndpoint ? normalizeNextEndpoint(nextEndpoint) : null);
+          return;
+        }
         if (!nextEndpoint) return;
 
         // Give React an opportunity to paint the first page before fetching more results.
@@ -288,7 +340,11 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
           if (!Array.isArray(page?.results)) throw new Error("Invalid video reactions response.");
 
           if (!active) return;
-          setItems((currentItems) => [...currentItems, ...page.results]);
+          setItems((currentItems) => {
+            const incoming = page.results;
+            const existingIds = new Set(currentItems.map((item) => String(item.id)));
+            return [...currentItems, ...incoming.filter((item) => !existingIds.has(String(item.id)))];
+          });
           nextEndpoint = typeof page.next === "string" && page.next ? page.next : null;
         }
       } catch (error) {
@@ -303,19 +359,48 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
       active = false;
       abortController.abort();
     };
-  }, [username]);
+  }, [reloadToken, source, username]);
+
+  const loadNextFollowingPage = useCallback(async () => {
+    if (source !== "following" || !nextEndpoint || loadingNextRef.current) return;
+    loadingNextRef.current = true;
+    try {
+      const page = await apiFetch(nextEndpoint, { cache: "no-store" }) as ActivityPage;
+      if (!Array.isArray(page.results)) throw new Error("Invalid video reactions response.");
+      const incoming = (page.results as unknown as FollowingVideoReaction[]).map(mapFollowingReaction);
+      setItems((current) => {
+        const ids = new Set(current.map((item) => String(item.id)));
+        return [...current, ...incoming.filter((item) => !ids.has(String(item.id)))];
+      });
+      setNextEndpoint(typeof page.next === "string" && page.next ? normalizeNextEndpoint(page.next) : null);
+    } catch (error) { console.error("No se pudo cargar la siguiente página de Recados.", error); }
+    finally { loadingNextRef.current = false; }
+  }, [nextEndpoint, source]);
+
+  useEffect(() => {
+    if (source !== "following") return;
+    const refresh = () => setReloadToken((value) => value + 1);
+    window.addEventListener(USER_RESTRICTED_EVENT, refresh);
+    return () => window.removeEventListener(USER_RESTRICTED_EVENT, refresh);
+  }, [source]);
+
+  useEffect(() => () => {
+    if (carouselScrollTimer.current !== null) window.clearTimeout(carouselScrollTimer.current);
+  }, []);
 
   useEffect(() => {
     if (state !== "ready" || videoRefs.current.size === 0) return;
     const videos = videoRefs.current;
     const ratios = visibilityRatios.current;
+    const carousel = carouselRef.current;
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         const id = (entry.target as HTMLVideoElement).dataset.visitedProfileVideoId;
         if (id) visibilityRatios.current.set(id, entry.isIntersecting ? entry.intersectionRatio : 0);
       });
-      playMostVisibleVideo();
-    }, { threshold: VISIBILITY_THRESHOLDS });
+      if (window.matchMedia("(min-width: 1280px)").matches) updateDesktopVisibility();
+      else playMostVisibleVideo();
+    }, { root: window.matchMedia("(min-width: 1280px)").matches ? carousel : null, threshold: VISIBILITY_THRESHOLDS });
 
     videos.forEach((video) => observer.observe(video));
     return () => {
@@ -324,7 +409,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
       activeVideoId.current = null;
       videos.forEach((video) => video.pause());
     };
-  }, [items, playMostVisibleVideo, state]);
+  }, [items, playMostVisibleVideo, state, updateDesktopVisibility]);
 
   const setVideoRef = useCallback((id: string, video: HTMLVideoElement | null) => {
     if (video) videoRefs.current.set(id, video);
@@ -333,7 +418,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
 
   const playNextDesktopVideo = useCallback((index: number) => {
     if (!window.matchMedia("(min-width: 1280px)").matches || expandedIndexRef.current !== null) return;
-    const nextIndex = itemsRef.current.length > 0 ? (index + 1) % itemsRef.current.length : -1;
+    const nextIndex = itemsRef.current.findIndex((item, itemIndex) => itemIndex > index && (visibilityRatios.current.get(String(item.payload.video_comment_id ?? item.id)) ?? 0) === 1);
     if (isDesktopGuest && guestVisibleCount !== null && nextIndex >= guestVisibleCount) return;
     const nextItem = itemsRef.current[nextIndex];
     if (!nextItem) return;
@@ -343,7 +428,6 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
     activeVideoIndex.current = nextIndex;
     desktopAdvancePending.current = nextIndex;
     pauseAllExcept(nextId);
-    if (!isDesktopGuest) nextVideo.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     nextVideo.muted = isMutedRef.current;
     if (nextVideo.ended) nextVideo.currentTime = 0;
     const playPromise = nextVideo.play();
@@ -394,9 +478,10 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
 
   useEffect(() => {
     updateNavigation();
-    window.addEventListener("resize", updateNavigation);
-    return () => window.removeEventListener("resize", updateNavigation);
-  }, [items, updateNavigation]);
+    const update = () => { updateNavigation(); updateDesktopVisibility(true); };
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [items, updateDesktopVisibility, updateNavigation]);
 
   const scrollCarousel = (direction: -1 | 1) => {
     const carousel = carouselRef.current;
@@ -495,13 +580,13 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
 
   if (state === "loading") return <p className="text-sm text-zinc-400">{t("profileFeedLoading")}</p>;
   if (state === "error") return <p className="text-sm text-red-200">{t("visitedProfileVideoReactionsError")}</p>;
-  if (cards.length === 0) return <p className="text-sm text-zinc-500">{t("visitedProfileNoVideoReactions")}</p>;
+  if (cards.length === 0) return <p className="text-sm text-zinc-500">{t(source === "following" ? "profileFeedNoRecordings" : "visitedProfileNoVideoReactions")}</p>;
   const visibleCards = isDesktopGuest && isMobile && guestVisibleCount !== null ? cards.slice(0, Math.max(1, guestVisibleCount)) : cards;
 
   return (
     <div className="relative">
       <button type="button" onClick={() => scrollCarousel(-1)} disabled={!canScrollLeft} aria-label={t("visitedProfilePreviousVideoReaction")} className="absolute left-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">←</button>
-      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); }} onTouchStart={(event) => { guestMobileTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileTouchYRef.current; const currentY = event.touches[0]?.clientY; if (!isDesktopGuest || !isMobile || previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileTouchYRef.current = currentY; if (delta <= 0 || guestVisibleCount === null || guestVisibleCount >= cards.length) return; showGuestGate(guestGateId, "more"); }} onTouchEnd={() => { guestMobileTouchYRef.current = null; }} onTouchCancel={() => { guestMobileTouchYRef.current = null; }} className="space-y-8 overflow-x-visible px-1 pb-4 xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
+      <div ref={carouselRef} tabIndex={isDesktopGuest ? 0 : undefined} onWheel={(event) => { if (isDesktopGuest && (event.deltaX > 0 || (event.shiftKey && event.deltaY > 0))) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onKeyDown={(event) => { if (isDesktopGuest && ["ArrowRight", "End", "PageDown"].includes(event.key)) { event.preventDefault(); showGuestGate(guestGateId, "more"); } }} onScroll={() => { if (isDesktopGuest && carouselRef.current && carouselRef.current.scrollLeft > 1) { carouselRef.current.scrollLeft = 0; showGuestGate(guestGateId, "more"); } updateNavigation(); if (window.matchMedia("(min-width: 1280px)").matches) { pauseAllExcept(null); if (carouselScrollTimer.current !== null) window.clearTimeout(carouselScrollTimer.current); carouselScrollTimer.current = window.setTimeout(() => updateDesktopVisibility(true), 120); } const carousel = carouselRef.current; if (carousel && carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 320) void loadNextFollowingPage(); }} onTouchStart={(event) => { guestMobileTouchYRef.current = event.touches[0]?.clientY ?? null; }} onTouchMove={(event) => { const previousY = guestMobileTouchYRef.current; const currentY = event.touches[0]?.clientY; if (previousY === null || currentY === undefined) return; const delta = previousY - currentY; guestMobileTouchYRef.current = currentY; if (source === "following" && delta > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500) void loadNextFollowingPage(); if (!isDesktopGuest || !isMobile || delta <= 0 || guestVisibleCount === null || guestVisibleCount >= cards.length) return; showGuestGate(guestGateId, "more"); }} onTouchEnd={() => { guestMobileTouchYRef.current = null; }} onTouchCancel={() => { guestMobileTouchYRef.current = null; }} className="space-y-6 overflow-x-visible px-1 pb-4 touch-pan-y xl:flex xl:snap-x xl:snap-mandatory xl:gap-4 xl:space-y-0 xl:overflow-x-auto xl:scroll-smooth xl:px-14 xl:pb-4 xl:touch-auto xl:[scrollbar-color:rgba(134,173,224,0.55)_rgba(39,39,42,0.75)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:h-2 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-blue-300/50 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-zinc-800/75">
         {visibleCards.map(({ item, title, timestamp }, index) => {
           const commentId = item.payload.video_comment_id;
           const videoId = String(commentId ?? item.id);
@@ -522,12 +607,14 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
                 <PosterImage posterSrc={item.movie.image} title={title} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-1" loading="lazy" decoding="async" />
               </Link>
               <div className="min-w-0 flex-1">
+                {source === "following" && item.actor?.username ? <Link href={`/users/${encodeURIComponent(item.actor.username)}`} className="mb-0.5 flex items-center gap-2 text-sm font-bold text-blue-200">{item.actor.avatar ? <img src={item.actor.avatar} alt="" className="h-7 w-7 rounded-full object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-[10px]">{item.actor.username.slice(0, 2).toUpperCase()}</span>}<span className="truncate">@{item.actor.username}</span></Link> : null}
                 <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="line-clamp-2 text-sm font-semibold text-zinc-100 hover:text-blue-200">{title}</Link>
                 <time dateTime={timestamp} className="mt-0.5 block text-xs text-zinc-500">{formatProfileFeedRelativeDate(locale, timestamp)}</time>
               </div>
               <div className="xl:hidden">{reactionButtons}</div>
+              {source === "following" && item.actor?.id !== undefined && item.actor.username ? <UgcModerationMenu contentKind="video_comment" objectId={commentId ?? item.id} userId={item.actor.id} username={item.actor.username} /> : null}
             </div>
-            <div className="group relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)] xl:h-[clamp(260px,calc(100dvh-16rem),520px)] xl:w-auto">
+            <div className="group relative mx-auto aspect-[9/16] h-[clamp(22rem,62dvh,34rem)] max-h-[calc(100dvh-11rem)] max-w-full overflow-hidden rounded-xl bg-black shadow-[0_16px_35px_rgba(0,0,0,0.45)] xl:h-[clamp(260px,calc(100dvh-16rem),520px)] xl:max-h-none xl:w-auto">
               <div data-visited-profile-video-id={videoId} className="relative h-full w-full">
                 <VisitedProfileVideoPlayer src={item.payload.video_url} muted={isMuted} className="h-full w-full object-contain" onRegister={(video) => { if (video) video.dataset.visitedProfileVideoId = videoId; setVideoRef(videoId, video); }} onPlay={() => { activeVideoId.current = videoId; activeVideoIndex.current = index; pauseAllExcept(videoId); }} onEnded={() => playNextDesktopVideo(index)} onMutedChange={setIsMuted} onManualToggle={(paused) => { manuallyPausedVideoId.current = paused ? videoId : null; }} />
               </div>
@@ -538,7 +625,7 @@ export default function VisitedProfileVideoReactions({ username, isActive, guest
           );
         })}
       </div>
-      <button type="button" onClick={() => scrollCarousel(1)} disabled={!canScrollRight} aria-label={t("visitedProfileNextVideoReaction")} className="absolute right-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">→</button>
+      <button type="button" onClick={() => { scrollCarousel(1); if (!canScrollRight) void loadNextFollowingPage(); }} disabled={!canScrollRight && !nextEndpoint} aria-label={t("visitedProfileNextVideoReaction")} className="absolute right-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-blue-300/70 bg-zinc-950/90 text-xl text-blue-200 shadow-lg disabled:border-zinc-700 disabled:text-zinc-700 xl:flex">→</button>
       {expandedIndex !== null && cards[expandedIndex] ? (() => {
         const { item, title } = cards[expandedIndex];
         const commentId = item.payload.video_comment_id;
