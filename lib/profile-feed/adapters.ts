@@ -485,11 +485,17 @@ function toActivityItem(item: ProfileFeedActivityResponseItem): SocialActivityIt
   const commentText = toStringOrNull(
     pickFirst(payload.comment_text, payload.content, payload.text, activityRecord.comment_text),
   );
+  const payloadComment = toRecord(payload.comment);
+  const payloadOriginalComment = toRecord(pickFirst(payload.original_comment, payload.originalComment));
+  const activityComment = toRecord(activityRecord.comment);
   const commentId = toStringOrNull(pickFirst(
     payload.comment_id,
     payload.commentId,
+    payloadComment?.id,
+    payloadOriginalComment?.id,
     activityRecord.comment_id,
     activityRecord.commentId,
+    activityComment?.id,
     isPublicCommentType ? activityRecord.object_id : undefined,
   ));
   const actorUserId = toStringOrNull(pickFirst(
