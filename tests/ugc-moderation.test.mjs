@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { getActivityCommentReportId, shouldRenderActivityModerationMenu, shouldShowActivityContentReport } from "../lib/profile-feed/activity-moderation.mjs";
+import { getActivityCommentReportId, normalizeActivityCommentId, shouldRenderActivityModerationMenu, shouldShowActivityContentReport } from "../lib/profile-feed/activity-moderation.mjs";
 
 const moderation = readFileSync("lib/moderation.ts", "utf8");
 const menu = readFileSync("components/moderation/UgcModerationMenu.tsx", "utf8");
@@ -26,17 +26,16 @@ test("public comments expose moderation only for non-own comments", () => {
   assert.match(movie, /currentUserId=\{authenticatedUser\?\.id\}/);
 });
 
-test("a realistic following public-comment payload keeps its object and actor ids for moderation", () => {
+test("a realistic following public-comment payload keeps its comment and actor ids for moderation", () => {
   const payload = {
     id: "activity-812",
     activity_type: "public_comment",
     actor: { id: 44, username: "DennisseJamaica" },
-    object_id: 991,
-    payload: { content: "Excelente película" },
+    comment_id: 456,
+    payload: { comment_id: 456, content: "Excelente película" },
   };
   assert.equal(payload.activity_type, "public_comment");
-  assert.equal(payload.object_id, 991);
-  assert.match(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
+  assert.equal(normalizeActivityCommentId(payload), 456);
   assert.equal(shouldRenderActivityModerationMenu({ actorId: "44" }), true);
   assert.match(socialCard, /const actorUserId = item\.user\.id/);
   assert.match(socialCard, /\{hasActivityActor \? \([\s\S]*<UgcModerationMenu/);
@@ -70,17 +69,24 @@ test("structured public comments and comment reactions expose the referenced com
   assert.match(socialCard, /showReportContent=\{commentReportId !== undefined\}/);
 });
 
-test("normalization documents the structured original-comment ids for all four activity cases", () => {
-  assert.match(adapters, /payload\.comment_id,[\s\S]*payload\.commentId,[\s\S]*payloadComment\?\.id,[\s\S]*payloadOriginalComment\?\.id/);
-  assert.match(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
-
-  const normalizedFixtures = [
-    { activityType: "public_comment", interactionType: "comment", commentId: "comment-X" },
-    { activityType: "public_comment_like", interactionType: "like", actorId: "actor-A", commentId: "comment-Y" },
-    { activityType: "public_comment_dislike", interactionType: "dislike", actorId: "actor-A", commentId: "comment-Z" },
-    { activityType: "rating", interactionType: "rating", actorId: "actor-A" },
+test("the production activity contract reports only the original public comment", () => {
+  const fixtures = [
+    { activity_type: "public_comment", comment_id: 456, payload: { comment_id: 456 } },
+    { activity_type: "public_comment_reaction", comment_id: 456, reaction_id: 701, reaction_type: "like", payload: { comment_id: 456, reaction_id: 701, reaction_type: "like" } },
+    { activity_type: "public_comment_reaction", comment_id: 456, reaction_id: 702, reaction_type: "dislike", payload: { comment_id: 456, reaction_id: 702, reaction_type: "dislike" } },
+    { activity_type: "rating", comment_id: null, payload: { score: 8 } },
   ];
-  assert.deepEqual(normalizedFixtures.map(getActivityCommentReportId), ["comment-X", "comment-Y", "comment-Z", undefined]);
+  const normalized = fixtures.map((raw) => ({
+    activityType: raw.activity_type,
+    commentId: normalizeActivityCommentId(raw),
+    reactionId: raw.reaction_id,
+    reactionType: raw.reaction_type,
+  }));
+
+  assert.notEqual(normalized[1].commentId, normalized[1].reactionId);
+  assert.deepEqual(normalized.map(getActivityCommentReportId), [456, 456, 456, undefined]);
+  assert.match(adapters, /const commentId = item\.comment_id \?\? \(payload\.comment_id as string \| number \| null \| undefined\) \?\? null/);
+  assert.doesNotMatch(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
 });
 
 test("the Actions menu keeps content reporting first and targets the Comment report type", () => {
