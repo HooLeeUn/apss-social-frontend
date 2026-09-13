@@ -141,8 +141,9 @@ export interface SocialActivityItem {
   likedCommentSnippet?: string;
   likedCommentAuthorUsername?: string;
   reactionActorUsername?: string;
-  commentId?: string | number;
-  reactionId?: string;
+  commentId?: string | number | null;
+  reactionId?: string | number | null;
+  reactionType?: "like" | "dislike" | null;
   actorId?: string;
   isGivenReaction?: boolean;
   isReceivedReaction?: boolean;
@@ -261,6 +262,8 @@ export interface PublicCommentActivityPayload {
 
 export interface PublicCommentLikeActivityPayload {
   comment_id?: number | string;
+  reaction_id?: number | string;
+  reaction_type?: "like" | "dislike";
   comment_excerpt?: string;
   comment_author?: {
     id?: number | string;
@@ -304,6 +307,9 @@ export type ProfileFeedActivityPayload =
 export interface ProfileFeedActivityResponseItem {
   id: string;
   activity_type: SocialActivityType;
+  comment_id?: number | string | null;
+  reaction_id?: number | string | null;
+  reaction_type?: "like" | "dislike" | null;
   created_at: string;
   updated_at?: string | null;
   activity_at?: string | null;
