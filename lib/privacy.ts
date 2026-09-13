@@ -14,6 +14,7 @@ export interface BlockedUser {
 
 const PROFILE_PRIVACY_ENDPOINT = "/profile/privacy/";
 const BLOCKED_USERS_ENDPOINT = "/profile/privacy/blocked-users/";
+export const USER_RESTRICTED_EVENT = "privacy:user-restricted";
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -166,6 +167,7 @@ export async function blockUser(userId: number | string): Promise<void> {
   blockedUserIds ??= new Set();
   blockedUserIds.add(String(userId));
   notifyBlockedUsersChanged();
+  window.dispatchEvent(new CustomEvent(USER_RESTRICTED_EVENT, { detail: { userId: String(userId) } }));
 }
 
 export async function unblockUser(userId: number | string): Promise<void> {

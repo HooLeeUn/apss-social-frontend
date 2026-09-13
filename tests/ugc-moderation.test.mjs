@@ -29,21 +29,37 @@ test("video reactions use the video comment and exposed author IDs", () => {
   assert.match(movie, /title=\{comment\.user\.username\}[^>]*truncate/);
 });
 
-test("report UI prevents duplicate submits and reuses restriction helper", () => {
+test("report UI prevents duplicate submits and reuses the restrict helper", () => {
   assert.match(menu, /if \(!target \|\| !reason \|\| busy\) return/);
   assert.match(menu, /disabled=\{!reason \|\| busy\}/);
   assert.match(menu, /ensureBlockedUsers\(\)/);
   assert.match(menu, /blockUser\(userId\)/);
-  assert.match(menu, /unblockUser\(userId\)/);
+  assert.doesNotMatch(menu, /unblockUser/);
   assert.doesNotMatch(menu, /window\.(confirm|alert)\(/);
 });
 
-test("restriction status is shared and can be changed in either direction", () => {
-  assert.match(menu, /blocked \? c\.restrictedUser : c\.restrict/);
+test("content menus only offer restriction while Privacy & Security retains removal", () => {
+  assert.match(menu, /!blocked \?/);
+  assert.doesNotMatch(menu, /restrictedUser|removeTitle|removeButton|confirmRemove/);
   assert.match(menu, /subscribeToBlockedUsers\(update\)/);
   assert.match(privacy, /blockedUserIds\.add\(String\(userId\)\)/);
   assert.match(privacy, /blockedUserIds\?\.delete\(String\(userId\)\)/);
   assert.match(privacy, /method: "DELETE"/);
+});
+
+test("restriction copy describes bilateral visibility and the Privacy & Security removal path", () => {
+  assert.match(menu, /no vas a poder ver su contenido y @\$\{u\} no podrá ver el tuyo/);
+  assert.match(menu, /you will no longer be able to see their content and @\$\{u\} will no longer be able to see yours/);
+  assert.match(menu, /Para quitar la restricción, dirígete a Privacidad y seguridad/);
+  assert.match(menu, /To remove the restriction, go to Privacy & Security/);
+});
+
+test("a successful restriction refetches public comments, video reactions, and profile activity", () => {
+  const profileActivity = readFileSync("components/profile-feed/SocialActivityTabsBlock.tsx", "utf8");
+  assert.match(privacy, /USER_RESTRICTED_EVENT/);
+  assert.match(movie, /reloadFirstPageRef\.current/);
+  assert.match(movie, /parseCommentsPage\(payload, "public"\)/);
+  assert.match(profileActivity, /reloadFollowingActivity\(\)/);
 });
 
 test("mobile movement closes menus without preventing scrolling", () => {
