@@ -5,7 +5,7 @@ import { useI18n } from "../../hooks/useI18n";
 import { formatProfileFeedRatingsCount, formatProfileFeedRelativeDate, translateProfileFeedMovieType } from "../../lib/i18n";
 import { RatingPersonRaisingHandIcon } from "../RatingIcons";
 import UgcModerationMenu from "../moderation/UgcModerationMenu";
-import { shouldRenderActivityModerationMenu, shouldShowActivityContentReport } from "../../lib/profile-feed/activity-moderation.mjs";
+import { shouldShowActivityContentReport } from "../../lib/profile-feed/activity-moderation.mjs";
 
 function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
@@ -51,7 +51,10 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   const activity = getActivityText(item, locale, t);
   const movieType = translateProfileFeedMovieType(locale, item.movieType);
   const movieGenre = item.movieGenre || "-";
-  const shouldRenderModerationMenu = shouldRenderActivityModerationMenu(item);
+  // This is the actor object rendered by this card (avatar and @username included).
+  // Use its canonical user id directly so Actions cards do not depend on activity classification fields.
+  const actorUserId = item.user.id;
+  const hasActivityActor = Boolean(actorUserId);
   const shouldShowContentReport = shouldShowActivityContentReport(item);
 
   const userHeader = (
@@ -97,7 +100,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               <p className="min-w-0 truncate text-sm font-semibold text-blue-200">@{item.user.username}</p>
             )}
             <div className="ml-auto flex shrink-0 items-center gap-1">
-              {shouldRenderModerationMenu ? <UgcModerationMenu contentKind="comment" objectId={item.commentId} userId={item.actorId!} username={item.user.username} showReportContent={shouldShowContentReport} /> : null}
+              {hasActivityActor ? <UgcModerationMenu contentKind="comment" objectId={item.commentId} userId={actorUserId} username={item.user.username} showReportContent={shouldShowContentReport} /> : null}
               <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
                 {formatProfileFeedRelativeDate(locale, item.createdAt)}
               </span>

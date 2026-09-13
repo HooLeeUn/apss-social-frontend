@@ -39,7 +39,8 @@ test("a realistic following public-comment payload keeps its object and actor id
   assert.equal(payload.object_id, 991);
   assert.match(adapters, /isPublicCommentType \? activityRecord\.object_id : undefined/);
   assert.equal(shouldRenderActivityModerationMenu({ actorId: "44" }), true);
-  assert.match(socialCard, /shouldRenderActivityModerationMenu\(item\)/);
+  assert.match(socialCard, /const actorUserId = item\.user\.id/);
+  assert.match(socialCard, /\{hasActivityActor \? <UgcModerationMenu/);
   assert.match(socialCard, /UgcModerationMenu contentKind="comment" objectId=\{item\.commentId\}/);
 });
 
