@@ -9,6 +9,7 @@ import { useI18n } from "../../hooks/useI18n";
 import { ApiError } from "../../lib/api";
 import { getLegalPolicies, LegalSection } from "../../lib/legal";
 import { englishLegalPolicies } from "../../lib/legalPoliciesEnglish";
+import { prepareSpanishLegalPolicies } from "../../lib/legalPoliciesSpanish";
 
 export default function PoliciesPage() {
   const branding = useAppBranding();
@@ -44,9 +45,10 @@ export default function PoliciesPage() {
         const payload = await getLegalPolicies();
         if (ignoreBackendPayload) return;
 
-        setTitle(payload.title);
-        setLastUpdated(payload.lastUpdated);
-        setSections(payload.sections);
+        const policies = prepareSpanishLegalPolicies(payload);
+        setTitle(policies.title);
+        setLastUpdated(policies.lastUpdated);
+        setSections(policies.sections);
       } catch (loadError) {
         if (ignoreBackendPayload) return;
 
