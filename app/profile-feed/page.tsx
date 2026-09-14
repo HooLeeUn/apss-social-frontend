@@ -177,6 +177,7 @@ function ProfileFeedContent() {
   const [activeMobileProfileFeedSlide, setActiveMobileProfileFeedSlide] = useState(0);
   const [activeMobileSection, setActiveMobileSection] = useState<MobileSection>("top");
   const [quickNavigationVisible, setQuickNavigationVisible] = useState(true);
+  const showMobileBottomNavigation = useCallback(() => setQuickNavigationVisible(true), []);
   const profileFeedScrollerRef = useRef<HTMLElement | null>(null);
   const topSectionRef = useRef<HTMLElement | null>(null);
   const internalScrollPositionsRef = useRef(new WeakMap<HTMLElement, number>());
@@ -846,7 +847,10 @@ function ProfileFeedContent() {
             { value: "my-list", label: t("profileFeedMyList") },
             { value: "recommended", label: t("profileFeedMyRecommendations") },
           ]}
-          onChange={setListView}
+          onChange={(value) => {
+            if (mobile) showMobileBottomNavigation();
+            setListView(value);
+          }}
           selectedIcon={listView === "my-list"
             ? <MyListIcon className="pointer-events-none h-[18px] w-[18px] shrink-0" />
             : <Image src="/icons/Ticket.png" alt="" width={22} height={18} className="pointer-events-none h-[18px] w-[22px] shrink-0 object-contain" />}
@@ -1119,6 +1123,7 @@ function ProfileFeedContent() {
                     initialActiveTab={initialActivityTab}
                     hidePrivateInbox={profileUser?.friendRequestsRestricted ?? null}
                     activeTabRequest={activityTabRequest}
+                    onSectionChange={showMobileBottomNavigation}
                   />
                 </div>
                 <div className="profile-feed-mobile-content-panel w-full min-w-full shrink-0 snap-start xl:hidden">
@@ -1139,7 +1144,7 @@ function ProfileFeedContent() {
         </section>
 
         <div data-tour="profile-following-activity" data-tour-mobile="profile-following-activity-mobile" ref={followingActivityPanelRef} className={`profile-feed-following-activity mt-3 scroll-mt-4 xl:mt-4 ${!quickNavigationVisible && !forceMobileQuickNavigation ? "profile-feed-following-activity--dock-hidden" : ""}`}>
-          <SocialActivityTabsBlock />
+          <SocialActivityTabsBlock onSectionChange={showMobileBottomNavigation} />
         </div>
       </div>
       <ProfileQuickNavigation
