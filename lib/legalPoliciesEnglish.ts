@@ -1,8 +1,9 @@
 import { LegalPoliciesContent } from "./legal";
+import { LEGAL_LAST_UPDATED } from "./legal-constants";
 
 export const englishLegalPolicies: LegalPoliciesContent = {
   title: "Policies & Terms",
-  lastUpdated: "2026-05-22",
+  lastUpdated: LEGAL_LAST_UPDATED,
   sections: [
     {
       subtitle: "1. General Information about RecCool",
@@ -42,7 +43,23 @@ export const englishLegalPolicies: LegalPoliciesContent = {
       ],
     },
     {
-      subtitle: "5. Accuracy of External Data",
+      subtitle: "5. User-Generated Content and Moderation",
+      paragraphs: [
+        "RecCool allows users to create, publish, and interact with user-generated content, including public comments, Video Reactions, ratings, recommendations, reactions, and other social interactions available on the platform.",
+        "Each user is responsible for the content they publish and for their interactions within RecCool. Users may not publish illegal, offensive, threatening, harassing, discriminatory, sexually inappropriate, fraudulent, misleading, defamatory content, content that infringes third-party rights, content that exposes another person’s private information, or content that may affect the safety of the community.",
+        "RecCool provides mechanisms for reporting content and users. Depending on the type of content or interaction, users may report public comments, Video Reactions, or other user accounts, select a reason for the report, and provide additional information to assist with its review.",
+        "Not every type of activity or interaction is eligible for a content report. When an activity does not correspond to reportable user-generated content, the user may use the available options to report or restrict the user when applicable.",
+        "Reports may be reviewed by authorized RecCool administrators. During this process, a report may be pending, under review, resolved, or rejected. Submitting a report does not automatically mean that the content will be removed or that the reported user has violated these policies.",
+        "As a result of a review, RecCool may retain, limit, hide, or remove content, and may take action against an account when RecCool determines that these policies, applicable law, third-party rights, or the platform’s safety and community standards have been violated.",
+        "RecCool also allows users to restrict other users. When one user restricts another, the restriction operates bilaterally: while the restriction remains active, neither user may access the other user’s profile or view the other user’s content within the areas of the platform subject to the restriction. The restriction may later be removed from the “Privacy & Security” section.",
+        "Reporting a user, reporting content, and restricting a user are different functions. A report asks RecCool to review a potential violation, while a restriction controls interaction and visibility between two users.",
+        "Abusive, fraudulent, or intentionally false use of the reporting tools may result in measures being taken against the account that engages in such misuse.",
+        "RecCool may take additional measures in response to serious or repeated violations, including limiting functionality, temporarily or permanently suspending accounts, or taking other actions reasonably necessary to protect users and the community.",
+        "By publishing content on RecCool, the user represents that they have the necessary rights to share it and that the content does not infringe copyright, privacy, image rights, intellectual property rights, or other third-party rights.",
+      ],
+    },
+    {
+      subtitle: "6. Accuracy of External Data",
       paragraphs: [
         "RecCool does not guarantee the absolute accuracy, permanent availability, or immediate updating of information from IMDb, TMDB, or other external sources.",
         "Titles, synopses, posters, directors, cast, genres, years, votes, and external ratings may contain errors, changes, or differences from their original sources.",
@@ -50,7 +67,7 @@ export const englishLegalPolicies: LegalPoliciesContent = {
       ],
     },
     {
-      subtitle: "6. Content and Account Removal",
+      subtitle: "7. Content and Account Removal",
       paragraphs: [
         "RecCool may remove content that infringes third-party rights, privacy, security, intellectual property, or community rules.",
         "Users may request deletion or modification of personal information when legally applicable.",
@@ -58,7 +75,7 @@ export const englishLegalPolicies: LegalPoliciesContent = {
       ],
     },
     {
-      subtitle: "7. Personal Data Processing",
+      subtitle: "8. Personal Data Processing",
       paragraphs: [
         "In Colombia, RecCool applies Law 1581 of 2012 as the framework for personal data protection.",
         "Summary of Article 8 of Law 1581 of 2012: the data subject has the right to know, update, and rectify their data, request proof of authorization, be informed about the use of their data, file complaints, and revoke authorization or request deletion when applicable.",
@@ -72,7 +89,7 @@ export const englishLegalPolicies: LegalPoliciesContent = {
       ],
     },
     {
-      subtitle: "8. RecCool Intellectual Property",
+      subtitle: "9. RecCool Intellectual Property",
       paragraphs: [
         "RecCool retains rights over its brand, name, logo, visual identity, interface design, user experience, navigation structure, proprietary texts, visual components, information organization, presentation logic, rankings, recommendation systems, combinations, curation, data compilations, source code, technical architecture, and proprietary functionalities.",
         "Copying, reproducing, distributing, modifying, mass extracting, scraping, reverse engineering, plagiarizing, cloning the design, reusing distinctive elements, or commercially using RecCool elements without authorization is prohibited.",
@@ -83,7 +100,7 @@ export const englishLegalPolicies: LegalPoliciesContent = {
       ],
     },
     {
-      subtitle: "9. Credits and External Sources",
+      subtitle: "10. Credits and External Sources",
       paragraphs: [
         "This product uses the TMDB API but is not endorsed or certified by TMDB.",
         "Posters and synopses used in RecCool come from TMDB.",
