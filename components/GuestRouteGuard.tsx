@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useDesktopGuest } from "../hooks/useDesktopGuest";
 
-const PUBLIC_GUEST_ROUTE = /^(?:\/feed|\/login|\/signup|\/movies\/[^/]+|\/users\/[^/]+)\/?$/;
+const PUBLIC_GUEST_ROUTE = /^(?:\/feed|\/login|\/signup|\/policies|\/movies\/[^/]+|\/users\/[^/]+)\/?$/;
 
 export default function GuestRouteGuard() {
   const pathname = usePathname();

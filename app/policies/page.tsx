@@ -1,20 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "../../components/AppLogo";
 import { useAppBranding } from "../../hooks/useAppBranding";
 import { useI18n } from "../../hooks/useI18n";
 import { ApiError } from "../../lib/api";
 import { getLegalPolicies, LegalSection } from "../../lib/legal";
 import { englishLegalPolicies } from "../../lib/legalPoliciesEnglish";
+import { prepareSpanishLegalPolicies } from "../../lib/legalPoliciesSpanish";
 
-export default function PoliciesPage() {
+type PolicyLocale = "es" | "en";
+
+function PoliciesPageContent() {
   const branding = useAppBranding();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locale } = useI18n();
-  const isEnglishLocale = locale === "en";
+  const requestedLocale = searchParams.get("lang");
+  const policyLocale: PolicyLocale = requestedLocale === "es" || requestedLocale === "en" ? requestedLocale : locale;
+  const isEnglishLocale = policyLocale === "en";
   const [title, setTitle] = useState("Políticas y Términos");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [sections, setSections] = useState<LegalSection[]>([]);
@@ -44,9 +50,10 @@ export default function PoliciesPage() {
         const payload = await getLegalPolicies();
         if (ignoreBackendPayload) return;
 
-        setTitle(payload.title);
-        setLastUpdated(payload.lastUpdated);
-        setSections(payload.sections);
+        const policies = prepareSpanishLegalPolicies(payload);
+        setTitle(policies.title);
+        setLastUpdated(policies.lastUpdated);
+        setSections(policies.sections);
       } catch (loadError) {
         if (ignoreBackendPayload) return;
 
@@ -84,6 +91,12 @@ export default function PoliciesPage() {
         "La visibilidad de calificaciones, comentarios, recomendaciones y datos personales depende de la configuración del perfil y permisos definidos por el usuario.",
       );
 
+  const selectLocale = (nextLocale: PolicyLocale) => {
+    if (nextLocale !== policyLocale || requestedLocale !== nextLocale) {
+      router.push(`/policies?lang=${nextLocale}`);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-black px-4 py-10 text-zinc-100 sm:px-6">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-7">
@@ -105,8 +118,32 @@ export default function PoliciesPage() {
           </button>
         </div>
 
-        <header className="space-y-2">
-          <h1 className="text-3xl font-semibold text-white sm:text-4xl">{normalizePolicyText(title)}</h1>
+        <header className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="min-w-0 text-3xl font-semibold text-white sm:text-4xl">{normalizePolicyText(title)}</h1>
+            <div
+              className="inline-flex shrink-0 rounded-full border border-violet-400/40 bg-zinc-950 p-1 shadow-[0_0_20px_rgba(124,58,237,0.14)]"
+              role="group"
+              aria-label={isEnglishLocale ? "Policy language" : "Idioma de las políticas"}
+            >
+              {(["es", "en"] as const).map((language) => {
+                const active = language === policyLocale;
+                return (
+                  <button
+                    key={language}
+                    type="button"
+                    onClick={() => selectLocale(language)}
+                    aria-pressed={active}
+                    className={`min-w-11 rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.08em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 ${
+                      active ? "bg-violet-500 text-white shadow-sm" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
+                    }`}
+                  >
+                    {language.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {lastUpdated ? (
             <p className="text-sm text-zinc-400">
               {`${isEnglishLocale ? "Last updated" : "Última actualización"}: ${lastUpdated}`}
@@ -162,5 +199,13 @@ export default function PoliciesPage() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+export default function PoliciesPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-black" aria-busy="true" />}>
+      <PoliciesPageContent />
+    </Suspense>
   );
 }
