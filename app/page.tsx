@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { enterGuestMode, setToken } from "../lib/auth";
+import { enterGuestMode, getToken, setToken } from "../lib/auth";
 import { API_BASE_URL } from "../lib/api";
 import { useAuthState } from "../hooks/useAuthState";
 import AuthShell from "../components/auth/AuthShell";
@@ -43,6 +43,10 @@ function LoginForm() {
   const verificationMessageClassName = verifiedParam === "1" ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-100" : "border-amber-300/25 bg-amber-300/10 text-amber-100";
   const closeDialog = useCallback(() => setLoginError(null), []);
   const continueAsGuest = () => { enterGuestMode(); router.push("/feed"); };
+
+  useEffect(() => {
+    if (getToken()) router.replace("/feed");
+  }, [router]);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
