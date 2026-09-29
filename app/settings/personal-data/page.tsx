@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "../../../lib/api";
 import AppLogo from "../../../components/AppLogo";
 import MobileDarkSelect from "../../../components/MobileDarkSelect";
+import AccountSecuritySettings from "../../../components/settings/AccountSecuritySettings";
 import { useAppBranding } from "../../../hooks/useAppBranding";
 import { useI18n } from "../../../hooks/useI18n";
 import {
@@ -582,6 +583,8 @@ export default function PersonalDataPage() {
             </div>
           </div>
         </section>
+
+        <AccountSecuritySettings />
 
         {feedback ? (
           <div
