@@ -62,6 +62,8 @@ export class ApiError extends Error {
 export interface ApiFetchOptions extends RequestInit {
   /** Skip successful-response body parsing when the caller only needs HTTP success. */
   expectJson?: boolean;
+  /** Public endpoints must never receive a locally stored authentication token. */
+  omitAuth?: boolean;
 }
 
 function normalizeHeaders(h?: HeadersInit): Record<string, string> {
@@ -77,7 +79,7 @@ function hasHeader(headers: Record<string, string>, name: string): boolean {
 }
 
 export async function apiFetch(endpoint: string, options: ApiFetchOptions = {}) {
-  const { expectJson = true, ...requestOptions } = options;
+  const { expectJson = true, omitAuth = false, ...requestOptions } = options;
   const token = getToken();
   const normalizedIncomingHeaders = normalizeHeaders(requestOptions.headers);
   const isFormDataBody = typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
@@ -90,7 +92,7 @@ export async function apiFetch(endpoint: string, options: ApiFetchOptions = {}) 
     headers["Content-Type"] = "application/json";
   }
 
-  if (token) {
+  if (token && !omitAuth) {
     headers.Authorization = `Token ${token}`;
   }
 
@@ -112,6 +114,10 @@ export async function apiFetch(endpoint: string, options: ApiFetchOptions = {}) 
       } catch {
         // Non-JSON error responses keep their original text.
       }
+    }
+
+    if (res.status === 401 && omitAuth) {
+      throw new ApiError(res.status, message, code);
     }
 
     if (res.status === 401) {
