@@ -35,6 +35,7 @@ function LoginForm() {
   const [fieldErrors, setFieldErrors] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState<LoginError>(null);
   const [loading, setLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
   const { text } = useAuthLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,6 +47,11 @@ function LoginForm() {
 
   useEffect(() => {
     if (getToken()) router.replace("/feed");
+    const message = sessionStorage.getItem("reccool:auth-message") || "";
+    if (message) {
+      sessionStorage.removeItem("reccool:auth-message");
+      setAuthMessage(message);
+    }
   }, [router]);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -68,6 +74,7 @@ function LoginForm() {
   return <>
     <AuthShell title={text.loginTitle} description={text.loginDescription} footerText={text.noAccount} footerLinkText={text.signupLink} footerHref="/signup" brandingSlot="login_logo_url" fitMobileViewport headerAction={<AuthCountrySelector />} logoAlt="ReCCool" emphasizeLogo>
       <form onSubmit={handleLogin} noValidate className="space-y-4 sm:space-y-5">
+        {authMessage ? <div role="status" className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-sm leading-6 text-emerald-100">{authMessage}</div> : null}
         {verificationMessage ? <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${verificationMessageClassName}`}>{verificationMessage}</div> : null}
         <div className="space-y-2"><label htmlFor="login-username" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">{text.username}</label><input id="login-username" autoComplete="username" className={inputBaseClassName} placeholder={text.usernamePlaceholder} value={username} onChange={(e) => { setUsername(e.target.value); setFieldErrors((old) => ({ ...old, username: "" })); }} aria-invalid={Boolean(fieldErrors.username)} aria-describedby={fieldErrors.username ? "login-username-error" : undefined}/>{fieldErrors.username ? <p id="login-username-error" className="text-sm text-red-300">{fieldErrors.username}</p> : null}</div>
         <div className="space-y-2"><label htmlFor="login-password" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">{text.password}</label><div className="relative"><input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" className={`${inputBaseClassName} !pr-12`} placeholder={text.passwordPlaceholder} value={password} onChange={(e) => { setPassword(e.target.value); setFieldErrors((old) => ({ ...old, password: "" })); }} aria-invalid={Boolean(fieldErrors.password)} aria-describedby={fieldErrors.password ? "login-password-error" : undefined}/><PasswordVisibilityButton visible={showPassword} showLabel={text.showPassword} hideLabel={text.hidePassword} onToggle={() => setShowPassword((visible) => !visible)} /></div>{fieldErrors.password ? <p id="login-password-error" className="text-sm text-red-300">{fieldErrors.password}</p> : null}</div>
