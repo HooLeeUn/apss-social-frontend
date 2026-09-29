@@ -584,8 +584,6 @@ export default function PersonalDataPage() {
           </div>
         </section>
 
-        <AccountSecuritySettings />
-
         {feedback ? (
           <div
             role="status"
@@ -610,6 +608,8 @@ export default function PersonalDataPage() {
             {redirecting ? "Redirigiendo..." : saving ? "Guardando..." : t("personalDataSaveChanges")}
           </button>
         </div>
+
+        <AccountSecuritySettings />
       </div>
 
       {showBirthDateModal ? (

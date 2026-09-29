@@ -5,6 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const helper = read("../lib/account-security.ts");
 const settings = read("../components/settings/AccountSecuritySettings.tsx");
+const personalDataPage = read("../app/settings/personal-data/page.tsx");
 const requestPage = read("../app/delete-account/page.tsx");
 const confirmPage = read("../app/delete-account/confirm/[token]/page.tsx");
 const emailPage = read("../app/confirm-email-change/[token]/page.tsx");
@@ -29,6 +30,15 @@ test("authenticated deletion requires a password confirmation modal and preserve
   assert.match(settings, /if \(!deletePassword\)/);
   assert.match(settings, /await deleteAuthenticatedAccount\(deletePassword\)[\s\S]+logout\(text\.deleted\)/);
   assert.match(settings, /catch \(error\) \{ setDeleteError/);
+});
+
+test("personal-data actions keep the profile save before the independent security blocks", () => {
+  const saveButton = personalDataPage.indexOf("void handleSave()");
+  const securityBlocks = personalDataPage.indexOf("<AccountSecuritySettings />");
+
+  assert.ok(saveButton > -1 && securityBlocks > saveButton);
+  assert.doesNotMatch(settings, /Zona de riesgo|Danger zone|text\.danger/);
+  assert.match(settings, /border border-red-500\/35 bg-red-950\/15/);
 });
 
 test("public deletion request is guest-accessible and always uses generic success copy", () => {
