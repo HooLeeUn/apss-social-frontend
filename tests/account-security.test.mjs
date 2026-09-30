@@ -49,6 +49,27 @@ test("public deletion request is guest-accessible and always uses generic succes
   assert.match(requestPage, /Si existe una cuenta asociada a este correo, recibirás instrucciones para eliminarla\./);
 });
 
+test("public deletion request explains deleted and potentially retained data in ES and EN", () => {
+  assert.match(requestPage, /Datos que se eliminan/);
+  assert.match(requestPage, /Data that is deleted/);
+  assert.match(requestPage, /datos de perfil, avatar, calificaciones, comentarios públicos y dirigidos/);
+  assert.match(requestPage, /profile information, avatar, ratings, public and directed comments/);
+  assert.match(requestPage, /Datos que pueden conservarse/);
+  assert.match(requestPage, /Data that may be retained/);
+  assert.match(requestPage, /no aplica un período de retención adicional/);
+  assert.match(requestPage, /does not apply an additional retention period/);
+});
+
+test("public deletion information preserves locale selection and the existing request flow", () => {
+  assert.match(requestPage, /requested === "es" \|\| requested === "en" \? requested : appLocale/);
+  assert.match(requestPage, /router\.push\(`\/delete-account\?lang=\$\{next\}`\)/);
+  assert.match(requestPage, /<PublicLanguageSelector locale=\{locale\} onChange=\{selectLocale\}/);
+  assert.match(requestPage, /<form onSubmit=\{submit\}/);
+  assert.match(requestPage, /await requestAccountDeletion\(email\.trim\(\)\)/);
+  assert.match(helper, /apiFetch\("\/account-deletion\/request\/"/);
+  assert.match(helper, /omitAuth: true/);
+});
+
 test("confirmation never posts on mount and only posts after the destructive action", () => {
   assert.doesNotMatch(confirmPage, /useEffect/);
   assert.match(confirmPage, /onClick=\{\(\) => void confirm\(\)\}/);
