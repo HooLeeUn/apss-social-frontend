@@ -4,13 +4,16 @@ export type StreamingCountry = Country;
 export type StreamingCountryOption = { value: StreamingCountry; name: string; flagSrc: string };
 
 export const STREAMING_COUNTRY_OPTIONS: StreamingCountryOption[] = [
+  { value: "AE", name: "United Arab Emirates", flagSrc: "/flags/ae.svg" },
   { value: "AR", name: "Argentina", flagSrc: "/flags/ar.svg" },
+  { value: "AU", name: "Australia", flagSrc: "/flags/au.svg" },
   { value: "BO", name: "Bolivia", flagSrc: "/flags/bo.svg" },
   { value: "BZ", name: "Belize", flagSrc: "/flags/bz.svg" },
   { value: "CA", name: "Canadá", flagSrc: "/flags/ca.svg" },
   { value: "CL", name: "Chile", flagSrc: "/flags/cl.svg" },
   { value: "CO", name: "Colombia", flagSrc: "/flags/co.svg" },
   { value: "CR", name: "Costa Rica", flagSrc: "/flags/cr.svg" },
+  { value: "DE", name: "Germany", flagSrc: "/flags/de.svg" },
   { value: "DO", name: "República Dominicana", flagSrc: "/flags/do.svg" },
   { value: "EC", name: "Ecuador", flagSrc: "/flags/ec.svg" },
   { value: "ES", name: "España", flagSrc: "/flags/es.svg" },

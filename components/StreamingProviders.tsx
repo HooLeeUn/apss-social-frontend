@@ -32,13 +32,16 @@ const COUNTRY_NAMES_BY_LOCALE: Record<Locale, Partial<Record<Country, string>>> 
     Record<Country, string>
   >,
   en: {
+    AE: "United Arab Emirates",
     AR: "Argentina",
+    AU: "Australia",
     BO: "Bolivia",
     BZ: "Belize",
     CA: "Canada",
     CL: "Chile",
     CO: "Colombia",
     CR: "Costa Rica",
+    DE: "Germany",
     DO: "Dominican Republic",
     EC: "Ecuador",
     ES: "Spain",
