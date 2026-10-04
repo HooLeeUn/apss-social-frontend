@@ -22,7 +22,10 @@ export type Country =
   | "US"
   | "CA"
   | "UK"
-  | "BZ";
+  | "BZ"
+  | "DE"
+  | "AE"
+  | "AU";
 
 const STORAGE_KEY = "app_locale_country";
 export const localeEventName = "app-locale-change";
@@ -819,6 +822,9 @@ const COUNTRY_LANGUAGE_MAP: Record<Country, Locale> = {
   CA: "en",
   UK: "en",
   BZ: "en",
+  DE: "en",
+  AE: "en",
+  AU: "en",
 };
 
 const SUPPORTED_COUNTRIES = new Set<Country>(Object.keys(COUNTRY_LANGUAGE_MAP) as Country[]);
