@@ -13,6 +13,7 @@ import { formatProfileFeedRelativeDate, Locale, resolveMovieTitles, translateVis
 import { stripLeadingMention } from "../../lib/strip-leading-mention";
 import EmptyStatePanel from "./EmptyStatePanel";
 import { apiFetch } from "../../lib/api";
+import VisitedProfileCommentReactions from "./VisitedProfileCommentReactions";
 import VisitedProfileVideoReactions from "./VisitedProfileVideoReactions";
 import GuestContentGate from "../GuestContentGate";
 import { useDesktopGuest } from "../../hooks/useDesktopGuest";
@@ -631,6 +632,7 @@ function ActivityRow({
   const activityDetail = getActivityDetail(item, locale);
   const visitedActionMessage = getVisitedActionMessage(item, locale);
   const isVisitedProfile = !isOwnProfile;
+  const showCommentReactions = isVisitedProfile && visitedActivityTab === "public_comments" && item.commentId != null;
   const normalizedMyUsername = myUsername?.trim().toLocaleLowerCase() || "";
   const normalizedAuthorUsername = item.likedCommentAuthorUsername?.trim().toLocaleLowerCase() || "";
   const authorIsCurrentUser =
@@ -728,41 +730,48 @@ function ActivityRow({
             {getActivityTitle(item, isOwnProfile, locale)}{isSummary ? <> <button type="button" onClick={(event) => { event.stopPropagation(); onOpenReactionSummary?.(item); }} className="font-semibold underline decoration-blue-300/60 underline-offset-2 transition hover:text-blue-100">{locale === "en" ? "See more" : "Ver más"}</button></> : null}
           </p>
         ) : null}
-        {movieHref ? (
-          <Link
-          href={movieHref}
-          aria-label={`Ver detalle de ${item.movieTitle}`}
-          className={`mt-1 block cursor-pointer font-semibold text-zinc-100 transition hover:text-blue-100 ${
-            isVisitedProfile ? "text-base leading-snug xl:text-lg" : "truncate text-sm"
-          }`}
-        >
-          {localizedTitle}
-        </Link>
-        ) : (
-          <p className={`mt-1 block font-semibold text-zinc-100 ${isVisitedProfile ? "text-base leading-snug xl:text-lg" : "truncate text-sm"}`}>
-            {localizedTitle || t("profileFeedUnknownTitle")}
-          </p>
-        )}
-        {!isOwnProfile && item.movieSecondaryTitle ? (
-          <p className={`mt-0.5 text-blue-200/75 ${isVisitedProfile ? "text-sm xl:text-[15px]" : "truncate text-[11px]"}`}>
+        <div className={showCommentReactions ? "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 lg:grid-cols-1" : "contents"}>
+          <div className={showCommentReactions ? "min-w-0 break-words" : "contents"}>
             {movieHref ? (
               <Link
               href={movieHref}
-              aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`}
-              className={`inline-block max-w-full cursor-pointer transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none ${
-                isVisitedProfile ? "break-words" : "truncate"
+              aria-label={`Ver detalle de ${item.movieTitle}`}
+              className={`mt-1 block cursor-pointer font-semibold text-zinc-100 transition hover:text-blue-100 ${
+                isVisitedProfile ? "text-base leading-snug xl:text-lg" : "truncate text-sm"
               }`}
             >
-              {item.movieSecondaryTitle}
+              {localizedTitle}
             </Link>
             ) : (
-              <span>{item.movieSecondaryTitle}</span>
+              <p className={`mt-1 block font-semibold text-zinc-100 ${isVisitedProfile ? "text-base leading-snug xl:text-lg" : "truncate text-sm"}`}>
+                {localizedTitle || t("profileFeedUnknownTitle")}
+              </p>
             )}
-          </p>
-        ) : null}
-        <p className={`mt-1 text-zinc-500 ${isVisitedProfile ? "text-sm xl:text-[15px]" : "truncate text-[11px]"}`}>
-          {formatMetadata(item.movieType, item.movieGenre, item.movieYear, locale, isVisitedProfile)}
-        </p>
+          </div>
+          {showCommentReactions ? <div className="col-start-2 row-start-1 lg:col-start-1 lg:row-start-3 lg:mt-2"><VisitedProfileCommentReactions item={item} /></div> : null}
+          <div className={showCommentReactions ? "col-span-2 lg:col-span-1" : "contents"}>
+            {!isOwnProfile && item.movieSecondaryTitle ? (
+              <p className={`mt-0.5 text-blue-200/75 ${isVisitedProfile ? "text-sm xl:text-[15px]" : "truncate text-[11px]"}`}>
+                {movieHref ? (
+                  <Link
+                  href={movieHref}
+                  aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`}
+                  className={`inline-block max-w-full cursor-pointer transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none ${
+                    isVisitedProfile ? "break-words" : "truncate"
+                  }`}
+                >
+                  {item.movieSecondaryTitle}
+                </Link>
+                ) : (
+                  <span>{item.movieSecondaryTitle}</span>
+                )}
+              </p>
+            ) : null}
+            <p className={`mt-1 text-zinc-500 ${isVisitedProfile ? "text-sm xl:text-[15px]" : "truncate text-[11px]"}`}>
+              {formatMetadata(item.movieType, item.movieGenre, item.movieYear, locale, isVisitedProfile)}
+            </p>
+          </div>
+        </div>
         {isOwnProfile && activityDetail ? <p className="mt-2 line-clamp-2 text-xs text-zinc-300/90">{activityDetail}</p> : null}
         {isOwnProfile ? <p className="mt-1 text-[11px] text-zinc-500">{formatProfileFeedRelativeDate(locale, getActivityRelativeDate(item))}</p> : null}
       </div>

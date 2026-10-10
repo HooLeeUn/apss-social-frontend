@@ -1,4 +1,5 @@
 "use client";
+import { applyReactionToCollection, applyReactionResultToCollection, requestCommentReaction } from "../../../lib/comment-reactions";
 
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -790,65 +791,6 @@ async function fetchDirectedConversationsWithFallbacks(
 
   if (lastEmptyResult) return lastEmptyResult;
   throw lastError ?? new Error("No endpoint available.");
-}
-
-function applyReactionToCollection(
-  collection: SocialComment[],
-  commentId: number | string,
-  nextReaction: ReactionType,
-): SocialComment[] {
-  return collection.map((comment) => {
-    if (String(comment.id) !== String(commentId)) return comment;
-
-    let likesCount = comment.likesCount;
-    let dislikesCount = comment.dislikesCount;
-
-    if (comment.myReaction === "like") likesCount = Math.max(0, likesCount - 1);
-    if (comment.myReaction === "dislike") dislikesCount = Math.max(0, dislikesCount - 1);
-
-    if (nextReaction === "like") likesCount += 1;
-    if (nextReaction === "dislike") dislikesCount += 1;
-
-    return {
-      ...comment,
-      myReaction: nextReaction,
-      likesCount,
-      dislikesCount,
-    };
-  });
-}
-
-function applyReactionResultToCollection(
-  collection: SocialComment[],
-  commentId: number | string,
-  payload: unknown,
-): SocialComment[] {
-  const record = toRecord(payload);
-  if (!record) return collection;
-
-  const payloadCommentId = record.comment_id;
-  if (payloadCommentId === undefined || String(payloadCommentId) !== String(commentId)) {
-    return collection;
-  }
-
-  const myReactionRaw = typeof record.my_reaction === "string" ? record.my_reaction.toLowerCase() : null;
-  const myReaction: ReactionType = myReactionRaw === "like" || myReactionRaw === "dislike" ? myReactionRaw : null;
-  const likesCount = typeof record.likes_count === "number" && Number.isFinite(record.likes_count) ? record.likes_count : null;
-  const dislikesCount =
-    typeof record.dislikes_count === "number" && Number.isFinite(record.dislikes_count) ? record.dislikes_count : null;
-
-  if (likesCount === null || dislikesCount === null) return collection;
-
-  return collection.map((comment) =>
-    String(comment.id) === String(commentId)
-      ? {
-          ...comment,
-          myReaction,
-          likesCount,
-          dislikesCount,
-        }
-      : comment,
-  );
 }
 
 function updateCommentTextInCollection(collection: SocialComment[], commentId: number | string, nextText: string): SocialComment[] {
@@ -4243,19 +4185,7 @@ function MovieDetailPageContent() {
     );
 
     try {
-      const endpoint = buildReactionEndpoint(commentId);
-      const method = reaction === null ? "DELETE" : "PUT";
-      const response = await apiFetch(
-        endpoint,
-        reaction === null
-          ? {
-              method,
-            }
-          : {
-              method,
-              body: JSON.stringify({ reaction }),
-            },
-      );
+      const response = await requestCommentReaction(commentId, reaction);
 
       setPublicComments((current) => applyReactionResultToCollection(current, commentId, response));
       setDirectedConversations((current) =>
@@ -4639,11 +4569,11 @@ function MovieDetailPageContent() {
                   role="tab"
                   aria-selected={isActiveMode}
                   data-tour-mobile={mode === "text-comment" ? "detail-comment-tab-mobile" : undefined}
-                  className={`flex h-11 flex-1 items-center justify-center text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "pl-6 pr-2" : "px-2"} ${mode === "video-comment" ? "flex-col" : "py-2"} ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
+                  className={`flex h-11 flex-1 items-center justify-center text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "pl-6 pr-2" : "px-2"} flex-col ${isActiveMode ? "text-base font-bold text-[#86ADE0]" : "text-sm font-medium text-zinc-400"}`}
                   data-comment-input-mode={mode}
                   onClick={() => handleCommentInputTabClick(mode)}
                 >
-                  {mode === "text-comment" ? composerTitle : <><span data-tour-mobile="detail-video-tab-mobile">{t("movieDetailVideoCommentTitle")}</span><span data-video-reaction-count className="text-[10px] font-normal leading-3 text-zinc-500">{videoReactionCountLabel}</span></>}
+                  {mode === "text-comment" ? <>{composerTitle}<span data-public-comment-count className="text-[10px] font-normal leading-3 text-zinc-500">{publicCommentCountLabel}</span></> : <><span data-tour-mobile="detail-video-tab-mobile">{t("movieDetailVideoCommentTitle")}</span><span data-video-reaction-count className="text-[10px] font-normal leading-3 text-zinc-500">{videoReactionCountLabel}</span></>}
                 </button>
               );
             })}
@@ -4661,11 +4591,11 @@ function MovieDetailPageContent() {
                 role="tab"
                 aria-selected={isActiveMode}
                 data-tour-desktop={mode === "video-comment" ? "detail-video-reactions" : "detail-comment-composer"}
-                className={`min-h-11 px-3 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${mode === "video-comment" ? "relative" : ""} ${isActiveMode ? "text-xl font-bold text-[#86ADE0]" : "text-base font-medium text-zinc-400 hover:text-zinc-300"}`}
+                className={`min-h-11 px-3 py-2 text-center leading-tight transition-[color,font-size,font-weight] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black relative ${isActiveMode ? "text-xl font-bold text-[#86ADE0]" : "text-base font-medium text-zinc-400 hover:text-zinc-300"}`}
                 data-comment-input-mode={mode}
                 onClick={() => handleCommentInputTabClick(mode)}
               >
-                {mode === "text-comment" ? (isDesktopGuest ? t("movieDetailPublicComments") : composerTitle) : <>{t("movieDetailVideoCommentTitle")}<span data-video-reaction-count className="absolute left-1/2 top-full -mt-2 -translate-x-1/2 whitespace-nowrap text-[11px] font-normal leading-3 text-zinc-500">{videoReactionCountLabel}</span></>}
+                {mode === "text-comment" ? <>{isDesktopGuest ? t("movieDetailPublicComments") : composerTitle}<span data-public-comment-count className="absolute left-1/2 top-full -mt-2 -translate-x-1/2 whitespace-nowrap text-[11px] font-normal leading-3 text-zinc-500">{publicCommentCountLabel}</span></> : <>{t("movieDetailVideoCommentTitle")}<span data-video-reaction-count className="absolute left-1/2 top-full -mt-2 -translate-x-1/2 whitespace-nowrap text-[11px] font-normal leading-3 text-zinc-500">{videoReactionCountLabel}</span></>}
               </button>
             );
           })}

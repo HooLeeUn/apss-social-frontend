@@ -557,7 +557,7 @@ export default function SocialActivityTabsBlock({ onSectionChange }: { onSection
               );
             })}
           </div>
-          <button type="button" onMouseDown={preventPointerFocus} onClick={handleRecordingsTabClick} className={getTabClassName(isRecordingsActive, "h-12 min-h-12 w-full px-2 text-xs sm:px-4 sm:text-sm")}><ProfileRecommendationsLabel label={t("profileFeedRecordings")} /></button>
+          <button type="button" onMouseDown={preventPointerFocus} onClick={handleRecordingsTabClick} className={getTabClassName(isRecordingsActive, "h-12 min-h-12 w-full px-2 text-xs sm:px-4 sm:text-sm")}><ProfileRecommendationsLabel label={t("profileFeedRecordings")} reactions /></button>
         </div>
       </header>
 
