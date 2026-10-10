@@ -142,6 +142,9 @@ export interface SocialActivityItem {
   likedCommentAuthorUsername?: string;
   reactionActorUsername?: string;
   commentId?: string | number | null;
+  commentLikesCount?: number;
+  commentDislikesCount?: number;
+  commentMyReaction?: "like" | "dislike" | null;
   reactionId?: string | number | null;
   reactionType?: "like" | "dislike" | null;
   actorId?: string;

@@ -11,8 +11,8 @@ test("following activity exposes localized Recordings after the existing tabs", 
   assert.match(tabs, /profileFeedActions/);
   assert.match(tabs, /profileFeedRecordings/);
   assert.match(tabs, /source="following"/);
-  assert.match(i18n, /profileFeedRecordings: "Recados"/);
-  assert.match(i18n, /profileFeedRecordings: "Recordings"/);
+  assert.match(i18n, /profileFeedRecordings: "Reacciones"/);
+  assert.match(i18n, /profileFeedRecordings: "Reactions"/);
   assert.match(i18n, /Aún no hay recados de tus seguidos\./);
   assert.match(i18n, /No recordings from people you follow yet\./);
 });
