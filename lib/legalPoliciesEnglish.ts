@@ -18,11 +18,11 @@ export const englishLegalPolicies: LegalPoliciesContent = {
       subtitle: "2. RecCool Rating System",
       paragraphs: [
         "External ratings are used as an initial reference while RecCool builds its own rating base.",
-        "When a movie or series has fewer than 5,000 votes on IMDb, RecCool may apply an internal adjustment or reduce its statistical weight because such ratings may be more volatile or easier to manipulate.",
-        "When RecCool exceeds 100 internal ratings for a movie or series, the general rating prioritizes RecCool’s own community average.",
-        "While RecCool has fewer than 100 internal ratings, the general rating may combine IMDb and RecCool ratings, initially giving greater weight to IMDb.",
+        "While a movie or series has fewer than 100 ratings from RecCool users, the overall rating combines TMDB’s reference rating with the average of the ratings submitted by RecCool users. The weight of RecCool users’ ratings increases progressively as new ratings are received.",
+        "Once a movie or series reaches 100 ratings from RecCool users, the overall rating uses exclusively the average of the ratings submitted by RecCool users.",
+        "Ratings and vote counts from TMDB are reference information obtained when they are incorporated into or updated in RecCool and are not necessarily synchronized in real time. They may therefore differ from the values subsequently displayed by TMDB.",
         "User ratings may be visible according to the user’s privacy settings, followers, and friends.",
-        "RecCool may adjust its ranking, recommendation, or weighting formulas to improve accuracy, safety, and user experience.",
+        "RecCool may use its users’ ratings, preferences, and interactions for rankings, recommendations, personalization, and other internal platform features.",
       ],
     },
     {
@@ -61,9 +61,9 @@ export const englishLegalPolicies: LegalPoliciesContent = {
     {
       subtitle: "6. Accuracy of External Data",
       paragraphs: [
-        "RecCool does not guarantee the absolute accuracy, permanent availability, or immediate updating of information from IMDb, TMDB, or other external sources.",
-        "Titles, synopses, posters, directors, cast, genres, years, votes, and external ratings may contain errors, changes, or differences from their original sources.",
-        "RecCool may correct, update, hide, or adjust information when necessary.",
+        "RecCool does not guarantee the absolute accuracy, permanent availability, or immediate updating of information from TMDB or other external sources.",
+        "Titles, synopses, posters, directors, cast, genres, years, votes, external ratings, and other information obtained from external sources may contain errors, changes, or differences compared with the information subsequently available from those sources.",
+        "RecCool may correct, update, or hide information when necessary.",
       ],
     },
     {
@@ -93,7 +93,7 @@ export const englishLegalPolicies: LegalPoliciesContent = {
       paragraphs: [
         "RecCool retains rights over its brand, name, logo, visual identity, interface design, user experience, navigation structure, proprietary texts, visual components, information organization, presentation logic, rankings, recommendation systems, combinations, curation, data compilations, source code, technical architecture, and proprietary functionalities.",
         "Copying, reproducing, distributing, modifying, mass extracting, scraping, reverse engineering, plagiarizing, cloning the design, reusing distinctive elements, or commercially using RecCool elements without authorization is prohibited.",
-        "External data from IMDb and TMDB belongs to their respective owners.",
+        "Data, images, and other content from external sources belong to their respective owners and are used in accordance with the conditions applicable to those sources.",
         "User-generated content belongs to or remains under the responsibility of the user who publishes it; by publishing it, the user grants RecCool a non-exclusive license to display, store, process, and distribute it within the platform.",
         "RecCool may remove content that infringes intellectual property, privacy, security, community rules, or third-party rights.",
         "RecCool does not authorize the use of its brand or visual elements to create confusingly similar or competing products.",
@@ -103,10 +103,10 @@ export const englishLegalPolicies: LegalPoliciesContent = {
       subtitle: "10. Credits and External Sources",
       paragraphs: [
         "This product uses the TMDB API but is not endorsed or certified by TMDB.",
-        "Posters and synopses used in RecCool come from TMDB.",
-        "Part of the movie and series information used in RecCool, including titles, years, type, directors, cast, genres, vote counts, and reference average ratings, comes from IMDb.",
-        "RecCool is an independent platform and is not officially affiliated with, endorsed, certified, or sponsored by IMDb or TMDB.",
-        "IMDb and TMDB retain all rights over their respective databases, brands, assets, and content.",
+        "RecCool uses information obtained through TMDB to complement its movie and series catalogue, including, where available, titles, years, production types, genres, directors, cast, synopses, posters, average ratings, vote counts, and other information associated with those titles.",
+        "External information may have been obtained at different times and is not necessarily synchronized with TMDB in real time.",
+        "TMDB and its brand assets belong to their respective owners. RecCool’s use of TMDB information does not imply sponsorship, endorsement, or certification by TMDB.",
+        "Information about the availability of movies and series for streaming, rental, or purchase may come from provider data available through TMDB, whose availability information is supplied by JustWatch. JustWatch is a trademark of its respective owner.",
       ],
       showTmdbAttribution: true,
     },
