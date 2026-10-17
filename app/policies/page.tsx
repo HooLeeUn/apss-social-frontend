@@ -178,17 +178,6 @@ function PoliciesPageContent() {
                   ))}
                   {section.showTmdbAttribution ? (
                     <div className="space-y-3 pt-2">
-                      {!isEnglishLocale ? (
-                        <>
-                          <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
-                          <p>Los posters y sinopsis utilizados en RecCool provienen de TMDB.</p>
-                          <p>
-                            Parte de la información de películas y series utilizada en RecCool, incluyendo títulos, años,
-                            tipo, directores, casting, géneros, número de votos y calificaciones promedio de referencia,
-                            proviene de IMDb.
-                          </p>
-                        </>
-                      ) : null}
                       <img src="/brand/tmdb.svg" alt="TMDB" className="mt-6 h-6 w-auto opacity-80" loading="lazy" />
                     </div>
                   ) : null}
