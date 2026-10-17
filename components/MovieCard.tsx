@@ -14,6 +14,7 @@ import { translateKnownForDepartment } from "../lib/personDepartments";
 import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/people";
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
+import RecCoolRatingsCount from "./RecCoolRatingsCount";
 import MyListIcon from "./MyListIcon";
 import RatingPopover from "./RatingPopover";
 import GuestContentGate from "./GuestContentGate";
@@ -872,6 +873,15 @@ function MovieCard({
   const posterSrc = movie.image || movie.posterUrl;
   const shouldRoundDesktopPosterLeft = isLarge || (isFeed && showExtendedMetadata);
   const isDetailMovieCard = isFeed && showExtendedMetadata && !linkToDetail;
+  const overallRatingValue = isDetailMovieCard ? (
+    <TooltipTarget text={t("movieDetailRatingExplanation")}>
+      <span tabIndex={0} aria-label={locale === "en" ? "Overall rating" : "Calificación general"}
+        aria-description={t("movieDetailRatingExplanation")}
+        className="rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-blue-200">
+        {formatAverageRating(movie.displayRating)}
+      </span>
+    </TooltipTarget>
+  ) : <span aria-label="Calificación general">{formatAverageRating(movie.displayRating)}</span>;
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const [mobileCarouselIndex, setMobileCarouselIndex] = useState(0);
   const [trailerOpen, setTrailerOpen] = useState(false);
@@ -1135,7 +1145,7 @@ function MovieCard({
     <div className="mt-0.5 flex flex-nowrap items-center gap-1.5 text-zinc-200">
       <div className="flex items-center gap-1 text-sm font-semibold">
         <span aria-hidden="true">⭐</span>
-        <span aria-label="Calificación general">{formatAverageRating(movie.displayRating)}</span>
+        {overallRatingValue}
       </div>
       <div className="flex items-center gap-1 text-sm font-semibold" title={formatFollowingRatingsCount(movie.followingRatingsCount) || undefined}>
         <span aria-label="Calificación de seguidos">👥 {formatFollowingRating(movie.followingAvgRating)}</span>
@@ -1224,7 +1234,7 @@ function MovieCard({
         {isFeed ? (
           <>
             <span aria-hidden="true">⭐</span>
-            <span aria-label="Calificación general">{formatAverageRating(movie.displayRating)}</span>
+            {overallRatingValue}
           </>
         ) : (
           <>
@@ -1496,6 +1506,7 @@ function MovieCard({
             </div>
             <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || t("movieDetailUnknown")}</p>
             <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
+            {isDetailMovieCard ? <RecCoolRatingsCount count={movie.realRatingsCount} locale={locale} /> : null}
           </div>
           {showExtendedMetadata && extendedMetadataMiddleSlot ? (
             <div className="relative z-30 min-w-0 overflow-visible xl:pt-0.5">{extendedMetadataMiddleSlot}</div>
@@ -1562,7 +1573,7 @@ function MovieCard({
   const mobileDetailCardContent = enableMobileDetailCarousel && isFeed && showExtendedMetadata ? (
     <>
       <article data-tour-mobile={isDetailMovieCard ? "detail-info-mobile" : undefined} className="relative flex overflow-hidden rounded-xl border border-white/35 bg-zinc-950/90 text-zinc-100 shadow-sm transition-colors xl:hidden">
-        <div data-tour-mobile={isDetailMovieCard ? "detail-poster-mobile" : undefined} className="group relative h-[164px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[172px] sm:w-[114px]" {...trailerTouchHandlers}>
+        <div data-tour-mobile={isDetailMovieCard ? "detail-poster-mobile" : undefined} className="group relative h-[196px] w-[108px] flex-shrink-0 overflow-hidden bg-zinc-900 sm:h-[204px] sm:w-[114px]" {...trailerTouchHandlers}>
           {posterSrc ? (
             <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
               <PosterImage posterSrc={posterSrc} title={displayTitle} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-3" loading="lazy" decoding="async" />
@@ -1579,7 +1590,7 @@ function MovieCard({
           {mobileCarouselIndex < 2 ? <span data-tour-mobile={isDetailMovieCard ? "detail-more-mobile" : undefined} aria-hidden="true" className="pointer-events-none absolute right-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">›</span> : null}
           <div
             ref={mobileCarouselRef}
-            className="flex h-[164px] snap-x snap-mandatory overflow-x-auto scroll-smooth overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[172px]"
+            className="flex h-[196px] snap-x snap-mandatory overflow-x-auto scroll-smooth overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[204px]"
             onScroll={(event) => {
               updateMobileCarouselIndex();
               document.dispatchEvent(new CustomEvent(MOBILE_METADATA_DRAG_EVENT, { detail: { target: event.target } }));
@@ -1593,6 +1604,7 @@ function MovieCard({
                 {displaySecondaryTitle ? <p className="truncate text-xs leading-tight text-blue-200/80">{displaySecondaryTitle}</p> : null}
                 <p className="truncate text-sm text-zinc-300">{typeYearLine || t("movieDetailUnknown")}</p>
                 <p className="truncate text-sm text-zinc-400">{genresLine}</p>
+                {isDetailMovieCard ? <RecCoolRatingsCount count={movie.realRatingsCount} locale={locale} /> : null}
                 {mobileDetailRatingsRow}
               </div>
             </section>
