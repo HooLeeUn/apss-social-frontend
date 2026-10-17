@@ -31,6 +31,7 @@ export interface Movie {
   synopsis?: string | null;
   synopsis_es?: string | null;
   displayRating: number | null;
+  realRatingsCount?: number;
   myRating: number | null;
   followingAvgRating: number | null;
   followingRatingsCount: number;
@@ -435,6 +436,7 @@ export function normalizeMovie(raw: Record<string, unknown>, index: number): Mov
     synopsis,
     synopsis_es,
     displayRating: toNumber(pickFirst(raw.display_rating, raw.general_rating, raw.avg_rating, raw.rating)),
+    realRatingsCount: toNonNegativeInteger(pickFirst(raw.real_ratings_count, nestedMovie?.real_ratings_count)),
     myRating: toNumber(raw.my_rating),
     followingAvgRating: toNumber(pickFirst(raw.following_avg_rating, raw.following_rating)),
     followingRatingsCount: toNonNegativeInteger(
