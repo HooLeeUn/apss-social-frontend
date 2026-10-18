@@ -1,8 +1,15 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.reccool.app",
-        "sha256_cert_fingerprints": ["C8:A5:26:DA:7C:6B:0C:61:5B:36:6E:04:23:54:10:8B:32:A0:0F:01:C7:04:6F:A8:84:CA:C2:3A:9A:10:46:91"]
-      }
-    }]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.reccool.app",
+      "sha256_cert_fingerprints": [
+        "C8:A5:26:DA:7C:6B:0C:61:5B:36:6E:04:23:54:10:8B:32:A0:0F:01:C7:04:6F:A8:84:CA:C2:3A:9A:10:46:91",
+        "0F:D5:67:18:DC:1B:D6:69:D1:E7:FC:FF:15:64:1C:6C:D7:13:62:B1:E2:D3:BA:0D:54:6B:8A:EE:02:B4:C5:99"
+      ]
+    }
+  }
+]
