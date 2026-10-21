@@ -4544,7 +4544,7 @@ function MovieDetailPageContent() {
               showExtendedMetadata
               highlightMyRatingSlot
               enlargeInteractionIcons
-              extendedMetadataMiddleSlot={isDesktopGuest ? <div className="flex min-h-28 w-full items-center justify-center px-4 text-center xl:min-h-0 xl:translate-y-5"><span className="text-sm text-zinc-100">{t("guestAvailabilityPrefix")} <Link href="/signup" className="font-semibold underline underline-offset-2">{t("guestSignUp")}</Link></span></div> : <StreamingProviders movieId={movie.id} />}
+              extendedMetadataMiddleSlot={isDesktopGuest ? <div className="flex min-h-28 w-full items-center justify-center px-4 text-center xl:min-h-0 xl:translate-y-5"><span className="text-sm text-zinc-100">{t("guestAvailabilityPrefix")} <Link href="/signup" className="font-semibold underline underline-offset-2">{t("guestSignUp")}</Link></span></div> : <StreamingProviders movieId={movie.id} adaptiveMobile={isMobile && !trailerCompanionOpen} />}
               ratingsActionsTmdbSlot={<MovieDetailStreamingCountrySelector />}
               separateRatingsActionsCard
               onRated={handleMovieRated}
@@ -4553,11 +4553,12 @@ function MovieDetailPageContent() {
               creditsLoading={creditsLoading}
               preloadPersonDetails
               enableMobileDetailCarousel
+              compactMobileDetail={isMobile && !trailerCompanionOpen}
               branding={branding}
             /></div></div>
           ) : null}
 
-          <div data-mobile-comment-tabs className="relative flex items-center justify-between gap-4 xl:hidden" role="tablist" aria-label={composerTitle}>
+          <div data-mobile-comment-tabs className="relative flex items-center justify-between gap-4 xl:hidden" style={!trailerCompanionOpen && !isDesktopGuest ? { paddingLeft: "2.5rem" } : undefined} role="tablist" aria-label={composerTitle}>
             {!isDesktopGuest ? <AuthenticatedProfileAvatar mobileTourTarget="detail-profile-avatar-mobile" user={authenticatedUser} label={t("movieDetailMyProfileAvatarLabel")} className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-y-1/2 cursor-pointer" /> : null}
             {(["video-comment", "text-comment"] as const).map((mode) => {
               const isActiveMode = commentInputMode === mode;

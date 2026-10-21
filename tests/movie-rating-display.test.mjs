@@ -59,7 +59,7 @@ test("missing counts remain compatible with older clients and do not produce NaN
 });
 
 test("Detail renders the counter immediately below genres on desktop and mobile only", () => {
-  const locations = card.match(/\{genresLine\}<\/p>\s*\{isDetailMovieCard \? <RecCoolRatingsCount count=\{movie.realRatingsCount\} locale=\{locale\} \/> : null\}/g);
+  const locations = card.match(/\{genresLine\}<\/p>\s*\{isDetailMovieCard \? <RecCoolRatingsCount count=\{movie.realRatingsCount\} locale=\{locale\}(?: truncatedPopover=\{compactMobileDetail\})? \/> : null\}/g);
   assert.equal(locations?.length, 2);
   const counter = readFileSync("components/RecCoolRatingsCount.tsx", "utf8");
   assert.match(counter, /text-xs leading-tight text-zinc-500/);
