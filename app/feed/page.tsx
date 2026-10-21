@@ -1247,6 +1247,7 @@ export default function FeedPage() {
                   variant="feed"
                   enlargeInteractionIcons
                   highlightMyRatingSlot
+                  adaptMainWatchlist
                   showBottomInteractionIcons={false}
                   compactRatingsRow
                   onRated={handlePersonalizedRated}
