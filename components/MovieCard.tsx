@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import AdaptiveFeedInformation from "./AdaptiveFeedInformation";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -1400,84 +1399,6 @@ function MovieCard({
     : {};
 
 
-  const normalFeedInformation = (
-      <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
-        <div
-          data-tour-desktop={isDetailMovieCard ? "detail-info" : undefined}
-          data-tour-detail-metadata={isDetailMovieCard ? "true" : undefined}
-          className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${
-            showExtendedMetadata
-              ? extendedMetadataMiddleSlot
-                ? "xl:grid xl:grid-cols-[minmax(0,0.72fr)_minmax(132px,auto)_minmax(0,1.2fr)] xl:items-start xl:gap-x-3 xl:gap-y-2 lg:gap-x-7 xl:space-y-0"
-                : "xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] xl:gap-6 xl:space-y-0"
-              : ""
-          }`}
-        >
-          <div className="min-w-0 space-y-1.5">
-            <div className="min-w-0">
-              <h3 data-tour="feed-card-title" className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
-                {canNavigateToDetail ? (
-                  <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className={titleLinkClassName}>
-                    {displayTitle}
-                  </Link>
-                ) : (
-                  displayTitle
-                )}
-              </h3>
-              {displaySecondaryTitle ? (
-                <p className={`truncate text-xs leading-tight ${isFeed ? "text-blue-200/80" : "text-sky-700"}`}>
-                  {canNavigateToDetail ? (
-                    <Link
-                      href={detailHref}
-                      aria-label={`Ver detalle de ${displayTitle} (${displaySecondaryTitle})`}
-                      className="inline-block max-w-full cursor-pointer truncate transition-colors duration-150 hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none"
-                    >
-                      {displaySecondaryTitle}
-                    </Link>
-                  ) : (
-                    displaySecondaryTitle
-                  )}
-                </p>
-              ) : null}
-            </div>
-            <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || t("movieDetailUnknown")}</p>
-            <p data-feed-genres className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
-            {isDetailMovieCard ? <RecCoolRatingsCount count={movie.realRatingsCount} locale={locale} /> : null}
-          </div>
-          {showExtendedMetadata && extendedMetadataMiddleSlot ? (
-            <div className="relative z-30 min-w-0 overflow-visible xl:pt-0.5">{extendedMetadataMiddleSlot}</div>
-          ) : null}
-          {showExtendedMetadata && (hasDirector || hasCast || creditsLoading) ? (
-            <div className="min-w-0 space-y-1 overflow-visible xl:pt-0">
-              {hasDirector ? (
-                <CastLine label={t("movieDetailDirector")} people={directorPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={1} maxVisibleCount={2} singleLine />
-              ) : null}
-              {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
-              {creditsLoading && !hasCast && !hasDirector ? (
-                <div className="space-y-2" aria-label={locale === "en" ? "Loading cast" : "Cargando reparto"}>
-                  <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
-                  <div className="h-3 w-44 animate-pulse rounded-full bg-white/10" />
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {isFeed && (highlightMyRatingSlot || pinInteractionIconsToMetadataRow) && !showExtendedMetadata ? (
-            <div
-              className="interaction-icons absolute right-2 top-[4.85rem] z-10"
-            >
-              <span className="relative inline-flex"><button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestListGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
-                <MyListIcon cardSize className={`${feedInteractionIconClassName} ${tagIconClassName}`} />
-              </button><GuestContentGate gateId={guestListGateId} placement="below-end" /></span>
-              <span className="relative inline-flex"><button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRecommendGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
-                <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
-              </button><GuestContentGate gateId={guestRecommendGateId} placement="below-end" /></span>
-            </div>
-          ) : null}
-        </div>
-        {!splitFeedActions ? ratingsActionsRow : null}
-      </div>
-  );
-
   const desktopCardContent = (
     <article data-tour={isDetailMovieCard ? undefined : "feed-card"}
       className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
@@ -1544,10 +1465,20 @@ function MovieCard({
 
       </div>
 
-      {isFeed && !showExtendedMetadata && !splitFeedActions ? (
-        <AdaptiveFeedInformation
-          normal={normalFeedInformation}
-          title={(            <div className="min-w-0">
+      <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
+        <div
+          data-tour-desktop={isDetailMovieCard ? "detail-info" : undefined}
+          data-tour-detail-metadata={isDetailMovieCard ? "true" : undefined}
+          className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${
+            showExtendedMetadata
+              ? extendedMetadataMiddleSlot
+                ? "xl:grid xl:grid-cols-[minmax(0,0.72fr)_minmax(132px,auto)_minmax(0,1.2fr)] xl:items-start xl:gap-x-3 xl:gap-y-2 lg:gap-x-7 xl:space-y-0"
+                : "xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] xl:gap-6 xl:space-y-0"
+              : ""
+          }`}
+        >
+          <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0">
               <h3 data-tour="feed-card-title" className={`truncate font-semibold ${isLarge ? "text-lg" : "text-base"}`}>
                 {canNavigateToDetail ? (
                   <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className={titleLinkClassName}>
@@ -1573,11 +1504,29 @@ function MovieCard({
                 </p>
               ) : null}
             </div>
-)}
-          metadata={<>            <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || t("movieDetailUnknown")}</p>
+            <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || t("movieDetailUnknown")}</p>
             <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
-</>}
-          controls={<>            <div
+            {isDetailMovieCard ? <RecCoolRatingsCount count={movie.realRatingsCount} locale={locale} /> : null}
+          </div>
+          {showExtendedMetadata && extendedMetadataMiddleSlot ? (
+            <div className="relative z-30 min-w-0 overflow-visible xl:pt-0.5">{extendedMetadataMiddleSlot}</div>
+          ) : null}
+          {showExtendedMetadata && (hasDirector || hasCast || creditsLoading) ? (
+            <div className="min-w-0 space-y-1 overflow-visible xl:pt-0">
+              {hasDirector ? (
+                <CastLine label={t("movieDetailDirector")} people={directorPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={1} maxVisibleCount={2} singleLine />
+              ) : null}
+              {hasCast ? <CastLine label={t("movieDetailCast")} people={castPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} /> : null}
+              {creditsLoading && !hasCast && !hasDirector ? (
+                <div className="space-y-2" aria-label={locale === "en" ? "Loading cast" : "Cargando reparto"}>
+                  <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
+                  <div className="h-3 w-44 animate-pulse rounded-full bg-white/10" />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {isFeed && (highlightMyRatingSlot || pinInteractionIconsToMetadataRow) && !showExtendedMetadata ? (
+            <div
               className="interaction-icons absolute right-2 top-[4.85rem] z-10"
             >
               <span className="relative inline-flex"><button data-tour="feed-card-tag" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestListGateId, "list"); }} onClick={handleToggleMyList} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyList ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}>
@@ -1586,10 +1535,11 @@ function MovieCard({
               <span className="relative inline-flex"><button data-tour="feed-card-ticket" type="button" onMouseEnter={() => { if (guestActions) showGuestGate(guestRecommendGateId, "recommend"); }} onClick={handleToggleMyRecommendations} className={guestActions ? "cursor-default" : "cursor-pointer"} aria-label={isInMyRecommendations ? "Quitar de Mis recomendadas" : "Agregar a Mis recomendadas"}>
                 <img src="/icons/Ticket.png" alt="" className={`${feedInteractionIconClassName} ${isInMyRecommendations ? "interaction-icon-tag--active" : ""}`} />
               </button><GuestContentGate gateId={guestRecommendGateId} placement="below-end" /></span>
-            </div>{ratingsActionsRow}</>}
-        />
-      ) : normalFeedInformation}
-
+            </div>
+          ) : null}
+        </div>
+        {!splitFeedActions ? ratingsActionsRow : null}
+      </div>
     </article>
   );
 
