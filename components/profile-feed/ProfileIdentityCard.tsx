@@ -94,28 +94,29 @@ export default function ProfileIdentityCard({
 
   if (isLoading) {
     return (
-      <div className={cardClassName} aria-busy="true" aria-label="Cargando perfil">
+      <div data-profile-identity className={cardClassName} aria-busy="true" aria-label="Cargando perfil">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75" />
-        <div className="relative flex min-w-0 items-start justify-between gap-4" aria-hidden="true">
-          <div className="h-[68px] min-w-0 flex-1 animate-pulse rounded-xl bg-white/5" />
-          <div className="relative top-24 h-20 w-20 shrink-0 animate-pulse rounded-full border border-white/10 bg-zinc-800/90" />
+        <div data-profile-identity-header className="relative flex min-w-0 items-start justify-between gap-4" aria-hidden="true">
+          <div data-profile-identity-logo className="h-[68px] min-w-0 flex-1 animate-pulse rounded-xl bg-white/5" />
+          <div data-profile-identity-avatar className="relative top-24 h-20 w-20 shrink-0 animate-pulse rounded-full border border-white/10 bg-zinc-800/90" />
         </div>
-        <div className="relative min-w-0 space-y-2 pr-24" aria-hidden="true">
-          <div className="h-4 w-20 max-w-full animate-pulse rounded bg-white/5" />
+        <div data-profile-identity-text className="relative min-w-0 space-y-2 pr-24" aria-hidden="true">
+          <div data-profile-identity-label className="h-4 w-20 max-w-full animate-pulse rounded bg-white/5" />
           <div className="h-7 w-40 max-w-full animate-pulse rounded bg-white/10" />
           <div className="h-5 w-32 max-w-full animate-pulse rounded bg-white/5" />
         </div>
-        <div className="relative mt-auto h-6 w-24 max-w-full animate-pulse rounded-full bg-white/5" aria-hidden="true" />
+        <div data-profile-identity-chips className="relative mt-auto h-6 w-24 max-w-full animate-pulse rounded-full bg-white/5" aria-hidden="true" />
       </div>
     );
   }
 
   return (
-    <div className={cardClassName}>
+    <div data-profile-identity className={cardClassName}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75" />
 
-      <div className="relative flex min-w-0 items-start justify-between gap-4">
+      <div data-profile-identity-header className="relative flex min-w-0 items-start justify-between gap-4">
         <Link
+          data-profile-identity-logo
           href="/feed"
           className={`inline-flex min-h-[68px] min-w-0 flex-1 items-center justify-start rounded-xl bg-transparent px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:text-blue-100 ${logoLinkClassName}`}
           aria-label="Ir al feed principal"
@@ -129,14 +130,14 @@ export default function ProfileIdentityCard({
           />
         </Link>
 
-        {avatarHref ? <Link href={avatarHref} aria-label={avatarLinkLabel} className={`${avatarClassName} cursor-pointer`}>
+        {avatarHref ? <Link href={avatarHref} aria-label={avatarLinkLabel} className={`${avatarClassName} cursor-pointer`} data-profile-identity-avatar>
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUrl} alt={`Avatar de @${username}`} className="block h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-zinc-200">{initials}</div>
           )}
-        </Link> : <div className={avatarClassName}>
+        </Link> : <div data-profile-identity-avatar className={avatarClassName}>
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUrl} alt={`Avatar de @${username}`} className="block h-full w-full object-cover" />
@@ -146,8 +147,8 @@ export default function ProfileIdentityCard({
         </div>}
       </div>
 
-      <div className="relative min-w-0 space-y-2 pr-24">
-        <p className="truncate text-sm uppercase tracking-[0.18em] text-zinc-500">{userLabel}</p>
+      <div className="relative min-w-0 space-y-2 pr-24" data-profile-identity-text>
+        <p data-profile-identity-label className="truncate text-sm uppercase tracking-[0.18em] text-zinc-500">{userLabel}</p>
         <p
           className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-2xl font-semibold text-zinc-100"
           title={`@${username}`}
@@ -165,19 +166,19 @@ export default function ProfileIdentityCard({
       </div>
 
       {shouldRenderPersonalData ? (
-        <div className={`relative flex flex-wrap items-center gap-2 ${fitDesktopPersonalDataRow ? "xl:flex-nowrap xl:gap-1" : ""} ${personalDataSpacingClass}`}>
+        <div data-profile-identity-chips className={`relative flex flex-wrap items-center gap-2 ${fitDesktopPersonalDataRow ? "xl:flex-nowrap xl:gap-1" : ""} ${personalDataSpacingClass}`}>
           {canShowGender ? (
-            <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:shrink-0 xl:whitespace-nowrap xl:px-1.5 xl:text-[11px]" : ""}`}>
+            <span data-profile-chip="gender" className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:shrink-0 xl:whitespace-nowrap xl:px-1.5 xl:text-[11px]" : ""}`}>
               {formatGender(genderIdentity as string)}
             </span>
           ) : null}
           {canShowAge ? (
-            <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:shrink-0 xl:whitespace-nowrap xl:px-1.5 xl:text-[11px]" : ""}`}>
+            <span data-profile-chip="age" className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:shrink-0 xl:whitespace-nowrap xl:px-1.5 xl:text-[11px]" : ""}`}>
               {formatAge(age)}
             </span>
           ) : null}
           {canShowFollowers && !canShowAge ? (
-            <span className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
+            <span data-profile-chip="followers" className="rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">
               {followersCopy}
             </span>
           ) : null}
@@ -190,7 +191,7 @@ export default function ProfileIdentityCard({
       ) : null}
 
       {canShowFollowers && canShowAge ? (
-        <div className={`absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:hidden" : ""}`}>
+        <div data-profile-identity-followers className={`absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:hidden" : ""}`}>
           {followersCopy}
         </div>
       ) : null}
