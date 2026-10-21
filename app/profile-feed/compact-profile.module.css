@@ -41,7 +41,8 @@
     /* Normal phone layout at its 390px boundary: 390px - 210px = 180px. */
     width: 180px;
     height: auto;
-    max-width: none;
+    /* The grid already reserves 5rem for the avatar and a 0.5rem gap. */
+    max-width: 100%;
     max-height: none;
     flex-shrink: 0;
   }

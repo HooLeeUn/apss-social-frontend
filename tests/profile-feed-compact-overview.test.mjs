@@ -118,13 +118,16 @@ test('compact spacing grows smoothly with available width while preserving one c
 });
 
 
-test('compact logo retains a fixed normal-layout reference width and its natural aspect ratio', () => {
+test('compact logo keeps its reference width when it fits and respects the reserved avatar column', () => {
   assert.equal(declaration('[data-profile-identity-logo] img', 'width'), '180px');
   assert.equal(declaration('[data-profile-identity-logo] img', 'height'), 'auto');
-  assert.equal(declaration('[data-profile-identity-logo] img', 'max-width'), 'none');
+  assert.equal(declaration('[data-profile-identity-logo] img', 'max-width'), '100%');
   assert.equal(declaration('[data-profile-identity-logo] img', 'max-height'), 'none');
   assert.equal(declaration('[data-profile-identity-logo] img', 'flex-shrink'), '0');
   assert.equal(declaration('[data-profile-identity-logo]', 'height'), 'auto');
+  const identityRule = rules('[data-profile-identity]').find(rule => rule.selector === '.overview [data-profile-identity]');
+  assert.equal(identityRule.nodes.find(node => node.prop === 'grid-template-columns').value, 'minmax(0, 1fr) 5rem');
+  assert.equal(identityRule.nodes.find(node => node.prop === 'column-gap').value, '0.5rem');
 });
 
 test('only the compact identity receives an extra eight-pixel top margin', () => {
