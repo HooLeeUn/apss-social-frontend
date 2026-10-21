@@ -72,9 +72,9 @@ test("outside touches, movement, another card's panel and Escape dismiss; intern
   assert.equal(fixture.listeners.size, 0);
 });
 
-test("only measured overflow enables username, comment and genre expansion", () => {
+test("only measured overflow enables username, comment, genre and production title expansion", () => {
   for (const [width, height, expected] of [[100, 20, false], [101, 20, false], [150, 20, true], [100, 80, true]]) {
-    for (const [text, href] of [["Short comment", undefined], ["Action, Animation, Drama", undefined], ["@LongUsername", "/users/LongUsername"]]) {
+    for (const [text, href] of [["Short comment", undefined], ["Action, Animation, Drama", undefined], ["@LongUsername", "/users/LongUsername"], ["A long production title", "/movies/123"]]) {
       let expanded = false, intercepted = false;
       const element = { scrollWidth: width, clientWidth: 100, scrollHeight: height, clientHeight: 20 };
       const Component = load("components/profile-feed/ActionsTruncatedText.tsx", {
