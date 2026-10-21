@@ -1,0 +1,74 @@
+/* Opt-in styles for Tu cartelera only. All normal card rules remain unchanged. */
+@media (max-width: 767px) {
+  .watchlist[data-watchlist-tall="true"] {
+    display: grid;
+    grid-template-columns: 108px minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .watchlist[data-watchlist-tall="true"] > [data-tour="feed-card-poster"] {
+    grid-column: 1;
+    grid-row: 1;
+    height: auto;
+    min-height: 164px;
+  }
+
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-body] {
+    display: contents;
+  }
+
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-metadata] {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 0.75rem;
+  }
+
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-metadata] h3,
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-metadata] p,
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-metadata] a {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-redundant-title="true"] {
+    display: none;
+  }
+
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-metadata] > :global(.interaction-icons) {
+    position: static;
+    justify-content: flex-start;
+    margin-top: 0.5rem;
+  }
+
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-ratings] {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(max-content, 1fr)) max-content;
+    align-items: center;
+    gap: 0.375rem;
+    margin: 0.5rem 0.75rem 0.75rem;
+    padding: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .watchlist[data-watchlist-tall="true"] [data-watchlist-ratings] > div {
+    display: flex;
+    min-width: 0;
+    margin-left: 0;
+    padding-inline: 0;
+    gap: 0.25rem;
+  }
+
+  .watchlist[data-watchlist-tall="true"] [data-tour="feed-card-rating-mine"] button {
+    padding-inline: 0.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .watchlist[data-watchlist-tall="true"] { grid-template-columns: 114px minmax(0, 1fr); }
+    .watchlist[data-watchlist-tall="true"] > [data-tour="feed-card-poster"] { min-height: 172px; }
+    .watchlist[data-watchlist-tall="true"] [data-watchlist-metadata] { padding: 0.875rem; }
+  }
+}
