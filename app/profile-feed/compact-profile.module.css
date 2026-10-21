@@ -1,0 +1,100 @@
+/* No extra box in normal mode: preserve the original section's flex placement. */
+.firstViewport { display: contents; }
+
+/* CSS-only changes remain confined to the existing compact range. */
+@media (max-width: 389px) {
+  .page {
+    --compact-profile-space: clamp(0.375rem, min(calc(8vw - 1rem), calc(3dvh - 0.75rem)), 0.875rem);
+    padding-top: clamp(0.5rem, calc(8vw - 1rem), 1rem);
+  }
+  .firstViewport {
+    display: block;
+    box-sizing: border-box;
+    min-height: 100dvh;
+    /* Existing page token: 5rem dock clearance + the device safe area. */
+    padding-bottom: var(--mobile-profile-nav-clearance, calc(5rem + env(safe-area-inset-bottom, 0px)));
+    background: #000;
+  }
+  .overview { padding: clamp(0.5rem, calc(8vw - 1rem), 0.75rem); }
+  .overview > div { gap: var(--compact-profile-space); }
+
+  .overview [data-profile-identity] {
+    display: grid;
+    margin-top: 0.5rem;
+    grid-template-columns: minmax(0, 1fr) 5rem;
+    column-gap: 0.5rem;
+    row-gap: var(--compact-profile-space);
+    /* Reserve the compact four-row height during profile loading as well. */
+    min-height: clamp(12.125rem, min(calc(45vw + 4rem), calc(50dvh - 8rem)), 15rem);
+    padding: clamp(0.375rem, calc(8vw - 1rem), 0.75rem);
+    align-content: start;
+  }
+  .overview [data-profile-identity-header] { display: contents; }
+  .overview [data-profile-identity-logo] {
+    grid-column: 1;
+    grid-row: 1;
+    height: auto;
+    min-height: 2.5rem;
+    padding-block: 0;
+  }
+  .overview [data-profile-identity-logo] img {
+    /* Normal phone layout at its 390px boundary: 390px - 210px = 180px. */
+    width: 180px;
+    height: auto;
+    /* The grid already reserves 5rem for the avatar and a 0.5rem gap. */
+    max-width: 100%;
+    max-height: none;
+    flex-shrink: 0;
+  }
+  .overview [data-profile-identity-avatar] {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    position: relative;
+    top: 0;
+    align-self: start;
+  }
+  .overview [data-profile-identity-label] { display: none; }
+  .overview [data-profile-identity] [data-profile-identity-text] {
+    grid-column: 1;
+    grid-row: 2;
+    padding-right: 0;
+  }
+  .overview [data-profile-identity] [data-profile-identity-text] > * {
+    margin-block: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .overview [data-profile-identity] [data-profile-identity-text] > * + * { margin-top: clamp(0.125rem, calc(2vw - 0.25rem), 0.25rem); }
+
+  .overview [data-profile-identity-chips] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.375rem;
+    margin-top: 0;
+  }
+  .overview [data-profile-chip="gender"] { grid-column: 1; grid-row: 1; }
+  .overview [data-profile-chip="age"] { grid-column: 2; grid-row: 1; }
+  .overview [data-profile-chip="followers"] { grid-column: 1 / -1; grid-row: 2; }
+  .overview [data-profile-chip],
+  .overview [data-profile-identity-followers] {
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .overview [data-profile-identity-followers] {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    position: static;
+    text-align: left;
+  }
+
+  .overview [data-tour="profile-favorites"] { min-height: 0; gap: var(--compact-profile-space); }
+  /* Only surrounding space changes: the favorite card and carousel are untouched. */
+  .overview :global(.favorite-movies-block) { padding-block: 0.5rem; }
+}

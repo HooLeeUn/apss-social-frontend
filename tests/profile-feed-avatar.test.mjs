@@ -24,5 +24,5 @@ test("the link itself owns the complete circular hit area", () => {
   assert.match(card, /<Link href=\{avatarHref\} aria-label=\{avatarLinkLabel\} className=\{`\$\{avatarClassName\} cursor-pointer`\}/);
   assert.match(card, /className="block h-full w-full object-cover"/);
   assert.match(card, /pointer-events-none absolute inset-0/);
-  assert.match(card, /<div className="relative min-w-0 space-y-2 pr-24">/);
+  assert.match(card, /<div className="relative min-w-0 space-y-2 pr-24" data-profile-identity-text>/);
 });
