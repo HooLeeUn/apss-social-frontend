@@ -972,6 +972,7 @@ function ProfileFeedContent() {
       className="profile-feed-mobile-framing h-dvh overflow-x-clip overflow-y-hidden overscroll-y-none bg-black text-zinc-100 xl:h-auto xl:min-h-screen xl:overflow-y-visible xl:overscroll-y-auto"
     >
       <div className={`${compactProfileStyles.page} mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 xl:px-8 xl:pb-8`}>
+        <div className={compactProfileStyles.firstViewport}>
         <section ref={topSectionRef} className={`${compactProfileStyles.overview} w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6`}>
           <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-[1fr_3fr]">
             <div data-tour="profile-info" className="mx-auto flex w-full min-w-0 max-w-full">
@@ -1007,6 +1008,7 @@ function ProfileFeedContent() {
             </div>
           </div>
         </section>
+        </div>
 
         <section ref={(node) => { userSearchContainerRef.current = node; connectionsSearchSectionRef.current = node; }} className="profile-feed-connections-search relative z-30 mx-auto mt-4 w-full max-w-2xl scroll-mt-4 xl:mt-5" aria-label={t("profileFeedSearchUser")}>
           <div className="flex w-full rounded-full border border-white/55 bg-zinc-900/80 p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
