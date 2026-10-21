@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import ActionsFloatingPanel from "../profile-feed/ActionsFloatingPanel";
 import { useI18n } from "../../hooks/useI18n";
 import { blockUser, ensureBlockedUsers, isBlockedUser, subscribeToBlockedUsers } from "../../lib/privacy";
 import { REPORT_REASONS, ReportReason, ReportTarget, reportErrorStatus, submitReport } from "../../lib/moderation";
@@ -11,7 +12,7 @@ const copy = {
   en: { more: "More options", reportContent: "Report content", reportUser: "Report user", restrict: "Restrict user", titleContent: "Report content", titleUser: "Report user", reason: "Reason", details: "Details (optional)", detailsPlaceholder: "Add information that may help us review this report", cancel: "Cancel", send: "Submit report", sending: "Submitting…", success: "Report submitted successfully.", duplicate: "There is already an active report for this content.", own: "You cannot report your own content.", missing: "This content is no longer available.", auth: "Your session is invalid. Please sign in again.", failed: "We couldn't submit the report. Please try again.", restrictTitle: "Restrict user", confirmRestrict: (u: string) => `By restricting @${u}, you will no longer be able to see their content and @${u} will no longer be able to see yours.\n\nAre you sure you want to restrict @${u}?`, restrictButton: "Restrict", restricted: "User restricted successfully. To remove the restriction, go to Privacy & Security.", restrictFailed: "We couldn't update this user's restriction.", reasons: ["Inappropriate content", "Harassment or threats", "Sexual content", "Spam or scam", "Hate or discrimination", "Other"] },
 } as const;
 
-export default function UgcModerationMenu({ contentKind, objectId, userId, username, placement = "header", showReportContent = true }: { contentKind: ContentKind; objectId?: string | number; userId: string | number; username: string; placement?: "header" | "mobile-reactions"; showReportContent?: boolean }) {
+export default function UgcModerationMenu({ contentKind, objectId, userId, username, placement = "header", showReportContent = true, actionsMobileViewport = false }: { contentKind: ContentKind; objectId?: string | number; userId: string | number; username: string; placement?: "header" | "mobile-reactions"; showReportContent?: boolean; actionsMobileViewport?: boolean }) {
   const { locale } = useI18n();
   const c = copy[locale];
   const [open, setOpen] = useState(false);
@@ -25,6 +26,7 @@ export default function UgcModerationMenu({ contentKind, objectId, userId, usern
   const [toast, setToast] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const cancelRestrictionRef = useRef<HTMLButtonElement>(null);
+  const closeMenu = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
     const update = () => setBlocked(isBlockedUser(userId) ?? false);
@@ -34,8 +36,8 @@ export default function UgcModerationMenu({ contentKind, objectId, userId, usern
   }, [userId]);
 
   useEffect(() => {
-    const closeOutside = (event: MouseEvent) => { if (!rootRef.current?.contains(event.target as Node)) setOpen(false); };
-    const closeOnMobileMovement = () => { if (window.matchMedia("(max-width: 1279px)").matches) setOpen(false); };
+    const closeOutside = (event: MouseEvent) => { if (!actionsMobileViewport && !rootRef.current?.contains(event.target as Node)) setOpen(false); };
+    const closeOnMobileMovement = () => { if (!actionsMobileViewport && window.matchMedia("(max-width: 1279px)").matches) setOpen(false); };
     document.addEventListener("mousedown", closeOutside);
     document.addEventListener("touchmove", closeOnMobileMovement, { passive: true, capture: true });
     window.addEventListener("scroll", closeOnMobileMovement, { passive: true, capture: true });
@@ -44,7 +46,7 @@ export default function UgcModerationMenu({ contentKind, objectId, userId, usern
       document.removeEventListener("touchmove", closeOnMobileMovement, true);
       window.removeEventListener("scroll", closeOnMobileMovement, true);
     };
-  }, []);
+  }, [actionsMobileViewport]);
 
   useEffect(() => {
     if (!open && !reportKind && !restrictionAction) return;
@@ -77,14 +79,16 @@ export default function UgcModerationMenu({ contentKind, objectId, userId, usern
     finally { setBusy(false); }
   }
 
-  return <>
-    <div ref={rootRef} className={`relative shrink-0 ${placement === "mobile-reactions" ? "xl:hidden" : ""}`} data-ugc-menu>
-      <button type="button" aria-label={c.more} aria-haspopup="menu" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }} className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]">⋮</button>
-      {open ? <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-52 rounded-xl border border-white/15 bg-zinc-950 p-1 shadow-xl shadow-black/50">
+  const menu = <div role="menu" className={actionsMobileViewport ? "w-52 max-w-full" : "absolute right-0 top-full z-40 mt-1 w-52 rounded-xl border border-white/15 bg-zinc-950 p-1 shadow-xl shadow-black/50"}>
         {showReportContent && objectId !== undefined ? <button role="menuitem" type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-100 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none" onClick={() => { setOpen(false); setReportKind(contentKind); }}>{c.reportContent}</button> : null}
         <button role="menuitem" type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-100 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none" onClick={() => { setOpen(false); setReportKind("user"); }}>{c.reportUser}</button>
         {!blocked ? <button role="menuitem" type="button" className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-100 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none" onClick={() => { setOpen(false); setMessage(""); setRestrictionAction(true); }}>{c.restrict}</button> : null}
-      </div> : null}
+      </div>;
+
+  return <>
+    <div ref={rootRef} className={`relative shrink-0 ${placement === "mobile-reactions" ? "xl:hidden" : ""}`} data-ugc-menu>
+      <button type="button" aria-label={c.more} aria-haspopup="menu" aria-expanded={open} onClick={(event) => { event.stopPropagation(); setOpen((value) => !value); }} className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-zinc-300 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]">⋮</button>
+      {open ? actionsMobileViewport ? <ActionsFloatingPanel anchorRef={rootRef} onClose={closeMenu} label={c.more}>{menu}</ActionsFloatingPanel> : menu : null}
     </div>
     {reportKind ? <div className="fixed inset-0 z-[1400] flex items-end bg-black/70 sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setReportKind(null); }}>
       <div role="dialog" aria-modal="true" aria-labelledby="ugc-report-title" className="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-2xl border border-white/15 bg-zinc-950 p-5 shadow-2xl sm:max-w-md sm:rounded-2xl">

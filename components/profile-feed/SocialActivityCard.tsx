@@ -6,6 +6,7 @@ import { formatProfileFeedRatingsCount, formatProfileFeedRelativeDate, translate
 import { RatingPersonRaisingHandIcon } from "../RatingIcons";
 import UgcModerationMenu from "../moderation/UgcModerationMenu";
 import { getActivityCommentReportId } from "../../lib/profile-feed/activity-moderation.mjs";
+import ActionsTruncatedText from "./ActionsTruncatedText";
 
 function getAvatarFallback(username: string): string {
   return username.trim().slice(0, 2).toUpperCase() || "US";
@@ -59,9 +60,9 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   // comment referenced by like/dislike activities. Activity text is never used.
   const commentReportId = getActivityCommentReportId(item);
 
-  const userHeader = (
+  const renderUserHeader = (mobile = false) => (
     <div className="min-w-0">
-      <div className="flex items-start gap-3">
+      <div className={mobile ? "grid grid-cols-[44px_minmax(0,1fr)] items-start gap-x-3 gap-y-2" : "flex items-start gap-3"}>
         {profileHref ? (
           <Link
             href={profileHref}
@@ -88,9 +89,11 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
             )}
           </div>
         )}
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1">
-            {profileHref ? (
+        <div className={mobile ? "contents" : "min-w-0 flex-1"}>
+          <div className="flex min-w-0 items-center gap-1" data-actions-actor-row={mobile ? "true" : undefined}>
+            {mobile && profileHref ? (
+              <ActionsTruncatedText text={`@${item.user.username}`} href={profileHref} className="min-w-0 truncate text-sm font-semibold text-blue-200 transition hover:text-blue-200 focus-visible:text-blue-200 focus-visible:outline-none" />
+            ) : profileHref ? (
               <Link
                 href={profileHref}
                 onClick={(event) => event.stopPropagation()}
@@ -109,6 +112,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
                   userId={actorUserId}
                   username={item.user.username}
                   showReportContent={commentReportId !== undefined}
+                  actionsMobileViewport={mobile}
                 />
               ) : null}
               <span className="rounded-full border border-white/10 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400">
@@ -116,21 +120,24 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               </span>
             </div>
           </div>
-          <p className="mt-1 text-sm text-zinc-300">
+          <div className={mobile ? "col-span-2 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 [overflow-wrap:anywhere]" : "contents"}>
+          <p className={mobile ? "min-w-0 flex-[1_1_12rem] text-sm text-zinc-300" : "mt-1 text-sm text-zinc-300"}>
             <span className="font-medium text-zinc-200">{activity.label}</span>{" "}
             <Link href={movieHref} aria-label={`Ver detalle de ${item.movieTitle}`} className="cursor-pointer font-semibold text-blue-200 transition hover:text-blue-100">
               {item.movieTitle}
             </Link>
           </p>
+          {mobile && item.interactionType === "rating" ? <p className="shrink-0 text-sm text-zinc-400">{activity.detail}</p> : null}
+          </div>
           {item.movieSecondaryTitle ? (
-            <p className="mt-1 truncate text-xs text-blue-200/75">
+            <p className={`${mobile ? "col-span-2" : ""} mt-1 truncate text-xs text-blue-200/75`}>
               <Link href={movieHref} aria-label={`Ver detalle de ${item.movieTitle} (${item.movieSecondaryTitle})`} className="inline-block max-w-full cursor-pointer truncate transition hover:text-blue-100 focus-visible:text-blue-100 focus-visible:outline-none">
                 {item.movieSecondaryTitle}
               </Link>
             </p>
           ) : null}
-          <p className="mt-1 line-clamp-3 text-sm text-zinc-400">{activity.detail}</p>
-          {activity.subDetail ? <p className={`mt-1 text-xs ${activity.tone === "dislike" ? "text-rose-300/80" : "text-zinc-500"}`}>{activity.subDetail}</p> : null}
+          {mobile ? item.interactionType !== "rating" ? <ActionsTruncatedText text={activity.detail ?? ""} className="col-span-2 line-clamp-3 text-sm text-zinc-400 [overflow-wrap:anywhere]" /> : null : <p className="mt-1 line-clamp-3 text-sm text-zinc-400">{activity.detail}</p>}
+          {activity.subDetail ? <p className={`${mobile ? "col-span-2 [overflow-wrap:anywhere]" : ""} mt-1 text-xs ${activity.tone === "dislike" ? "text-rose-300/80" : "text-zinc-500"}`}>{activity.subDetail}</p> : null}
         </div>
       </div>
     </div>
@@ -181,9 +188,9 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
 
   return (
     <article className="rounded-2xl border border-white/15 bg-zinc-950/70 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.32)]">
-      <div className="space-y-4 xl:hidden">
-        {userHeader}
-        <div className="grid grid-cols-[minmax(0,1fr)_84px_minmax(3.25rem,auto)] items-center gap-3">
+      <div className="profile-actions-mobile space-y-3 xl:hidden">
+        {renderUserHeader(true)}
+        <div className="profile-actions-production grid grid-cols-[minmax(0,1fr)_84px_minmax(3.25rem,auto)] items-center gap-3">
           <div className="min-w-0">{renderMetadata(true)}</div>
           {poster}
           {compactRatings}
@@ -191,7 +198,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
       </div>
 
       <div className="hidden items-center gap-6 xl:grid xl:grid-cols-[minmax(0,1.2fr)_96px_minmax(260px,0.95fr)]">
-        {userHeader}
+        {renderUserHeader()}
         {poster}
         <div className="min-w-0 w-full">
           <div className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2">
