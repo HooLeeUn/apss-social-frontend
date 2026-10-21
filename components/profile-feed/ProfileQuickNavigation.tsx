@@ -57,15 +57,6 @@ export default function ProfileQuickNavigation({
   onBackToTop,
   backToTopLabel = "Volver arriba",
 }: ProfileQuickNavigationProps) {
-  const navigationRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const node = navigationRef.current;
-    if (!node) return;
-    const measure = () => document.documentElement.style.setProperty("--profile-navigation-height", `${node.getBoundingClientRect().height}px`);
-    const observer = new ResizeObserver(measure);
-    observer.observe(node); measure();
-    return () => { observer.disconnect(); document.documentElement.style.removeProperty("--profile-navigation-height"); };
-  }, []);
   const [tooltip, setTooltip] = useState<{ index: number; left: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerGestureRef = useRef<{
@@ -147,7 +138,7 @@ export default function ProfileQuickNavigation({
   };
 
   return (
-    <nav ref={navigationRef} aria-label={ariaLabel} className={`profile-quick-navigation fixed inset-x-4 z-[60] xl:hidden bottom-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
+    <nav aria-label={ariaLabel} className={`profile-quick-navigation fixed inset-x-4 z-[60] xl:hidden bottom-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-out motion-reduce:transition-none ${visible || forceVisible ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem+env(safe-area-inset-bottom))]"}`}>
       {showBackToTop && onBackToTop ? (
         <button type="button" aria-label={backToTopLabel} onClick={onBackToTop} className="absolute bottom-[calc(100%+0.35rem)] left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-[#86ADE0] bg-transparent text-sm text-[#86ADE0] shadow-lg transition hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
           ↑
