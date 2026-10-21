@@ -1,0 +1,77 @@
+/* CSS-only, own Profile Feed overview. No rules apply above this threshold. */
+@media (max-width: 389px) {
+  .page { padding-top: 0.5rem; }
+  .overview { padding: 0.75rem; }
+  .overview > div { gap: 0.5rem; }
+
+  .overview [data-profile-identity] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5rem;
+    column-gap: 0.5rem;
+    row-gap: 0.375rem;
+    /* Reserve the compact four-row height during profile loading as well. */
+    min-height: 12.125rem;
+    padding: 0.75rem;
+    align-content: start;
+  }
+  .overview [data-profile-identity-header] { display: contents; }
+  .overview [data-profile-identity-logo] {
+    grid-column: 1;
+    grid-row: 1;
+    height: 2.5rem;
+    min-height: 2.5rem;
+    padding-block: 0;
+  }
+  .overview [data-profile-identity-logo] img { max-height: 2.5rem; }
+  .overview [data-profile-identity-avatar] {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    position: relative;
+    top: 0;
+    align-self: start;
+  }
+  .overview [data-profile-identity-label] { display: none; }
+  .overview [data-profile-identity] [data-profile-identity-text] {
+    grid-column: 1;
+    grid-row: 2;
+    padding-right: 0;
+  }
+  .overview [data-profile-identity] [data-profile-identity-text] > * {
+    margin-block: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .overview [data-profile-identity] [data-profile-identity-text] > * + * { margin-top: 0.125rem; }
+
+  .overview [data-profile-identity-chips] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.375rem;
+    margin-top: 0;
+  }
+  .overview [data-profile-chip="gender"] { grid-column: 1; grid-row: 1; }
+  .overview [data-profile-chip="age"] { grid-column: 2; grid-row: 1; }
+  .overview [data-profile-chip="followers"] { grid-column: 1 / -1; grid-row: 2; }
+  .overview [data-profile-chip],
+  .overview [data-profile-identity-followers] {
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .overview [data-profile-identity-followers] {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    position: static;
+    text-align: left;
+  }
+
+  .overview [data-tour="profile-favorites"] { min-height: 0; gap: 0.5rem; }
+  /* Only surrounding space changes: the favorite card and carousel are untouched. */
+  .overview :global(.favorite-movies-block) { padding-block: 0.5rem; }
+}
