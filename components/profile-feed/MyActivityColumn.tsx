@@ -1488,7 +1488,7 @@ export default function MyActivityColumn({
       className={`my-activity-column relative w-full min-w-0 max-w-full ${isOwnProfile ? "xl:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
     >
       {isOwnProfile ? (
-        <header className="flex flex-wrap gap-2">
+        <header className="profile-feed-own-activity-tabs flex flex-wrap gap-2">
           {ownProfileTabs.map((tab) => (
             <button
               data-tour={tab.value === "messages" ? "profile-inbox" : tab.value === "rated" ? "profile-ratings" : undefined}

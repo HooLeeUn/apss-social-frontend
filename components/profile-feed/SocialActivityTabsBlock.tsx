@@ -526,7 +526,7 @@ export default function SocialActivityTabsBlock({ onSectionChange }: { onSection
     >
       <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 xl:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
       <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md xl:mt-4" style={activityTabsLayoutStyle}>
-        <div className="grid grid-cols-3 items-center gap-1.5 sm:gap-3 xl:gap-8">
+        <div className="profile-feed-following-tabs grid grid-cols-3 items-center gap-1.5 sm:gap-3 xl:gap-8">
           <button
             type="button"
             onMouseDown={preventPointerFocus}
