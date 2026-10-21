@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useWatchlistCardLayout } from "../hooks/useWatchlistCardLayout";
+import watchlistStyles from "./MovieCardWatchlist.module.css";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -740,6 +742,7 @@ interface MovieCardProps {
   linkToDetail?: boolean;
   showExtendedMetadata?: boolean;
   highlightMyRatingSlot?: boolean;
+  adaptMainWatchlist?: boolean;
   ratingReadOnly?: boolean;
   guestActions?: boolean;
   onRatingReadOnlyClick?: () => void;
@@ -808,6 +811,7 @@ function MovieCard({
   linkToDetail = true,
   showExtendedMetadata = false,
   highlightMyRatingSlot = false,
+  adaptMainWatchlist = false,
   ratingReadOnly = false,
   guestActions = false,
   onRatingReadOnlyClick,
@@ -843,6 +847,8 @@ function MovieCard({
   const { locale, country, t } = useI18n();
   const isLarge = variant === "large";
   const isFeed = variant === "feed";
+  const adaptiveWatchlist = adaptMainWatchlist && isFeed && !showExtendedMetadata && !separateRatingsActionsCard;
+  const watchlistCardRef = useWatchlistCardLayout(adaptiveWatchlist);
   const detailHref = `/movies/${encodeURIComponent(String(movie.id))}`;
   const typeYearLine = [formatContentType(movie.contentType, { movie: t("movieDetailMovie"), series: t("movieDetailSeries"), unknown: t("movieDetailUnknown") }), movie.year && movie.year !== "-" ? movie.year : null]
     .filter(Boolean)
@@ -1224,6 +1230,7 @@ function MovieCard({
 
   const ratingsActionsRow = (
     <div
+      data-watchlist-ratings={adaptiveWatchlist ? "" : undefined}
       className={`${splitFeedActions ? "hidden xl:flex" : "mt-2"} ${
         isFeed
           ? `${splitFeedActions ? "flex-wrap items-center justify-start gap-2" : "flex items-center"} ${feedRatingsCardClassName}`
@@ -1400,8 +1407,8 @@ function MovieCard({
 
 
   const desktopCardContent = (
-    <article data-tour={isDetailMovieCard ? undefined : "feed-card"}
-      className={`${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
+    <article ref={watchlistCardRef} data-tour={isDetailMovieCard ? undefined : "feed-card"}
+      className={`${adaptiveWatchlist ? watchlistStyles.watchlist : ""} ${isFeed && showExtendedMetadata && extendedMetadataMiddleSlot ? "overflow-visible" : "overflow-hidden"} rounded-xl border shadow-sm transition-colors ${
         isFeed ? "border border-white/35 bg-zinc-950/90 text-zinc-100" : "border border-gray-200 bg-white"
       } ${isLarge || isFeed ? "flex" : ""} ${isFeed ? "relative items-stretch" : ""}`}
     >
@@ -1465,8 +1472,9 @@ function MovieCard({
 
       </div>
 
-      <div className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
+      <div data-watchlist-body={adaptiveWatchlist ? "" : undefined} className={`flex min-w-0 flex-1 flex-col p-3 sm:p-3.5 ${isFeed ? "justify-between text-zinc-100" : "space-y-2"}`}>
         <div
+          data-watchlist-metadata={adaptiveWatchlist ? "" : undefined}
           data-tour-desktop={isDetailMovieCard ? "detail-info" : undefined}
           data-tour-detail-metadata={isDetailMovieCard ? "true" : undefined}
           className={`${isFeed ? "min-w-0 space-y-1.5" : "space-y-2"} ${
@@ -1489,7 +1497,7 @@ function MovieCard({
                 )}
               </h3>
               {displaySecondaryTitle ? (
-                <p className={`truncate text-xs leading-tight ${isFeed ? "text-blue-200/80" : "text-sky-700"}`}>
+                <p data-watchlist-redundant-title={adaptiveWatchlist && displaySecondaryTitle.trim().toLocaleLowerCase() === displayTitle.trim().toLocaleLowerCase() ? "true" : undefined} className={`truncate text-xs leading-tight ${isFeed ? "text-blue-200/80" : "text-sky-700"}`}>
                   {canNavigateToDetail ? (
                     <Link
                       href={detailHref}
