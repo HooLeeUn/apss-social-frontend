@@ -20,6 +20,7 @@
 
   .overview [data-profile-identity] {
     display: grid;
+    margin-top: 0.5rem;
     grid-template-columns: minmax(0, 1fr) 5rem;
     column-gap: 0.5rem;
     row-gap: var(--compact-profile-space);
@@ -32,11 +33,18 @@
   .overview [data-profile-identity-logo] {
     grid-column: 1;
     grid-row: 1;
-    height: 2.5rem;
+    height: auto;
     min-height: 2.5rem;
     padding-block: 0;
   }
-  .overview [data-profile-identity-logo] img { max-height: 2.5rem; }
+  .overview [data-profile-identity-logo] img {
+    /* Normal phone layout at its 390px boundary: 390px - 210px = 180px. */
+    width: 180px;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    flex-shrink: 0;
+  }
   .overview [data-profile-identity-avatar] {
     grid-column: 2;
     grid-row: 1 / span 2;
