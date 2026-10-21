@@ -120,7 +120,7 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
               </span>
             </div>
           </div>
-          <div className={mobile ? "col-span-2 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 [overflow-wrap:anywhere]" : "contents"}>
+          <div className={mobile ? "profile-actions-description col-span-2 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 [overflow-wrap:anywhere]" : "contents"}>
           <p className={mobile ? "min-w-0 flex-[1_1_12rem] text-sm text-zinc-300" : "mt-1 text-sm text-zinc-300"}>
             <span className="font-medium text-zinc-200">{activity.label}</span>{" "}
             <Link href={movieHref} aria-label={`Ver detalle de ${item.movieTitle}`} className="cursor-pointer font-semibold text-blue-200 transition hover:text-blue-100">
@@ -157,21 +157,21 @@ export default function SocialActivityCard({ item }: { item: SocialActivityItem 
   );
 
   const renderMetadata = (isMobile = false) => (
-    <dl className="min-w-0 space-y-2 text-xs">
+    <dl className={`${isMobile ? "profile-actions-metadata " : ""}min-w-0 space-y-2 text-xs`}>
       <div>
         <dt className="inline text-zinc-500">{t("profileFeedType")}</dt>{" "}
         <dd className="inline text-zinc-200">{movieType}</dd>
       </div>
-      <div className="min-w-0">
+      <div className={`${isMobile ? "profile-actions-genre " : ""}min-w-0`}>
         <dt className="inline text-zinc-500">{t("profileFeedGenre")}</dt>{" "}
         <dd
           className={
             isMobile
-              ? "inline-block max-w-full overflow-x-auto overscroll-x-contain whitespace-nowrap align-bottom text-zinc-200 [scrollbar-width:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden"
+              ? "inline-block max-w-full align-bottom text-zinc-200"
               : "inline text-zinc-200"
           }
         >
-          {movieGenre}
+          {isMobile ? <ActionsTruncatedText text={movieGenre} popoverLabel={t("profileFeedGenre")} className="inline-block max-w-full truncate align-bottom" /> : movieGenre}
         </dd>
       </div>
       {movieYear ? <div className="text-zinc-200">{movieYear}</div> : null}

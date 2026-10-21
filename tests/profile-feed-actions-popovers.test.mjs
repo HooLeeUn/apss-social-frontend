@@ -72,19 +72,47 @@ test("outside touches, movement, another card's panel and Escape dismiss; intern
   assert.equal(fixture.listeners.size, 0);
 });
 
-test("only measured overflow intercepts usernames and enables comment expansion", () => {
+test("only measured overflow enables username, comment and genre expansion", () => {
   for (const [width, height, expected] of [[100, 20, false], [101, 20, false], [150, 20, true], [100, 80, true]]) {
-    for (const href of [undefined, "/users/LongUsername"]) {
+    for (const [text, href] of [["Short comment", undefined], ["Action, Animation, Drama", undefined], ["@LongUsername", "/users/LongUsername"]]) {
       let expanded = false, intercepted = false;
       const element = { scrollWidth: width, clientWidth: 100, scrollHeight: height, clientHeight: 20 };
       const Component = load("components/profile-feed/ActionsTruncatedText.tsx", {
         react: { useRef: () => ({ current: element }), useState: () => [false, value => { if (typeof value === "function") expanded = value(false); }], useEffect() {}, useCallback: fn => fn },
         "react/jsx-runtime": runtime,
       });
-      const result = Component({ text: "Full text", href, className: "" });
+      const result = Component({ text, href, className: "" });
       result.props.children[0].props.onClick({ stopPropagation() {}, preventDefault() { intercepted = true; } });
       assert.equal(intercepted, expected);
       assert.equal(expanded, expected);
     }
   }
+});
+
+test("genre popover exposes all genres with its own accessible label", () => {
+  let stateIndex = 0;
+  const Component = load("components/profile-feed/ActionsTruncatedText.tsx", {
+    react: { useRef: () => ({ current: null }), useState: () => [stateIndex++ === 0, () => {}], useEffect() {}, useCallback: fn => fn },
+    "react/jsx-runtime": runtime,
+  });
+  const text = "Action, Animation, Drama";
+  const result = Component({ text, className: "truncate", popoverLabel: "Género" });
+  const panel = result.props.children[1];
+  assert.equal(panel.props.label, "Género");
+  assert.equal(panel.props.children.props.children, text);
+});
+
+test("only the narrow Actions container redistributes metadata and prevents header wrap", () => {
+  const css = readFileSync("app/globals.css", "utf8");
+  const start = css.indexOf("@container profile-actions (max-width: 14rem)");
+  const narrow = css.slice(start, css.indexOf("\n.activity-scrollbar", start));
+  assert.ok(start >= 0);
+  assert.match(narrow, /\[data-actions-actor-row="true"\]\s*\{\s*flex-wrap: nowrap;/);
+  assert.match(narrow, /:first-child\s*\{\s*flex: 1 1 0%;\s*min-width: 0;/);
+  assert.match(narrow, /\.profile-actions-metadata\s*\{[^}]*grid-template-columns: max-content minmax\(0, 1fr\) max-content;/);
+  assert.match(narrow, /\.profile-actions-production > :first-child\s*\{\s*grid-column: 1 \/ -1;/);
+  assert.match(narrow, /\.profile-actions-description > p\s*\{\s*flex: none;/);
+  const card = readFileSync("components/profile-feed/SocialActivityCard.tsx", "utf8");
+  assert.match(card, /isMobile \? <ActionsTruncatedText text=\{movieGenre\}/);
+  assert.doesNotMatch(card, /overflow-x-auto|touch-action:pan-x/);
 });
