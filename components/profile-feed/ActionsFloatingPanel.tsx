@@ -3,7 +3,7 @@
 import { type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-// Local to Following Actions, including its opt-in moderation menu.
+// Shared by Following activity cards and their opt-in moderation menus.
 export default function ActionsFloatingPanel({ anchorRef, onClose, children, label }: {
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
