@@ -116,3 +116,20 @@ test('compact spacing grows smoothly with available width while preserving one c
   assert.equal(declaration('[data-profile-identity]', 'padding'), 'clamp(0.375rem, calc(8vw - 1rem), 0.75rem)');
   assert.equal(ast.nodes.filter(node => node.type === 'atrule').length, 1);
 });
+
+
+test('compact logo retains a fixed normal-layout reference width and its natural aspect ratio', () => {
+  assert.equal(declaration('[data-profile-identity-logo] img', 'width'), '180px');
+  assert.equal(declaration('[data-profile-identity-logo] img', 'height'), 'auto');
+  assert.equal(declaration('[data-profile-identity-logo] img', 'max-width'), 'none');
+  assert.equal(declaration('[data-profile-identity-logo] img', 'max-height'), 'none');
+  assert.equal(declaration('[data-profile-identity-logo] img', 'flex-shrink'), '0');
+  assert.equal(declaration('[data-profile-identity-logo]', 'height'), 'auto');
+});
+
+test('only the compact identity receives an extra eight-pixel top margin', () => {
+  const identityRule = rules('[data-profile-identity]').find(rule => rule.selector === '.overview [data-profile-identity]');
+  assert.equal(identityRule.nodes.find(node => node.prop === 'margin-top').value, '0.5rem');
+  assert.equal(declaration('.firstViewport', 'min-height'), '100dvh');
+  assert.equal(declaration('.firstViewport', 'padding-bottom'), 'var(--mobile-profile-nav-clearance, calc(5rem + env(safe-area-inset-bottom, 0px)))');
+});
