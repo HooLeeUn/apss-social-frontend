@@ -1,5 +1,10 @@
 /* Opt-in styles for Tu cartelera only. All normal card rules remain unchanged. */
 @media (max-width: 767px) {
+  /* Retain geometry until the layout effect reveals the final initial mode. */
+  .watchlist:not([data-watchlist-ready="true"]) {
+    visibility: hidden;
+  }
+
   .watchlist[data-watchlist-tall="true"] {
     display: grid;
     grid-template-columns: 108px minmax(0, 1fr);
