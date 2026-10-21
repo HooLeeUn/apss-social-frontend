@@ -178,6 +178,24 @@ textarea,
   }
 }
 
+.profile-actions-mobile {
+  container: profile-actions / inline-size;
+}
+
+@container profile-actions (max-width: 14rem) {
+  .profile-actions-mobile [data-actions-actor-row="true"] {
+    flex-wrap: wrap;
+  }
+
+  .profile-actions-production {
+    grid-template-columns: minmax(0, 1fr) minmax(3.25rem, auto);
+  }
+
+  .profile-actions-production > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 .activity-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(161, 161, 170, 0.45) transparent;
