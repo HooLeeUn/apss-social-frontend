@@ -1,8 +1,4 @@
-"use client";
-
-import { useEffect, useRef } from "react";
 import Link from "next/link";
-import AutoReturnHorizontalScroll from "../AutoReturnHorizontalScroll";
 import AppLogo from "../AppLogo";
 import { AppBranding, BrandingLogoSlot } from "../../lib/branding";
 
@@ -70,24 +66,6 @@ export default function ProfileIdentityCard({
   constrainDesktopAvatar = false,
   fitDesktopPersonalDataRow = false,
 }: ProfileIdentityCardProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const card = cardRef.current;
-    if (!card) return;
-    const measure = () => {
-      const row = card.querySelector<HTMLElement>(".profile-personal-chips");
-      const follower = card.querySelector<HTMLElement>(".profile-followers");
-      if (!row || !follower) return;
-      const chips = Array.from(row.children).filter(el => !el.classList.contains("profile-followers-inline") && !el.classList.contains("hidden"));
-      const required = chips.reduce((sum, el) => sum + el.getBoundingClientRect().width + 8, 0) + follower.scrollWidth;
-      card.dataset.chipOverflow = String(required > row.clientWidth);
-    };
-    const observer = new ResizeObserver(measure);
-    observer.observe(card);
-    for (const child of card.querySelectorAll(".profile-personal-chips > span, .profile-followers")) observer.observe(child);
-    measure();
-    return () => observer.disconnect();
-  }, [isLoading, username, age, ageVisible, genderIdentity, genderIdentityVisible, followersCount]);
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const canShowGender = genderIdentityVisible !== false && Boolean(genderIdentity);
   const canShowAge = ageVisible !== false && typeof age === "number" && Number.isFinite(age);
@@ -112,7 +90,7 @@ export default function ProfileIdentityCard({
     : "block h-16 min-w-0 w-auto max-w-full object-contain object-left xl:h-[68px] xl:max-w-[188px]";
   const logoTextClassName = isProfileFeedLogo ? "hidden" : "text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-100";
   const avatarClassName = `relative top-24 z-10 block h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 bg-zinc-800/90 [clip-path:circle(50%)] ${constrainDesktopAvatar ? "xl:absolute xl:right-1 xl:top-20 xl:h-[72px] xl:w-[72px]" : ""}`;
-  const cardClassName = `profile-identity relative mx-auto flex w-full min-w-0 max-w-full box-border flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass} ${stableMobileHeightClass}`;
+  const cardClassName = `relative mx-auto flex w-full min-w-0 max-w-full box-border flex-col gap-5 overflow-hidden rounded-3xl border border-white/15 bg-zinc-900/75 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.35)] ${cardHeightClass} ${stableMobileHeightClass}`;
 
   if (isLoading) {
     return (
@@ -133,7 +111,7 @@ export default function ProfileIdentityCard({
   }
 
   return (
-    <div ref={cardRef} className={cardClassName}>
+    <div className={cardClassName}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75" />
 
       <div className="relative flex min-w-0 items-start justify-between gap-4">
@@ -170,25 +148,24 @@ export default function ProfileIdentityCard({
 
       <div className="relative min-w-0 space-y-2 pr-24">
         <p className="truncate text-sm uppercase tracking-[0.18em] text-zinc-500">{userLabel}</p>
-        <AutoReturnHorizontalScroll
+        <p
           className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-2xl font-semibold text-zinc-100"
           title={`@${username}`}
         >
-          <span >@{username}</span>
-        </AutoReturnHorizontalScroll>
+          @{username}
+        </p>
         {fullName ? (
-          <AutoReturnHorizontalScroll
+          <p
             className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-base font-medium text-zinc-300"
             title={fullName}
           >
-            <span >{fullName}</span>
-          </AutoReturnHorizontalScroll>
+            {fullName}
+          </p>
         ) : null}
       </div>
 
       {shouldRenderPersonalData ? (
-        <AutoReturnHorizontalScroll className={`profile-personal-chips relative flex flex-nowrap items-center gap-2 ${fitDesktopPersonalDataRow ? "xl:flex-nowrap xl:gap-1" : ""} ${personalDataSpacingClass}`}>
-          {canShowFollowers && canShowAge ? <span className="profile-followers-inline rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">{followersCopy}</span> : null}
+        <div className={`relative flex flex-wrap items-center gap-2 ${fitDesktopPersonalDataRow ? "xl:flex-nowrap xl:gap-1" : ""} ${personalDataSpacingClass}`}>
           {canShowGender ? (
             <span className={`rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:shrink-0 xl:whitespace-nowrap xl:px-1.5 xl:text-[11px]" : ""}`}>
               {formatGender(genderIdentity as string)}
@@ -209,11 +186,11 @@ export default function ProfileIdentityCard({
               {followersCopy}
             </span>
           ) : null}
-        </AutoReturnHorizontalScroll>
+        </div>
       ) : null}
 
       {canShowFollowers && canShowAge ? (
-        <div className={`profile-followers absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:hidden" : ""}`}>
+        <div className={`absolute bottom-5 right-5 max-w-[55%] rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-right text-xs text-zinc-300 ${fitDesktopPersonalDataRow ? "xl:hidden" : ""}`}>
           {followersCopy}
         </div>
       ) : null}
