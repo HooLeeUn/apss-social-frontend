@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -14,6 +15,7 @@ import PosterImage from "../PosterImage";
 import type { AppBranding } from "../../lib/branding";
 import UgcModerationMenu from "../moderation/UgcModerationMenu";
 import { USER_RESTRICTED_EVENT } from "../../lib/privacy";
+import ActionsTruncatedText from "./ActionsTruncatedText";
 
 interface VideoReactionActivity {
   id: string | number;
@@ -602,7 +604,27 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
           ) : null;
           return (
           <article key={item.id} className="mx-auto w-full max-w-[22rem] space-y-3 xl:mx-0 xl:w-auto xl:max-w-none xl:shrink-0 xl:snap-start">
-            <div className="flex min-h-14 items-center gap-3">
+            {source === "following" ? <div data-following-reaction-header className="grid min-h-14 grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-2 xl:hidden">
+              <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="h-14 w-10 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
+                <PosterImage posterSrc={item.movie.image} title={title} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-1" loading="lazy" decoding="async" />
+              </Link>
+              <div className="min-w-0 space-y-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  {item.actor?.username ? <>
+                    <Link href={`/users/${encodeURIComponent(item.actor.username)}`} aria-label={`Ver perfil de ${item.actor.username}`} className="shrink-0">
+                      {item.actor.avatar ? <Image src={item.actor.avatar} alt="" width={28} height={28} unoptimized className="h-7 w-7 rounded-full object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-[10px]">{item.actor.username.slice(0, 2).toUpperCase()}</span>}
+                    </Link>
+                    <ActionsTruncatedText text={`@${item.actor.username}`} href={`/users/${encodeURIComponent(item.actor.username)}`} className="min-w-0 flex-1 truncate text-sm font-bold text-blue-200" />
+                    {item.actor.id !== undefined ? <UgcModerationMenu contentKind="video_comment" objectId={commentId ?? item.id} userId={item.actor.id} username={item.actor.username} actionsMobileViewport /> : null}
+                  </> : null}
+                </div>
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <ActionsTruncatedText text={title} href={`/movies/${encodeURIComponent(String(item.movie.id))}`} popoverLabel={title} className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-100 hover:text-blue-200" />
+                  <time dateTime={timestamp} className="shrink-0 whitespace-nowrap text-xs text-zinc-500">{formatProfileFeedRelativeDate(locale, timestamp)}</time>
+                </div>
+              </div>
+            </div> : null}
+            <div className={source === "following" ? "hidden min-h-14 items-center gap-3 xl:flex" : "flex min-h-14 items-center gap-3"}>
               <Link href={`/movies/${encodeURIComponent(String(item.movie.id))}`} className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
                 <PosterImage posterSrc={item.movie.image} title={title} branding={branding} className="h-full w-full object-cover" placeholderClassName="h-full w-full bg-zinc-900 object-contain p-1" loading="lazy" decoding="async" />
               </Link>
@@ -618,6 +640,7 @@ export default function VisitedProfileVideoReactions({ username = "", isActive, 
               <div data-visited-profile-video-id={videoId} className="relative h-full w-full">
                 <VisitedProfileVideoPlayer src={item.payload.video_url} muted={isMuted} className="h-full w-full object-contain" onRegister={(video) => { if (video) video.dataset.visitedProfileVideoId = videoId; setVideoRef(videoId, video); }} onPlay={() => { activeVideoId.current = videoId; activeVideoIndex.current = index; pauseAllExcept(videoId); }} onEnded={() => playNextDesktopVideo(index)} onMutedChange={setIsMuted} onManualToggle={(paused) => { manuallyPausedVideoId.current = paused ? videoId : null; }} />
               </div>
+              {source === "following" ? <div data-following-reaction-overlay className="absolute right-2 top-2 z-20 max-w-[calc(100%-1rem)] rounded-full bg-black/55 p-1 shadow-md backdrop-blur-sm xl:hidden">{reactionButtons}</div> : null}
               <div className="pointer-events-none absolute left-2 top-2 z-10 hidden opacity-0 transition-opacity xl:flex xl:group-hover:pointer-events-auto xl:group-hover:opacity-100">{reactionButtons}</div>
               <button type="button" aria-label={t("movieDetailVideoExpand")} className="absolute bottom-2 right-2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-lg text-white hover:bg-black/80" onClick={(event) => { event.stopPropagation(); openExpandedViewer(index); }}>⛶</button>
             </div>

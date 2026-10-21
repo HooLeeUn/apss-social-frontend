@@ -178,6 +178,74 @@ textarea,
   }
 }
 
+.profile-actions-mobile {
+  container: profile-actions / inline-size;
+}
+
+@container profile-actions (max-width: 14rem) {
+  .profile-actions-mobile [data-actions-actor-row="true"] {
+    flex-wrap: nowrap;
+  }
+
+  .profile-actions-mobile [data-actions-actor-row="true"] > :first-child {
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+
+  .profile-actions-mobile [data-actions-actor-row="true"] > div {
+    white-space: nowrap;
+  }
+
+  .profile-actions-description {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-actions-description > p {
+    flex: none;
+  }
+
+  .profile-actions-production {
+    grid-template-columns: minmax(0, 1fr) minmax(3.25rem, auto);
+  }
+
+  .profile-actions-production > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .profile-actions-metadata {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    align-items: baseline;
+    column-gap: 0.5rem;
+  }
+
+  .profile-actions-metadata > * {
+    margin-block: 0;
+    white-space: nowrap;
+  }
+
+  .profile-actions-genre {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+  }
+
+  .profile-actions-genre > dt {
+    flex: 0 0 auto;
+  }
+
+  .profile-actions-genre > dd {
+    display: block;
+    min-width: 0;
+    flex: 1 1 0%;
+  }
+
+  .profile-actions-genre > dd > p {
+    display: block;
+  }
+}
+
 .activity-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(161, 161, 170, 0.45) transparent;
@@ -860,6 +928,59 @@ textarea,
 
   .profile-feed-mobile-framing .profile-feed-mobile-content-panel > .my-activity-column {
     padding-top: 0.5rem;
+  }
+
+  /* Only the two own-profile tab rows scroll; their content stays outside. */
+  .profile-feed-own-activity-tabs,
+  .profile-feed-following-tabs {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .profile-feed-own-activity-tabs::-webkit-scrollbar,
+  .profile-feed-following-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .profile-feed-own-activity-tabs > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .profile-feed-following-tabs > * {
+    /* Keep equal thirds when they fit, and let text plus padding set the floor. */
+    flex: 0 0 auto;
+    width: calc((100% - 0.75rem) / 3);
+    min-width: max-content;
+  }
+
+  .profile-feed-following-tabs > div > div {
+    position: static;
+  }
+
+  .profile-feed-following-tabs button {
+    min-width: max-content;
+    padding-inline: 0.75rem;
+    white-space: nowrap;
+  }
+
+  @media (min-width: 640px) {
+    .profile-feed-following-tabs > * {
+      width: calc((100% - 1.5rem) / 3);
+    }
+
+    .profile-feed-following-tabs button {
+      padding-inline: 1rem;
+    }
   }
 
   .profile-feed-mobile-framing .my-activity-scroll-area,
