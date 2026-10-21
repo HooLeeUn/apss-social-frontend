@@ -970,7 +970,7 @@ function ProfileFeedContent() {
       }}
       className="profile-feed-mobile-framing h-dvh overflow-x-clip overflow-y-hidden overscroll-y-none bg-black text-zinc-100 xl:h-auto xl:min-h-screen xl:overflow-y-visible xl:overscroll-y-auto"
     >
-      <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 xl:px-8 xl:pb-8">
+      <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col px-4 pb-[calc(max(7rem,var(--profile-navigation-height,0px)+3.5rem)+env(safe-area-inset-bottom))] pt-8 xl:px-8 xl:pb-8">
         <section ref={topSectionRef} className="w-full min-w-0 max-w-full rounded-3xl bg-zinc-950/55 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.36)] xl:p-6">
           <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-[1fr_3fr]">
             <div data-tour="profile-info" className="mx-auto flex w-full min-w-0 max-w-full">
