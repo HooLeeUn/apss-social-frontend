@@ -18,6 +18,16 @@ import VisitedProfileVideoReactions from "./VisitedProfileVideoReactions";
 
 type InteractionsTab = SocialTab | "recommendations" | "recordings";
 
+function revealFollowingTab(button: HTMLButtonElement, container: HTMLDivElement | null) {
+  if (!container || !window.matchMedia("(max-width: 1279px)").matches) return;
+  const chip = button.getBoundingClientRect();
+  const row = container.getBoundingClientRect();
+  const left = row.left + container.clientLeft;
+  const right = left + container.clientWidth;
+  const delta = chip.left < left ? chip.left - left : chip.right > right ? chip.right - right : 0;
+  if (delta !== 0) container.scrollBy({ left: delta, behavior: "smooth" });
+}
+
 
 const tabButtonBaseClass =
   "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition duration-300 ease-out will-change-transform";
@@ -484,14 +494,17 @@ export default function SocialActivityTabsBlock({ onSectionChange }: { onSection
       .filter((item) => !item.actorId || !restrictedActorIds.has(String(item.actorId))),
     [followingActivity.items, getVisibleItemsForTab, restrictedActorIds],
   );
+  const followingTabsRef = useRef<HTMLDivElement>(null);
   const handleRecommendationsTabClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    revealFollowingTab(event.currentTarget, followingTabsRef.current);
     onSectionChange?.();
     setActiveTab("recommendations");
   };
 
   const handleActivityTabClick = (event: MouseEvent<HTMLButtonElement>, nextTab: SocialTab) => {
     event.preventDefault();
+    revealFollowingTab(event.currentTarget, followingTabsRef.current);
     onSectionChange?.();
     setActivityTab(nextTab);
     setActiveTab(nextTab);
@@ -499,6 +512,7 @@ export default function SocialActivityTabsBlock({ onSectionChange }: { onSection
 
   const handleRecordingsTabClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    revealFollowingTab(event.currentTarget, followingTabsRef.current);
     onSectionChange?.();
     setActiveTab("recordings");
   };
@@ -526,7 +540,7 @@ export default function SocialActivityTabsBlock({ onSectionChange }: { onSection
     >
       <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 xl:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
       <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md xl:mt-4" style={activityTabsLayoutStyle}>
-        <div className="profile-feed-following-tabs grid grid-cols-3 items-center gap-1.5 sm:gap-3 xl:gap-8">
+        <div ref={followingTabsRef} className="profile-feed-following-tabs grid grid-cols-3 items-center gap-1.5 sm:gap-3 xl:gap-8">
           <button
             type="button"
             onMouseDown={preventPointerFocus}
