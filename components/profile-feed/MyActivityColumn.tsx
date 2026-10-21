@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AutoReturnHorizontalScroll from "../AutoReturnHorizontalScroll";
 import { TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useInfiniteMyMessages } from "../../hooks/useInfiniteMyMessages";
@@ -1488,7 +1489,7 @@ export default function MyActivityColumn({
       className={`my-activity-column relative w-full min-w-0 max-w-full ${isOwnProfile ? "xl:max-w-[360px] xl:max-w-[360px]" : "max-w-none"}`}
     >
       {isOwnProfile ? (
-        <header className="flex flex-wrap gap-2">
+        <AutoReturnHorizontalScroll className="profile-own-tabs flex flex-nowrap gap-2 xl:flex-wrap">
           {ownProfileTabs.map((tab) => (
             <button
               data-tour={tab.value === "messages" ? "profile-inbox" : tab.value === "rated" ? "profile-ratings" : undefined}
@@ -1507,7 +1508,7 @@ export default function MyActivityColumn({
               {tab.label}
             </button>
           ))}
-        </header>
+        </AutoReturnHorizontalScroll>
       ) : (
         <>
           <div className="sticky top-0 z-30 -mx-4 space-y-3 bg-black/90 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md xl:static xl:z-auto xl:mx-0 xl:bg-transparent xl:p-0 xl:backdrop-blur-none">

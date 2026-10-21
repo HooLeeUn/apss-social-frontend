@@ -1598,3 +1598,27 @@ body.detail-trailer-active:not([data-trailer-companion-view="reaction"]) [data-d
   [data-comment-history][data-video-active="true"] { display: none; }
   [data-comment-history][data-video-active="false"] { display: grid; }
 }
+
+/* Adaptive mobile access: native panning, with no extra row or card height. */
+.profile-followers-inline { display: none; }
+@media (max-width: 1279px) {
+  .auto-return-horizontal { min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .auto-return-horizontal::-webkit-scrollbar { display: none; }
+  .auto-return-horizontal[data-overflow="false"] { overflow-x: hidden; }
+  .auto-return-horizontal[data-overflow="false"]:not(.truncate):not(.feed-info-panels) { overflow: visible; }
+  .auto-return-horizontal:focus-visible { outline: 2px solid #86ade0; outline-offset: -2px; }
+  .auto-return-horizontal.truncate[data-overflow="true"]:not(:focus) { text-overflow: ellipsis; }
+  .profile-own-tabs > button, .profile-personal-chips > span, .favorite-movie-card__ratings > div { flex-shrink: 0; white-space: nowrap; }
+  .profile-social-tabs { grid-template-columns: repeat(3, minmax(max-content, 1fr)); }
+  .profile-social-tabs > .relative { min-width: max-content; }
+  .feed-info-probe { position: absolute; inset: 0; visibility: hidden; pointer-events: none; }
+  .feed-info-probe > div { height: 100%; }
+  .feed-compact-controls { width: max-content; min-width: 100%; }
+  .feed-compact-controls .interaction-icons { position: static; transform: none; justify-content: flex-end; }
+  .feed-compact-controls > div:last-child { margin-top: 0.25rem; display: flex; flex-wrap: nowrap; gap: 0.25rem; padding: 0.25rem; white-space: nowrap; }
+  .feed-compact-controls > div:last-child > div { min-width: 0; margin-left: 0; }
+}
+@media (max-width: 1279px) {
+  .profile-identity[data-chip-overflow="true"] .profile-personal-chips .profile-followers-inline { display: inline-block; order: 1; }
+  .profile-identity[data-chip-overflow="true"] > .profile-followers { visibility: hidden; }
+}

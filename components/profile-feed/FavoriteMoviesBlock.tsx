@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AutoReturnHorizontalScroll from "../AutoReturnHorizontalScroll";
 import { memo, ReactNode, TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, apiFetch } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
@@ -142,7 +143,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                     </div>
                   </div>
                 </div>
-                <div className="favorite-movie-card__ratings mt-auto flex items-end justify-between gap-2 pb-0.5">
+                <AutoReturnHorizontalScroll className="favorite-movie-card__ratings mt-auto flex items-end justify-between gap-2 pb-0.5">
                   <div className="inline-flex h-10 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200" aria-label="General">
                     <span aria-hidden="true">⭐</span>
                     <span>{formatAverageRating(movie.generalRating)}</span>
@@ -180,7 +181,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                       />
                     )}
                   </div>
-                </div>
+                </AutoReturnHorizontalScroll>
               </>
             ) : (
               <>

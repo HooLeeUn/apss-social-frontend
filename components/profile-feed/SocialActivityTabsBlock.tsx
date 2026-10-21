@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AutoReturnHorizontalScroll from "../AutoReturnHorizontalScroll";
 import { type CSSProperties, type MouseEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteSocialActivity } from "../../hooks/useInfiniteSocialActivity";
 import { getMyProfile, getTopFollowing, getTopFriends, getUserMovieRecommendationsByUsername } from "../../lib/profile-feed/adapters";
@@ -526,7 +527,7 @@ export default function SocialActivityTabsBlock({ onSectionChange }: { onSection
     >
       <h2 className="px-4 text-center text-lg font-semibold text-zinc-100 xl:text-xl">{t("profileFeedFollowingActivityTitle")}</h2>
       <header className="sticky top-4 z-30 mt-3 bg-black/75 px-4 py-3 backdrop-blur-md xl:mt-4" style={activityTabsLayoutStyle}>
-        <div className="grid grid-cols-3 items-center gap-1.5 sm:gap-3 xl:gap-8">
+        <AutoReturnHorizontalScroll className="profile-social-tabs grid grid-cols-3 items-center gap-1.5 sm:gap-3 xl:gap-8">
           <button
             type="button"
             onMouseDown={preventPointerFocus}
@@ -537,6 +538,7 @@ export default function SocialActivityTabsBlock({ onSectionChange }: { onSection
           </button>
 
           <div className="relative h-10 w-full overflow-visible">
+            <div aria-hidden="true" className="invisible grid whitespace-nowrap px-4 text-xs sm:text-sm xl:hidden">{tabs.map(tab => <span key={tab.value} className="col-start-1 row-start-1">{tab.label}</span>)}</div>
             {tabs.map((tab) => {
               const isActive = tab.value === activeTab;
 
@@ -558,7 +560,7 @@ export default function SocialActivityTabsBlock({ onSectionChange }: { onSection
             })}
           </div>
           <button type="button" onMouseDown={preventPointerFocus} onClick={handleRecordingsTabClick} className={getTabClassName(isRecordingsActive, "h-12 min-h-12 w-full px-2 text-xs sm:px-4 sm:text-sm")}><ProfileRecommendationsLabel label={t("profileFeedRecordings")} reactions /></button>
-        </div>
+        </AutoReturnHorizontalScroll>
       </header>
 
       <div className={`profile-feed-following-activity-body px-4 pt-5 xl:min-h-[49rem] ${isRecordingsActive ? "profile-feed-following-recordings" : ""}`}>
