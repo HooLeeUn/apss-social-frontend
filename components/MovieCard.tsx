@@ -17,6 +17,7 @@ import { fetchPersonDetail, MoviePersonCredit, PersonDetail } from "../lib/peopl
 import { formatAverageRating, formatFollowingRating, formatFollowingRatingsCount, formatMyRating } from "../lib/rating-format";
 import CommentDetailButton from "./CommentDetailButton";
 import RecCoolRatingsCount from "./RecCoolRatingsCount";
+import ActionsTruncatedText from "./profile-feed/ActionsTruncatedText";
 import MyListIcon from "./MyListIcon";
 import RatingPopover from "./RatingPopover";
 import GuestContentGate from "./GuestContentGate";
@@ -762,6 +763,7 @@ interface MovieCardProps {
   creditsLoading?: boolean;
   preloadPersonDetails?: boolean;
   enableMobileDetailCarousel?: boolean;
+  compactMobileDetail?: boolean;
   trailerHoverDelayMs?: number;
   branding?: AppBranding | null;
 }
@@ -831,6 +833,7 @@ function MovieCard({
   creditsLoading = false,
   preloadPersonDetails = false,
   enableMobileDetailCarousel = false,
+  compactMobileDetail = false,
   trailerHoverDelayMs = DEFAULT_TRAILER_HOVER_DELAY_MS,
   branding = null,
 }: MovieCardProps) {
@@ -1183,8 +1186,7 @@ function MovieCard({
     </div>
   ) : null;
 
-  const mobileSplitFeedActionsRow = splitFeedActions ? (
-    <div className={`${feedRatingsCardClassName} grid grid-cols-[1fr_auto_1fr] items-center gap-2 xl:hidden`}>
+  const mobileTmdbLogo = (
       <div className="min-w-0 justify-self-start">
         {tmdbUrl ? (
           <TooltipTarget text={tmdbTooltip}>
@@ -1205,7 +1207,8 @@ function MovieCard({
           </TooltipTarget>
         ) : null}
       </div>
-      <div className="relative z-30 shrink-0 justify-self-center">{ratingsActionsTmdbSlot}</div>
+  );
+  const mobileDetailActions = (
       <div className="flex min-w-0 flex-nowrap items-center justify-self-end gap-2">
         <CommentDetailButton tourTarget="feed-card-synopsis" title={displayTitle} synopsisEs={movie.synopsis_es} synopsis={movie.synopsis} className="h-8 w-8 shrink-0" />
         {showBottomInteractionIcons ? (
@@ -1225,6 +1228,12 @@ function MovieCard({
           </div>
         ) : null}
       </div>
+  );
+  const mobileSplitFeedActionsRow = splitFeedActions && !compactMobileDetail ? (
+    <div className={`${feedRatingsCardClassName} grid grid-cols-[1fr_auto_1fr] items-center gap-2 xl:hidden`}>
+      {mobileTmdbLogo}
+      <div className="relative z-30 shrink-0 justify-self-center">{ratingsActionsTmdbSlot}</div>
+      {mobileDetailActions}
     </div>
   ) : null;
 
@@ -1598,7 +1607,7 @@ function MovieCard({
           {mobileCarouselIndex < 2 ? <span data-tour-mobile={isDetailMovieCard ? "detail-more-mobile" : undefined} aria-hidden="true" className="pointer-events-none absolute right-2 top-2 z-20 text-lg font-black leading-none text-[#2f9bff] drop-shadow">›</span> : null}
           <div
             ref={mobileCarouselRef}
-            className="flex h-[196px] snap-x snap-mandatory overflow-x-auto scroll-smooth overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[204px]"
+            className={`flex h-[196px] snap-x snap-mandatory overflow-x-auto scroll-smooth overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[204px] ${compactMobileDetail ? "[&>section]:w-full [&>section]:max-w-full [&>section]:shrink-0" : ""}`}
             onScroll={(event) => {
               updateMobileCarouselIndex();
               document.dispatchEvent(new CustomEvent(MOBILE_METADATA_DRAG_EVENT, { detail: { target: event.target } }));
@@ -1606,17 +1615,19 @@ function MovieCard({
             onPointerMove={(event) => document.dispatchEvent(new CustomEvent(MOBILE_METADATA_DRAG_EVENT, { detail: { target: event.target } }))}
             onTouchMove={(event) => document.dispatchEvent(new CustomEvent(MOBILE_METADATA_DRAG_EVENT, { detail: { target: event.target } }))}
           >
-            <section className="flex h-full min-w-full snap-start flex-col justify-start px-3 py-3 pr-6 sm:px-3.5" aria-label="Metadata">
-              <div className="min-w-0 space-y-1.5">
-                <h3 className={`line-clamp-2 break-words font-semibold leading-tight ${isLarge ? "text-lg" : "text-base"}`}>{displayTitle}</h3>
-                {displaySecondaryTitle ? <p className="truncate text-xs leading-tight text-blue-200/80">{displaySecondaryTitle}</p> : null}
+            <section className={`flex h-full min-w-full snap-start flex-col justify-start px-3 pr-6 sm:px-3.5 ${compactMobileDetail ? "py-2" : "py-3"}`} aria-label="Metadata">
+              <div className={`min-w-0 ${compactMobileDetail ? "space-y-1" : "space-y-1.5"}`}>
+                {compactMobileDetail ? <ActionsTruncatedText text={displayTitle} popoverLabel={displayTitle} className={`truncate font-semibold leading-tight ${isLarge ? "text-lg" : "text-base"}`} /> : <h3 className={`line-clamp-2 break-words font-semibold leading-tight ${isLarge ? "text-lg" : "text-base"}`}>{displayTitle}</h3>}
+                {displaySecondaryTitle ? compactMobileDetail ? <ActionsTruncatedText text={displaySecondaryTitle} popoverLabel={displaySecondaryTitle} className="truncate text-xs leading-tight text-blue-200/80" /> : <p className="truncate text-xs leading-tight text-blue-200/80">{displaySecondaryTitle}</p> : null}
                 <p className="truncate text-sm text-zinc-300">{typeYearLine || t("movieDetailUnknown")}</p>
                 <p className="truncate text-sm text-zinc-400">{genresLine}</p>
-                {isDetailMovieCard ? <RecCoolRatingsCount count={movie.realRatingsCount} locale={locale} /> : null}
+                {isDetailMovieCard ? <RecCoolRatingsCount count={movie.realRatingsCount} locale={locale} truncatedPopover={compactMobileDetail} /> : null}
                 {mobileDetailRatingsRow}
+                {compactMobileDetail ? mobileTmdbLogo : null}
               </div>
             </section>
             <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={locale === "en" ? "Available on" : "Disponible en"}>
+              {compactMobileDetail ? <div className="relative z-40 mb-1 flex justify-end">{ratingsActionsTmdbSlot}</div> : null}
               <div className="max-h-full min-w-0 overflow-visible">{extendedMetadataMiddleSlot}</div>
             </section>
             <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
@@ -1640,6 +1651,7 @@ function MovieCard({
                     <div className="h-3 w-44 animate-pulse rounded-full bg-white/10" />
                   </div>
                 ) : null}
+                {compactMobileDetail ? mobileDetailActions : null}
               </div>
             </section>
           </div>
