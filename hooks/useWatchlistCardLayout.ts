@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 /** Measure the existing layout, ignoring empty reserved space around synopsis. */
 export function watchlistNeedsTallLayout(card: HTMLElement): boolean {
@@ -36,26 +36,67 @@ export function watchlistNeedsTallLayout(card: HTMLElement): boolean {
   return iconBounds.left < bodyBounds.left - 1 || iconBounds.right > bodyBounds.right + 1;
 }
 
-/** Only the main watchlist opts in; no alternative DOM, scroll or hidden controls. */
+/** Only the main watchlist opts in; publish a layout only after measurement. */
 export function useWatchlistCardLayout(enabled: boolean) {
   const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const card = ref.current;
     if (!enabled || !card) return;
     const mobile = window.matchMedia("(max-width: 767px)");
     let frame = 0;
     let disposed = false;
+    let stable = card.dataset.watchlistTall === "true";
+    let candidate: boolean | null = null;
+    let width = card.getBoundingClientRect().width;
+
+    const readNormalLayout = () => {
+      if (!mobile.matches) return false;
+      const previous = card.dataset.watchlistTall;
+      // The normal-layout probe and restoration happen in the same JS task.
+      // No intermediate mode survives to a paint or to the next animation frame.
+      if (stable) card.dataset.watchlistTall = "false";
+      try {
+        return watchlistNeedsTallLayout(card);
+      } finally {
+        if (stable) card.dataset.watchlistTall = previous!;
+      }
+    };
+    const commit = (tall: boolean) => {
+      const value = String(tall);
+      if (card.dataset.watchlistTall !== value) card.dataset.watchlistTall = value;
+      stable = tall;
+      candidate = null;
+    };
     const measure = () => {
-      // Read normal geometry synchronously, then restore the final mode before paint.
-      // This also allows a tall card to return to normal when width becomes sufficient.
-      card.dataset.watchlistTall = "false";
-      card.dataset.watchlistTall = String(mobile.matches && watchlistNeedsTallLayout(card));
+      frame = 0;
+      if (disposed) return;
+      const next = readNormalLayout();
+      if (next === stable) {
+        candidate = null;
+      } else if (candidate === next) {
+        commit(next);
+      } else {
+        // Keep the last stable mode visible until the next frame confirms it.
+        candidate = next;
+        schedule();
+      }
     };
     const schedule = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
+      if (!disposed && !frame) frame = requestAnimationFrame(measure);
     };
-    const observer = new ResizeObserver(schedule);
+
+    // Complete the first layout in this commit, before the browser paints the card.
+    commit(readNormalLayout());
+    card.dataset.watchlistReady = "true";
+
+    const observer = new ResizeObserver(() => {
+      const nextWidth = card.getBoundingClientRect().width;
+      // Our own height change must not start another detection cycle.
+      if (nextWidth !== width) {
+        width = nextWidth;
+        schedule();
+      }
+    });
     observer.observe(card);
     const mutation = new MutationObserver(schedule);
     mutation.observe(card, { childList: true, characterData: true, subtree: true });
@@ -63,7 +104,6 @@ export function useWatchlistCardLayout(enabled: boolean) {
     window.addEventListener("resize", schedule);
     document.fonts.addEventListener("loadingdone", schedule);
     void document.fonts.ready.then(() => { if (!disposed) schedule(); });
-    measure();
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
@@ -72,6 +112,7 @@ export function useWatchlistCardLayout(enabled: boolean) {
       window.removeEventListener("resize", schedule);
       document.fonts.removeEventListener("loadingdone", schedule);
       delete card.dataset.watchlistTall;
+      delete card.dataset.watchlistReady;
     };
   }, [enabled]);
   return ref;
