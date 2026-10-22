@@ -36,12 +36,11 @@ test("country selector ignores internal native and forwarded gestures but closes
 
 const reference = {};
 vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports: reference });
-const { DETAIL_VIDEO_BASE, fitDetailVideo, detailVideoAvailableHeight } = reference;
+const { DETAIL_VIDEO_HEIGHT, DETAIL_VIDEO_WIDTH } = reference;
 const hook = compile("hooks/useDetailVideoSpace.ts");
 
-function videoFixture({ enabled = true, height = 960, width = 340, top = 450, scroll = 0, hasVideo = true } = {}) {
-  let cleanup, mutation, resizeCallback, mutations = 0, resizes = 0;
-  const observed = new Set();
+function videoFixture({ enabled = true, hasVideo = true } = {}) {
+  let cleanup, mutation, observers = 0;
   const style = (initial = "") => {
     let values = { cssText: initial };
     return new Proxy({}, {
@@ -53,190 +52,139 @@ function videoFixture({ enabled = true, height = 960, width = 340, top = 450, sc
       },
     });
   };
-  const header = { getBoundingClientRect: () => ({ height: 36 }) };
-  const sticky = { getBoundingClientRect: () => ({ height: 320 }) };
-  const group = {};
-  const card = { padding: 10 };
-  const section = { padding: 16 };
-  const slot = { get clientWidth() { return width; }, previousElementSibling: header,
-    getBoundingClientRect: () => ({ top: 100 + top - scroll }) };
-  const wrapper = { style: style(), parentElement: slot };
+  let geometry = { width: 1, height: 1 };
+  const wrapper = { style: style(), getBoundingClientRect: () => geometry };
   const video = { style: style("max-height:288px"), parentElement: wrapper,
-    closest: () => card };
-  const viewport = { get clientHeight() { return height; }, get scrollTop() { return scroll; },
-    padding: 12, getBoundingClientRect: () => ({ top: 100 }),
-    querySelector: selector => selector.includes("sticky") ? sticky : { parentElement: group } };
-  const root = { querySelectorAll: () => hasVideo ? [video] : [],
-    closest: selector => selector.includes("content") ? viewport : section };
+    getBoundingClientRect: () => geometry };
+  const root = { querySelectorAll: () => hasVideo ? [video] : [], getBoundingClientRect: () => geometry };
   const exports = {};
   vm.runInNewContext(hook, {
     exports,
     require: name => name === "react" ? {
       useLayoutEffect: fn => { cleanup?.(); cleanup = fn(); },
     } : reference,
-    getComputedStyle: element => ({ paddingBottom: String(element.padding ?? 0) }),
-    window: new Proxy({}, { get() { throw Error("Unexpected viewport listener or timer"); } }),
+    // Measurements, timers and observers that can recalculate the size fail.
+    getComputedStyle() { throw Error("Unexpected measured calibration"); },
+    ResizeObserver: class { constructor() { throw Error("Unexpected resize observer"); } },
+    window: new Proxy({}, { get() { throw Error("Unexpected viewport or scroll dependency"); } }),
     document: new Proxy({}, { get() { throw Error("Unexpected calibration document"); } }),
-    ResizeObserver: class {
-      constructor(fn) { resizeCallback = fn; resizes++; }
-      observe(element) { assert.ok(!observed.has(element), "no duplicated observation"); observed.add(element); }
-      disconnect() { observed.clear(); resizes--; }
-    },
     MutationObserver: class {
       constructor(fn) { mutation = fn; }
-      observe() { mutations++; }
-      disconnect() { mutations--; }
+      observe() { observers++; }
+      disconnect() { observers--; }
     },
   });
   const rootRef = { current: root };
   exports.useDetailVideoSpace(rootRef, enabled);
-  return { video, wrapper, observers: () => [resizes, mutations],
-    resize(next = {}) {
-      height = next.height ?? height; width = next.width ?? width; top = next.top ?? top;
-      resizeCallback?.();
-    },
-    scroll(value) { scroll = value; },
-    mutate() { mutation?.(); },
+  return { video, wrapper, observers: () => observers,
+    frame(next) { geometry = next; mutation?.(); },
     addVideo() { hasVideo = true; mutation?.(); },
     trailer(open) { exports.useDetailVideoSpace(rootRef, enabled, open); },
     cleanup() { cleanup?.(); },
   };
 }
 
-function sizeOf(f) {
-  const width = parseFloat(f.wrapper.style.width);
+// Evaluate the emitted CSS math, including the parent's inline-size limit.
+function renderedSize(parentWidth, viewportHeight, rootFontSize = 16) {
+  const expression = DETAIL_VIDEO_WIDTH
+    .replace("100%", String(parentWidth))
+    .replace(/([\d.]+)rem/g, (_, value) => String(Number(value) * rootFontSize))
+    .replace(/([\d.]+)dvh/g, (_, value) => String(Number(value) * viewportHeight / 100))
+    .replaceAll("min(", "Math.min(")
+    .replaceAll("calc(", "(");
+  const width = vm.runInNewContext(expression, { clamp: (lower, value, upper) => Math.max(lower, Math.min(value, upper)) });
   return { width, height: width * 16 / 9 };
 }
 
-function assertFit(f, width, height, top) {
-  const expected = fitDetailVideo(width, height - top - 38);
-  assert.equal(f.wrapper.style.width, `${expected.width}px`);
+function assertRule(f) {
+  assert.equal(f.wrapper.style.width, DETAIL_VIDEO_WIDTH);
   assert.equal(f.wrapper.style.aspectRatio, "9 / 16");
   assert.equal(f.wrapper.style.height, "auto");
-  assert.equal(f.wrapper.style.visibility, "");
+  assert.equal(f.wrapper.style.maxWidth, "100%");
   assert.equal(f.video.style.position, "absolute");
+  assert.equal(f.video.style.width, "100%");
   assert.equal(f.video.style.height, "100%");
-  return sizeOf(f);
+  assert.equal(f.wrapper.style.visibility, "");
 }
 
-test("fixed ideal is never reduced or replaced by live safety constraints", () => {
-  assert.ok(Object.isFrozen(DETAIL_VIDEO_BASE));
-  const initial = JSON.stringify(DETAIL_VIDEO_BASE);
-  const f = videoFixture();
-  const expected = assertFit(f, 340, 960, 450);
-  for (let frame = 0; frame < 30; frame++) f.resize({ width: 1, height: 500, top: 450 });
-  f.resize({ width: 340, height: 960, top: 450 });
-  assert.deepEqual(sizeOf(f), expected);
-  assert.equal(JSON.stringify(DETAIL_VIDEO_BASE), initial);
-  f.cleanup();
+test("restored rule matches the original player height instead of inventing a new calibration", () => {
+  const page = readFileSync("app/movies/[id]/page.tsx", "utf8");
+  const originalHeight = page.match(/VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "([^"]+)"/)[1];
+  assert.equal(DETAIL_VIDEO_HEIGHT, originalHeight);
+  assert.deepEqual(renderedSize(400, 1000), { width: 162, height: 288 });
+  assert.deepEqual(renderedSize(400, 600), { width: 126, height: 224 });
+  assert.deepEqual(renderedSize(400, 700), { width: 141.75, height: 252 });
 });
 
-test("real available space replaces the fixed 462px reserve; zoom has no additional penalty", () => {
-  // Zoom changes CSS viewport and upper layout. Only actual remaining space matters.
-  const scenarios = [
-    { width: 340, height: 960, top: 424 },
-    { width: 330, height: 900, top: 410 },
-    { width: 320, height: 850, top: 370 },
-    { width: 310, height: 800, top: 330 },
-    { width: 300, height: 760, top: 300 },
-  ];
-  const first = scenarios[0];
-  const oldZoom1Height = first.height - 462;
-  for (const scenario of scenarios) {
-    const { width, height, top } = scenario;
-    const f = videoFixture(scenario);
-    const size = assertFit(f, width, height, top);
-    const available = height - top - 38;
-    if (scenario === first) assert.equal(size.height, oldZoom1Height, "preserve approved Zoom 1 when its real fit is unchanged");
-    assert.ok(size.width <= width + 1e-9);
-    assert.ok(size.height <= available + 1e-9);
-    assert.ok(Math.abs(size.height - available) < 1e-9 || Math.abs(size.width - width) < 1e-9 || size.height === DETAIL_VIDEO_BASE.height);
-    assert.ok(size.height >= oldZoom1Height * 0.84, "small reductions only when actual bounds require them");
-    assert.equal(size.height, Math.min(DETAIL_VIDEO_BASE.height, available, width * 16 / 9));
-    f.cleanup();
-  }
-});
-
-test("40 remounts and trailer cycles reproduce the same fit for each layout", () => {
-  for (const scenario of [{ width: 340, height: 960, top: 450 }, { width: 300, height: 760, top: 300 }]) {
-    let expected;
+test("40 remounts per viewport have the same initial and settled size", () => {
+  for (const viewport of [960, 880, 800, 720, 640]) {
+    const expected = renderedSize(300, viewport);
     for (let mount = 0; mount < 40; mount++) {
-      const f = videoFixture(scenario);
-      expected ??= sizeOf(f);
-      assert.deepEqual(sizeOf(f), expected);
-      assert.deepEqual(f.observers(), [1, 1]);
-      f.trailer(true);
-      assert.deepEqual(f.observers(), [0, 0]);
-      assert.equal(f.video.style.cssText, "max-height:288px");
-      f.trailer(false);
-      assert.deepEqual(sizeOf(f), expected);
-      assert.deepEqual(f.observers(), [1, 1]);
+      const f = videoFixture();
+      assertRule(f);
+      // Even positive, tiny and apparently stable geometry cannot change size.
+      for (let frame = 0; frame < 30; frame++) {
+        f.frame({ width: 1, height: 2 });
+        assertRule(f);
+        assert.deepEqual(renderedSize(300, viewport), expected);
+      }
+      f.frame({ width: 300, height: 600 });
+      assertRule(f);
+      assert.deepEqual(renderedSize(300, viewport), expected);
       f.cleanup();
-      assert.deepEqual(f.observers(), [0, 0]);
+      assert.equal(f.observers(), 0);
     }
   }
 });
 
-test("zoom round trips restore the exact same size without a remembered minimum", () => {
+test("trailer cycles synchronously restore the same sizing rule and clean up subscriptions", () => {
   const f = videoFixture();
-  const initial = sizeOf(f);
-  for (let cycle = 0; cycle < 5; cycle++) {
-    f.resize({ width: 300, height: 760, top: 300 });
-    assertFit(f, 300, 760, 300);
-    f.resize({ width: 340, height: 960, top: 450 });
-    assert.deepEqual(sizeOf(f), initial);
+  for (let cycle = 0; cycle < 10; cycle++) {
+    assert.equal(f.observers(), 1);
+    f.trailer(true);
+    assert.equal(f.observers(), 0);
+    assert.equal(f.video.style.cssText, "max-height:288px");
+    f.wrapper.style.width = "1px";
+    f.trailer(false);
+    assertRule(f);
+  }
+  f.cleanup();
+  assert.equal(f.observers(), 0);
+});
+
+test("returning to any viewport restores the exact original size without previous-zoom state", () => {
+  const f = videoFixture();
+  const initial = renderedSize(340, 960);
+  for (const viewport of [640, 800, 720, 960, 640, 960]) {
+    f.frame({ width: 300, height: viewport });
+    assertRule(f);
+    if (viewport === 960) assert.deepEqual(renderedSize(340, viewport), initial);
   }
   f.cleanup();
 });
 
-test("zero layout stays hidden and later dimensions recover without caching an invalid base", () => {
-  const f = videoFixture({ width: 0, height: 0 });
-  assert.equal(f.wrapper.style.visibility, "hidden");
-  assert.equal(f.wrapper.style.width, undefined);
-  for (let frame = 0; frame < 30; frame++) f.resize();
-  f.resize({ width: 340, height: 960 });
-  assertFit(f, 340, 960, 450);
-  f.cleanup();
-});
-
-test("scroll and unrelated DOM updates do not resize the video", () => {
-  const f = videoFixture();
-  const initial = sizeOf(f);
-  for (const offset of [100, 350, 0, 200]) {
-    f.scroll(offset);
-    f.mutate();
-    f.resize();
-    assert.deepEqual(sizeOf(f), initial);
-  }
-  assert.equal(detailVideoAvailableHeight(960, 350, 100, 200, 38), 472);
-  f.cleanup();
-});
-
-test("maximum fit preserves aspect ratio and stays within width, height and ideal", () => {
-  for (const width of [80, 150, 240, 320, 500]) {
-    for (const height of [60, 180, 300, 450, 700]) {
-      const rect = fitDetailVideo(width, height);
-      assert.ok(rect.width <= width + 1e-9);
-      assert.ok(rect.height <= height + 1e-9);
-      assert.ok(rect.height <= DETAIL_VIDEO_BASE.height);
-      assert.equal(rect.width / rect.height, 9 / 16);
-      assert.ok(Math.abs(rect.width - width) < 1e-9 || Math.abs(rect.height - height) < 1e-9 || rect.height === DETAIL_VIDEO_BASE.height);
+test("width safety limit preserves aspect ratio and fits its container", () => {
+  for (const viewport of [640, 720, 800, 960]) {
+    for (const available of [80, 120, 200, 300, 500]) {
+      const size = renderedSize(available, viewport);
+      assert.ok(size.width <= available);
+      assert.ok(size.height <= 288);
+      assert.equal(size.width / size.height, 9 / 16);
+      if (available >= 200) assert.ok(size.height >= 224);
     }
   }
-  for (const [width, height] of [[0, 300], [300, 0], [NaN, 100], [100, Infinity], [100, -10]]) {
-    assert.equal(fitDetailVideo(width, height), null);
-  }
 });
 
-test("late video cards are fitted synchronously and desktop stays untouched", () => {
+test("late video cards use the final rule immediately; desktop is not changed", () => {
   const f = videoFixture({ hasVideo: false });
   assert.equal(f.wrapper.style.width, undefined);
   f.addVideo();
-  assertFit(f, 340, 960, 450);
+  assertRule(f);
   f.cleanup();
   const desktop = videoFixture({ enabled: false });
   assert.equal(desktop.wrapper.style.width, undefined);
-  assert.deepEqual(desktop.observers(), [0, 0]);
+  assert.equal(desktop.video.style.cssText, "max-height:288px");
+  assert.equal(desktop.observers(), 0);
 });
 
 test("normal mobile keeps existing hook scope and reaction pill placement", () => {

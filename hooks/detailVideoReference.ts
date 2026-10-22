@@ -1,17 +1,5 @@
-// The ideal is a design constant, never a measurement cached during mounting.
-export const DETAIL_VIDEO_REFERENCE = Object.freeze({ width: 320, height: 640 });
-export const DETAIL_VIDEO_BASE = Object.freeze({
-  width: DETAIL_VIDEO_REFERENCE.height * 9 / 16,
-  height: DETAIL_VIDEO_REFERENCE.height,
-});
-
-export function fitDetailVideo(availableWidth: number, availableHeight: number) {
-  if (!Number.isFinite(availableWidth) || !Number.isFinite(availableHeight) || availableWidth <= 0 || availableHeight <= 0) return null;
-  const height = Math.min(DETAIL_VIDEO_BASE.height, availableHeight, availableWidth * 16 / 9);
-  return { width: height * 9 / 16, height };
-}
-
-// Layout coordinates cancel the scroll offset; scrolling must not resize videos.
-export function detailVideoAvailableHeight(viewportHeight: number, slotTop: number, viewportTop: number, scrollTop: number, bottomPadding: number) {
-  return viewportHeight - (slotTop - viewportTop + scrollTop) - bottomPadding;
-}
+// Original player sizing rule, present before useDetailVideoSpace was added
+// (9749fc0, app/movies/[id]/page.tsx: VIDEO_COMMENT_CARD_VIDEO_HEIGHT).
+// Restore that rule rather than deriving a new size from mount-time geometry.
+export const DETAIL_VIDEO_HEIGHT = "clamp(14rem, 36dvh, 18rem)";
+export const DETAIL_VIDEO_WIDTH = `min(100%, calc(${DETAIL_VIDEO_HEIGHT} * 0.5625))`;
