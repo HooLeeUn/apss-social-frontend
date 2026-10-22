@@ -47,6 +47,8 @@ function videoFixture(enabled = true, deferMeasurement = false) {
       useRef: initial => calibration ??= { current: initial },
       useLayoutEffect: fn => { cleanup?.(); cleanup = fn(); },
     } : {
+      detailVideoDiagnosticId: () => "test",
+      logDetailVideoCalibration() {},
       measureDetailVideoReference: async () => {
         measures++;
         if (deferMeasurement) await new Promise(resolve => { finishMeasurement = resolve; });
@@ -137,7 +139,7 @@ test("reference measurement uses its own viewport and preceding layout, never li
   };
   const frame = { style: {}, setAttribute() {}, contentDocument: doc, contentWindow: { getComputedStyle: () => ({ paddingBottom: "0" }) }, remove() { removed = true; } };
   vm.runInNewContext(compile("hooks/detailVideoReference.ts"), {
-    exports, URL,
+    exports, URL, process: { env: { NODE_ENV: "test" } },
     document: {
       createElement: () => frame, documentElement: { lang: "es", className: "" },
       body: { className: "", appendChild() { css = frame.style.cssText; } },
@@ -155,7 +157,7 @@ test("reference measurement uses its own viewport and preceding layout, never li
 
 test("the largest reference rectangle is bounded by both width and height at 9:16", () => {
   const exports = {};
-  vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports });
+  vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports, process: { env: { NODE_ENV: "test" } } });
   for (const [width, height] of [[200,178], [120,300], [300,200], [100,100]]) {
     const rect = exports.fitReferenceVideo(width, height);
     assert.ok(rect.width <= width && rect.height <= height);
