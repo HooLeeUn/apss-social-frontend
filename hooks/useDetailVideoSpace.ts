@@ -1,7 +1,7 @@
 "use client";
 
 import { type RefObject, useLayoutEffect, useRef } from "react";
-import { measureDetailVideoReference } from "./detailVideoReference";
+import { isValidReferenceVideo, measureDetailVideoReference } from "./detailVideoReference";
 
 export function useDetailVideoSpace(rootRef: RefObject<HTMLDivElement | null>, enabled: boolean, suspended = false) {
   // Calibration belongs to this hook instance, not to the trailer/layout effect.
@@ -14,6 +14,7 @@ export function useDetailVideoSpace(rootRef: RefObject<HTMLDivElement | null>, e
     if (!enabled || suspended || !root) return;
     let disposed = false;
     let measuring = false;
+    let retryFrame = 0;
     let base = calibration.current.base;
     const saved = new Map<HTMLVideoElement, { video: string; wrapper: string }>();
     const apply = () => {
@@ -40,7 +41,11 @@ export function useDetailVideoSpace(rootRef: RefObject<HTMLDivElement | null>, e
       try {
         if (!calibration.current.pending) {
           calibration.current.pending = measureDetailVideoReference(root)
-            .then(next => { calibration.current.base = next; return next; })
+            .then(next => {
+              if (!isValidReferenceVideo(next)) return null;
+              calibration.current.base = next;
+              return next;
+            })
             .finally(() => { calibration.current.pending = null; });
         }
         const next = await calibration.current.pending;
@@ -49,12 +54,11 @@ export function useDetailVideoSpace(rootRef: RefObject<HTMLDivElement | null>, e
         apply();
       } catch (error) {
         console.error("Could not measure the mobile Detail video reference", error);
-        saved.forEach((styles, video) => {
-          video.style.cssText = styles.video;
-          if (video.parentElement) video.parentElement.style.cssText = styles.wrapper;
-        });
+        // A failed calibration must not reveal the uncalibrated native size.
+        apply();
       } finally {
         measuring = false;
+        if (!disposed && !base) retryFrame = window.requestAnimationFrame(() => { void measure(); });
       }
     };
     apply();
@@ -67,6 +71,7 @@ export function useDetailVideoSpace(rootRef: RefObject<HTMLDivElement | null>, e
     window.visualViewport?.addEventListener("resize", resize);
     return () => {
       disposed = true;
+      window.cancelAnimationFrame(retryFrame);
       mutation.disconnect();
       window.removeEventListener("resize", resize);
       window.visualViewport?.removeEventListener("resize", resize);

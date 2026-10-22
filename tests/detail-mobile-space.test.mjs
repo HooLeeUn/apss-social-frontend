@@ -34,12 +34,14 @@ test("country selector ignores internal native and forwarded gestures but closes
   assert.equal(closes, 2);
 });
 
-function videoFixture(enabled = true, deferMeasurement = false) {
+function videoFixture(enabled = true, deferMeasurement = false, sizes = []) {
   const wrapper = { style: { cssText: "" } };
   const video = { style: { cssText: "max-height:288px" }, parentElement: wrapper };
   const root = { querySelectorAll: () => [video], querySelector: () => video };
   let cleanup, measures = 0, mutations, resize;
   let calibration, finishMeasurement;
+  const listeners = new Set();
+  let observers = 0;
   const exports = {};
   vm.runInNewContext(compile("hooks/useDetailVideoSpace.ts"), {
     exports, console,
@@ -47,18 +49,23 @@ function videoFixture(enabled = true, deferMeasurement = false) {
       useRef: initial => calibration ??= { current: initial },
       useLayoutEffect: fn => { cleanup?.(); cleanup = fn(); },
     } : {
+      isValidReferenceVideo: size => !!size && Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0,
       measureDetailVideoReference: async () => {
         measures++;
         if (deferMeasurement) await new Promise(resolve => { finishMeasurement = resolve; });
-        return { width: 112.5, height: 200 };
+        return sizes.length ? sizes.shift() : { width: 112.5, height: 200 };
       },
     },
-    window: { addEventListener: (event, fn) => { if (event === "resize") resize = fn; }, removeEventListener() {} },
-    MutationObserver: class { constructor(fn) { mutations = fn; } observe() {} disconnect() {} },
+    window: { requestAnimationFrame: fn => setImmediate(fn), cancelAnimationFrame: clearImmediate,
+      addEventListener: (event, fn) => { if (event === "resize") resize = fn; listeners.add(fn); },
+      removeEventListener: (event, fn) => listeners.delete(fn),
+      visualViewport: { addEventListener: (event, fn) => listeners.add(fn), removeEventListener: (event, fn) => listeners.delete(fn) },
+    },
+    MutationObserver: class { constructor(fn) { mutations = fn; } observe() { observers++; } disconnect() { observers--; } },
   });
   const rootRef = { current: root };
   exports.useDetailVideoSpace(rootRef, enabled);
-  return { video, wrapper, cleanup: () => cleanup?.(), resize: () => resize?.(), mutate: () => mutations?.(), measures: () => measures,
+  return { video, wrapper, listeners: () => listeners.size, observers: () => observers, cleanup: () => cleanup?.(), resize: () => resize?.(), mutate: () => mutations?.(), measures: () => measures,
     trailer: open => exports.useDetailVideoSpace(rootRef, enabled, open), finishMeasurement: () => finishMeasurement?.() };
 }
 
@@ -128,8 +135,14 @@ test("disabled sizing does not modify trailer/desktop geometry", () => {
 test("reference measurement uses its own viewport and preceding layout, never live video bounds", async () => {
   const exports = {};
   let removed = false, cleared = false, css, referenceCss;
-  const marker = { style: {}, replaceChildren() { cleared = true; }, getBoundingClientRect: () => ({ top: 450 }), parentElement: { clientWidth: 200 } };
-  const clone = { querySelectorAll: () => [], querySelector: () => ({ parentElement: marker }) };
+  let markerTop = 627, imageDecoded = false, frameSamples = 0;
+  const marker = { style: {}, replaceChildren() { cleared = true; }, getBoundingClientRect: () => ({ top: markerTop }), parentElement: { clientWidth: 200 } };
+  const image = { removeAttribute() {}, decode: async () => {
+    await new Promise(resolve => setImmediate(resolve));
+    markerTop = 450;
+    imageDecoded = true;
+  } };
+  const clone = { querySelectorAll: selector => selector === "img" ? [image] : [], querySelector: () => ({ parentElement: marker }) };
   const doc = {
     open() {}, write() {}, close() {}, documentElement: {}, head: { appendChild(style) { referenceCss = style.textContent; } },
     createElement: () => ({ style: {} }), fonts: { ready: Promise.resolve() },
@@ -137,7 +150,12 @@ test("reference measurement uses its own viewport and preceding layout, never li
   };
   const frame = { style: {}, setAttribute() {}, contentDocument: doc, contentWindow: { getComputedStyle: () => ({ paddingBottom: "0" }) }, remove() { removed = true; } };
   vm.runInNewContext(compile("hooks/detailVideoReference.ts"), {
-    exports, URL,
+    exports, URL, requestAnimationFrame: fn => setImmediate(() => {
+      frameSamples++;
+      // An intermediate layout has zero available height even after decoding.
+      markerTop = frameSamples === 1 ? 628 : 450;
+      fn();
+    }),
     document: {
       createElement: () => frame, documentElement: { lang: "es", className: "" },
       body: { className: "", appendChild() { css = frame.style.cssText; } },
@@ -145,6 +163,9 @@ test("reference measurement uses its own viewport and preceding layout, never li
     },
   });
   const measured = await exports.measureDetailVideoReference({ closest: () => ({ cloneNode: () => clone }), getBoundingClientRect() { throw new Error("Live geometry must not be measured"); } });
+  assert.ok(imageDecoded);
+  assert.ok(frameSamples >= 3, "wait for valid matching geometry across frames");
+  assert.equal(image.loading, "eager");
   assert.equal(measured.width, 178 * 9 / 16);
   assert.equal(measured.height, 178);
   assert.match(css, /width:320px;height:640px/);
@@ -161,4 +182,45 @@ test("the largest reference rectangle is bounded by both width and height at 9:1
     assert.ok(rect.width <= width && rect.height <= height);
     assert.equal(rect.width / rect.height, 9 / 16);
   }
+});
+
+
+test("invalid initial calibration stays hidden and retries without an external resize", async () => {
+  for (const invalid of [null, { width: 0, height: 0 }, { width: NaN, height: 1 }, { width: 1, height: Infinity }]) {
+    const f = videoFixture(true, false, [invalid]);
+    await Promise.resolve();
+    assert.equal(f.wrapper.style.visibility, "hidden");
+    for (let tick = 0; tick < 8; tick++) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.wrapper.style.width, "112.5px");
+    assert.equal(f.wrapper.style.height, "200px");
+    assert.equal(f.measures(), 2);
+    f.cleanup();
+  }
+});
+
+test("fresh mounts reuse the same reference result regardless of entry order", async () => {
+  for (let mount = 0; mount < 8; mount++) {
+    const f = videoFixture();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.wrapper.style.width, "112.5px");
+    assert.equal(f.wrapper.style.height, "200px");
+    f.cleanup();
+  }
+});
+
+
+test("trailer cycles leave only one sizing subscription and clean up all observers", async () => {
+  const f = videoFixture();
+  await new Promise(resolve => setImmediate(resolve));
+  for (let cycle = 0; cycle < 5; cycle++) {
+    assert.equal(f.listeners(), 1);
+    assert.equal(f.observers(), 1);
+    f.trailer(true);
+    assert.equal(f.listeners(), 0);
+    assert.equal(f.observers(), 0);
+    f.trailer(false);
+  }
+  f.cleanup();
+  assert.equal(f.listeners(), 0);
+  assert.equal(f.observers(), 0);
 });
