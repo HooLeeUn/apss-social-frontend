@@ -6,6 +6,10 @@ export function fitReferenceVideo(width: number, height: number) {
   return { width: videoWidth, height: videoWidth * 16 / 9 };
 }
 
+export function isValidReferenceVideo(size: { width: number; height: number } | null) {
+  return !!size && Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0;
+}
+
 export async function measureDetailVideoReference(root: HTMLElement) {
   const source = root.closest<HTMLElement>("[data-mobile-detail-layout]");
   if (!source) return null;
@@ -51,9 +55,12 @@ export async function measureDetailVideoReference(root: HTMLElement) {
     doc.body.className = document.body.className;
     const clone = source.cloneNode(true) as HTMLElement;
     clone.querySelectorAll("script,iframe,[role=dialog]").forEach(node => node.remove());
+    const imagesReady: Promise<void>[] = [];
     clone.querySelectorAll("img").forEach(img => {
       img.removeAttribute("srcset");
+      img.loading = "eager";
       img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+      imagesReady.push(img.decode().catch(() => {}));
     });
     const first = clone.querySelector<HTMLVideoElement>("[data-video-comment-player]");
     const marker = first?.parentElement;
@@ -64,16 +71,29 @@ export async function measureDetailVideoReference(root: HTMLElement) {
     clone.querySelectorAll("video,audio,source").forEach(node => node.remove());
     doc.body.appendChild(clone);
     await Promise.all(stylesReady);
+    await Promise.all(imagesReady);
     marker.getBoundingClientRect(); // Start font loading for the laid-out clone.
     await doc.fonts.ready;
     const safe = doc.createElement("div");
     safe.style.paddingBottom = "env(safe-area-inset-bottom)";
     doc.body.appendChild(safe);
     const safeBottom = parseFloat(frame.contentWindow!.getComputedStyle(safe).paddingBottom) || 0;
-    const availableWidth = marker.parentElement!.clientWidth;
-    const availableHeight = DETAIL_VIDEO_REFERENCE.height - marker.getBoundingClientRect().top - safeBottom - 12;
-    if (availableWidth <= 0 || availableHeight <= 0) throw new Error("Reference viewport leaves no space for a reaction video");
-    return fitReferenceVideo(availableWidth, availableHeight);
+    const read = () => ({
+      width: marker.parentElement!.clientWidth,
+      height: DETAIL_VIDEO_REFERENCE.height - marker.getBoundingClientRect().top - safeBottom - 12,
+    });
+    let previous = read();
+    // A positive but transient rectangle must not become the lifetime calibration.
+    // Sample the isolated reference only; live zoom/trailer geometry is irrelevant.
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      const next = read();
+      if (isValidReferenceVideo(next) && next.width === previous.width && next.height === previous.height) {
+        return fitReferenceVideo(next.width, next.height);
+      }
+      previous = next;
+    }
+    return null;
   } finally {
     frame.remove();
   }
