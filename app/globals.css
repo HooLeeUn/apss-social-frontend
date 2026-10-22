@@ -183,6 +183,123 @@ textarea,
 }
 
 @media (max-width: 1279px) {
+  .visited-profile-tablet-framing .favorite-movies-block,
+  .visited-profile-tablet-framing .favorite-movie-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .visited-profile-tablet-framing [data-visited-social-actions] {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .visited-profile-tablet-framing [data-visited-social-actions]::-webkit-scrollbar {
+    display: none;
+  }
+
+  .visited-profile-tablet-framing [data-visited-social-actions] > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] {
+    gap: 0.5rem;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-profile-identity-avatar] {
+    top: 0;
+    margin-left: auto;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-profile-identity-header] {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-profile-identity-logo] {
+    min-width: min(7rem, 100%);
+    flex-basis: 7rem;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-profile-identity-text] {
+    padding-right: 0;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-profile-identity-chips] {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-profile-chip],
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-visited-wrapped-followers] {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-visited-wrapped-followers] {
+    display: inline-block;
+  }
+
+  .visited-profile-tablet-framing [data-visited-identity-compact="true"] [data-profile-identity-followers] {
+    display: none;
+  }
+
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] > *,
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] > :last-child > div {
+    min-width: 0;
+    height: auto;
+    margin-left: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] > :last-child > div {
+    display: flex;
+    height: 100%;
+  }
+
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] > :not(:last-child),
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] > :last-child > div {
+    padding-inline: 0.25rem;
+  }
+
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] > div:nth-child(2) > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .visited-profile-tablet-framing .favorite-movie-card:has([data-visited-ratings-stacked="true"]) > article > .relative {
+    padding-right: 0;
+  }
+
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] [data-favorite-following-value] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .visited-profile-tablet-framing [data-visited-ratings-stacked="true"] > div:nth-child(2) {
+    text-align: center;
+  }
+}
+
+@media (max-width: 1279px) {
   [data-normal-mobile-detail="true"] [data-detail-movie-content] {
     padding-top: 0.25rem;
   }

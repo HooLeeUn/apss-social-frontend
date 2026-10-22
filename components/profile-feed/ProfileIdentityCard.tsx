@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useRef } from "react";
+import { useVisitedProfileFit } from "../../hooks/useVisitedProfileFit";
+import VisitedProfileText from "./VisitedProfileText";
 import AppLogo from "../AppLogo";
 import { AppBranding, BrandingLogoSlot } from "../../lib/branding";
 
@@ -79,6 +84,8 @@ export default function ProfileIdentityCard({
   const stableMobileHeightClass = stabilizeMobileHeight ? "min-h-[264px] xl:min-h-[220px]" : "";
   const isProfileFeedLogo = logoSlot === "profile_feed_logo_url";
   const isVisitedProfileLogo = logoSlot === "visited_profile_logo_url";
+  const cardRef = useRef<HTMLDivElement>(null);
+  useVisitedProfileFit(cardRef, isVisitedProfileLogo && !isLoading, "identity", `${username}:${genderIdentity}:${age}:${followersCopy}`);
   const usesFullWidthLogo = isProfileFeedLogo || isVisitedProfileLogo;
   const logoLinkClassName = isProfileFeedLogo
     ? "h-[68px] overflow-visible xl:mr-[88px] xl:flex-1"
@@ -111,7 +118,7 @@ export default function ProfileIdentityCard({
   }
 
   return (
-    <div data-profile-identity className={cardClassName}>
+    <div ref={cardRef} data-profile-identity className={cardClassName}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_55%)] opacity-75" />
 
       <div data-profile-identity-header className="relative flex min-w-0 items-start justify-between gap-4">
@@ -153,14 +160,14 @@ export default function ProfileIdentityCard({
           className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-2xl font-semibold text-zinc-100"
           title={`@${username}`}
         >
-          @{username}
+          {isVisitedProfileLogo ? <VisitedProfileText text={`@${username}`} /> : `@${username}`}
         </p>
         {fullName ? (
           <p
             className="truncate overflow-hidden text-ellipsis whitespace-nowrap text-base font-medium text-zinc-300"
             title={fullName}
           >
-            {fullName}
+            {isVisitedProfileLogo ? <VisitedProfileText text={fullName} /> : fullName}
           </p>
         ) : null}
       </div>
@@ -187,6 +194,7 @@ export default function ProfileIdentityCard({
               {followersCopy}
             </span>
           ) : null}
+          {isVisitedProfileLogo && canShowFollowers && canShowAge ? <span data-visited-wrapped-followers className="hidden rounded-full border border-white/15 bg-zinc-950/70 px-3 py-1 text-xs text-zinc-300">{followersCopy}</span> : null}
         </div>
       ) : null}
 

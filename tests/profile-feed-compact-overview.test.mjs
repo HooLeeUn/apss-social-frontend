@@ -18,6 +18,8 @@ new Function('require', 'module', 'exports', compiled)(name => {
   if (name === 'next/link') return { default: props => createElement('a', props) };
   if (name === '../AppLogo') return { default: props => createElement('span', { className: props.className }, props.alt) };
   if (name === '../../lib/branding') return {};
+  if (name === '../../hooks/useVisitedProfileFit') return { useVisitedProfileFit() {} };
+  if (name === './VisitedProfileText') return { default: props => createElement('span', null, props.text) };
   return require(name);
 }, identityModule, identityModule.exports);
 const render = props => renderToStaticMarkup(createElement(identityModule.exports.default, {
