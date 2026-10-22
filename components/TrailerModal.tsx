@@ -211,8 +211,13 @@ export default function TrailerModal({ open, trailerUrl, watchUrl, loading, erro
         className="trailer-modal-card relative w-full max-w-3xl overflow-hidden rounded-2xl border border-[#86ADE0]/35 bg-gradient-to-b from-zinc-950 to-black shadow-[0_24px_80px_rgba(47,155,255,0.22)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5">
+        <div className="trailer-modal-header flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5">
           <h2 id="trailer-modal-title" className="text-base font-semibold text-[#c7dcf6] sm:text-lg">{t(currentLanguage, "trailerTitle")}</h2>
+          {watchUrl && !isYouTubeFallback ? (
+            <a href={watchUrl} target="_blank" rel="noopener noreferrer" onClick={onClose} className="trailer-youtube-header-link hidden items-center justify-center rounded-lg border border-[#86ADE0]/40 bg-[#1f4f7a]/70 font-semibold text-white transition hover:bg-[#2f73ad]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86ADE0]">
+              {t(currentLanguage, "trailerWatchOnYoutube")}
+            </a>
+          ) : null}
           <button
             type="button"
             onClick={onClose}
