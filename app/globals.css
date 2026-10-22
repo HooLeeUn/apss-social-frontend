@@ -434,6 +434,82 @@ textarea,
   }
 }
 
+/* Normal mobile reactions: give the existing black slot real block space.
+   The upper content remains auto-sized; no guessed viewport reservation is used.
+   Keep the existing detail scroller (overflow from later cards stays in flow). */
+@media (max-width: 1279px) {
+  body:not(.detail-trailer-active) [data-normal-mobile-detail="true"] > [data-detail-movie-content]:has([data-mobile-video-reaction][data-active="true"][data-recording-overlay="false"]) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    row-gap: 1.5rem;
+
+    > [data-mobile-detail-sticky] {
+      grid-row: 1;
+      margin-block: 0;
+    }
+
+    > [data-video-reaction-section] {
+      grid-row: 2;
+      min-height: 0;
+      margin-block: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    [data-mobile-video-reaction][data-recording-overlay="false"],
+    [data-mobile-video-reaction-scroll-container="true"] {
+      min-height: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    [data-mobile-video-reaction-scroll-container="true"] > :first-child {
+      flex: none;
+    }
+
+    [data-history-carousel-viewport] {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    [data-desktop-video-reaction-history] {
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    [data-video-comment-card] {
+      flex: 0 0 100%;
+      min-height: 0;
+      margin-block: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      row-gap: 0.375rem;
+    }
+
+    [data-video-comment-card] > div {
+      margin-block: 0;
+    }
+
+    /* This is the existing black div immediately outside the player wrapper.
+       Size containment is safe here because grid supplies both dimensions. */
+    [data-video-comment-card] > :has(> div > [data-video-comment-player]) {
+      min-width: 0;
+      min-height: 0;
+      margin-block: 0;
+      display: grid;
+      place-items: center;
+      container-type: size;
+      --detail-video-fit-width: min(100cqw, calc(100cqh * 0.5625));
+    }
+  }
+}
+
 .activity-scrollbar::-webkit-scrollbar {
   width: 0.375rem;
 }

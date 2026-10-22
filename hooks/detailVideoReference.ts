@@ -1,5 +1,4 @@
-// 42536bb's mobile hook overrode the player's historical 18rem max-height.
-// Keep the full container-width sizing it allowed, without bringing back its
-// measured height calibration. Existing container padding retains side margins;
-// useDetailVideoSpace supplies the centered 9:16 box and the 100% width guard.
-export const DETAIL_VIDEO_WIDTH = "100%";
+// Normal mobile CSS gives the existing black slot definite width and height.
+// Its container-query units select the largest 9:16 box that fits both axes.
+// Outside that scoped layout, retain the existing width rule (e.g. recorder).
+export const DETAIL_VIDEO_WIDTH = "var(--detail-video-fit-width, 100%)";
