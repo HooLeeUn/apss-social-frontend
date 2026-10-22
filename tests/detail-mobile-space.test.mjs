@@ -34,23 +34,71 @@ test("country selector ignores internal native and forwarded gestures but closes
   assert.equal(closes, 2);
 });
 
-function videoFixture(enabled = true) {
+function videoFixture(enabled = true, deferMeasurement = false) {
   const wrapper = { style: { cssText: "" } };
   const video = { style: { cssText: "max-height:288px" }, parentElement: wrapper };
   const root = { querySelectorAll: () => [video], querySelector: () => video };
   let cleanup, measures = 0, mutations, resize;
+  let calibration, finishMeasurement;
   const exports = {};
   vm.runInNewContext(compile("hooks/useDetailVideoSpace.ts"), {
     exports, console,
-    require: name => name === "react" ? { useLayoutEffect: fn => { cleanup = fn(); } } : {
-      measureDetailVideoReference: async () => { measures++; return { width: 112.5, height: 200 }; },
+    require: name => name === "react" ? {
+      useRef: initial => calibration ??= { current: initial },
+      useLayoutEffect: fn => { cleanup?.(); cleanup = fn(); },
+    } : {
+      measureDetailVideoReference: async () => {
+        measures++;
+        if (deferMeasurement) await new Promise(resolve => { finishMeasurement = resolve; });
+        return { width: 112.5, height: 200 };
+      },
     },
     window: { addEventListener: (event, fn) => { if (event === "resize") resize = fn; }, removeEventListener() {} },
     MutationObserver: class { constructor(fn) { mutations = fn; } observe() {} disconnect() {} },
   });
-  exports.useDetailVideoSpace({ current: root }, enabled);
-  return { video, wrapper, cleanup, resize: () => resize?.(), mutate: () => mutations?.(), measures: () => measures };
+  const rootRef = { current: root };
+  exports.useDetailVideoSpace(rootRef, enabled);
+  return { video, wrapper, cleanup: () => cleanup?.(), resize: () => resize?.(), mutate: () => mutations?.(), measures: () => measures,
+    trailer: open => exports.useDetailVideoSpace(rootRef, enabled, open), finishMeasurement: () => finishMeasurement?.() };
 }
+
+test("repeated trailer cycles restore the original rectangle synchronously without recalibration in zoom 1 and 5", async () => {
+  for (const zoom of [1, 5]) {
+    const f = videoFixture();
+    await new Promise(resolve => setImmediate(resolve));
+    for (let cycle = 0; cycle < 5; cycle++) {
+      f.trailer(true);
+      f.wrapper.style.width = "10px";
+      f.wrapper.style.height = "18px";
+      f.trailer(false);
+      assert.equal(f.wrapper.style.width, "112.5px", `zoom ${zoom}, cycle ${cycle}`);
+      assert.equal(f.wrapper.style.height, "200px");
+      assert.equal(f.wrapper.style.visibility, "");
+      f.resize();
+      assert.equal(f.measures(), 1);
+    }
+    f.cleanup();
+  }
+});
+
+test("opening and closing the trailer during initial calibration reuses the in-flight measurement", async () => {
+  const f = videoFixture(true, true);
+  f.trailer(true);
+  f.trailer(false);
+  assert.equal(f.measures(), 1);
+  f.finishMeasurement();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.wrapper.style.width, "112.5px");
+  assert.equal(f.wrapper.style.height, "200px");
+  f.cleanup();
+});
+
+test("normal mobile removes only the shared visual reaction pill", () => {
+  const page = readFileSync("app/movies/[id]/page.tsx", "utf8");
+  assert.match(page, /useDetailVideoSpace\(videoGateAnchorRef, mobileViewport && active, trailerCompanionOpen\)/);
+  assert.match(page, /className=\{!trailerCompanionOpen && mobileViewport \? "absolute right-2 top-2 z-20" : "pointer-events-none absolute left-2 top-2/);
+  assert.match(page, /rounded-full font-semibold leading-none transition/);
+});
 
 test("all three zoom sequences retain the same calibrated rectangle, including fresh entry in 1 and 5", async () => {
   for (const sequence of [[5,4,3,2,1], [1,2,3,4,5], [1,4,2,5,3,1]]) {
