@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import ActionsFloatingPanel from "./profile-feed/ActionsFloatingPanel";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "../lib/api";
@@ -74,6 +75,7 @@ interface StreamingProvider {
 
 interface StreamingProvidersProps {
   movieId: Movie["id"];
+  adaptiveMobile?: boolean;
 }
 
 interface TooltipPosition {
@@ -607,8 +609,15 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
   );
 }
 
-function AvailabilityCountryWarning({ country, locale }: { country: Country; locale: Locale }) {
+function AvailabilityCountryWarning({ country, locale, mobilePopover = false }: { country: Country; locale: Locale; mobilePopover?: boolean }) {
   const tooltip = getCountryAvailabilityWarning(country, locale);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  if (mobilePopover) return <>
+    <button ref={anchorRef} type="button" aria-label={tooltip} aria-expanded={open} className="inline-flex h-6 w-6 items-center justify-center text-sm font-bold text-[#86ADE0]/80" onClick={() => setOpen(value => !value)}>*</button>
+    {open ? <ActionsFloatingPanel anchorRef={anchorRef} onClose={close} label={tooltip}><p className="max-w-[17rem]">{tooltip}</p></ActionsFloatingPanel> : null}
+  </>;
 
   return (
     <TooltipTarget text={tooltip}>
@@ -623,28 +632,67 @@ function AvailabilityCountryWarning({ country, locale }: { country: Country; loc
   );
 }
 
+function fittingProviderCount(width: number, logo: number, gap: number, moreWidths: number[]): number {
+  const total = moreWidths.length - 1;
+  for (let visible = total; visible >= 0; visible--) {
+    const hidden = total - visible;
+    const slots = visible + (hidden > 0 ? 1 : 0);
+    if (visible * logo + Math.max(0, slots - 1) * gap + (hidden > 0 ? moreWidths[hidden] : 0) <= width) return visible;
+  }
+  return 0;
+}
+
 function ProviderRow({
   providers,
   label,
   locale,
   mobileMaxVisibleProviders = MAX_INLINE_PROVIDERS,
+  adaptiveMobile = false,
 }: {
   providers: StreamingProvider[];
   label: string;
   locale: Locale;
   mobileMaxVisibleProviders?: number;
+  adaptiveMobile?: boolean;
 }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const logoMeasureRef = useRef<HTMLSpanElement>(null);
+  const moreMeasureRef = useRef<HTMLSpanElement>(null);
+  const [measuredCount, setMeasuredCount] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!adaptiveMobile) return;
+    const row = rowRef.current;
+    const logo = logoMeasureRef.current;
+    const more = moreMeasureRef.current;
+    if (!row || !logo || !more) return;
+    const measure = () => {
+      const widths = Array.from({ length: providers.length + 1 }, (_, hidden) => {
+        more.textContent = `+${hidden}`;
+        return more.getBoundingClientRect().width;
+      });
+      setMeasuredCount(fittingProviderCount(row.clientWidth, logo.getBoundingClientRect().width, parseFloat(getComputedStyle(row).columnGap) || 0, widths));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    document.fonts.addEventListener("loadingdone", measure);
+    return () => { observer.disconnect(); document.fonts.removeEventListener("loadingdone", measure); };
+  }, [adaptiveMobile, providers.length]);
   if (providers.length === 0) return null;
 
-  const normalizedMobileMaxVisibleProviders = Math.max(1, mobileMaxVisibleProviders);
+  const normalizedMobileMaxVisibleProviders = adaptiveMobile ? measuredCount ?? 0 : Math.max(1, mobileMaxVisibleProviders);
   const mobileVisibleProviders = providers.slice(0, normalizedMobileMaxVisibleProviders);
   const mobileHiddenProviders = providers.slice(normalizedMobileMaxVisibleProviders);
   const desktopVisibleProviders = providers.slice(0, MAX_INLINE_PROVIDERS);
   const desktopHiddenProviders = providers.slice(MAX_INLINE_PROVIDERS);
 
   return (
-    <div className="space-y-1.5 overflow-visible">
-      <div className="flex flex-nowrap items-center justify-center gap-2 overflow-visible xl:hidden">
+    <div className="relative min-w-0 space-y-1.5 overflow-visible">
+      {adaptiveMobile ? <div aria-hidden="true" className="pointer-events-none invisible absolute flex w-max items-center gap-2">
+        <span ref={logoMeasureRef} className="block h-9 w-9 shrink-0" />
+        <span ref={moreMeasureRef} className="inline-block rounded-full border px-2 py-0 text-xs font-bold leading-[1.18]">+{providers.length}</span>
+      </div> : null}
+      <div ref={rowRef} style={adaptiveMobile && measuredCount === null ? { visibility: "hidden" } : undefined} className="flex min-h-9 min-w-0 flex-nowrap items-center justify-center gap-2 overflow-visible xl:hidden">
         {mobileVisibleProviders.map((provider) => (
           <ProviderLogo key={provider.id} provider={provider} locale={locale} />
         ))}
@@ -665,7 +713,7 @@ function buildWatchProvidersEndpoint(movieId: Movie["id"], country: Country): st
   return `/movies/${encodeURIComponent(String(movieId))}/watch-providers/?country=${encodeURIComponent(country)}`;
 }
 
-export default function StreamingProviders({ movieId }: StreamingProvidersProps) {
+export default function StreamingProviders({ movieId, adaptiveMobile = false }: StreamingProvidersProps) {
   const [country, setCountry] = useState<Country>("CO");
   const [locale, setLocale] = useState<Locale>("es");
   const [providers, setProviders] = useState<StreamingProvider[]>([]);
@@ -718,15 +766,16 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
     [providers],
   );
   const hasProviders = subscriptionProviders.length > 0 || rentBuyProviders.length > 0;
+  const retainProvidersWhileLoading = adaptiveMobile && hasProviders;
 
   return (
-    <aside className="relative z-30 min-w-0 overflow-visible xl:min-w-[150px] xl:max-w-[220px]">
+    <aside aria-busy={loading} className="relative z-30 min-w-0 overflow-visible xl:min-w-[150px] xl:max-w-[220px]">
       <div className="mb-2 inline-flex items-center gap-1.5 align-middle">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">{labels.title}</p>
-        <AvailabilityCountryWarning country={country} locale={locale} />
+        <AvailabilityCountryWarning country={country} locale={locale} mobilePopover={adaptiveMobile} />
       </div>
 
-      {loading ? (
+      {loading && !retainProvidersWhileLoading ? (
         <div className="space-y-2" aria-label={labels.loading}>
           <div className="h-3 w-20 animate-pulse rounded-full bg-white/10" />
           <div className="flex items-center justify-center gap-2">
@@ -739,10 +788,10 @@ export default function StreamingProviders({ movieId }: StreamingProvidersProps)
       {!loading && hasLoadError ? <p className="text-xs leading-snug text-zinc-500">{labels.loadError}</p> : null}
       {!loading && !hasLoadError && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
 
-      {!loading && !hasLoadError && hasProviders ? (
+      {(!loading || retainProvidersWhileLoading) && !hasLoadError && hasProviders ? (
         <div className="space-y-2 xl:space-y-3">
-          <ProviderRow providers={subscriptionProviders} label={labels.subscription} locale={locale} />
-          <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} mobileMaxVisibleProviders={3} />
+          <ProviderRow providers={subscriptionProviders} label={labels.subscription} locale={locale} adaptiveMobile={adaptiveMobile} />
+          <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} mobileMaxVisibleProviders={3} adaptiveMobile={adaptiveMobile} />
         </div>
       ) : null}
     </aside>
