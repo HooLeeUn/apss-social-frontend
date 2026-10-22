@@ -7,22 +7,27 @@ import ts from "typescript";
 const card = readFileSync("components/MovieCard.tsx", "utf8");
 const page = readFileSync("app/movies/[id]/page.tsx", "utf8");
 
-function measureCredits(width, names = [100, 70], options = {}) {
+function measureCredits(width, names = [100, 70], options = {}, availableHeight) {
   const parsed = ts.createSourceFile("card.tsx", card, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const fn = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "CastLine");
   const code = ts.transpileModule(fn.getText(parsed), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const bounds = width => ({ getBoundingClientRect: () => ({ width }) });
-  const row = bounds(width);
-  const measured = { querySelector: key => bounds(key.includes("label") ? 40 : 30), querySelectorAll: () => names.map(bounds) };
+  const area = { clientHeight: availableHeight, children: [1, 2], querySelector: () => null };
+  const row = { ...bounds(width), closest: () => availableHeight === undefined ? null : area };
+  const items = names.map(value => ({ ...bounds(value), style: {} }));
+  const more = { ...bounds(30), style: {} };
+  const measured = { style: {}, querySelector: key => key.includes("label") ? bounds(40) : more, querySelectorAll: () => items,
+    getBoundingClientRect: () => ({ height: Math.ceil((40 + names.reduce((sum, value, index) => sum + (items[index].style.display === "none" ? 0 : value), 0) + (more.style.display === "none" ? 0 : 48)) / width) * 17 }) };
   const refs = [row, measured, null, null];
   let refIndex = 0, chosen;
   const context = vm.createContext({
-    exports: {},
+    exports: {}, document: { fonts: { addEventListener() {}, removeEventListener() {} } },
     require: () => ({ jsx: () => null, jsxs: () => null }),
     useI18n: () => ({ locale: "es" }),
     useRef: () => ({ current: refs[refIndex++] }),
     useState: initial => [initial, value => { chosen = value; }],
     useEffect() {}, useLayoutEffect: fn => fn(),
+    getComputedStyle: () => ({ lineHeight: "17" }),
     DESKTOP_CAST_MAX_ROWS: 3,
     window: { addEventListener() {}, removeEventListener() {} },
     ResizeObserver: class { observe() {} disconnect() {} },
@@ -39,6 +44,14 @@ test("narrow credit rows group long names into +n rather than overflowing", () =
   assert.equal(measureCredits(300), 2);
   assert.equal(measureCredits(90, [100], { singleLine: true, maxVisibleCount: 1 }), 0);
   assert.equal(measureCredits(300, [100, 70], { singleLine: true, maxVisibleCount: 1 }), 1);
+});
+
+test("credits use multiple measured rows before hiding people, and +n matches the remainder", () => {
+  const names = [100, 70, 60, 70, 100];
+  assert.equal(measureCredits(150, names, {}, 136), 5);
+  assert.equal(measureCredits(150, names, {}, 34), 2);
+  assert.equal(names.length - measureCredits(90, names, {}, 68), 2);
+  assert.equal(measureCredits(90, [100], { singleLine: true, maxVisibleCount: 1 }, 100), 1);
 });
 
 test("normal mobile scopes compact spacing and stable bottom controls", () => {

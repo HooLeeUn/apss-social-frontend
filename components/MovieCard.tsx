@@ -355,7 +355,7 @@ function PersonFloatingCard({ person, cacheEntry, position, locale, onMouseEnter
   );
 }
 
-function PersonName({ person, cache, onEnsureDetail, className = "" }: { person: MoviePersonCredit; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; className?: string }) {
+function PersonName({ person, cache, onEnsureDetail, className = "", wrapName = false }: { person: MoviePersonCredit; cache: PersonDetailCache; onEnsureDetail: (person: MoviePersonCredit) => void; className?: string; wrapName?: boolean }) {
   const { locale } = useI18n();
   const targetRef = useRef<HTMLSpanElement | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
@@ -484,6 +484,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
     <span
       ref={targetRef}
       className={`inline-flex min-w-0 ${className}`}
+      style={wrapName ? { display: "inline" } : undefined}
       onMouseEnter={scheduleShow}
       onMouseLeave={scheduleHide}
       onFocus={scheduleShow}
@@ -496,7 +497,7 @@ function PersonName({ person, cache, onEnsureDetail, className = "" }: { person:
       }}
       tabIndex={0}
     >
-      <span className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
+      <span style={wrapName ? { whiteSpace: "normal", overflow: "visible" } : undefined} className="cursor-pointer truncate decoration-[#86ADE0]/50 underline-offset-4 transition hover:text-blue-100 hover:underline focus-visible:text-blue-100">{person.name}</span>
       {position ? <PersonFloatingCard person={person} cacheEntry={cache[cacheKey]} position={position} locale={locale} onMouseEnter={handleCardMouseEnter} onMouseLeave={handleCardMouseLeave} /> : null}
     </span>
   );
@@ -638,6 +639,29 @@ function CastLine({
       const items = Array.from(measureRef.current.querySelectorAll<HTMLElement>("[data-cast-measure]"));
       const more = measureRef.current.querySelector<HTMLElement>("[data-cast-more-measure]");
       if (!items.length || !more) return;
+      if (adaptiveMobile) {
+        const area = rowRef.current.closest<HTMLElement>("[data-mobile-credits-area]");
+        if (area) {
+          const director = area.querySelector<HTMLElement>("[data-mobile-credit-director]");
+          const lineHeight = parseFloat(getComputedStyle(rowRef.current).lineHeight) || 17;
+          const areaHeight = area.clientHeight;
+          const height = singleLine
+            ? Math.max(lineHeight * 2, areaHeight * (area.children.length > 1 ? 0.4 : 1))
+            : areaHeight - (director ? director.getBoundingClientRect().height + 4 : 0);
+          measureRef.current.style.width = `${availableWidth}px`;
+          measureRef.current.style.whiteSpace = "normal";
+          for (let count = people.length; count >= 0; count--) {
+            items.forEach((item, index) => { item.style.display = index < count ? "inline" : "none"; });
+            more.style.display = count < people.length ? "inline-block" : "none";
+            more.textContent = `+${people.length - count}`;
+            if (measureRef.current.getBoundingClientRect().height <= height || count === 0) {
+              setVisibleCount(count);
+              break;
+            }
+          }
+          return;
+        }
+      }
       const labelWidth = measureRef.current.querySelector<HTMLElement>("[data-cast-label-measure]")?.getBoundingClientRect().width ?? 0;
       const moreWidth = more.getBoundingClientRect().width + (adaptiveMobile ? 24 : 0);
       const maxWidthAcrossRows = availableWidth * (adaptiveMobile || singleLine ? 1 : maxRows);
@@ -662,9 +686,17 @@ function CastLine({
     updateVisibleCount();
     const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateVisibleCount) : null;
     if (rowRef.current && resizeObserver) resizeObserver.observe(rowRef.current);
+    const area = adaptiveMobile ? rowRef.current?.closest<HTMLElement>("[data-mobile-credits-area]") : null;
+    if (area && resizeObserver) {
+      resizeObserver.observe(area);
+      const director = area.querySelector<HTMLElement>("[data-mobile-credit-director]");
+      if (director) resizeObserver.observe(director);
+    }
+    document.fonts?.addEventListener("loadingdone", updateVisibleCount);
     window.addEventListener("resize", updateVisibleCount);
     return () => {
       resizeObserver?.disconnect();
+      document.fonts?.removeEventListener("loadingdone", updateVisibleCount);
       window.removeEventListener("resize", updateVisibleCount);
     };
   }, [adaptiveMobile, fixedVisibleCount, label, maxRows, maxVisibleCount, people, singleLine]);
@@ -692,12 +724,12 @@ function CastLine({
   };
 
   return (
-    <div ref={rowRef} className={`relative min-w-0 text-sm leading-[1.18] ${adaptiveMobile ? "whitespace-normal [overflow-wrap:anywhere]" : `${singleLine ? "max-h-[1.25rem] whitespace-nowrap" : "overflow-hidden"} ${singleLine ? "" : fixedVisibleCount !== undefined ? "max-h-none" : maxRows > DESKTOP_CAST_MAX_ROWS ? "max-h-[6.25rem]" : "max-h-[4.95rem]"}`} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
+    <div ref={rowRef} data-mobile-credit-director={adaptiveMobile && singleLine ? "true" : undefined} className={`relative min-w-0 text-sm leading-[1.18] ${adaptiveMobile ? "whitespace-normal [overflow-wrap:anywhere]" : singleLine ? "max-h-[1.25rem] whitespace-nowrap" : fixedVisibleCount !== undefined ? "overflow-hidden max-h-none" : maxRows > DESKTOP_CAST_MAX_ROWS ? "overflow-hidden max-h-[6.25rem]" : "overflow-hidden max-h-[4.95rem]"} ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>
       <span className={`font-semibold ${isFeed ? "text-zinc-100" : "text-gray-900"}`}>{label}:</span>{" "}
       {visiblePeople.map((person, index) => (
-        <span key={`${getPersonCacheKey(person)}-${index}`} className="inline-flex min-w-0 align-baseline">
+        <span key={`${getPersonCacheKey(person)}-${index}`} className={adaptiveMobile ? "inline align-baseline text-zinc-400" : "inline-flex min-w-0 align-baseline"}>
           {index > 0 ? <span className="mx-1.5 text-zinc-600">·</span> : null}
-          <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} />
+          <PersonName person={person} cache={cache} onEnsureDetail={onEnsureDetail} wrapName={adaptiveMobile} />
         </span>
       ))}
       {hasOverflow ? (
@@ -726,14 +758,14 @@ function CastLine({
           ) : null}
         </>
       ) : null}
-      <div ref={measureRef} className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap text-sm leading-[1.18] opacity-0" aria-hidden="true">
+      <div ref={measureRef} className={`pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap text-sm leading-[1.18] opacity-0 ${adaptiveMobile ? "[overflow-wrap:anywhere]" : ""}`} aria-hidden="true">
         <span data-cast-label-measure className="font-semibold">{label}: </span>
         {people.map((person, index) => (
           <span key={`${person.name}-${index}`} data-cast-measure>
-            {index > 0 ? " · " : ""}{person.name}
+            {index > 0 ? adaptiveMobile ? <span className="mx-1.5">·</span> : " · " : ""}{person.name}
           </span>
         ))}
-        <span data-cast-more-measure> · +99</span>
+        <span data-cast-more-measure className={adaptiveMobile ? "ml-4 inline-block rounded-full border px-2 text-xs font-bold leading-[1.18]" : undefined}> · +99</span>
       </div>
     </div>
   );
@@ -1634,7 +1666,7 @@ function MovieCard({
             </section>
             <section className="h-full min-w-full snap-start overflow-visible px-3 py-3 pr-6 sm:px-3.5" aria-label={`${t("movieDetailDirector")} / ${t("movieDetailCast")}`}>
               <div className={compactMobileDetail ? "flex h-full min-w-0 flex-col gap-1" : "min-w-0 space-y-1 overflow-visible"}>
-                <div className={compactMobileDetail ? "min-h-0 min-w-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden" : "contents"}>
+                <div data-mobile-credits-area={compactMobileDetail ? "true" : undefined} className={compactMobileDetail ? "min-h-0 min-w-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden" : "contents"}>
                 {hasDirector ? (
                   <CastLine label={t("movieDetailDirector")} people={directorPeople} cache={personDetailCache} onEnsureDetail={ensurePersonDetail} isFeed={isFeed} maxRows={1} maxVisibleCount={1} singleLine adaptiveMobile={compactMobileDetail} />
                 ) : null}
