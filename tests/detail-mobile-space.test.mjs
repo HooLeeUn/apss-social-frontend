@@ -34,193 +34,144 @@ test("country selector ignores internal native and forwarded gestures but closes
   assert.equal(closes, 2);
 });
 
-function videoFixture(enabled = true, deferMeasurement = false, sizes = []) {
-  const wrapper = { style: { cssText: "" } };
-  const video = { style: { cssText: "max-height:288px" }, parentElement: wrapper };
-  const root = { querySelectorAll: () => [video], querySelector: () => video };
-  let cleanup, measures = 0, mutations, resize;
-  let calibration, finishMeasurement;
-  const listeners = new Set();
-  let observers = 0;
+const reference = {};
+vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports: reference });
+const { DETAIL_VIDEO_BASE } = reference;
+
+function videoFixture({ enabled = true, geometry = { width: 1, height: 1 }, hasVideo = true } = {}) {
+  let cleanup, mutation, observers = 0, reads = 0;
+  const style = (initial = "") => {
+    let values = { cssText: initial };
+    return new Proxy({}, {
+      get: (_, key) => values[key],
+      set: (_, key, value) => {
+        if (key === "cssText") values = { cssText: value };
+        else values[key] = value;
+        return true;
+      },
+    });
+  };
+  const bounds = () => { reads++; return geometry; };
+  const wrapper = { style: style(), getBoundingClientRect: bounds };
+  const video = { style: style("max-height:288px"), parentElement: wrapper, getBoundingClientRect: bounds };
+  const root = { querySelectorAll: () => hasVideo ? [video] : [], getBoundingClientRect: bounds };
   const exports = {};
   vm.runInNewContext(compile("hooks/useDetailVideoSpace.ts"), {
-    exports, console,
+    exports,
     require: name => name === "react" ? {
-      useRef: initial => calibration ??= { current: initial },
       useLayoutEffect: fn => { cleanup?.(); cleanup = fn(); },
-    } : {
-      isValidReferenceVideo: size => !!size && Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0,
-      measureDetailVideoReference: async () => {
-        measures++;
-        if (deferMeasurement) await new Promise(resolve => { finishMeasurement = resolve; });
-        return sizes.length ? sizes.shift() : { width: 112.5, height: 200 };
-      },
+    } : reference,
+    // Any geometry listener, deferred measurement or iframe creation is a bug.
+    window: new Proxy({}, { get() { throw Error("Unexpected viewport dependency"); } }),
+    document: new Proxy({}, { get() { throw Error("Unexpected DOM calibration"); } }),
+    MutationObserver: class {
+      constructor(fn) { mutation = fn; }
+      observe() { observers++; }
+      disconnect() { observers--; }
     },
-    window: { requestAnimationFrame: fn => setImmediate(fn), cancelAnimationFrame: clearImmediate,
-      addEventListener: (event, fn) => { if (event === "resize") resize = fn; listeners.add(fn); },
-      removeEventListener: (event, fn) => listeners.delete(fn),
-      visualViewport: { addEventListener: (event, fn) => listeners.add(fn), removeEventListener: (event, fn) => listeners.delete(fn) },
-    },
-    MutationObserver: class { constructor(fn) { mutations = fn; } observe() { observers++; } disconnect() { observers--; } },
   });
   const rootRef = { current: root };
   exports.useDetailVideoSpace(rootRef, enabled);
-  return { video, wrapper, listeners: () => listeners.size, observers: () => observers, cleanup: () => cleanup?.(), resize: () => resize?.(), mutate: () => mutations?.(), measures: () => measures,
-    trailer: open => exports.useDetailVideoSpace(rootRef, enabled, open), finishMeasurement: () => finishMeasurement?.() };
+  return { video, wrapper, reads: () => reads, observers: () => observers,
+    frame(next = geometry) { geometry = next; mutation?.(); },
+    addVideo() { hasVideo = true; mutation?.(); },
+    trailer(open) { exports.useDetailVideoSpace(rootRef, enabled, open); },
+    cleanup() { cleanup?.(); },
+  };
 }
 
-test("repeated trailer cycles restore the original rectangle synchronously without recalibration in zoom 1 and 5", async () => {
-  for (const zoom of [1, 5]) {
-    const f = videoFixture();
-    await new Promise(resolve => setImmediate(resolve));
-    for (let cycle = 0; cycle < 5; cycle++) {
-      f.trailer(true);
-      f.wrapper.style.width = "10px";
-      f.wrapper.style.height = "18px";
-      f.trailer(false);
-      assert.equal(f.wrapper.style.width, "112.5px", `zoom ${zoom}, cycle ${cycle}`);
-      assert.equal(f.wrapper.style.height, "200px");
-      assert.equal(f.wrapper.style.visibility, "");
-      f.resize();
-      assert.equal(f.measures(), 1);
+function assertBase(f) {
+  assert.equal(f.wrapper.style.width, `${DETAIL_VIDEO_BASE.width}px`);
+  assert.equal(f.wrapper.style.height, `${DETAIL_VIDEO_BASE.height}px`);
+  assert.equal(f.wrapper.style.maxWidth, "100%");
+  assert.equal(f.wrapper.style.visibility, "");
+}
+
+test("the base is a frozen design rectangle, available synchronously without DOM or viewport", () => {
+  assert.equal(DETAIL_VIDEO_BASE.width, 100.125);
+  assert.equal(DETAIL_VIDEO_BASE.height, 178);
+  assert.equal(DETAIL_VIDEO_BASE.width / DETAIL_VIDEO_BASE.height, 9 / 16);
+  assert.ok(Object.isFrozen(DETAIL_VIDEO_BASE));
+  const f = videoFixture();
+  assertBase(f);
+  assert.equal(f.reads(), 0);
+  f.cleanup();
+});
+
+test("stable tiny geometry for many frames never becomes the base across 40 remounts", () => {
+  for (let mount = 0; mount < 40; mount++) {
+    const f = videoFixture({ geometry: { width: 1, height: 2 } });
+    // The initial visible commit already has the definitive size.
+    assertBase(f);
+    for (let frame = 0; frame < 30; frame++) {
+      f.frame({ width: 1, height: 2 });
+      assertBase(f);
     }
+    // The real geometry arrives much later than the previous frame validator.
+    f.frame({ width: 280, height: 400 });
+    assertBase(f);
+    assert.equal(f.reads(), 0);
+    f.cleanup();
+    assert.equal(f.observers(), 0);
+  }
+});
+
+test("zero, nonfinite and temporarily small rectangles cannot change calibration", () => {
+  const f = videoFixture();
+  for (const geometry of [{ width: 0, height: 0 }, { width: NaN, height: Infinity }, { width: 5, height: 10 }, { width: 280, height: 400 }]) {
+    f.frame(geometry);
+    assertBase(f);
+  }
+  assert.equal(f.reads(), 0);
+  f.cleanup();
+});
+
+test("every zoom entry and round trip keeps the same base without viewport subscriptions", () => {
+  for (const sequence of [[5,4,3,2,1,5], [1,2,3,4,5,1], [3,1,5,2,3]]) {
+    const f = videoFixture();
+    for (const zoom of sequence) {
+      f.frame({ width: 360 / zoom, height: 800 / zoom });
+      assertBase(f);
+    }
+    assert.equal(f.reads(), 0);
     f.cleanup();
   }
 });
 
-test("opening and closing the trailer during initial calibration reuses the in-flight measurement", async () => {
-  const f = videoFixture(true, true);
-  f.trailer(true);
-  f.trailer(false);
-  assert.equal(f.measures(), 1);
-  f.finishMeasurement();
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(f.wrapper.style.width, "112.5px");
-  assert.equal(f.wrapper.style.height, "200px");
+test("trailer cycles restore the same rectangle synchronously with one observer", () => {
+  const f = videoFixture();
+  for (let cycle = 0; cycle < 10; cycle++) {
+    assert.equal(f.observers(), 1);
+    f.trailer(true);
+    assert.equal(f.observers(), 0);
+    assert.equal(f.video.style.cssText, "max-height:288px");
+    f.wrapper.style.width = "10px";
+    f.wrapper.style.height = "18px";
+    f.trailer(false);
+    assertBase(f);
+  }
+  f.cleanup();
+  assert.equal(f.observers(), 0);
+});
+
+test("late arriving video cards receive the definitive size before their first paint", () => {
+  const f = videoFixture({ hasVideo: false });
+  assert.equal(f.wrapper.style.width, undefined);
+  f.addVideo();
+  assertBase(f);
   f.cleanup();
 });
 
-test("normal mobile removes only the shared visual reaction pill", () => {
+test("desktop and disabled sizing preserve native geometry", () => {
+  const f = videoFixture({ enabled: false });
+  assert.equal(f.wrapper.style.width, undefined);
+  assert.equal(f.video.style.cssText, "max-height:288px");
+  assert.equal(f.observers(), 0);
+  assert.equal(f.reads(), 0);
+});
+
+test("normal mobile keeps existing hook scope and reaction pill placement", () => {
   const page = readFileSync("app/movies/[id]/page.tsx", "utf8");
   assert.match(page, /useDetailVideoSpace\(videoGateAnchorRef, mobileViewport && active, trailerCompanionOpen\)/);
   assert.match(page, /className=\{!trailerCompanionOpen && mobileViewport \? "absolute right-2 top-2 z-20" : "pointer-events-none absolute left-2 top-2/);
-  assert.match(page, /rounded-full font-semibold leading-none transition/);
-});
-
-test("all three zoom sequences retain the same calibrated rectangle, including fresh entry in 1 and 5", async () => {
-  for (const sequence of [[5,4,3,2,1], [1,2,3,4,5], [1,4,2,5,3,1]]) {
-    const f = videoFixture();
-    assert.equal(f.wrapper.style.visibility, "hidden");
-    await new Promise(resolve => setImmediate(resolve));
-    for (const zoom of sequence) {
-      f.resize();
-      f.mutate();
-      assert.equal(f.wrapper.style.width, "112.5px", "zoom " + zoom);
-      assert.equal(f.wrapper.style.height, "200px", "zoom " + zoom);
-      assert.equal(f.wrapper.style.visibility, "");
-    }
-    assert.equal(f.measures(), 1);
-    f.cleanup();
-    assert.equal(f.video.style.cssText, "max-height:288px");
-  }
-});
-
-test("disabled sizing does not modify trailer/desktop geometry", () => {
-  const f = videoFixture(false);
-  assert.equal(f.measures(), 0);
-  assert.equal(f.wrapper.style.width, undefined);
-  assert.equal(f.video.style.cssText, "max-height:288px");
-});
-
-test("reference measurement uses its own viewport and preceding layout, never live video bounds", async () => {
-  const exports = {};
-  let removed = false, cleared = false, css, referenceCss;
-  let markerTop = 627, imageDecoded = false, frameSamples = 0;
-  const marker = { style: {}, replaceChildren() { cleared = true; }, getBoundingClientRect: () => ({ top: markerTop }), parentElement: { clientWidth: 200 } };
-  const image = { removeAttribute() {}, decode: async () => {
-    await new Promise(resolve => setImmediate(resolve));
-    markerTop = 450;
-    imageDecoded = true;
-  } };
-  const clone = { querySelectorAll: selector => selector === "img" ? [image] : [], querySelector: () => ({ parentElement: marker }) };
-  const doc = {
-    open() {}, write() {}, close() {}, documentElement: {}, head: { appendChild(style) { referenceCss = style.textContent; } },
-    createElement: () => ({ style: {} }), fonts: { ready: Promise.resolve() },
-    body: { appendChild() {} },
-  };
-  const frame = { style: {}, setAttribute() {}, contentDocument: doc, contentWindow: { getComputedStyle: () => ({ paddingBottom: "0" }) }, remove() { removed = true; } };
-  vm.runInNewContext(compile("hooks/detailVideoReference.ts"), {
-    exports, URL, requestAnimationFrame: fn => setImmediate(() => {
-      frameSamples++;
-      // An intermediate layout has zero available height even after decoding.
-      markerTop = frameSamples === 1 ? 628 : 450;
-      fn();
-    }),
-    document: {
-      createElement: () => frame, documentElement: { lang: "es", className: "" },
-      body: { className: "", appendChild() { css = frame.style.cssText; } },
-      styleSheets: [{ href: "https://example.test/_next/static/css/app.css", media: { mediaText: "" }, cssRules: [{ cssText: '@font-face { src: url(../media/font.woff2); }' }] }],
-    },
-  });
-  const measured = await exports.measureDetailVideoReference({ closest: () => ({ cloneNode: () => clone }), getBoundingClientRect() { throw new Error("Live geometry must not be measured"); } });
-  assert.ok(imageDecoded);
-  assert.ok(frameSamples >= 3, "wait for valid matching geometry across frames");
-  assert.equal(image.loading, "eager");
-  assert.equal(measured.width, 178 * 9 / 16);
-  assert.equal(measured.height, 178);
-  assert.match(css, /width:320px;height:640px/);
-  assert.match(referenceCss, /https:\/\/example.test\/_next\/static\/media\/font.woff2/);
-  assert.ok(removed && cleared);
-  assert.equal(marker.style.cssText, "width:0;height:0;flex-shrink:0");
-});
-
-test("the largest reference rectangle is bounded by both width and height at 9:16", () => {
-  const exports = {};
-  vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports });
-  for (const [width, height] of [[200,178], [120,300], [300,200], [100,100]]) {
-    const rect = exports.fitReferenceVideo(width, height);
-    assert.ok(rect.width <= width && rect.height <= height);
-    assert.equal(rect.width / rect.height, 9 / 16);
-  }
-});
-
-
-test("invalid initial calibration stays hidden and retries without an external resize", async () => {
-  for (const invalid of [null, { width: 0, height: 0 }, { width: NaN, height: 1 }, { width: 1, height: Infinity }]) {
-    const f = videoFixture(true, false, [invalid]);
-    await Promise.resolve();
-    assert.equal(f.wrapper.style.visibility, "hidden");
-    for (let tick = 0; tick < 8; tick++) await new Promise(resolve => setImmediate(resolve));
-    assert.equal(f.wrapper.style.width, "112.5px");
-    assert.equal(f.wrapper.style.height, "200px");
-    assert.equal(f.measures(), 2);
-    f.cleanup();
-  }
-});
-
-test("fresh mounts reuse the same reference result regardless of entry order", async () => {
-  for (let mount = 0; mount < 8; mount++) {
-    const f = videoFixture();
-    await new Promise(resolve => setImmediate(resolve));
-    assert.equal(f.wrapper.style.width, "112.5px");
-    assert.equal(f.wrapper.style.height, "200px");
-    f.cleanup();
-  }
-});
-
-
-test("trailer cycles leave only one sizing subscription and clean up all observers", async () => {
-  const f = videoFixture();
-  await new Promise(resolve => setImmediate(resolve));
-  for (let cycle = 0; cycle < 5; cycle++) {
-    assert.equal(f.listeners(), 1);
-    assert.equal(f.observers(), 1);
-    f.trailer(true);
-    assert.equal(f.listeners(), 0);
-    assert.equal(f.observers(), 0);
-    f.trailer(false);
-  }
-  f.cleanup();
-  assert.equal(f.listeners(), 0);
-  assert.equal(f.observers(), 0);
 });
