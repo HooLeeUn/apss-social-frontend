@@ -7,7 +7,7 @@ import { getStoredCountry, hasStoredCountryPreference, isSupportedCountry, local
 import type { Country } from "../lib/i18n";
 import StreamingCountrySelector from "./StreamingCountrySelector";
 
-export default function MovieDetailStreamingCountrySelector() {
+export default function MovieDetailStreamingCountrySelector({ portalMenu = false }: { portalMenu?: boolean }) {
   const [country, setCountry] = useState<Country>("CO");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -89,6 +89,7 @@ export default function MovieDetailStreamingCountrySelector() {
       error={error}
       buttonId="movie-detail-streaming-country-button"
       compact
+      portalMenu={portalMenu}
     />
   );
 }

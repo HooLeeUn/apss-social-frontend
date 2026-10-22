@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import ActionsFloatingPanel from "./profile-feed/ActionsFloatingPanel";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "../lib/api";
@@ -608,8 +609,15 @@ function ProviderOverflowMenu({ providers, locale }: { providers: StreamingProvi
   );
 }
 
-function AvailabilityCountryWarning({ country, locale }: { country: Country; locale: Locale }) {
+function AvailabilityCountryWarning({ country, locale, mobilePopover = false }: { country: Country; locale: Locale; mobilePopover?: boolean }) {
   const tooltip = getCountryAvailabilityWarning(country, locale);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  if (mobilePopover) return <>
+    <button ref={anchorRef} type="button" aria-label={tooltip} aria-expanded={open} className="inline-flex h-6 w-6 items-center justify-center text-sm font-bold text-[#86ADE0]/80" onClick={() => setOpen(value => !value)}>*</button>
+    {open ? <ActionsFloatingPanel anchorRef={anchorRef} onClose={close} label={tooltip}><p className="max-w-[17rem]">{tooltip}</p></ActionsFloatingPanel> : null}
+  </>;
 
   return (
     <TooltipTarget text={tooltip}>
@@ -763,7 +771,7 @@ export default function StreamingProviders({ movieId, adaptiveMobile = false }: 
     <aside className="relative z-30 min-w-0 overflow-visible xl:min-w-[150px] xl:max-w-[220px]">
       <div className="mb-2 inline-flex items-center gap-1.5 align-middle">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">{labels.title}</p>
-        <AvailabilityCountryWarning country={country} locale={locale} />
+        <AvailabilityCountryWarning country={country} locale={locale} mobilePopover={adaptiveMobile} />
       </div>
 
       {loading ? (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ActionsFloatingPanel from "./profile-feed/ActionsFloatingPanel";
 import { normalizeCountrySearchText, STREAMING_COUNTRY_OPTIONS, type StreamingCountry } from "../lib/streaming-countries";
 
 interface StreamingCountrySelectorProps {
@@ -12,6 +13,7 @@ interface StreamingCountrySelectorProps {
   buttonId?: string;
   compact?: boolean;
   iconOnly?: boolean;
+  portalMenu?: boolean;
   labels?: {
     country: string;
     search: string;
@@ -28,16 +30,19 @@ export default function StreamingCountrySelector({
   buttonId = "streaming-country-button",
   compact = false,
   iconOnly = false,
+  portalMenu = false,
   labels = { country: "País de streaming", search: "Buscar país", noResults: "Sin resultados" },
 }: StreamingCountrySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const closeMenu = useCallback(() => { setIsOpen(false); setSearch(""); }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!containerRef.current) return;
-      if (event.target instanceof Node && !containerRef.current.contains(event.target)) {
+      if (event.target instanceof Node && !containerRef.current.contains(event.target) && !menuRef.current?.contains(event.target)) {
         setIsOpen(false);
         setSearch("");
       }
@@ -47,6 +52,7 @@ export default function StreamingCountrySelector({
       if (window.matchMedia("(pointer: fine)").matches) return;
       if (!containerRef.current) return;
       if (event.target instanceof Node && containerRef.current.contains(event.target)) return;
+      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
       setIsOpen(false);
       setSearch("");
     };
@@ -84,33 +90,8 @@ export default function StreamingCountrySelector({
     [country],
   );
 
-  return (
-    <div ref={containerRef} className={`relative flex ${iconOnly ? "max-w-[44px]" : "max-w-[88px]"} flex-col items-start gap-1 ${className}`}>
-      <label htmlFor={buttonId} className="sr-only">
-        {labels.country}
-      </label>
-      <button
-        id={buttonId}
-        type="button"
-        disabled={disabled}
-        onClick={() => setIsOpen((current) => {
-          if (current) setSearch("");
-          return !current;
-        })}
-        title={selectedOption.name}
-        className={`${compact ? "h-8 rounded-lg" : "h-9 rounded-xl"} flex w-full items-center justify-between gap-1 ${iconOnly ? "border-0 px-1.5 shadow-none" : "border border-white/20 px-2 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"} bg-zinc-900/95 py-1 text-xs font-semibold text-zinc-100 transition hover:border-white/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300/35 disabled:cursor-not-allowed disabled:opacity-70`}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-      >
-        <span className="flex items-center gap-1.5" title={selectedOption.name}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={selectedOption.flagSrc} alt="" aria-hidden="true" className="h-3.5 w-5 rounded-[2px] object-cover" />
-          {!iconOnly ? <span>{selectedOption.value}</span> : null}
-        </span>
-        {!iconOnly ? <span className="text-[10px] text-zinc-400">▾</span> : null}
-      </button>
-      {isOpen ? (
-        <div data-qnext-popover="true" className="absolute right-0 top-10 z-[90] w-64 translate-x-8 md:translate-x-0 overflow-hidden rounded-xl border border-white/20 bg-zinc-900/98 p-1 shadow-[0_14px_26px_rgba(0,0,0,0.5)]">
+  const menu = (
+        <div ref={menuRef} data-qnext-popover="true" className={`${portalMenu ? "w-64 max-w-full" : "absolute right-0 top-10 z-[90] w-64 translate-x-8 md:translate-x-0"} overflow-hidden rounded-xl border border-white/20 bg-zinc-900/98 p-1 shadow-[0_14px_26px_rgba(0,0,0,0.5)]`}>
           <input
             type="text"
             value={search}
@@ -149,7 +130,33 @@ export default function StreamingCountrySelector({
             )}
           </ul>
         </div>
-      ) : null}
+  );
+  return (
+    <div ref={containerRef} className={`relative flex ${iconOnly ? "max-w-[44px]" : "max-w-[88px]"} flex-col items-start gap-1 ${className}`}>
+      <label htmlFor={buttonId} className="sr-only">
+        {labels.country}
+      </label>
+      <button
+        id={buttonId}
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen((current) => {
+          if (current) setSearch("");
+          return !current;
+        })}
+        title={selectedOption.name}
+        className={`${compact ? "h-8 rounded-lg" : "h-9 rounded-xl"} flex w-full items-center justify-between gap-1 ${iconOnly ? "border-0 px-1.5 shadow-none" : "border border-white/20 px-2 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"} bg-zinc-900/95 py-1 text-xs font-semibold text-zinc-100 transition hover:border-white/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300/35 disabled:cursor-not-allowed disabled:opacity-70`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span className="flex items-center gap-1.5" title={selectedOption.name}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={selectedOption.flagSrc} alt="" aria-hidden="true" className="h-3.5 w-5 rounded-[2px] object-cover" />
+          {!iconOnly ? <span>{selectedOption.value}</span> : null}
+        </span>
+        {!iconOnly ? <span className="text-[10px] text-zinc-400">▾</span> : null}
+      </button>
+      {isOpen ? portalMenu ? <ActionsFloatingPanel anchorRef={containerRef} onClose={closeMenu} label={labels.country} repositionOnResize>{menu}</ActionsFloatingPanel> : menu : null}
       {error ? <p className="text-[10px] text-red-300">{error}</p> : null}
     </div>
   );

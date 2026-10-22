@@ -4,11 +4,12 @@ import { type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 // Shared by Following activity cards and their opt-in moderation menus.
-export default function ActionsFloatingPanel({ anchorRef, onClose, children, label }: {
+export default function ActionsFloatingPanel({ anchorRef, onClose, children, label, repositionOnResize = false }: {
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   children: ReactNode;
   label: string;
+  repositionOnResize?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -17,6 +18,7 @@ export default function ActionsFloatingPanel({ anchorRef, onClose, children, lab
     const panel = panelRef.current;
     if (!anchor || !panel) return;
     const viewport = window.visualViewport;
+    const position = () => {
     const margin = 8;
     const gap = 6;
     const leftEdge = (viewport?.offsetLeft ?? 0) + margin;
@@ -35,6 +37,9 @@ export default function ActionsFloatingPanel({ anchorRef, onClose, children, lab
     panel.style.left = `${Math.max(leftEdge, Math.min(rect.left, rightEdge - size.width))}px`;
     panel.style.top = `${Math.max(topEdge, Math.min(opensAbove ? rect.top - gap - size.height : rect.bottom + gap, bottomEdge - size.height))}px`;
     panel.style.visibility = "visible";
+    };
+    position();
+    const viewportChanged = repositionOnResize ? position : onClose;
 
     const outside = (event: Event) => {
       if (!panel.contains(event.target as Node) && !anchor.contains(event.target as Node)) onClose();
@@ -51,9 +56,9 @@ export default function ActionsFloatingPanel({ anchorRef, onClose, children, lab
     document.addEventListener("touchmove", movement, { passive: true, capture: true });
     document.addEventListener("wheel", movement, { passive: true, capture: true });
     window.addEventListener("scroll", movement, true);
-    window.addEventListener("resize", onClose);
-    viewport?.addEventListener("resize", onClose);
-    viewport?.addEventListener("scroll", onClose);
+    window.addEventListener("resize", viewportChanged);
+    viewport?.addEventListener("resize", viewportChanged);
+    viewport?.addEventListener("scroll", viewportChanged);
     window.addEventListener("keydown", escape);
     return () => {
       window.removeEventListener("profile-actions-panel-open", otherPanel);
@@ -61,12 +66,12 @@ export default function ActionsFloatingPanel({ anchorRef, onClose, children, lab
       document.removeEventListener("touchmove", movement, true);
       document.removeEventListener("wheel", movement, true);
       window.removeEventListener("scroll", movement, true);
-      window.removeEventListener("resize", onClose);
-      viewport?.removeEventListener("resize", onClose);
-      viewport?.removeEventListener("scroll", onClose);
+      window.removeEventListener("resize", viewportChanged);
+      viewport?.removeEventListener("resize", viewportChanged);
+      viewport?.removeEventListener("scroll", viewportChanged);
       window.removeEventListener("keydown", escape);
     };
-  }, [anchorRef, onClose]);
+  }, [anchorRef, onClose, repositionOnResize]);
 
   return createPortal(
     <div ref={panelRef} role="region" aria-label={label} style={{ position: "fixed", visibility: "hidden", width: "max-content" }} className="z-[1300] overflow-y-auto overscroll-contain rounded-xl border border-white/15 bg-zinc-950 p-3 text-sm text-zinc-200 shadow-xl shadow-black/50 [overflow-wrap:anywhere]">
