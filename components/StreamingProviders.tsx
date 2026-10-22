@@ -766,15 +766,16 @@ export default function StreamingProviders({ movieId, adaptiveMobile = false }: 
     [providers],
   );
   const hasProviders = subscriptionProviders.length > 0 || rentBuyProviders.length > 0;
+  const retainProvidersWhileLoading = adaptiveMobile && hasProviders;
 
   return (
-    <aside className="relative z-30 min-w-0 overflow-visible xl:min-w-[150px] xl:max-w-[220px]">
+    <aside aria-busy={loading} className="relative z-30 min-w-0 overflow-visible xl:min-w-[150px] xl:max-w-[220px]">
       <div className="mb-2 inline-flex items-center gap-1.5 align-middle">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#86ADE0]">{labels.title}</p>
         <AvailabilityCountryWarning country={country} locale={locale} mobilePopover={adaptiveMobile} />
       </div>
 
-      {loading ? (
+      {loading && !retainProvidersWhileLoading ? (
         <div className="space-y-2" aria-label={labels.loading}>
           <div className="h-3 w-20 animate-pulse rounded-full bg-white/10" />
           <div className="flex items-center justify-center gap-2">
@@ -787,7 +788,7 @@ export default function StreamingProviders({ movieId, adaptiveMobile = false }: 
       {!loading && hasLoadError ? <p className="text-xs leading-snug text-zinc-500">{labels.loadError}</p> : null}
       {!loading && !hasLoadError && !hasProviders ? <p className="text-xs leading-snug text-zinc-500">{labels.empty}</p> : null}
 
-      {!loading && !hasLoadError && hasProviders ? (
+      {(!loading || retainProvidersWhileLoading) && !hasLoadError && hasProviders ? (
         <div className="space-y-2 xl:space-y-3">
           <ProviderRow providers={subscriptionProviders} label={labels.subscription} locale={locale} adaptiveMobile={adaptiveMobile} />
           <ProviderRow providers={rentBuyProviders} label={labels.rentBuy} locale={locale} mobileMaxVisibleProviders={3} adaptiveMobile={adaptiveMobile} />

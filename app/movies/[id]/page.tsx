@@ -3,7 +3,7 @@ import { applyReactionToCollection, applyReactionResultToCollection, requestComm
 
 import Link from "next/link";
 import { useDetailVideoSpace } from "../../../hooks/useDetailVideoSpace";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "../../../components/AppLogo";
@@ -3208,6 +3208,8 @@ function MovieDetailPageContent() {
     return nextSuggestions;
   }, []);
 
+  const translateLoadError = useEffectEvent((key: Parameters<typeof translate>[1]) => translate(locale, key));
+
   useEffect(() => {
     if (!authHydrated || !viewportHydrated) return;
     const token = getToken();
@@ -3245,7 +3247,7 @@ function MovieDetailPageContent() {
         if (cancelled) return;
 
         if (!normalizedMovie) {
-          setMovieError(translate(locale, "movieDetailMovieParseError"));
+          setMovieError(translateLoadError("movieDetailMovieParseError"));
           return;
         }
 
@@ -3280,7 +3282,7 @@ function MovieDetailPageContent() {
           return;
         }
 
-        setMovieError(translate(locale, "movieDetailMovieLoadError"));
+        setMovieError(translateLoadError("movieDetailMovieLoadError"));
       } finally {
         if (!cancelled) setMovieLoading(false);
       }
@@ -3308,7 +3310,7 @@ function MovieDetailPageContent() {
           router.replace("/login");
           return;
         }
-        setPublicError(translate(locale, "movieDetailPublicCommentsLoadError"));
+        setPublicError(translateLoadError("movieDetailPublicCommentsLoadError"));
       } finally {
         if (!cancelled) setLoadingPublic(false);
       }
@@ -3377,7 +3379,7 @@ function MovieDetailPageContent() {
         if (meUsername) setAuthenticatedUsername(meUsername);
 
         if (!privacyResult.ok) {
-          setDirectedError(translate(locale, "movieDetailDirectedCommentsLoadError"));
+          setDirectedError(translateLoadError("movieDetailDirectedCommentsLoadError"));
           return;
         }
 
@@ -3413,7 +3415,7 @@ function MovieDetailPageContent() {
             router.replace("/login");
             return;
           }
-          setDirectedError(translate(locale, "movieDetailDirectedCommentsLoadError"));
+          setDirectedError(translateLoadError("movieDetailDirectedCommentsLoadError"));
         }
       } finally {
         if (!cancelled) setLoadingDirected(false);
@@ -3430,7 +3432,7 @@ function MovieDetailPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [authHydrated, viewportHydrated, fetchMovieDetail, isDesktopGuest, locale, movieId, router]);
+  }, [authHydrated, viewportHydrated, fetchMovieDetail, isDesktopGuest, movieId, router]);
 
   const handleMovieRated = useCallback(
     async (_movieId: Movie["id"], score: number, _payload?: unknown) => {
