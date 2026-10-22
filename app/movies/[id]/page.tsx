@@ -2,6 +2,7 @@
 import { applyReactionToCollection, applyReactionResultToCollection, requestCommentReaction } from "../../../lib/comment-reactions";
 
 import Link from "next/link";
+import { useDetailVideoSpace } from "../../../hooks/useDetailVideoSpace";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -1029,6 +1030,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   const historyScrollRef = useRef<HTMLDivElement | null>(null);
   const mobileHistoryScrollRef = useRef<HTMLDivElement | null>(null);
   const videoGateAnchorRef = useRef<HTMLDivElement | null>(null);
+  useDetailVideoSpace(videoGateAnchorRef, mobileViewport && !trailerCompanionOpen && active);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const [isHistoryUnderfilled, setIsHistoryUnderfilled] = useState(false);
@@ -1150,6 +1152,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
   }, [appendVideoDebugLog, videoDebugEnabled]);
 
   const lockHistoryPlayerGeometry = useCallback((video: HTMLVideoElement) => {
+    if (mobileViewport && !trailerCompanionOpen) return;
     if (video.dataset.geometryLocked === "true") return;
     const wrapper = video.parentElement;
     if (!wrapper) return;
@@ -1162,7 +1165,7 @@ function MobileVideoComments({ movieId, movieTitle, moviePoster, active, notific
     video.style.maxHeight = "none";
     video.dataset.geometryLocked = "true";
     logHistoryPlayerGeometry("metadata-locked", video);
-  }, [logHistoryPlayerGeometry]);
+  }, [logHistoryPlayerGeometry, mobileViewport, trailerCompanionOpen]);
 
   const pauseOtherHistoryVideos = useCallback((nextId: string) => {
     historyVideosRef.current.forEach((video, id) => {

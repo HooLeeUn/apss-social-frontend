@@ -51,8 +51,9 @@ export default function StreamingCountrySelector({
     const closeOnMobileOutsideDrag = (event: Event) => {
       if (window.matchMedia("(pointer: fine)").matches) return;
       if (!containerRef.current) return;
-      if (event.target instanceof Node && containerRef.current.contains(event.target)) return;
-      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
+      const target = event instanceof CustomEvent ? event.detail?.target ?? event.target : event.target;
+      if (target instanceof Node && containerRef.current.contains(target)) return;
+      if (target instanceof Node && menuRef.current?.contains(target)) return;
       setIsOpen(false);
       setSearch("");
     };
@@ -91,7 +92,7 @@ export default function StreamingCountrySelector({
   );
 
   const menu = (
-        <div ref={menuRef} data-qnext-popover="true" className={`${portalMenu ? "w-64 max-w-full" : "absolute right-0 top-10 z-[90] w-64 translate-x-8 md:translate-x-0"} overflow-hidden rounded-xl border border-white/20 bg-zinc-900/98 p-1 shadow-[0_14px_26px_rgba(0,0,0,0.5)]`}>
+        <div ref={menuRef} data-qnext-popover="true" onTouchMove={portalMenu ? event => event.stopPropagation() : undefined} onPointerMove={portalMenu ? event => event.stopPropagation() : undefined} className={`${portalMenu ? "w-64 max-w-full" : "absolute right-0 top-10 z-[90] w-64 translate-x-8 md:translate-x-0"} overflow-hidden rounded-xl border border-white/20 bg-zinc-900/98 p-1 shadow-[0_14px_26px_rgba(0,0,0,0.5)]`}>
           <input
             type="text"
             value={search}
