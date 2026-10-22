@@ -593,6 +593,37 @@ function ProfileFeedContent() {
     setActiveMobileProfileFeedSlide(slide);
   }, []);
 
+  // Keep the return arrow in sync even when navigation bypasses dock clicks
+  // (notifications, scroll restoration, or a programmatic scrollIntoView).
+  const syncActiveMobileSection = useCallback(() => {
+    const scroller = profileFeedScrollerRef.current;
+    if (!scroller || scroller.clientHeight <= 0 || !window.matchMedia("(max-width: 1279px)").matches) return;
+    const viewportTop = scroller.getBoundingClientRect().top;
+    const sections: [MobileSection, HTMLElement | null][] = [
+      ["top", topSectionRef.current],
+      ["connections", connectionsSearchSectionRef.current],
+      [activeMobileProfileFeedSlide === 1 ? "lists" : "activity", activityAndListsPanelRef.current],
+      ["following-activity", followingActivityPanelRef.current],
+    ];
+    let nearest: MobileSection = "top";
+    let distance = Infinity;
+    for (const [section, element] of sections) {
+      if (!element) continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.height <= 0) continue;
+      const nextDistance = Math.abs(rect.top - viewportTop);
+      if (nextDistance < distance) {
+        nearest = section;
+        distance = nextDistance;
+      }
+    }
+    setActiveMobileSection(nearest);
+  }, [activeMobileProfileFeedSlide]);
+
+  useEffect(() => {
+    syncActiveMobileSection();
+  }, [syncActiveMobileSection]);
+
   const navigateToFriends = useCallback((options?: { pendingTab?: boolean }) => {
     const requestId = ++navigationRequestId.current;
     setConnectionBlockRequest({ block: 1, id: requestId });
@@ -956,7 +987,12 @@ function ProfileFeedContent() {
       ref={profileFeedScrollerRef}
       onScrollCapture={(event) => {
         const target = event.target;
-        if (!(target instanceof HTMLElement) || target === event.currentTarget || target.scrollHeight <= target.clientHeight) return;
+        if (!(target instanceof HTMLElement)) return;
+        if (target === event.currentTarget) {
+          syncActiveMobileSection();
+          return;
+        }
+        if (target.scrollHeight <= target.clientHeight) return;
         const isMobileFollowingActivityScroll = window.matchMedia("(max-width: 1279px)").matches && Boolean(target.closest(".profile-feed-following-activity"));
         const previousClientHeight = followingActivityScrollHeightsRef.current.get(target) ?? target.clientHeight;
         followingActivityScrollHeightsRef.current.set(target, target.clientHeight);
