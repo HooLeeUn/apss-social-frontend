@@ -36,7 +36,7 @@ test("country selector ignores internal native and forwarded gestures but closes
 
 const reference = {};
 vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports: reference });
-const { DETAIL_VIDEO_BASE } = reference;
+const { DETAIL_VIDEO_BASE, DETAIL_VIDEO_WIDTH } = reference;
 
 function videoFixture({ enabled = true, geometry = { width: 1, height: 1 }, hasVideo = true } = {}) {
   let cleanup, mutation, observers = 0, reads = 0;
@@ -81,8 +81,13 @@ function videoFixture({ enabled = true, geometry = { width: 1, height: 1 }, hasV
 }
 
 function assertBase(f) {
-  assert.equal(f.wrapper.style.width, `${DETAIL_VIDEO_BASE.width}px`);
-  assert.equal(f.wrapper.style.height, `${DETAIL_VIDEO_BASE.height}px`);
+  assert.equal(f.wrapper.style.width, DETAIL_VIDEO_WIDTH);
+  assert.equal(f.wrapper.style.height, "auto");
+  assert.equal(f.wrapper.style.aspectRatio, "9 / 16");
+  assert.equal(f.video.style.position, "absolute");
+  assert.equal(f.video.style.inset, "0");
+  assert.equal(f.video.style.width, "100%");
+  assert.equal(f.video.style.height, "100%");
   assert.equal(f.wrapper.style.maxWidth, "100%");
   assert.equal(f.wrapper.style.visibility, "");
 }
@@ -174,4 +179,55 @@ test("normal mobile keeps existing hook scope and reaction pill placement", () =
   const page = readFileSync("app/movies/[id]/page.tsx", "utf8");
   assert.match(page, /useDetailVideoSpace\(videoGateAnchorRef, mobileViewport && active, trailerCompanionOpen\)/);
   assert.match(page, /className=\{!trailerCompanionOpen && mobileViewport \? "absolute right-2 top-2 z-20" : "pointer-events-none absolute left-2 top-2/);
+});
+
+
+// Evaluate the actual CSS width expression emitted by the hook for test viewport
+// and containing-block sizes. This also rejects an accidental fixed-pixel cap.
+function renderedRectangle(parentWidth, viewportHeight, safeTop = 0, safeBottom = 0) {
+  const expression = DETAIL_VIDEO_WIDTH
+    .replace("100%", String(parentWidth))
+    .replace("100svh", String(viewportHeight))
+    .replace("env(safe-area-inset-top, 0px)", String(safeTop))
+    .replace("env(safe-area-inset-bottom, 0px)", String(safeBottom))
+    .replaceAll("px", "")
+    .replaceAll("min(", "Math.min(")
+    .replaceAll("max(", "Math.max(")
+    .replaceAll("calc(", "(");
+  const width = vm.runInNewContext(expression);
+  return { width, height: width * 16 / 9 };
+}
+
+test("rendered video fills the maximum safe rectangle instead of being capped by the reference", () => {
+  for (const [width, height, top, bottom] of [
+    [260, 640, 0, 0], [300, 720, 0, 0], [340, 800, 0, 0],
+    [380, 880, 0, 0], [420, 960, 0, 0], [480, 1080, 24, 34],
+    [100, 960, 0, 0],
+  ]) {
+    const availableHeight = height - 462 - top - bottom;
+    const size = renderedRectangle(width, height, top, bottom);
+    assert.ok(size.width <= width);
+    assert.ok(size.height <= availableHeight + 1e-9);
+    assert.equal(size.width / size.height, 9 / 16);
+    assert.ok(Math.abs(size.width - width) < 1e-9 || Math.abs(size.height - availableHeight) < 1e-9,
+      "one safe boundary must be filled");
+    if (width >= 260 && height > 640) assert.ok(size.height > DETAIL_VIDEO_BASE.height);
+  }
+});
+
+test("same zoom and safe area give identical final dimensions across mounts and trailer cycles", () => {
+  for (const viewport of [[300,720], [320,780], [360,840], [390,900], [420,960]]) {
+    const expected = renderedRectangle(...viewport);
+    assert.ok(expected.height > 178);
+    for (let mount = 0; mount < 30; mount++) {
+      const f = videoFixture();
+      assertBase(f);
+      assert.deepEqual(renderedRectangle(...viewport), expected);
+      f.trailer(true);
+      f.trailer(false);
+      assertBase(f);
+      assert.deepEqual(renderedRectangle(...viewport), expected);
+      f.cleanup();
+    }
+  }
 });

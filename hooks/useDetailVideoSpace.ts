@@ -1,7 +1,7 @@
 "use client";
 
 import { type RefObject, useLayoutEffect } from "react";
-import { DETAIL_VIDEO_BASE } from "./detailVideoReference";
+import { DETAIL_VIDEO_WIDTH } from "./detailVideoReference";
 
 export function useDetailVideoSpace(rootRef: RefObject<HTMLDivElement | null>, enabled: boolean, suspended = false) {
   useLayoutEffect(() => {
@@ -13,13 +13,16 @@ export function useDetailVideoSpace(rootRef: RefObject<HTMLDivElement | null>, e
         const wrapper = video.parentElement;
         if (!wrapper) return;
         if (!saved.has(video)) saved.set(video, { video: video.style.cssText, wrapper: wrapper.style.cssText });
-        const width = DETAIL_VIDEO_BASE.width + "px";
+        const width = DETAIL_VIDEO_WIDTH;
         if (wrapper.style.width !== width) wrapper.style.width = width;
         // CSS constrains the displayed rectangle to its parent when necessary.
         // It never writes a measured safety limit back into the design base.
         wrapper.style.aspectRatio = "9 / 16";
         wrapper.style.maxWidth = "100%";
-        wrapper.style.height = `${DETAIL_VIDEO_BASE.height}px`;
+        wrapper.style.height = "auto";
+        // Keep intrinsic video dimensions from influencing the aspect-ratio box.
+        video.style.position = "absolute";
+        video.style.inset = "0";
         video.style.width = "100%";
         video.style.height = "100%";
         video.style.maxHeight = "none";
