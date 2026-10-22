@@ -9,6 +9,7 @@ import { clearToken, getToken } from "../../lib/auth";
 import GenreChips from "../../components/GenreChips";
 import MovieCard, { MAIN_FEED_TRAILER_HOVER_DELAY_MS } from "../../components/MovieCard";
 import SearchBar from "../../components/SearchBar";
+import { useMobileSearchViewport } from "../../hooks/useMobileSearchViewport";
 import WeeklyRecommendationsSection from "../../components/WeeklyRecommendationsSection";
 import DirectorBoardMenu from "../../components/DirectorBoardMenu";
 import UserProfilePlaceholderButton from "../../components/UserProfilePlaceholderButton";
@@ -264,6 +265,7 @@ export default function FeedPage() {
   const mobileNotificationContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
+  useMobileSearchViewport(isMobileSearchOpen, mobileSearchContainerRef);
   const mobileNavRef = useRef<HTMLElement | null>(null);
   const mobileProfileGateAnchorRef = useRef<HTMLSpanElement | null>(null);
   const desktopGuestProfileGateAnchorRef = useRef<HTMLDivElement | null>(null);

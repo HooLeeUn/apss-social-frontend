@@ -117,6 +117,9 @@ export default function ContactPage() {
               </div>
               <input
                 id="contact-subject"
+                autoCorrect="off"
+                spellCheck={false}
+                autoCapitalize="sentences"
                 value={subject}
                 maxLength={SUBJECT_MAX_LENGTH}
                 onChange={(event) => {
@@ -136,7 +139,7 @@ export default function ContactPage() {
                 <label htmlFor="contact-message" className={labelClassName}>{t("contactMessage")}</label>
                 <span className="text-xs tabular-nums text-zinc-400">{message.length} / {MESSAGE_MAX_LENGTH}</span>
               </div>
-              <textarea
+              <textarea autoCorrect="off" spellCheck={false} autoCapitalize="sentences"
                 id="contact-message"
                 value={message}
                 maxLength={MESSAGE_MAX_LENGTH}
