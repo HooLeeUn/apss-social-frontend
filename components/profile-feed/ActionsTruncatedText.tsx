@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ActionsFloatingPanel from "./ActionsFloatingPanel";
 
-export default function ActionsTruncatedText({ text, href, className, popoverLabel }: { text: string; href?: string; className: string; popoverLabel?: string }) {
+export default function ActionsTruncatedText({ text, href, className, popoverLabel, as: Text = "p" }: { text: string; href?: string; className: string; popoverLabel?: string; as?: "p" | "span" }) {
   const anchorRef = useRef<HTMLElement>(null);
   const setAnchor = useCallback((element: HTMLElement | null) => { anchorRef.current = element; }, []);
   const [open, setOpen] = useState(false);
@@ -38,9 +38,9 @@ export default function ActionsTruncatedText({ text, href, className, popoverLab
   };
 
   return <>
-    {href ? <Link href={href} {...props}>{text}</Link> : <p {...props} role={truncated ? "button" : undefined} tabIndex={truncated ? 0 : undefined} onKeyDown={(event) => {
+    {href ? <Link href={href} {...props}>{text}</Link> : <Text {...props} role={truncated ? "button" : undefined} tabIndex={truncated ? 0 : undefined} onKeyDown={(event) => {
       if (truncated && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setOpen((value) => !value); }
-    }}>{text}</p>}
+    }}>{text}</Text>}
     {open ? <ActionsFloatingPanel anchorRef={anchorRef} onClose={close} label={popoverLabel ?? (text.startsWith("@") ? "Username" : "Comentario")}><p className="max-w-[26rem] whitespace-pre-wrap">{text}</p></ActionsFloatingPanel> : null}
   </>;
 }
