@@ -189,7 +189,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
   return (
     <section className="rounded-2xl bg-zinc-950/55 p-4">
       <div className="relative">
-        <textarea
+        <textarea autoCorrect="off" spellCheck={false} autoCapitalize="sentences"
           ref={textareaRef}
           value={text}
           rows={2}

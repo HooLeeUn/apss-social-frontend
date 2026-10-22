@@ -159,7 +159,7 @@ export default function CommentItem({
 
       {isEditing ? (
         <div className="mb-3">
-          <textarea
+          <textarea autoCorrect="off" spellCheck={false} autoCapitalize="sentences"
             value={editValue}
             onChange={(event) => onEditValueChange?.(event.target.value)}
             rows={3}
