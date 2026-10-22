@@ -34,43 +34,83 @@ test("country selector ignores internal native and forwarded gestures but closes
   assert.equal(closes, 2);
 });
 
-function videoFixture({ viewportHeight = 900, stickyBottom = 300, rootTop = 320, overhead = 60, width = 340, ratio = 9 / 16, enabled = true } = {}) {
-  const wrapper = { style: { cssText: "" }, parentElement: { clientWidth: width }, getBoundingClientRect: () => ({ top: rootTop + overhead }) };
-  const video = { style: { cssText: "max-height:288px" }, parentElement: wrapper, videoWidth: ratio * 1600, videoHeight: 1600 };
-  const root = { querySelectorAll: () => [video], getBoundingClientRect: () => ({ top: rootTop }), addEventListener() {}, removeEventListener() {} };
-  let cleanup, observerCount = 0;
+function videoFixture(enabled = true) {
+  const wrapper = { style: { cssText: "" } };
+  const video = { style: { cssText: "max-height:288px" }, parentElement: wrapper };
+  const root = { querySelectorAll: () => [video], querySelector: () => video };
+  let cleanup, measures = 0, mutations, resize;
   const exports = {};
   vm.runInNewContext(compile("hooks/useDetailVideoSpace.ts"), {
-    exports, require: () => ({ useLayoutEffect: fn => { cleanup = fn(); } }),
-    document: { querySelector: () => ({ getBoundingClientRect: () => ({ bottom: stickyBottom }) }), createElement: () => ({ style: {}, remove() {} }), body: { appendChild() {} } },
-    getComputedStyle: () => ({ paddingBottom: "20px" }),
-    window: { innerHeight: viewportHeight, addEventListener() {}, removeEventListener() {} },
-    ResizeObserver: class { constructor() { observerCount++; } observe() {} disconnect() {} },
-    MutationObserver: class { observe() {} disconnect() {} },
+    exports, console,
+    require: name => name === "react" ? { useLayoutEffect: fn => { cleanup = fn(); } } : {
+      measureDetailVideoReference: async () => { measures++; return { width: 112.5, height: 200 }; },
+    },
+    window: { addEventListener: (event, fn) => { if (event === "resize") resize = fn; }, removeEventListener() {} },
+    MutationObserver: class { constructor(fn) { mutations = fn; } observe() {} disconnect() {} },
   });
   exports.useDetailVideoSpace({ current: root }, enabled);
-  return { video, wrapper, cleanup, observerCount };
+  return { video, wrapper, cleanup, resize: () => resize?.(), mutate: () => mutations?.(), measures: () => measures };
 }
 
-test("five available-space scenarios fit video to height and width, preserving aspect ratio", () => {
-  for (const stickyBottom of [240, 280, 320, 360, 400]) {
-    const rootTop = stickyBottom + 20;
-    const f = videoFixture({ viewportHeight: 800, stickyBottom, rootTop });
-    const available = 800 - rootTop - 60 - 32;
-    assert.equal(parseFloat(f.wrapper.style.height), available);
-    assert.equal(parseFloat(f.wrapper.style.width), available * 9 / 16);
-    assert.ok(parseFloat(f.wrapper.style.width) <= 340);
+test("all three zoom sequences retain the same calibrated rectangle, including fresh entry in 1 and 5", async () => {
+  for (const sequence of [[5,4,3,2,1], [1,2,3,4,5], [1,4,2,5,3,1]]) {
+    const f = videoFixture();
+    assert.equal(f.wrapper.style.visibility, "hidden");
+    await new Promise(resolve => setImmediate(resolve));
+    for (const zoom of sequence) {
+      f.resize();
+      f.mutate();
+      assert.equal(f.wrapper.style.width, "112.5px", "zoom " + zoom);
+      assert.equal(f.wrapper.style.height, "200px", "zoom " + zoom);
+      assert.equal(f.wrapper.style.visibility, "");
+    }
+    assert.equal(f.measures(), 1);
     f.cleanup();
     assert.equal(f.video.style.cssText, "max-height:288px");
   }
-  const landscape = videoFixture({ ratio: 16 / 9 });
-  assert.equal(parseFloat(landscape.wrapper.style.width), 340);
-  assert.equal(parseFloat(landscape.wrapper.style.height), 340 / (16 / 9));
 });
 
-test("disabled sizing does not observe or modify trailer/desktop geometry", () => {
-  const f = videoFixture({ enabled: false });
-  assert.equal(f.observerCount, 0);
+test("disabled sizing does not modify trailer/desktop geometry", () => {
+  const f = videoFixture(false);
+  assert.equal(f.measures(), 0);
   assert.equal(f.wrapper.style.width, undefined);
   assert.equal(f.video.style.cssText, "max-height:288px");
+});
+
+test("reference measurement uses its own viewport and preceding layout, never live video bounds", async () => {
+  const exports = {};
+  let removed = false, cleared = false, css, referenceCss;
+  const marker = { style: {}, replaceChildren() { cleared = true; }, getBoundingClientRect: () => ({ top: 450 }), parentElement: { clientWidth: 200 } };
+  const clone = { querySelectorAll: () => [], querySelector: () => ({ parentElement: marker }) };
+  const doc = {
+    open() {}, write() {}, close() {}, documentElement: {}, head: { appendChild(style) { referenceCss = style.textContent; } },
+    createElement: () => ({ style: {} }), fonts: { ready: Promise.resolve() },
+    body: { appendChild() {} },
+  };
+  const frame = { style: {}, setAttribute() {}, contentDocument: doc, contentWindow: { getComputedStyle: () => ({ paddingBottom: "0" }) }, remove() { removed = true; } };
+  vm.runInNewContext(compile("hooks/detailVideoReference.ts"), {
+    exports, URL,
+    document: {
+      createElement: () => frame, documentElement: { lang: "es", className: "" },
+      body: { className: "", appendChild() { css = frame.style.cssText; } },
+      styleSheets: [{ href: "https://example.test/_next/static/css/app.css", media: { mediaText: "" }, cssRules: [{ cssText: '@font-face { src: url(../media/font.woff2); }' }] }],
+    },
+  });
+  const measured = await exports.measureDetailVideoReference({ closest: () => ({ cloneNode: () => clone }), getBoundingClientRect() { throw new Error("Live geometry must not be measured"); } });
+  assert.equal(measured.width, 178 * 9 / 16);
+  assert.equal(measured.height, 178);
+  assert.match(css, /width:320px;height:640px/);
+  assert.match(referenceCss, /https:\/\/example.test\/_next\/static\/media\/font.woff2/);
+  assert.ok(removed && cleared);
+  assert.equal(marker.style.cssText, "width:0;height:0;flex-shrink:0");
+});
+
+test("the largest reference rectangle is bounded by both width and height at 9:16", () => {
+  const exports = {};
+  vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports });
+  for (const [width, height] of [[200,178], [120,300], [300,200], [100,100]]) {
+    const rect = exports.fitReferenceVideo(width, height);
+    assert.ok(rect.width <= width && rect.height <= height);
+    assert.equal(rect.width / rect.height, 9 / 16);
+  }
 });
