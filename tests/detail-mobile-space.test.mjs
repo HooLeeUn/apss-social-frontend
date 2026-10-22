@@ -34,178 +34,131 @@ test("country selector ignores internal native and forwarded gestures but closes
   assert.equal(closes, 2);
 });
 
-const reference = {};
-vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports: reference });
-const { DETAIL_VIDEO_WIDTH } = reference;
-const hook = compile("hooks/useDetailVideoSpace.ts");
-
-function videoFixture({ enabled = true, hasVideo = true } = {}) {
-  let cleanup, mutation, observers = 0;
-  const style = (initial = "") => {
-    let values = { cssText: initial };
-    return new Proxy({}, {
-      get: (_, key) => values[key],
-      set: (_, key, value) => {
-        if (key === "cssText") values = { cssText: value };
-        else values[key] = value;
-        return true;
-      },
-    });
-  };
-  let geometry = { width: 1, height: 1 };
-  const wrapper = { style: style(), getBoundingClientRect: () => geometry };
-  const video = { style: style("max-height:288px"), parentElement: wrapper,
-    getBoundingClientRect: () => geometry };
-  const root = { querySelectorAll: () => hasVideo ? [video] : [], getBoundingClientRect: () => geometry };
+function videoFixture(enabled = true, deferMeasurement = false) {
+  const wrapper = { style: { cssText: "" } };
+  const video = { style: { cssText: "max-height:288px" }, parentElement: wrapper };
+  const root = { querySelectorAll: () => [video], querySelector: () => video };
+  let cleanup, measures = 0, mutations, resize;
+  let calibration, finishMeasurement;
   const exports = {};
-  vm.runInNewContext(hook, {
-    exports,
+  vm.runInNewContext(compile("hooks/useDetailVideoSpace.ts"), {
+    exports, console,
     require: name => name === "react" ? {
+      useRef: initial => calibration ??= { current: initial },
       useLayoutEffect: fn => { cleanup?.(); cleanup = fn(); },
-    } : reference,
-    // Measurements, timers and observers that can recalculate the size fail.
-    getComputedStyle() { throw Error("Unexpected measured calibration"); },
-    ResizeObserver: class { constructor() { throw Error("Unexpected resize observer"); } },
-    window: new Proxy({}, { get() { throw Error("Unexpected viewport or scroll dependency"); } }),
-    document: new Proxy({}, { get() { throw Error("Unexpected calibration document"); } }),
-    MutationObserver: class {
-      constructor(fn) { mutation = fn; }
-      observe() { observers++; }
-      disconnect() { observers--; }
+    } : {
+      measureDetailVideoReference: async () => {
+        measures++;
+        if (deferMeasurement) await new Promise(resolve => { finishMeasurement = resolve; });
+        return { width: 112.5, height: 200 };
+      },
     },
+    window: { addEventListener: (event, fn) => { if (event === "resize") resize = fn; }, removeEventListener() {} },
+    MutationObserver: class { constructor(fn) { mutations = fn; } observe() {} disconnect() {} },
   });
   const rootRef = { current: root };
   exports.useDetailVideoSpace(rootRef, enabled);
-  return { video, wrapper, observers: () => observers,
-    frame(next) { geometry = next; mutation?.(); },
-    addVideo() { hasVideo = true; mutation?.(); },
-    trailer(open) { exports.useDetailVideoSpace(rootRef, enabled, open); },
-    cleanup() { cleanup?.(); },
-  };
+  return { video, wrapper, cleanup: () => cleanup?.(), resize: () => resize?.(), mutate: () => mutations?.(), measures: () => measures,
+    trailer: open => exports.useDetailVideoSpace(rootRef, enabled, open), finishMeasurement: () => finishMeasurement?.() };
 }
 
-// Evaluate the emitted CSS math, including the parent's inline-size limit.
-function renderedSize(parentWidth, viewportHeight, rootFontSize = 16) {
-  const expression = DETAIL_VIDEO_WIDTH
-    .replace("var(--detail-video-fit-width, 100%)", "min(100cqw, calc(100cqh * 0.5625))")
-    .replace("100cqw", String(parentWidth))
-    .replace("100cqh", String(viewportHeight))
-    .replace(/([\d.]+)rem/g, (_, value) => String(Number(value) * rootFontSize))
-    .replace(/([\d.]+)dvh/g, (_, value) => String(Number(value) * viewportHeight / 100))
-    .replaceAll("min(", "Math.min(")
-    .replaceAll("calc(", "(");
-  const width = vm.runInNewContext(expression, { clamp: (lower, value, upper) => Math.max(lower, Math.min(value, upper)) });
-  return { width, height: width * 16 / 9 };
-}
-
-function assertRule(f) {
-  assert.equal(f.wrapper.style.width, DETAIL_VIDEO_WIDTH);
-  assert.equal(f.wrapper.style.aspectRatio, "9 / 16");
-  assert.equal(f.wrapper.style.height, "auto");
-  assert.equal(f.wrapper.style.maxWidth, "100%");
-  assert.equal(f.video.style.position, "absolute");
-  assert.equal(f.video.style.width, "100%");
-  assert.equal(f.video.style.height, "100%");
-  assert.equal(f.wrapper.style.visibility, "");
-}
-
-test("base can fill a roomy slot without the old 18rem height ceiling", () => {
-  const f = videoFixture();
-  assertRule(f);
-  assert.equal(f.video.style.maxHeight, "none");
-  for (const available of [240, 280, 300, 340]) {
-    const size = renderedSize(available, 960);
-    assert.equal(size.width, available);
-    assert.equal(size.height, available * 16 / 9);
-    assert.ok(size.height > 288);
-  }
-  f.cleanup();
-});
-
-test("40 remounts per viewport have the same initial and settled size", () => {
-  for (const viewport of [960, 880, 800, 720, 640]) {
-    const expected = renderedSize(300, viewport);
-    for (let mount = 0; mount < 40; mount++) {
-      const f = videoFixture();
-      assertRule(f);
-      // Even positive, tiny and apparently stable geometry cannot change size.
-      for (let frame = 0; frame < 30; frame++) {
-        f.frame({ width: 1, height: 2 });
-        assertRule(f);
-        assert.deepEqual(renderedSize(300, viewport), expected);
-      }
-      f.frame({ width: 300, height: 600 });
-      assertRule(f);
-      assert.deepEqual(renderedSize(300, viewport), expected);
-      f.cleanup();
-      assert.equal(f.observers(), 0);
+test("repeated trailer cycles restore the original rectangle synchronously without recalibration in zoom 1 and 5", async () => {
+  for (const zoom of [1, 5]) {
+    const f = videoFixture();
+    await new Promise(resolve => setImmediate(resolve));
+    for (let cycle = 0; cycle < 5; cycle++) {
+      f.trailer(true);
+      f.wrapper.style.width = "10px";
+      f.wrapper.style.height = "18px";
+      f.trailer(false);
+      assert.equal(f.wrapper.style.width, "112.5px", `zoom ${zoom}, cycle ${cycle}`);
+      assert.equal(f.wrapper.style.height, "200px");
+      assert.equal(f.wrapper.style.visibility, "");
+      f.resize();
+      assert.equal(f.measures(), 1);
     }
+    f.cleanup();
   }
 });
 
-test("trailer cycles synchronously restore the same sizing rule and clean up subscriptions", () => {
-  const f = videoFixture();
-  for (let cycle = 0; cycle < 10; cycle++) {
-    assert.equal(f.observers(), 1);
-    f.trailer(true);
-    assert.equal(f.observers(), 0);
-    assert.equal(f.video.style.cssText, "max-height:288px");
-    f.wrapper.style.width = "1px";
-    f.trailer(false);
-    assertRule(f);
-  }
-  f.cleanup();
-  assert.equal(f.observers(), 0);
-});
-
-test("returning to any viewport restores the exact original size without previous-zoom state", () => {
-  const f = videoFixture();
-  const initial = renderedSize(340, 960);
-  for (const viewport of [640, 800, 720, 960, 640, 960]) {
-    f.frame({ width: 300, height: viewport });
-    assertRule(f);
-    if (viewport === 960) assert.deepEqual(renderedSize(340, viewport), initial);
-  }
+test("opening and closing the trailer during initial calibration reuses the in-flight measurement", async () => {
+  const f = videoFixture(true, true);
+  f.trailer(true);
+  f.trailer(false);
+  assert.equal(f.measures(), 1);
+  f.finishMeasurement();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.wrapper.style.width, "112.5px");
+  assert.equal(f.wrapper.style.height, "200px");
   f.cleanup();
 });
 
-test("width safety limit preserves aspect ratio and fits its container", () => {
-  for (const viewport of [640, 720, 800, 960]) {
-    for (const available of [80, 120, 200, 300, 500, 900]) {
-      const size = renderedSize(available, viewport);
-      assert.ok(size.width <= available);
-      assert.ok(size.height <= viewport + 1e-9);
-      assert.equal(size.width / size.height, 9 / 16);
-      assert.ok(Math.abs(size.width - available) < 1e-9 || Math.abs(size.height - viewport) < 1e-9);
-    }
-  }
-});
-
-test("late video cards use the final rule immediately; desktop is not changed", () => {
-  const f = videoFixture({ hasVideo: false });
-  assert.equal(f.wrapper.style.width, undefined);
-  f.addVideo();
-  assertRule(f);
-  f.cleanup();
-  const desktop = videoFixture({ enabled: false });
-  assert.equal(desktop.wrapper.style.width, undefined);
-  assert.equal(desktop.video.style.cssText, "max-height:288px");
-  assert.equal(desktop.observers(), 0);
-});
-
-test("normal mobile keeps existing hook scope and reaction pill placement", () => {
+test("normal mobile removes only the shared visual reaction pill", () => {
   const page = readFileSync("app/movies/[id]/page.tsx", "utf8");
   assert.match(page, /useDetailVideoSpace\(videoGateAnchorRef, mobileViewport && active, trailerCompanionOpen\)/);
   assert.match(page, /className=\{!trailerCompanionOpen && mobileViewport \? "absolute right-2 top-2 z-20" : "pointer-events-none absolute left-2 top-2/);
+  assert.match(page, /rounded-full font-semibold leading-none transition/);
 });
 
+test("all three zoom sequences retain the same calibrated rectangle, including fresh entry in 1 and 5", async () => {
+  for (const sequence of [[5,4,3,2,1], [1,2,3,4,5], [1,4,2,5,3,1]]) {
+    const f = videoFixture();
+    assert.equal(f.wrapper.style.visibility, "hidden");
+    await new Promise(resolve => setImmediate(resolve));
+    for (const zoom of sequence) {
+      f.resize();
+      f.mutate();
+      assert.equal(f.wrapper.style.width, "112.5px", "zoom " + zoom);
+      assert.equal(f.wrapper.style.height, "200px", "zoom " + zoom);
+      assert.equal(f.wrapper.style.visibility, "");
+    }
+    assert.equal(f.measures(), 1);
+    f.cleanup();
+    assert.equal(f.video.style.cssText, "max-height:288px");
+  }
+});
 
-test("both slot dimensions select the limiting axis with no extra zoom factor", () => {
-  for (const [width, height] of [[300, 200], [200, 600], [340, 420], [280, 150]]) {
-    const size = renderedSize(width, height);
-    assert.equal(size.width, Math.min(width, height * 9 / 16));
-    assert.ok(size.width <= width && size.height <= height);
-    assert.equal(size.width / size.height, 9 / 16);
-    for (const font of [16, 18, 20, 24]) assert.deepEqual(renderedSize(width, height, font), size);
+test("disabled sizing does not modify trailer/desktop geometry", () => {
+  const f = videoFixture(false);
+  assert.equal(f.measures(), 0);
+  assert.equal(f.wrapper.style.width, undefined);
+  assert.equal(f.video.style.cssText, "max-height:288px");
+});
+
+test("reference measurement uses its own viewport and preceding layout, never live video bounds", async () => {
+  const exports = {};
+  let removed = false, cleared = false, css, referenceCss;
+  const marker = { style: {}, replaceChildren() { cleared = true; }, getBoundingClientRect: () => ({ top: 450 }), parentElement: { clientWidth: 200 } };
+  const clone = { querySelectorAll: () => [], querySelector: () => ({ parentElement: marker }) };
+  const doc = {
+    open() {}, write() {}, close() {}, documentElement: {}, head: { appendChild(style) { referenceCss = style.textContent; } },
+    createElement: () => ({ style: {} }), fonts: { ready: Promise.resolve() },
+    body: { appendChild() {} },
+  };
+  const frame = { style: {}, setAttribute() {}, contentDocument: doc, contentWindow: { getComputedStyle: () => ({ paddingBottom: "0" }) }, remove() { removed = true; } };
+  vm.runInNewContext(compile("hooks/detailVideoReference.ts"), {
+    exports, URL,
+    document: {
+      createElement: () => frame, documentElement: { lang: "es", className: "" },
+      body: { className: "", appendChild() { css = frame.style.cssText; } },
+      styleSheets: [{ href: "https://example.test/_next/static/css/app.css", media: { mediaText: "" }, cssRules: [{ cssText: '@font-face { src: url(../media/font.woff2); }' }] }],
+    },
+  });
+  const measured = await exports.measureDetailVideoReference({ closest: () => ({ cloneNode: () => clone }), getBoundingClientRect() { throw new Error("Live geometry must not be measured"); } });
+  assert.equal(measured.width, 178 * 9 / 16);
+  assert.equal(measured.height, 178);
+  assert.match(css, /width:320px;height:640px/);
+  assert.match(referenceCss, /https:\/\/example.test\/_next\/static\/media\/font.woff2/);
+  assert.ok(removed && cleared);
+  assert.equal(marker.style.cssText, "width:0;height:0;flex-shrink:0");
+});
+
+test("the largest reference rectangle is bounded by both width and height at 9:16", () => {
+  const exports = {};
+  vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports });
+  for (const [width, height] of [[200,178], [120,300], [300,200], [100,100]]) {
+    const rect = exports.fitReferenceVideo(width, height);
+    assert.ok(rect.width <= width && rect.height <= height);
+    assert.equal(rect.width / rect.height, 9 / 16);
   }
 });
