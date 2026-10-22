@@ -164,7 +164,7 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
           {canDirectReply ? (
             <form className="mt-4 border-t border-white/10 pt-4" onSubmit={(event) => { event.preventDefault(); void handleReply(); }}>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <textarea
+                <textarea autoCorrect="off" spellCheck={false} autoCapitalize="sentences"
                   value={replyText}
                   onChange={(event) => { setReplyText(event.target.value); setReplyStatus("idle"); }}
                   disabled={replyStatus === "sending"}

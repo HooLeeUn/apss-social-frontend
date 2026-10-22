@@ -326,6 +326,9 @@ export default function SearchBar({
           ) : null}
           <input
             ref={inputRef}
+            autoCorrect="off"
+            spellCheck={false}
+            autoCapitalize="none"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => {
@@ -349,7 +352,7 @@ export default function SearchBar({
 
       {shouldShowAutocompleteResults ? (
         <div className={autocompletePanelClassName}>
-          <div className={autocompleteListClassName} onScroll={handleResultsScroll}>
+          <div className={autocompleteListClassName} style={autocompletePlacement === "above" ? { maxHeight: "var(--search-results-max-height, min(56vh, 420px))" } : undefined} onScroll={handleResultsScroll}>
             {results.map((movie) => (
               <AutocompleteMovieRow key={movie.id} movie={movie} onSelect={handleMovieClick} locale={locale} />
             ))}
