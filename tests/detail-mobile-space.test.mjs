@@ -87,7 +87,9 @@ function videoFixture({ enabled = true, hasVideo = true } = {}) {
 // Evaluate the emitted CSS math, including the parent's inline-size limit.
 function renderedSize(parentWidth, viewportHeight, rootFontSize = 16) {
   const expression = DETAIL_VIDEO_WIDTH
-    .replace("100%", String(parentWidth))
+    .replace("var(--detail-video-fit-width, 100%)", "min(100cqw, calc(100cqh * 0.5625))")
+    .replace("100cqw", String(parentWidth))
+    .replace("100cqh", String(viewportHeight))
     .replace(/([\d.]+)rem/g, (_, value) => String(Number(value) * rootFontSize))
     .replace(/([\d.]+)dvh/g, (_, value) => String(Number(value) * viewportHeight / 100))
     .replaceAll("min(", "Math.min(")
@@ -107,7 +109,7 @@ function assertRule(f) {
   assert.equal(f.wrapper.style.visibility, "");
 }
 
-test("base can fill the padded container without the old 18rem height ceiling", () => {
+test("base can fill a roomy slot without the old 18rem height ceiling", () => {
   const f = videoFixture();
   assertRule(f);
   assert.equal(f.video.style.maxHeight, "none");
@@ -169,12 +171,12 @@ test("returning to any viewport restores the exact original size without previou
 
 test("width safety limit preserves aspect ratio and fits its container", () => {
   for (const viewport of [640, 720, 800, 960]) {
-    for (const available of [80, 120, 200, 300, 500]) {
+    for (const available of [80, 120, 200, 300, 500, 900]) {
       const size = renderedSize(available, viewport);
       assert.ok(size.width <= available);
-      assert.equal(size.width, available);
+      assert.ok(size.height <= viewport + 1e-9);
       assert.equal(size.width / size.height, 9 / 16);
-      if (available >= 200) assert.ok(size.height > 288);
+      assert.ok(Math.abs(size.width - available) < 1e-9 || Math.abs(size.height - viewport) < 1e-9);
     }
   }
 });
@@ -198,11 +200,12 @@ test("normal mobile keeps existing hook scope and reaction pill placement", () =
 });
 
 
-test("equal containing widths give equal size across routes, viewport heights and font scales", () => {
-  const expected = renderedSize(300, 960);
-  for (const viewport of [640, 720, 800, 960]) {
-    for (const font of [16, 18, 20, 24]) {
-      assert.deepEqual(renderedSize(300, viewport, font), expected);
-    }
+test("both slot dimensions select the limiting axis with no extra zoom factor", () => {
+  for (const [width, height] of [[300, 200], [200, 600], [340, 420], [280, 150]]) {
+    const size = renderedSize(width, height);
+    assert.equal(size.width, Math.min(width, height * 9 / 16));
+    assert.ok(size.width <= width && size.height <= height);
+    assert.equal(size.width / size.height, 9 / 16);
+    for (const font of [16, 18, 20, 24]) assert.deepEqual(renderedSize(width, height, font), size);
   }
 });
