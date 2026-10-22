@@ -1,5 +1,5 @@
-// Original player sizing rule, present before useDetailVideoSpace was added
-// (9749fc0, app/movies/[id]/page.tsx: VIDEO_COMMENT_CARD_VIDEO_HEIGHT).
-// Restore that rule rather than deriving a new size from mount-time geometry.
-export const DETAIL_VIDEO_HEIGHT = "clamp(14rem, 36dvh, 18rem)";
-export const DETAIL_VIDEO_WIDTH = `min(100%, calc(${DETAIL_VIDEO_HEIGHT} * 0.5625))`;
+// 42536bb's mobile hook overrode the player's historical 18rem max-height.
+// Keep the full container-width sizing it allowed, without bringing back its
+// measured height calibration. Existing container padding retains side margins;
+// useDetailVideoSpace supplies the centered 9:16 box and the 100% width guard.
+export const DETAIL_VIDEO_WIDTH = "100%";

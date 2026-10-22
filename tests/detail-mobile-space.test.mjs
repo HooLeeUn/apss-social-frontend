@@ -36,7 +36,7 @@ test("country selector ignores internal native and forwarded gestures but closes
 
 const reference = {};
 vm.runInNewContext(compile("hooks/detailVideoReference.ts"), { exports: reference });
-const { DETAIL_VIDEO_HEIGHT, DETAIL_VIDEO_WIDTH } = reference;
+const { DETAIL_VIDEO_WIDTH } = reference;
 const hook = compile("hooks/useDetailVideoSpace.ts");
 
 function videoFixture({ enabled = true, hasVideo = true } = {}) {
@@ -107,13 +107,17 @@ function assertRule(f) {
   assert.equal(f.wrapper.style.visibility, "");
 }
 
-test("restored rule matches the original player height instead of inventing a new calibration", () => {
-  const page = readFileSync("app/movies/[id]/page.tsx", "utf8");
-  const originalHeight = page.match(/VIDEO_COMMENT_CARD_VIDEO_HEIGHT = "([^"]+)"/)[1];
-  assert.equal(DETAIL_VIDEO_HEIGHT, originalHeight);
-  assert.deepEqual(renderedSize(400, 1000), { width: 162, height: 288 });
-  assert.deepEqual(renderedSize(400, 600), { width: 126, height: 224 });
-  assert.deepEqual(renderedSize(400, 700), { width: 141.75, height: 252 });
+test("base can fill the padded container without the old 18rem height ceiling", () => {
+  const f = videoFixture();
+  assertRule(f);
+  assert.equal(f.video.style.maxHeight, "none");
+  for (const available of [240, 280, 300, 340]) {
+    const size = renderedSize(available, 960);
+    assert.equal(size.width, available);
+    assert.equal(size.height, available * 16 / 9);
+    assert.ok(size.height > 288);
+  }
+  f.cleanup();
 });
 
 test("40 remounts per viewport have the same initial and settled size", () => {
@@ -168,9 +172,9 @@ test("width safety limit preserves aspect ratio and fits its container", () => {
     for (const available of [80, 120, 200, 300, 500]) {
       const size = renderedSize(available, viewport);
       assert.ok(size.width <= available);
-      assert.ok(size.height <= 288);
+      assert.equal(size.width, available);
       assert.equal(size.width / size.height, 9 / 16);
-      if (available >= 200) assert.ok(size.height >= 224);
+      if (available >= 200) assert.ok(size.height > 288);
     }
   }
 });
@@ -191,4 +195,14 @@ test("normal mobile keeps existing hook scope and reaction pill placement", () =
   const page = readFileSync("app/movies/[id]/page.tsx", "utf8");
   assert.match(page, /useDetailVideoSpace\(videoGateAnchorRef, mobileViewport && active, trailerCompanionOpen\)/);
   assert.match(page, /className=\{!trailerCompanionOpen && mobileViewport \? "absolute right-2 top-2 z-20" : "pointer-events-none absolute left-2 top-2/);
+});
+
+
+test("equal containing widths give equal size across routes, viewport heights and font scales", () => {
+  const expected = renderedSize(300, 960);
+  for (const viewport of [640, 720, 800, 960]) {
+    for (const font of [16, 18, 20, 24]) {
+      assert.deepEqual(renderedSize(300, viewport, font), expected);
+    }
+  }
 });
