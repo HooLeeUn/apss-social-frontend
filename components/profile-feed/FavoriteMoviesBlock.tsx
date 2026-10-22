@@ -19,6 +19,8 @@ import { useAppBranding } from "../../hooks/useAppBranding";
 import { formatProfileFeedRatingsCount, interpolate, resolveMovieTitles, translateVisibleGenre } from "../../lib/i18n";
 import type { AppBranding } from "../../lib/branding";
 import PosterImage from "../PosterImage";
+import VisitedProfileText from "./VisitedProfileText";
+import { useVisitedProfileFit } from "../../hooks/useVisitedProfileFit";
 
 interface FavoriteMovieItemProps {
   movie?: FavoriteMovie;
@@ -88,6 +90,9 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
     ? (movie?.visitedFollowingRatingsCount ?? movie?.followingRatingsCount ?? 0)
     : movie?.followingRatingsCount ?? 0;
   const readOnlyOwnerRating = readOnly ? (movie?.visitedOwnerRating ?? movie?.myRating ?? null) : movie?.myRating ?? null;
+  const visitedMobileText = readOnly && Boolean(viewedUsername);
+  const ratingsRef = useRef<HTMLDivElement>(null);
+  useVisitedProfileFit(ratingsRef, visitedMobileText && hasValidProduction, "ratings", `${movie?.id}:${movie?.generalRating}:${readOnlyFollowingRating}:${readOnlyFollowingRatingsCount}:${readOnlyOwnerRating}`);
 
   return (
     <div className="favorite-movie-card group relative isolate h-[180px] overflow-visible">
@@ -109,7 +114,7 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                   />
                   <div className="min-w-0">
                     <h3 className="favorite-movie-card__title truncate whitespace-nowrap text-sm font-semibold leading-tight text-zinc-100">
-                      {detailHref ? (
+                      <VisitedProfileText enabled={visitedMobileText} text={displayTitle} desktop={detailHref ? (
                         <Link
                           href={detailHref}
                           aria-label={`Ver detalle de ${displayTitle}`}
@@ -119,11 +124,11 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                         </Link>
                       ) : (
                         displayTitle
-                      )}
+                      )} />
                     </h3>
                     {displaySecondaryTitle ? (
                       <p className="truncate text-[11px] leading-tight text-blue-200/80">
-                        {detailHref ? (
+                        <VisitedProfileText enabled={visitedMobileText} text={displaySecondaryTitle} desktop={detailHref ? (
                           <Link
                             href={detailHref}
                             aria-label={`Ver detalle de ${displayTitle} (${displaySecondaryTitle})`}
@@ -133,25 +138,25 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                           </Link>
                         ) : (
                           displaySecondaryTitle
-                        )}
+                        )} />
                       </p>
                     ) : null}
                     <div className="mt-1 flex min-w-0 flex-col justify-center gap-0.5 pr-1">
                       <p className="truncate text-sm leading-tight text-zinc-300">{movie.year}</p>
-                      <p className="truncate text-sm leading-tight text-zinc-300">{displayGenre}</p>
+                      <p className="truncate text-sm leading-tight text-zinc-300"><VisitedProfileText enabled={visitedMobileText} text={displayGenre ?? ""} /></p>
                     </div>
                   </div>
                 </div>
-                <div className="favorite-movie-card__ratings mt-auto flex items-end justify-between gap-2 pb-0.5">
+                <div ref={ratingsRef} className="favorite-movie-card__ratings mt-auto flex items-end justify-between gap-2 pb-0.5">
                   <div className="inline-flex h-10 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1 text-sm font-semibold text-zinc-200" aria-label="General">
                     <span aria-hidden="true">⭐</span>
                     <span>{formatAverageRating(movie.generalRating)}</span>
                   </div>
                   <div className="inline-flex h-10 rounded-md border border-white/10 bg-zinc-900/70 px-2 py-1" aria-label={t("profileFeedFollowing")}>
                     <div className="flex flex-col justify-center leading-tight text-zinc-200">
-                      <span className="whitespace-nowrap text-sm font-semibold">👥 {formatFollowingRating(readOnlyFollowingRating)}</span>
+                      <span data-favorite-following-value className="whitespace-nowrap text-sm font-semibold"><span aria-hidden="true">👥</span>{" "}<span>{formatFollowingRating(readOnlyFollowingRating)}</span></span>
                       {formatProfileFeedRatingsCount(locale, readOnlyFollowingRatingsCount) ? (
-                        <span className="text-[9px] font-normal text-zinc-500/90">{formatProfileFeedRatingsCount(locale, readOnlyFollowingRatingsCount)}</span>
+                        <span className="text-[9px] font-normal text-zinc-500/90"><VisitedProfileText enabled={visitedMobileText} text={formatProfileFeedRatingsCount(locale, readOnlyFollowingRatingsCount) ?? ""} /></span>
                       ) : null}
                     </div>
                   </div>

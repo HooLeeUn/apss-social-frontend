@@ -173,7 +173,7 @@ function SocialActions({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-visited-social-actions className="flex flex-wrap items-center gap-2">
       {canShowFollow ? (
         <button
           type="button"
