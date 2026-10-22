@@ -40,9 +40,9 @@ test("compact layout is opt-in on normal mobile Detail and retains existing cont
   assert.match(card, /compactMobileDetail = false/);
   assert.match(card, /splitFeedActions && !compactMobileDetail/);
   const mobile = card.slice(card.indexOf("const mobileDetailCardContent"));
-  assert.match(mobile, /mobileDetailRatingsRow\}[\s\S]*compactMobileDetail \? mobileTmdbLogo/);
+  assert.match(mobile, /mobileDetailRatingsRow\}[\s\S]*compactMobileDetail \? <div className="mt-auto">\{mobileTmdbLogo\}/);
   assert.match(mobile, /Available on[\s\S]*compactMobileDetail[\s\S]*ratingsActionsTmdbSlot/);
-  assert.match(mobile, /creditsLoading[\s\S]*compactMobileDetail \? mobileDetailActions/);
+  assert.match(mobile, /creditsLoading[\s\S]*compactMobileDetail \? <div[^>]*>\{mobileDetailActions\}/);
   assert.match(mobile, /ActionsTruncatedText text=\{displayTitle\}/);
   assert.match(mobile, /ActionsTruncatedText text=\{displaySecondaryTitle\}/);
   assert.match(mobile, /truncatedPopover=\{compactMobileDetail\}/);
