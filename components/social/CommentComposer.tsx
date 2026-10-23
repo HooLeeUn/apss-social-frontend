@@ -205,9 +205,11 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
           disabled={!text.trim() || loading}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => void handleSubmit()}
-          className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#86ADE0] text-2xl leading-none text-zinc-950 enabled:hover:bg-blue-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86ADE0] disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+          className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#86ADE0] p-0 leading-none text-white enabled:hover:bg-blue-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86ADE0] disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
         >
-          <span aria-hidden="true">→</span>
+          <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="block h-5 w-5 shrink-0">
+            <path d="M4 12h16m-7-7 7 7-7 7" />
+          </svg>
         </button>
 
         {mentionQuery !== null ? (
