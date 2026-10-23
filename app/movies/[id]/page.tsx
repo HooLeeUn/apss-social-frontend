@@ -913,7 +913,11 @@ function CommentUserSearch({
 
   return (
     <div className="relative w-full sm:w-56">
-      <div className="flex items-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] focus-within:border-[#86ADE0]/70">
+      <div className="relative flex items-center rounded-full border border-[#86ADE0]/30 bg-zinc-950/80 py-1.5 pl-9 pr-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] focus-within:border-[#86ADE0]/70">
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <path d="m16 16 4 4" />
+        </svg>
         <input
           type="text"
           value={selectedUser ? getCommentFilterUserLabel(selectedUser) : query}
