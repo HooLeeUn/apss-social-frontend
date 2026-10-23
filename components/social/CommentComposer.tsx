@@ -180,10 +180,6 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
       return;
     }
 
-    if (event.key === "Enter") {
-      event.preventDefault();
-      if (!event.repeat) void handleSubmit();
-    }
   };
 
   return (
@@ -199,10 +195,20 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
             updateMentionState(nextText, event.target.selectionStart ?? nextText.length);
           }}
           onKeyDown={handleKeyDown}
-          enterKeyHint="send"
+          enterKeyHint="enter"
           placeholder={placeholder ?? t("movieDetailCommentPlaceholder")}
-          className="max-h-[4.5rem] min-h-[4.5rem] w-full resize-none overflow-y-auto rounded-xl border border-white/30 bg-black/30 p-3 text-sm leading-5 text-zinc-100 outline-none transition focus:border-white/45"
+          className="block max-h-[4.5rem] min-h-[4.5rem] w-full resize-none overflow-y-auto rounded-xl border border-white/30 bg-black/30 p-3 pr-12 text-sm leading-5 text-zinc-100 outline-none transition focus:border-white/45"
         />
+        <button
+          type="button"
+          aria-label={t("movieDetailPost")}
+          disabled={!text.trim() || loading}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => void handleSubmit()}
+          className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-950 text-2xl leading-none text-[#86ADE0] hover:text-blue-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86ADE0] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <span aria-hidden="true">→</span>
+        </button>
 
         {mentionQuery !== null ? (
           <MentionAutocomplete friends={mentionSuggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
