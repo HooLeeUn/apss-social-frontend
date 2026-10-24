@@ -18,7 +18,7 @@ function normalizeMentionUsername(value: string): string {
 interface CommentComposerProps {
   friends: Friend[];
   searchMentionSuggestions: (query: string) => Promise<Friend[]>;
-  onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<void>;
+  onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<boolean>;
   loading?: boolean;
   error?: string;
   placeholder?: string;
@@ -137,16 +137,18 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
 
     submittingRef.current = true;
     try {
-      await onSubmit({
+      const submitted = await onSubmit({
         text: trimmed,
         mentionUsername,
       });
+      if (!submitted) return;
 
       setText("");
       setMentionSuggestions([]);
       setMentionQuery(null);
       setMentionStart(null);
       setSelectedMention(null);
+      textareaRef.current?.blur();
     } finally {
       submittingRef.current = false;
     }
@@ -213,7 +215,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
         </button>
 
         {mentionQuery !== null ? (
-          <MentionAutocomplete friends={mentionSuggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
+          <MentionAutocomplete anchorRef={textareaRef} friends={mentionSuggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
         ) : null}
       </div>
 
