@@ -159,6 +159,16 @@ function ProfileFeedContent() {
   const [isUserSearchPanelOpen, setIsUserSearchPanelOpen] = useState(false);
   const latestUserSearchRequest = useRef(0);
   const userSearchContainerRef = useRef<HTMLElement | null>(null);
+  const userSearchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const input = userSearchInputRef.current;
+    if (!input) return;
+    // The native search cancel button emits `search` after clearing the value.
+    const dismissClearedSearch = () => { if (!input.value) input.blur(); };
+    input.addEventListener("search", dismissClearedSearch);
+    return () => input.removeEventListener("search", dismissClearedSearch);
+  }, []);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [loadingFollowing, setLoadingFollowing] = useState(true);
   const [loadingPendingRequests, setLoadingPendingRequests] = useState(true);
@@ -1061,6 +1071,7 @@ function ProfileFeedContent() {
                 <path d="m20 20-3.5-3.5" />
               </svg>
               <input
+                ref={userSearchInputRef}
                 type="search"
                 placeholder={t("profileFeedSearchAndFollowFriends")}
                 aria-label={t("profileFeedSearchAndFollowFriends")}

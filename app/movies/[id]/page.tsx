@@ -3944,7 +3944,7 @@ function MovieDetailPageContent() {
   }, [directedConversations, expandedConversationKey, loadingFullHistoryByConversationKey, pendingDirectedNotificationTarget]);
 
   const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
-    if (!movieId) return;
+    if (!movieId) return false;
 
     const allowedMentionUsername = canShowDirectedComments ? mentionUsername : null;
 
@@ -4015,7 +4015,7 @@ function MovieDetailPageContent() {
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
             router.replace("/login");
-            return;
+            return true;
           }
           if (parsedSubmittedComment) {
             const counterpart = buildCounterpartData(parsedSubmittedComment, authenticatedUsername);
@@ -4064,7 +4064,7 @@ function MovieDetailPageContent() {
         } catch (refreshError) {
           if (refreshError instanceof ApiError && refreshError.status === 401) {
             router.replace("/login");
-            return;
+            return true;
           }
           if (parsedSubmittedComment) {
             setPublicComments((current) => [parsedSubmittedComment, ...current]);
@@ -4072,17 +4072,19 @@ function MovieDetailPageContent() {
           }
         }
       }
+      return true;
     } catch (error) {
       if (error instanceof ApiError) {
         console.log("[movie-comments-debug] submit response status:", error.status);
         console.log("[movie-comments-debug] submit response body on error:", error.message);
         if (error.code === "bilateral_restriction") {
           setComposerError("No puedes enviar un comentario dirigido a este usuario.");
-          return;
+          return false;
         }
       }
       console.error("Comment submit error", error);
       setComposerError(translate(locale, "movieDetailCommentPostError"));
+      return false;
     } finally {
       setIsSubmitting(false);
     }
