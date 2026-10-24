@@ -73,7 +73,13 @@ function LoginForm() {
   };
 
   return <>
-    <AuthShell title={text.loginTitle} description={text.loginDescription} footerText={text.noAccount} footerLinkText={text.signupLink} footerHref="/signup" brandingSlot="login_logo_url" fitMobileViewport headerAction={<AuthCountrySelector />} logoAlt="ReCCool" emphasizeLogo>
+    <AuthShell title={text.loginTitle} description={text.loginDescription} footerText={text.noAccount} footerLinkText={text.signupLink} footerHref="/signup" brandingSlot="login_logo_url" fitMobileViewport headerAction={<AuthCountrySelector />} logoAlt="ReCCool" emphasizeLogo footerContent={
+      <div className="mt-4 flex flex-col items-center gap-4 text-center text-sm">
+        <Link href="/forgot-password" className="block font-semibold text-zinc-300 underline-offset-4 transition hover:text-white hover:underline">¿Olvidaste tu contraseña?</Link>
+        <p className="text-zinc-400">{text.noAccount}{" "}<Link href="/signup" className="font-medium text-zinc-100 underline decoration-zinc-500/90 underline-offset-4 transition hover:text-white hover:decoration-zinc-300 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950">{text.signupLink}</Link></p>
+        <button type="button" onClick={continueAsGuest} className="block font-semibold text-zinc-300 underline-offset-4 transition hover:text-white hover:underline md:hidden xl:block">{text.continueAsGuest}</button>
+      </div>
+    }>
       <form onSubmit={handleLogin} noValidate className="space-y-4 sm:space-y-5">
         {authMessage ? <div role="status" className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-sm leading-6 text-emerald-100">{authMessage}</div> : null}
         {verificationMessage ? <div className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${verificationMessageClassName}`}>{verificationMessage}</div> : null}
@@ -81,8 +87,6 @@ function LoginForm() {
         <div className="space-y-2"><label htmlFor="login-password" className="text-[0.82rem] font-medium uppercase tracking-[0.08em] text-zinc-200">{text.password}</label><div className="relative"><input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" className={`${inputBaseClassName} !pr-12`} placeholder={text.passwordPlaceholder} value={password} onChange={(e) => { setPassword(e.target.value); setFieldErrors((old) => ({ ...old, password: "" })); }} aria-invalid={Boolean(fieldErrors.password)} aria-describedby={fieldErrors.password ? "login-password-error" : undefined}/><PasswordVisibilityButton visible={showPassword} showLabel={text.showPassword} hideLabel={text.hidePassword} onToggle={() => setShowPassword((visible) => !visible)} /></div>{fieldErrors.password ? <p id="login-password-error" className="text-sm text-red-300">{fieldErrors.password}</p> : null}</div>
         <button type="submit" disabled={loading} className="mt-1 w-full rounded-xl border border-zinc-100 bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-900 shadow-[0_8px_28px_rgba(255,255,255,0.08)] transition duration-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-65">{loading ? text.loggingIn : text.loginButton}</button>
       </form>
-      <Link href="/forgot-password" className="mx-auto mt-4 block text-center text-sm font-semibold text-zinc-300 underline-offset-4 transition hover:text-white hover:underline">¿Olvidaste tu contraseña?</Link>
-      <button type="button" onClick={continueAsGuest} className="mx-auto mt-4 block text-sm font-semibold text-zinc-300 underline-offset-4 transition hover:text-white hover:underline md:hidden xl:block">{text.continueAsGuest}</button>
     </AuthShell>
     {loginError ? <AuthDialog title={loginError === "credentials" ? text.credentialTitle : text.connectionTitle} message={loginError === "credentials" ? text.credentialMessage : text.connectionMessage} closeLabel={text.close} onClose={closeDialog} /> : null}
   </>;
