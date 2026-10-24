@@ -14,6 +14,7 @@ interface AuthShellProps {
   footerHref: string;
   brandingSlot: BrandingLogoSlot;
   children: ReactNode;
+  footerContent?: ReactNode;
   fitMobileViewport?: boolean;
   headerAction?: ReactNode;
   logoAlt?: string;
@@ -28,6 +29,7 @@ export default function AuthShell({
   footerHref,
   brandingSlot,
   children,
+  footerContent,
   fitMobileViewport = false,
   headerAction,
   logoAlt = "Logo de la app",
@@ -84,7 +86,7 @@ export default function AuthShell({
 
         {children}
 
-        <p className={footerClassName}>
+        {footerContent ?? <p className={footerClassName}>
           {footerText}{" "}
           <Link
             href={footerHref}
@@ -92,7 +94,7 @@ export default function AuthShell({
           >
             {footerLinkText}
           </Link>
-        </p>
+        </p>}
       </div>
     </div>
   );
