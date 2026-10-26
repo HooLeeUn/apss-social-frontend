@@ -8,7 +8,7 @@ const i18nSource = readFileSync(new URL("../lib/i18n.ts", import.meta.url), "utf
 test("expanded directed conversations submit compact replies through the existing contract", () => {
   assert.match(detailSource, /const recipientUsername = conversation\.otherUsername;/);
   assert.match(detailSource, /buildMovieDirectedSubmitEndpoints\(movieId\)/);
-  assert.match(detailSource, /\{ body, mentioned_username: recipientUsername, movie_id: movieId \}/);
+  assert.match(detailSource, /\{ body, mentioned_username: recipientUsername, movie_id: movieId,/);
   assert.match(detailSource, /enterKeyHint="send"/);
   assert.match(detailSource, /event\.key !== "Enter" \|\| event\.nativeEvent\.isComposing/);
   assert.match(detailSource, /event\.preventDefault\(\);/);

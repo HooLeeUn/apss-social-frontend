@@ -20,7 +20,7 @@ export function buildNotificationTargetRoute(item: MyNotificationItem): string {
     ) {
       return `${movieRoute}?section=directed-comments${
         item.actorId !== null && item.actorId !== "" ? `&actorId=${encodeURIComponent(String(item.actorId))}` : ""
-      }${item.actorUsername ? `&actorUsername=${encodeURIComponent(item.actorUsername)}` : ""}&commentId=${encodeURIComponent(String(item.directedCommentId))}`;
+      }${item.actorUsername ? `&actorUsername=${encodeURIComponent(item.actorUsername)}` : ""}&commentId=${encodeURIComponent(String(item.directedCommentId))}${item.conversationKey ? `&conversationKey=${encodeURIComponent(item.conversationKey)}` : ""}`;
     }
     return movieRoute;
   }

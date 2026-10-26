@@ -79,7 +79,7 @@ for (const directed of [false, true]) {
     nodes = harness.render();
     nodes.find((node) => node.type === "button").props.onClick();
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(payload, { text: directed ? "@den hello" : "hello", mentionUsername: directed ? "den" : null });
+    assert.deepEqual(payload, { text: directed ? "@den hello" : "hello", mentionUsername: directed ? "den" : null, mentionUsernames: directed ? ["den"] : [] });
     assert.equal(harness.states[0], "");
     assert.equal(harness.blurs(), 1);
   });
