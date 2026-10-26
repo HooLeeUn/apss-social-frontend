@@ -18,7 +18,7 @@ function normalizeMentionUsername(value: string): string {
 interface CommentComposerProps {
   friends: Friend[];
   searchMentionSuggestions: (query: string) => Promise<Friend[]>;
-  onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<boolean>;
+  onSubmit: (payload: { text: string; mentionUsername: string | null; mentionUsernames?: string[] }) => Promise<boolean>;
   loading?: boolean;
   error?: string;
   placeholder?: string;
@@ -140,6 +140,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
       const submitted = await onSubmit({
         text: trimmed,
         mentionUsername,
+        mentionUsernames: [...new Set(Array.from(trimmed.matchAll(/(?:^|\s)@([\w.@+-]+)/g), (match) => match[1]))],
       });
       if (!submitted) return;
 

@@ -209,6 +209,7 @@ export type NotificationId = string | number;
 export type NotificationContext = "activity" | "private_inbox";
 
 export interface MyNotificationItem {
+  conversationKey?: string | null;
   id: NotificationId;
   type: string | null;
   text: string;

@@ -8,6 +8,9 @@ export interface Friend {
 }
 
 export interface SocialComment {
+  conversationKey?: string | null;
+  participants?: UserIdentity[];
+  isGroup?: boolean;
   id: number | string;
   authorId: number | string | null;
   targetUserId: number | string | null;
@@ -373,6 +376,9 @@ function normalizeComment(raw: Record<string, unknown>, fallbackType: "public" |
 
   return {
     id: (pickFirst(raw.id, raw.comment_id, raw.uuid) || `comment-${Math.random().toString(36).slice(2, 10)}`) as number | string,
+    conversationKey: toStringOrNull(raw.conversation_key),
+    participants: Array.isArray(raw.participants) ? raw.participants.map(getUserIdentity) : [],
+    isGroup: raw.is_group === true,
     authorId: (pickFirst(nestedAuthor?.id, raw.author_id) as number | string | null | undefined) ?? null,
     targetUserId: (pickFirst(
       nestedRecipient?.id,
@@ -436,6 +442,10 @@ export function parseCommentsPage(payload: unknown, fallbackType: "public" | "di
                   : [];
 
   const comments = source
+    .flatMap((entry) => {
+      const record = toRecord(entry);
+      return Array.isArray(record?.conversation_contexts) ? record.conversation_contexts : [entry];
+    })
     .map((entry) => toRecord(entry))
     .filter((entry): entry is Record<string, unknown> => Boolean(entry))
     .map((entry) => normalizeComment(entry, fallbackType));

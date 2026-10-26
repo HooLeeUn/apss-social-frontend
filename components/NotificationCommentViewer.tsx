@@ -98,7 +98,10 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
     replyingRef.current = true;
     setReplyStatus("sending");
     const movieId = displayedComment.movieId ?? movie.id;
-    const payload = { body, mentioned_username: recipientUsername, movie_id: String(movieId) };
+    const payload = { body, mentioned_username: recipientUsername, movie_id: String(movieId),
+      conversation_key: displayedComment.conversationKey ?? undefined,
+      reply_to_comment_id: displayedComment.id,
+    };
 
     try {
       const endpoints = buildMovieDirectedSubmitEndpoints(movieId);

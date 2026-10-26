@@ -2292,6 +2292,7 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
     movieId: toNotificationMovieId(record),
     actorId: toNotificationActorId(record),
     actorUsername,
+    conversationKey: safeTrim(pickFirst(record.conversation_key, toRecord(record.object)?.conversation_key)),
     directedCommentId: toNotificationDirectedCommentId(record),
     commentId: routingFields.commentId,
     videoCommentId: routingFields.videoCommentId,
