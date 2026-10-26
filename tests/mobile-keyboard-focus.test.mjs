@@ -55,6 +55,7 @@ function composerHarness(submit) {
     useMemo(fn) { return fn(); }, useEffect() {},
   };
   const Composer = load("../components/social/CommentComposer.tsx", {
+    "../../lib/directed-presentation": load("../lib/directed-presentation.ts"),
     react, "react/jsx-runtime": { jsx, jsxs: jsx },
     "../../hooks/useI18n": { useI18n: () => ({ t: (key) => key }) },
     "./MentionAutocomplete": { default: "mention-popup" },
@@ -62,7 +63,7 @@ function composerHarness(submit) {
   const nodes = (tree) => !tree || typeof tree !== "object" ? [] : [tree, ...[tree.props?.children].flat(Infinity).flatMap(nodes)];
   function render() {
     index = 0; refIndex = 0;
-    const tree = Composer({ friends: [{ id: "1", username: "den" }], searchMentionSuggestions: async () => [], onSubmit: submit });
+    const tree = Composer({ authenticatedUsername: "self", friends: [{ id: "1", username: "den" }], searchMentionSuggestions: async () => [], onSubmit: submit });
     refs[0].current = { selectionStart: 4, blur() { blurs++; }, focus() {}, setSelectionRange() {} };
     return nodes(tree);
   }
@@ -75,7 +76,7 @@ for (const directed of [false, true]) {
     const harness = composerHarness(async (value) => { payload = value; return true; });
     let nodes = harness.render();
     nodes.find((node) => node.type === "textarea").props.onChange({ target: { value: directed ? "@den hello" : "hello", selectionStart: directed ? 10 : 5 } });
-    if (directed) harness.states[4] = { username: "den", tokenStart: 0, tokenEnd: 4 };
+    if (directed) { harness.states[4] = { username: "den", tokenStart: 0, tokenEnd: 4 }; harness.states[5] = ["den"]; }
     nodes = harness.render();
     nodes.find((node) => node.type === "button").props.onClick();
     await new Promise((resolve) => setImmediate(resolve));
@@ -120,4 +121,25 @@ test("native Profile Feed clear event blurs only an empty search input", () => {
   const clear = new Function("input", body);
   clear(input); assert.equal(blurs, 0);
   input.value = ""; clear(input); assert.equal(blurs, 1);
+});
+
+
+test("autocomplete filters selected recipients and self, and restores a deleted mention", () => {
+  const harness = composerHarness(async () => true);
+  let nodes = harness.render();
+  const change = value => {
+    nodes.find(node => node.type === "textarea").props.onChange({ target: { value, selectionStart: value.length } });
+    nodes = harness.render();
+  };
+  change("@DEN @Catherine @");
+  harness.states[5] = ["den", "Catherine"];
+  const friends = ["den", "Catherine", "SELF", "Other"].map(username => ({id: username, username}));
+  harness.states[6] = friends;
+  nodes = harness.render();
+  const suggestions = () => nodes.find(node => node.type === "mention-popup").props.friends.map(friend => friend.username);
+  assert.deepEqual(suggestions(), ["Other"]);
+  change("@DEN @");
+  harness.states[6] = friends;
+  nodes = harness.render();
+  assert.deepEqual(suggestions(), ["Catherine", "Other"]);
 });
