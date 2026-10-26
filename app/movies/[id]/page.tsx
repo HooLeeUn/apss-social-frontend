@@ -274,6 +274,8 @@ function buildMovieDirectedFetchEndpoints(movieId: string): string[] {
 }
 
 interface DirectedConversation {
+  conversationKey?: string | null;
+  isGroup?: boolean;
   key: string;
   counterpartKey: string;
   otherUsername: string | null;
@@ -291,6 +293,7 @@ interface PendingDirectedNotificationTarget {
   actorUsername: string | null;
   commentId: string | null;
   conversationKey: string | null;
+  canonicalKey?: string | null;
   stage: "find-conversation" | "open-conversation" | "scroll-to-message";
 }
 
@@ -549,9 +552,11 @@ function buildCounterpartData(
     conversationContext?.preferredId ?? normalizedCounterpartId ?? (isSentByMe ? normalizedTargetUserId : normalizedAuthorId);
   const counterpartUsername = normalizeUsername(message.counterpartUsername);
   const inferredUsername = normalizeUsername(isSentByMe ? message.recipientName : message.authorUsername);
-  const username = conversationContext?.preferredUsername ?? counterpartUsername ?? inferredUsername;
+  const username = conversationContext?.preferredUsername ?? (!isSentByMe && counterpartUsername?.toLowerCase() === normalizedAuthenticatedUsername ? inferredUsername : counterpartUsername) ?? inferredUsername;
   const hasExplicitCounterpart = Boolean(counterpartId || username);
-  const displayName = isUsableDisplayName(message.counterpartName)
+  const displayName = !isSentByMe && counterpartUsername?.toLowerCase() === normalizedAuthenticatedUsername
+    ? message.authorName
+    : isUsableDisplayName(message.counterpartName)
     ? String(message.counterpartName).trim()
     : conversationContext?.preferredDisplayName ?? username ?? (hasExplicitCounterpart ? inferredUsername ?? "Usuario" : "Usuario");
 
@@ -632,7 +637,18 @@ function groupDirectedConversations(
 
   commentsForMovie.forEach(({ message, context, messagesEndpoint, conversationNext }) => {
     const counterpart = buildCounterpartData(message, authenticatedUsername, context);
-    const existing = byConversation.get(counterpart.counterpartKey);
+    const participants = message.participants ?? [];
+    if (participants.length && !participants.some((user) => user.username?.toLowerCase() === authenticatedUsername.toLowerCase())) return;
+    const otherParticipants = participants.filter((user) => user.username?.toLowerCase() !== authenticatedUsername.toLowerCase());
+    const isGroup = message.isGroup === true || participants.length > 2;
+    const threadKey = message.conversationKey || counterpart.counterpartKey;
+    const existing = byConversation.get(threadKey);
+    const structuredOther = !isGroup ? otherParticipants[0] : null;
+    if (structuredOther) {
+      counterpart.username = structuredOther.username;
+      counterpart.displayName = structuredOther.displayName || structuredOther.username || "Usuario";
+      counterpart.avatar = structuredOther.avatar;
+    }
 
     const hydratedUsername = pickBestUserValue(existing?.otherUsername ?? null, counterpart.username);
     const hydratedDisplayName = isUsableDisplayName(existing?.otherDisplayName)
@@ -649,11 +665,13 @@ function groupDirectedConversations(
         counterpart.direction === "received" && (context?.restrictedCurrentUser === true || message.authorRestrictedCurrentUser),
     };
     const sortedMessages = mergeUniqueMessages(existing?.messages ?? [], [directionMessage]);
-    byConversation.set(counterpart.counterpartKey, {
-      key: `conversation-${counterpart.counterpartKey}`,
+    byConversation.set(threadKey, {
+      key: `conversation-${threadKey}`,
+      conversationKey: message.conversationKey,
+      isGroup,
       counterpartKey: counterpart.counterpartKey,
-      otherUsername: hydratedUsername,
-      otherDisplayName: hydratedDisplayName,
+      otherUsername: isGroup ? otherParticipants[0]?.username ?? hydratedUsername : hydratedUsername,
+      otherDisplayName: isGroup ? otherParticipants.map((user) => user.username || user.displayName).join(", ") : hydratedDisplayName,
       otherAvatar: hydratedAvatar,
       restrictedCurrentUser: existing?.restrictedCurrentUser === true || context?.restrictedCurrentUser === true,
       messages: sortedMessages,
@@ -847,6 +865,10 @@ function doesConversationBelongToUser(conversation: DirectedConversation, user: 
   const conversationUsername = normalizeUsername(conversation.otherUsername)?.toLowerCase();
 
   return Boolean(
+    conversation.messages.some((message) => message.participants?.some((participant) =>
+      (userId && normalizeId(participant.id) === userId) ||
+      (userUsername && normalizeUsername(participant.username)?.toLowerCase() === userUsername),
+    )) ||
     (userId && normalizedCounterpartKey === `counterpart:${userId}`) ||
       (userUsername && (conversationUsername === userUsername || normalizedCounterpartKey === `username:${userUsername}`)),
   );
@@ -3736,7 +3758,7 @@ function MovieDetailPageContent() {
     processedDirectedTargetRef.current = targetKey;
     setActiveCommentsTab("directed");
     openCommentMovieSection();
-    setPendingDirectedNotificationTarget({ actorId, actorUsername, commentId, conversationKey: null, stage: "find-conversation" });
+    setPendingDirectedNotificationTarget({ actorId, actorUsername, commentId, canonicalKey: searchParams.get("conversationKey"), conversationKey: null, stage: "find-conversation" });
   }, [commentInputMode, logNotificationTarget, movieId, openCommentMovieSection, searchParams]);
 
   useEffect(() => {
@@ -3891,18 +3913,36 @@ function MovieDetailPageContent() {
       ? directedConversations.find((candidate) => candidate.counterpartKey === `counterpart:${target.actorId}`)
       : null;
     const conversation =
-      conversationByActorId ??
+      directedConversations.find((candidate) => Boolean(target.canonicalKey && candidate.conversationKey === target.canonicalKey)) ??
+      directedConversations.find((candidate) => candidate.messages.some((message) => String(message.id) === String(target.commentId))) ??
+      (!target.canonicalKey && !target.commentId ? conversationByActorId : null) ??
       directedConversations.find((candidate) =>
-        Boolean(normalizedActorUsername && normalizeUsername(candidate.otherUsername)?.toLowerCase() === normalizedActorUsername),
+        Boolean(!target.canonicalKey && !target.commentId && !candidate.isGroup && normalizedActorUsername && normalizeUsername(candidate.otherUsername)?.toLowerCase() === normalizedActorUsername),
       );
 
     if (!conversation) {
+      if (target.commentId) {
+        let cancelled = false;
+        void apiFetch(buildCommentDetailEndpoint(target.commentId)).then((payload) => {
+          if (cancelled) return;
+          const snapshots = groupDirectedConversations([payload], authenticatedUsername, movieId);
+          const snapshot = snapshots[0];
+          if (!snapshot?.conversationKey || !snapshot.otherUsername || (target.canonicalKey && snapshot.conversationKey !== target.canonicalKey)) {
+            setPendingDirectedNotificationTarget(null);
+            return;
+          }
+          snapshot.messagesEndpoint = `/movies/${encodeURIComponent(movieId)}/comments/directed/conversations/${encodeURIComponent(snapshot.otherUsername)}/messages/?conversation_key=${encodeURIComponent(snapshot.conversationKey)}`;
+          setDirectedConversations((current) => mergeDirectedConversationSnapshots(current, snapshots));
+          setPendingDirectedNotificationTarget({ ...target, canonicalKey: snapshot.conversationKey });
+        }).catch(() => { if (!cancelled) setPendingDirectedNotificationTarget(null); });
+        return () => { cancelled = true; };
+      }
       directedCommentsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       setPendingDirectedNotificationTarget(null);
       return;
     }
     setPendingDirectedNotificationTarget({ ...target, conversationKey: conversation.key, stage: "open-conversation" });
-  }, [directedConversations, loadingDirected, pendingDirectedNotificationTarget]);
+  }, [authenticatedUsername, directedConversations, loadingDirected, movieId, pendingDirectedNotificationTarget]);
 
   useEffect(() => {
     const target = pendingDirectedNotificationTarget;
@@ -3943,10 +3983,10 @@ function MovieDetailPageContent() {
     };
   }, [directedConversations, expandedConversationKey, loadingFullHistoryByConversationKey, pendingDirectedNotificationTarget]);
 
-  const handleSubmitComment = async ({ text, mentionUsername }: { text: string; mentionUsername: string | null }) => {
+  const handleSubmitComment = async ({ text, mentionUsername, mentionUsernames = [] }: { text: string; mentionUsername: string | null; mentionUsernames?: string[] }) => {
     if (!movieId) return false;
 
-    const allowedMentionUsername = canShowDirectedComments ? mentionUsername : null;
+    const allowedMentionUsername = canShowDirectedComments ? mentionUsername || mentionUsernames[0] || null : null;
 
     setIsSubmitting(true);
     setComposerError("");
@@ -3955,7 +3995,9 @@ function MovieDetailPageContent() {
       const mode = allowedMentionUsername ? "directed" : "public";
       const publicEndpoint = buildMoviePublicSubmitEndpoint(movieId);
       const directedEndpoints = buildMovieDirectedSubmitEndpoints(movieId);
-      const payload = allowedMentionUsername ? { body: text, mentioned_username: allowedMentionUsername } : { body: text };
+      const payload = allowedMentionUsername ? { body: text, mentioned_username: allowedMentionUsername,
+        mentioned_usernames: mentionUsernames.length ? mentionUsernames : [allowedMentionUsername],
+      } : { body: text };
 
       console.log("[movie-comments-debug] submit mode:", mode);
       console.log("[movie-comments-debug] textarea value:", text);
@@ -4018,39 +4060,9 @@ function MovieDetailPageContent() {
             return true;
           }
           if (parsedSubmittedComment) {
-            const counterpart = buildCounterpartData(parsedSubmittedComment, authenticatedUsername);
-            const conversationKey = `conversation-${counterpart.counterpartKey}`;
-            setDirectedConversations((current) => {
-              const target = current.find((conversation) => conversation.key === conversationKey);
-              const nextMessage: SocialComment = { ...parsedSubmittedComment, direction: counterpart.direction };
-              if (!target) {
-                return [
-                  {
-                    key: conversationKey,
-                    counterpartKey: counterpart.counterpartKey,
-                    otherUsername: counterpart.username,
-                    otherDisplayName: counterpart.displayName,
-                    otherAvatar: counterpart.avatar,
-                    restrictedCurrentUser: parsedSubmittedComment.authorRestrictedCurrentUser,
-                    messages: [nextMessage],
-                    messagesEndpoint: null,
-                    next: null,
-                    lastMessageAt: parsedSubmittedComment.createdAt,
-                  },
-                  ...current,
-                ];
-              }
-              return current.map((conversation) =>
-                conversation.key === conversationKey
-                  ? {
-                      ...conversation,
-                      messages: [nextMessage, ...conversation.messages.filter((message) => String(message.id) !== String(nextMessage.id))],
-                      lastMessageAt: parsedSubmittedComment.createdAt,
-                    }
-                  : conversation,
-              );
-            });
-            setExpandedConversationKey(conversationKey);
+            const snapshots = groupDirectedConversations([submitResponse.body], authenticatedUsername, movieId);
+            setDirectedConversations((current) => mergeDirectedConversationSnapshots(current, snapshots));
+            if (snapshots[0]) setExpandedConversationKey(snapshots[0].key);
           }
         }
       } else {
@@ -4103,7 +4115,10 @@ function MovieDetailPageContent() {
     try {
       let submitResponse: Awaited<ReturnType<typeof debugApiRequest>> | null = null;
       let submitError: unknown = null;
-      const payload = { body, mentioned_username: recipientUsername, movie_id: movieId };
+      const payload = { body, mentioned_username: recipientUsername, movie_id: movieId,
+        conversation_key: conversation.conversationKey ?? undefined,
+        reply_to_comment_id: conversation.messages[0]?.id,
+      };
 
       const endpoints = buildMovieDirectedSubmitEndpoints(movieId);
       for (let index = 0; index < endpoints.length; index += 1) {
@@ -4614,13 +4629,13 @@ function MovieDetailPageContent() {
         </div>
 
         <div ref={textCommentStartRef} data-mobile-text-comment data-active={commentInputMode === "text-comment"} className={`xl:hidden ${commentInputMode === "text-comment" ? "block" : "hidden"} ${!isDesktopGuest ? "-mt-3" : ""}`}>
-          {!isDesktopGuest ? <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} /> : null}
+          {!isDesktopGuest ? <CommentComposer authenticatedUsername={authenticatedUsername} friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} /> : null}
         </div>
         <div ref={videoCommentStartRef} data-video-reaction-section>
           <MobileVideoComments currentUserId={authenticatedUser?.id} desktopGuest={isDesktopGuest} trailerCompanionOpen={trailerCompanionOpen} mobileViewport={isMobile} movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} onTotalChange={setVideoReactionTotal} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${!isDesktopGuest && commentInputMode === "text-comment" ? "-mt-3 hidden xl:block" : "hidden"}`}>
-          <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} />
+          <CommentComposer authenticatedUsername={authenticatedUsername} friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} />
         </div>
 
         {commentInputMode === "text-comment" && reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
@@ -4769,8 +4784,8 @@ function MovieDetailPageContent() {
                               void handleToggleConversation(conversation);
                             }}
                           >
-                            <div className="flex items-center gap-2.5">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 bg-zinc-900 text-xs font-semibold text-zinc-200">
                                 {conversation.otherAvatar ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={conversation.otherAvatar} alt={conversation.otherDisplayName} className="h-9 w-9 rounded-full object-cover" />
@@ -4778,14 +4793,14 @@ function MovieDetailPageContent() {
                                   (conversation.otherDisplayName || conversation.otherUsername || "Usuario").charAt(0).toUpperCase()
                                 )}
                               </div>
-                              <div>
-                                <p className="text-sm font-semibold text-zinc-100">{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-zinc-100" title={conversation.otherDisplayName}>{conversation.otherDisplayName || conversation.otherUsername || "Usuario"}</p>
                                 <div className="flex items-center gap-2">
-                                  {conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
+                                  {!conversation.isGroup && conversation.otherUsername ? <p className="text-xs text-zinc-400">@{conversation.otherUsername}</p> : null}
                                 </div>
                               </div>
                             </div>
-                            <span className="text-xs text-zinc-400">{isExpanded ? t("movieDetailHide") : t("movieDetailShow")}</span>
+                            <span className="shrink-0 text-xs text-zinc-400">{isExpanded ? t("movieDetailHide") : conversation.isGroup ? (locale === "en" ? "Group" : "Grupal") : t("movieDetailShow")}</span>
                           </button>
 
                           {isExpanded ? (
@@ -4843,7 +4858,7 @@ function MovieDetailPageContent() {
                                 deletingCommentIds={deletingCommentIds}
                                 actionErrorByCommentId={commentActionErrorById}
                                 getDisplayText={(message) =>
-                                  message.type === "directed" ? stripLeadingMention(message.text) : message.text
+                                  message.type === "directed" ? stripLeadingMention(message.text, true) : message.text
                                 }
                                 exposeDirectedCommentIds
                                 unboundedOnMobile

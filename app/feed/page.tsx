@@ -167,6 +167,7 @@ function translateNotificationText(locale: ReturnType<typeof countryToLocale>, t
   if (locale !== "en") return text;
 
   const knownPatterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+    [/^Tienes un mensaje grupal de (.+)$/i, (match) => `You have a group message from ${match[1]}`],
     [/^Tienes un mensaje privado de (.+)$/i, (match) => `You have a private message from ${match[1]}`],
     [/^A (.+) le gustó tu mensaje$/i, (match) => `${match[1]} liked your message`],
     [/^A (.+) no le gustó tu mensaje$/i, (match) => `${match[1]} disliked your message`],
