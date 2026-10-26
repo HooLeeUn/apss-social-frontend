@@ -113,6 +113,7 @@ async function submitNotificationReply(raw) {
     exports, console, window: { setTimeout: () => 1 },
     require: name => name === "react" ? react : name === "react/jsx-runtime" ? { jsx, jsxs: jsx } :
       name.endsWith("/api") ? { apiFetch: async (endpoint, options) => { requests.push({ endpoint, payload: JSON.parse(options.body) }); }, ApiError: Error } :
+      name.endsWith("/directed-presentation") ? load(readFileSync("lib/directed-presentation.ts", "utf8")) :
       name.endsWith("/social") ? social : name.endsWith("/i18n") ? { t: () => "Reply {username}" } : { default: () => null },
   });
   const tree = exports.default({ comment: social.parseComments([raw], "directed")[0], movie: { id: 10 }, movieTitle: "Movie", locale: "es", canDirectReply: true, replyRecipient: users[0], authenticatedUserId: 2, onClose() {}, onMovieOpen() {} });

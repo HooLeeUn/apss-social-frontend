@@ -6,6 +6,11 @@ import test from "node:test";
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
 const adapterSource = fs.readFileSync("lib/profile-feed/adapters.ts", "utf8");
+const presentationModule = { exports: {} };
+new Function("module", "exports", ts.transpileModule(
+  fs.readFileSync("lib/directed-presentation.ts", "utf8"),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+).outputText)(presentationModule, presentationModule.exports);
 
 class ApiError extends Error {
   constructor(status, message) {
@@ -20,6 +25,7 @@ function loadAdapters(apiFetch) {
   }).outputText;
   const adapterModule = { exports: {} };
   const importedModules = {
+    "../directed-presentation": presentationModule.exports,
     "../api": { ApiError, apiFetch },
     "../notification-routing-fields": { normalizeNotificationRoutingFields: (value) => value },
     "../movies": {

@@ -4629,13 +4629,13 @@ function MovieDetailPageContent() {
         </div>
 
         <div ref={textCommentStartRef} data-mobile-text-comment data-active={commentInputMode === "text-comment"} className={`xl:hidden ${commentInputMode === "text-comment" ? "block" : "hidden"} ${!isDesktopGuest ? "-mt-3" : ""}`}>
-          {!isDesktopGuest ? <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} /> : null}
+          {!isDesktopGuest ? <CommentComposer authenticatedUsername={authenticatedUsername} friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} /> : null}
         </div>
         <div ref={videoCommentStartRef} data-video-reaction-section>
           <MobileVideoComments currentUserId={authenticatedUser?.id} desktopGuest={isDesktopGuest} trailerCompanionOpen={trailerCompanionOpen} mobileViewport={isMobile} movieId={movieId} movieTitle={resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle).primary} moviePoster={movie?.posterUrl ?? null} active={commentInputMode === "video-comment" || (trailerCompanionOpen && trailerCompanionView === "reaction")} notificationTarget={notificationTarget?.type === "video-reaction" ? { id: notificationTarget.id, reaction: notificationTarget.reaction } : null} onNotificationTargetConsumed={consumeNotificationTarget} onTotalChange={setVideoReactionTotal} logNotificationTarget={logNotificationTarget} t={t} onAuthorClick={handleAuthorNavigation} />
         </div>
         <div data-desktop-comment-composer className={`${!isDesktopGuest && commentInputMode === "text-comment" ? "-mt-3 hidden xl:block" : "hidden"}`}>
-          <CommentComposer friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} />
+          <CommentComposer authenticatedUsername={authenticatedUsername} friends={composerFriends} searchMentionSuggestions={searchMentionSuggestions} onSubmit={handleSubmitComment} loading={isSubmitting} error={composerError} placeholder={composerPlaceholder} />
         </div>
 
         {commentInputMode === "text-comment" && reactionError ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{reactionError}</div> : null}
@@ -4858,7 +4858,7 @@ function MovieDetailPageContent() {
                                 deletingCommentIds={deletingCommentIds}
                                 actionErrorByCommentId={commentActionErrorById}
                                 getDisplayText={(message) =>
-                                  message.type === "directed" ? stripLeadingMention(message.text) : message.text
+                                  message.type === "directed" ? stripLeadingMention(message.text, true) : message.text
                                 }
                                 exposeDirectedCommentIds
                                 unboundedOnMobile

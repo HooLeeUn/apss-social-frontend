@@ -5,6 +5,7 @@ import { ApiError, apiFetch } from "../lib/api";
 import { t as translate } from "../lib/i18n";
 import type { Movie } from "../lib/movies";
 import { buildMovieDirectedSubmitEndpoints, buildReactionEndpoint, formatSocialDate, type ReactionType, type SocialComment } from "../lib/social";
+import { notificationHandles } from "../lib/directed-presentation";
 import ReactionButtons from "./social/ReactionButtons";
 
 interface NotificationCommentViewerProps {
@@ -74,6 +75,7 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
     }
   };
 
+  const handles = notificationHandles(displayedComment, authenticatedUserId);
   const authorLabel = displayedComment.authorName || displayedComment.authorUsername;
   const recipientUsername = replyRecipient?.username.trim().replace(/^@+/, "") ?? "";
   const recipientId = normalizeIdentityId(replyRecipient?.id);
@@ -147,14 +149,14 @@ export default function NotificationCommentViewer({ comment, movie, movieTitle, 
 
         <div className="max-h-[calc(100dvh-8rem)] overflow-y-auto p-4 sm:p-6">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-zinc-800 text-sm font-semibold text-zinc-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {displayedComment.authorAvatar ? <img src={displayedComment.authorAvatar} alt={authorLabel} className="h-full w-full object-cover" /> : authorLabel.slice(0, 1).toUpperCase()}
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-zinc-100">{authorLabel}</p>
-                {displayedComment.authorUsername && displayedComment.authorUsername !== authorLabel ? <p className="truncate text-xs text-zinc-400">@{displayedComment.authorUsername}</p> : null}
+                {displayedComment.authorUsername && (displayedComment.isGroup || displayedComment.authorUsername !== authorLabel) ? <p className="truncate text-xs text-zinc-400" title={handles}>{handles}</p> : null}
                 <p className="text-xs text-zinc-500">{formatSocialDate(displayedComment.createdAt, locale, locale === "en" ? "No date" : "Sin fecha")}</p>
               </div>
             </div>
