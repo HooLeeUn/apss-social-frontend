@@ -133,6 +133,7 @@ test("visited activity adapter preserves canonical comment ID, counts and each v
   for (const mine of [null, "like", "dislike"]) {
     const calls = [];
     const adapters = load("lib/profile-feed/adapters.ts", {
+      "../directed-presentation": load("lib/directed-presentation.ts"),
       "../api": { ApiError: class extends Error {}, apiFetch: async (endpoint) => {
         calls.push(endpoint);
         return { count: 1, next: null, results: [{

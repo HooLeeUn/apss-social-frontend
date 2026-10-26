@@ -3,6 +3,7 @@
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../hooks/useI18n";
 import { Friend } from "../../lib/social";
+import { activeRecipientNames } from "../../lib/directed-presentation";
 import MentionAutocomplete from "./MentionAutocomplete";
 
 interface MentionSelection {
@@ -16,9 +17,10 @@ function normalizeMentionUsername(value: string): string {
 }
 
 interface CommentComposerProps {
+  authenticatedUsername?: string;
   friends: Friend[];
   searchMentionSuggestions: (query: string) => Promise<Friend[]>;
-  onSubmit: (payload: { text: string; mentionUsername: string | null }) => Promise<void>;
+  onSubmit: (payload: { text: string; mentionUsername: string | null; mentionUsernames?: string[] }) => Promise<boolean>;
   loading?: boolean;
   error?: string;
   placeholder?: string;
@@ -36,7 +38,7 @@ function getMentionToken(value: string, caretIndex: number): { start: number; qu
   };
 }
 
-export default function CommentComposer({ friends, searchMentionSuggestions, onSubmit, loading = false, error, placeholder }: CommentComposerProps) {
+export default function CommentComposer({ authenticatedUsername, friends, searchMentionSuggestions, onSubmit, loading = false, error, placeholder }: CommentComposerProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
@@ -44,16 +46,16 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
   const [mentionStart, setMentionStart] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedMention, setSelectedMention] = useState<MentionSelection | null>(null);
-  const [mentionSuggestions, setMentionSuggestions] = useState<Friend[]>([]);
+  const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
+  const [rawMentionSuggestions, setMentionSuggestions] = useState<Friend[]>([]);
   const mentionRequestIdRef = useRef(0);
   const submittingRef = useRef(false);
 
-  const hasValidSelectedMention = useMemo(() => {
-    if (!selectedMention) return false;
-    const mentionToken = text.slice(selectedMention.tokenStart, selectedMention.tokenEnd);
-    if (mentionToken !== `@${selectedMention.username}`) return false;
-    return friends.some((friend) => friend.username === selectedMention.username);
-  }, [friends, selectedMention, text]);
+  const activeRecipients = useMemo(() => activeRecipientNames(text, selectedRecipients), [text, selectedRecipients]);
+  const mentionSuggestions = rawMentionSuggestions.filter(friend =>
+    friend.username.toLowerCase() !== authenticatedUsername?.toLowerCase() &&
+    !activeRecipients.some(name => name.toLowerCase() === friend.username.toLowerCase()));
+  const hasValidSelectedMention = activeRecipients.length > 0;
 
   useEffect(() => {
     const requestId = mentionRequestIdRef.current + 1;
@@ -76,6 +78,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
   }, [mentionQuery, searchMentionSuggestions]);
 
   const updateMentionState = (nextText: string, caretIndex: number) => {
+    setSelectedRecipients(current => activeRecipientNames(nextText, current));
     if (selectedMention) {
       const token = nextText.slice(selectedMention.tokenStart, selectedMention.tokenEnd);
       if (token !== `@${selectedMention.username}`) {
@@ -110,6 +113,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
 
     setText(nextText);
     setSelectedMention(nextSelection);
+    setSelectedRecipients(current => [...activeRecipientNames(nextText, current), friend.username]);
     setMentionSuggestions([]);
     setMentionQuery(null);
     setMentionStart(null);
@@ -129,7 +133,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
     const trimmed = text.trim();
     if (!trimmed || loading || submittingRef.current) return;
 
-    const mentionUsername = hasValidSelectedMention ? normalizeMentionUsername(selectedMention?.username ?? "") : null;
+    const mentionUsername = hasValidSelectedMention ? normalizeMentionUsername(activeRecipients[0] ?? "") : null;
     console.log("[mentions-debug] submit mode:", mentionUsername ? "directed" : "public");
     console.log("[mentions-debug] selected mention object:", selectedMention);
     console.log("[mentions-debug] mentioned_username final:", mentionUsername);
@@ -137,16 +141,20 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
 
     submittingRef.current = true;
     try {
-      await onSubmit({
+      const submitted = await onSubmit({
         text: trimmed,
         mentionUsername,
+        mentionUsernames: [...new Set(Array.from(trimmed.matchAll(/(?:^|\s)@([\w.@+-]+)/g), (match) => match[1]))],
       });
+      if (!submitted) return;
 
       setText("");
       setMentionSuggestions([]);
       setMentionQuery(null);
       setMentionStart(null);
       setSelectedMention(null);
+      setSelectedRecipients([]);
+      textareaRef.current?.blur();
     } finally {
       submittingRef.current = false;
     }
@@ -213,7 +221,7 @@ export default function CommentComposer({ friends, searchMentionSuggestions, onS
         </button>
 
         {mentionQuery !== null ? (
-          <MentionAutocomplete friends={mentionSuggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
+          <MentionAutocomplete anchorRef={textareaRef} friends={mentionSuggestions} activeIndex={activeIndex} onSelect={handleSelectSuggestion} />
         ) : null}
       </div>
 

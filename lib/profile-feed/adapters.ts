@@ -1,3 +1,4 @@
+import { isGroupNotification } from "../directed-presentation";
 import { ApiError, apiFetch } from "../api";
 import { normalizeNotificationRoutingFields } from "../notification-routing-fields";
 import { normalizeMovie, parseMovieList, resolveMovieDisplayTitle, resolveMovieSecondaryTitle } from "../movies";
@@ -2287,11 +2288,13 @@ function toNotificationItem(value: unknown, index: number): MyNotificationItem |
   return {
     id,
     type: routingFields.type,
-    text,
+    text: normalizedActivityType === "private_message" && isGroupNotification(record)
+      ? `Tienes un mensaje grupal de ${actorUsername || "Usuario"}` : text,
     targetTab,
     movieId: toNotificationMovieId(record),
     actorId: toNotificationActorId(record),
     actorUsername,
+    conversationKey: safeTrim(pickFirst(record.conversation_key, toRecord(record.object)?.conversation_key)),
     directedCommentId: toNotificationDirectedCommentId(record),
     commentId: routingFields.commentId,
     videoCommentId: routingFields.videoCommentId,
