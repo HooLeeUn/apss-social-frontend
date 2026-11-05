@@ -87,6 +87,12 @@ export default function ContactPage() {
         <section className="rounded-3xl border border-white/10 bg-zinc-950/75 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.45)] sm:p-8">
           <p className="mb-7 text-sm leading-6 text-zinc-300 sm:text-base sm:leading-7">{t("contactDescription")}</p>
 
+          <p className="mb-7 text-sm leading-6 text-zinc-300 sm:text-base sm:leading-7">
+            {t("contactSupportIntro")}{" "}
+            <a href="mailto:support@reccool.com" className="underline">support@reccool.com</a>
+            {t("contactSupportForm")}
+          </p>
+
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div className="space-y-2">
               <label htmlFor="contact-category" className={labelClassName}>{t("contactCategory")}</label>
