@@ -143,6 +143,7 @@ test("visited activity adapter preserves canonical comment ID, counts and each v
         }] };
       } },
       "../notification-routing-fields": { normalizeNotificationRoutingFields: (value) => value },
+      "../genres": load("lib/genres.ts"),
       "../movies": { normalizeMovie: (value) => value, parseMovieList: (value) => value, resolveMovieDisplayTitle: () => "Long title", resolveMovieSecondaryTitle: () => "" },
       "./mocks": { favoriteMoviesMock: [] },
     });

@@ -13,7 +13,7 @@ function load(path, modules, globals = {}) {
 const jsx = (type, props) => ({ type, props });
 const runtime = { jsx, jsxs: jsx };
 
-function panelFixture({ width = 360, height = 640, left = 320, top = 580, panelHeight = 180, offsetLeft = 0, offsetTop = 0 } = {}) {
+function panelFixture({ width = 360, height = 640, left = 320, top = 580, panelHeight = 180, offsetLeft = 0, offsetTop = 0, panelProps = {} } = {}) {
   const listeners = new Map();
   const add = (key, fn) => listeners.set(key, fn);
   const remove = key => listeners.delete(key);
@@ -29,8 +29,8 @@ function panelFixture({ width = 360, height = 640, left = 320, top = 580, panelH
     window: { innerWidth: width, innerHeight: height, visualViewport: { width, height, offsetLeft, offsetTop, addEventListener() {}, removeEventListener() {} }, dispatchEvent() {}, addEventListener: add, removeEventListener: remove },
     document: { body: {}, addEventListener: add, removeEventListener: remove },
   });
-  Component({ anchorRef: { current: anchor }, onClose: () => closed++, children: "Full comment", label: "Comment" });
-  return { panel, listeners, inside, anchor, closed: () => closed, cleanup };
+  const rendered = Component({ anchorRef: { current: anchor }, onClose: () => closed++, children: "Full comment", label: "Comment", ...panelProps });
+  return { panel, rendered, listeners, inside, anchor, closed: () => closed, cleanup };
 }
 
 test("Actions panels stay inside narrow and normal viewports at every edge", () => {
@@ -75,10 +75,10 @@ test("outside touches, movement, another card's panel and Escape dismiss; intern
 test("only measured overflow enables username, comment, genre and production title expansion", () => {
   for (const [width, height, expected] of [[100, 20, false], [101, 20, false], [150, 20, true], [100, 80, true]]) {
     for (const [text, href] of [["Short comment", undefined], ["Action, Animation, Drama", undefined], ["@LongUsername", "/users/LongUsername"], ["A long production title", "/movies/123"]]) {
-      let expanded = false, intercepted = false;
+      let expanded = false, intercepted = false, refIndex = 0;
       const element = { scrollWidth: width, clientWidth: 100, scrollHeight: height, clientHeight: 20 };
       const Component = load("components/profile-feed/ActionsTruncatedText.tsx", {
-        react: { useRef: () => ({ current: element }), useState: () => [false, value => { if (typeof value === "function") expanded = value(false); }], useEffect() {}, useCallback: fn => fn },
+        react: { useRef: initial => ({ current: refIndex++ === 0 ? element : initial }), useState: () => [false, value => { if (typeof value === "function") expanded = value(false); }], useEffect() {}, useCallback: fn => fn },
         "react/jsx-runtime": runtime,
       });
       const result = Component({ text, href, className: "" });
@@ -92,7 +92,7 @@ test("only measured overflow enables username, comment, genre and production tit
 test("genre popover exposes all genres with its own accessible label", () => {
   let stateIndex = 0;
   const Component = load("components/profile-feed/ActionsTruncatedText.tsx", {
-    react: { useRef: () => ({ current: null }), useState: () => [stateIndex++ === 0, () => {}], useEffect() {}, useCallback: fn => fn },
+    react: { useRef: initial => ({ current: initial }), useState: () => [stateIndex++ === 0, () => {}], useEffect() {}, useCallback: fn => fn },
     "react/jsx-runtime": runtime,
   });
   const text = "Action, Animation, Drama";
@@ -115,4 +115,13 @@ test("only the narrow Actions container redistributes metadata and prevents head
   const card = readFileSync("components/profile-feed/SocialActivityCard.tsx", "utf8");
   assert.match(card, /isMobile \? <ActionsTruncatedText text=\{movieGenre\}/);
   assert.doesNotMatch(card, /overflow-x-auto|touch-action:pan-x/);
+});
+
+test("the existing panel forwards opt-in hover callbacks without changing its geometry", () => {
+  const callbacks = { onPointerEnter() {}, onPointerLeave() {}, onMouseDown() {} };
+  const { rendered } = panelFixture({ panelProps: callbacks });
+  for (const key of Object.keys(callbacks)) assert.equal(rendered.props[key], callbacks[key]);
+  const defaults = panelFixture().rendered;
+  for (const key of Object.keys(callbacks)) assert.equal(defaults.props[key], undefined);
+  assert.equal(rendered.props.className, defaults.props.className);
 });
