@@ -1,3 +1,4 @@
+import { productionGenres } from "../genres";
 import { isGroupNotification } from "../directed-presentation";
 import { ApiError, apiFetch } from "../api";
 import { normalizeNotificationRoutingFields } from "../notification-routing-fields";
@@ -218,12 +219,7 @@ function extractMovieInfo(rawFavorite: Record<string, unknown>, options?: { forV
   const year = typeof yearCandidate === "string" ? yearCandidate.slice(0, 4) : toNumberOrNull(yearCandidate)?.toString() || "-";
 
   const genreValue = pickFirst(nestedMovie.genre, nestedMovie.genres, rawFavorite.genre);
-  const genre =
-    Array.isArray(genreValue) && genreValue.length > 0
-      ? String(genreValue[0])
-      : typeof genreValue === "string"
-        ? genreValue
-        : "-";
+  const genre = productionGenres(genreValue).join(", ") || "-";
 
   const typeValue = pickFirst(nestedMovie.type, nestedMovie.content_type, rawFavorite.type);
   const type = typeof typeValue === "string" && typeValue.trim() !== "" ? typeValue : "-";
@@ -1539,7 +1535,7 @@ export async function searchFavoriteMovieCandidates(query: string): Promise<Favo
       displayTitle: normalized.displayTitle,
       displaySecondaryTitle: normalized.displaySecondaryTitle,
       year: normalized.year,
-      genre: normalized.genres[0] || "-",
+      genre: normalized.genres.join(", ") || "-",
       type: normalized.contentType,
       generalRating: normalized.displayRating,
       followingRating: normalized.followingAvgRating,

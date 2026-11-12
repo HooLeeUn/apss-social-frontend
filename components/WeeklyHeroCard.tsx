@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { productionGenres } from "../lib/genres";
+import ActionsTruncatedText from "./profile-feed/ActionsTruncatedText";
 import { memo, useId, useRef, useState } from "react";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
@@ -53,7 +55,7 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
   const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
-  const genre = movie?.genres?.[0] ?? "Sin género";
+  const genre = productionGenres(movie?.genres).join(" • ") || "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
@@ -216,13 +218,13 @@ function WeeklyHeroCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
             </p>
           ) : null}
 
-          <p className="mt-1.5 text-xs text-zinc-400 xl:mt-2 xl:text-sm">
-            <span>{genre}</span>
-            <span className="mx-2 text-zinc-600">•</span>
-            <span>{type}</span>
-            <span className="mx-2 text-zinc-600">•</span>
-            <span className="inline-block min-w-[4ch] tabular-nums">{hasYear ? year : "\u00A0"}</span>
-          </p>
+          <div className="mt-1.5 flex min-w-0 items-center text-xs text-zinc-400 xl:mt-2 xl:text-sm">
+            <ActionsTruncatedText as="span" revealOnHover text={genre} popoverLabel={t("profileFeedGenre")} className="min-w-0 truncate" />
+            <span className="mx-2 shrink-0 text-zinc-600">•</span>
+            <span className="shrink-0">{type}</span>
+            <span className="mx-2 shrink-0 text-zinc-600">•</span>
+            <span className="inline-block min-w-[4ch] shrink-0 tabular-nums">{hasYear ? year : "\u00A0"}</span>
+          </div>
 
           <div className="mt-2 grid grid-cols-3 gap-1.5 pt-1 text-xs xl:mt-auto xl:gap-3 xl:pt-3 xl:text-sm">
             <div className="weekly-hero-rating weekly-hero-rating--general rounded-lg border border-transparent bg-zinc-900/40 px-1.5 py-1.5 xl:border-white/10 xl:bg-zinc-900/60 xl:px-3 xl:py-2">

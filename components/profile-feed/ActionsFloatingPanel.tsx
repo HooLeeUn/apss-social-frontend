@@ -1,15 +1,18 @@
 "use client";
 
-import { type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
+import { type MouseEventHandler, type PointerEventHandler, type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 // Shared by Following activity cards and their opt-in moderation menus.
-export default function ActionsFloatingPanel({ anchorRef, onClose, children, label, repositionOnResize = false }: {
+export default function ActionsFloatingPanel({ anchorRef, onClose, children, label, repositionOnResize = false, onPointerEnter, onPointerLeave, onMouseDown }: {
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   children: ReactNode;
   label: string;
   repositionOnResize?: boolean;
+  onPointerEnter?: PointerEventHandler<HTMLDivElement>;
+  onPointerLeave?: PointerEventHandler<HTMLDivElement>;
+  onMouseDown?: MouseEventHandler<HTMLDivElement>;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +77,7 @@ export default function ActionsFloatingPanel({ anchorRef, onClose, children, lab
   }, [anchorRef, onClose, repositionOnResize]);
 
   return createPortal(
-    <div ref={panelRef} role="region" aria-label={label} style={{ position: "fixed", visibility: "hidden", width: "max-content" }} className="z-[1300] overflow-y-auto overscroll-contain rounded-xl border border-white/15 bg-zinc-950 p-3 text-sm text-zinc-200 shadow-xl shadow-black/50 [overflow-wrap:anywhere]">
+    <div ref={panelRef} role="region" aria-label={label} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} onMouseDown={onMouseDown} style={{ position: "fixed", visibility: "hidden", width: "max-content" }} className="z-[1300] overflow-y-auto overscroll-contain rounded-xl border border-white/15 bg-zinc-950 p-3 text-sm text-zinc-200 shadow-xl shadow-black/50 [overflow-wrap:anywhere]">
       {children}
     </div>, document.body,
   );

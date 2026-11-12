@@ -902,6 +902,7 @@ function MovieCard({
   const hasDirector = directorPeople.length > 0;
   const hasCast = castPeople.length > 0;
   const canNavigateToDetail = linkToDetail;
+  const metadataHasPinnedControls = isFeed && (highlightMyRatingSlot || pinInteractionIconsToMetadataRow) && !showExtendedMetadata;
   const titleLinkClassName = `inline-block max-w-full truncate transition-colors duration-150 ${
     isFeed ? "cursor-pointer hover:text-blue-100 focus-visible:text-blue-100" : "cursor-pointer hover:text-sky-700 focus-visible:text-sky-700"
   } focus-visible:outline-none`;
@@ -1468,7 +1469,7 @@ function MovieCard({
         } ${isLarge ? "h-72 xl:h-auto xl:w-48" : isFeed ? "" : "h-56"}`}
       >
         {posterSrc ? (
-          canNavigateToDetail && isFeed ? (
+          canNavigateToDetail ? (
             <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
               <PosterImage
                 posterSrc={posterSrc}
@@ -1491,7 +1492,7 @@ function MovieCard({
               decoding="async"
             />
           )
-        ) : canNavigateToDetail && isFeed ? (
+        ) : canNavigateToDetail ? (
           <Link
             href={detailHref}
             aria-label={`Ver detalle de ${displayTitle}`}
@@ -1555,8 +1556,8 @@ function MovieCard({
                 </p>
               ) : null}
             </div>
-            <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"}`}>{typeYearLine || t("movieDetailUnknown")}</p>
-            <p className={`truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"}`}>{genresLine}</p>
+            <p className={`truncate text-sm ${isFeed ? "text-zinc-300" : "text-gray-500"} ${metadataHasPinnedControls ? watchlistStyles.reservedMetadataLine : ""}`}>{typeYearLine || t("movieDetailUnknown")}</p>
+            <ActionsTruncatedText as="span" revealOnHover text={genresLine} popoverLabel={t("profileFeedGenre")} className={`block min-w-0 max-w-full truncate text-sm ${isFeed ? "text-zinc-400" : "text-gray-600"} ${metadataHasPinnedControls ? watchlistStyles.reservedMetadataLine : ""}`} />
             {isDetailMovieCard ? <RecCoolRatingsCount count={movie.realRatingsCount} locale={locale} /> : null}
           </div>
           {showExtendedMetadata && extendedMetadataMiddleSlot ? (
@@ -1576,7 +1577,7 @@ function MovieCard({
               ) : null}
             </div>
           ) : null}
-          {isFeed && (highlightMyRatingSlot || pinInteractionIconsToMetadataRow) && !showExtendedMetadata ? (
+          {metadataHasPinnedControls ? (
             <div
               className="interaction-icons absolute right-2 top-[4.85rem] z-10"
             >
@@ -1654,7 +1655,7 @@ function MovieCard({
                 {compactMobileDetail ? <ActionsTruncatedText text={displayTitle} popoverLabel={displayTitle} className={`truncate font-semibold leading-tight ${isLarge ? "text-lg" : "text-base"}`} /> : <h3 className={`line-clamp-2 break-words font-semibold leading-tight ${isLarge ? "text-lg" : "text-base"}`}>{displayTitle}</h3>}
                 {displaySecondaryTitle ? compactMobileDetail ? <ActionsTruncatedText text={displaySecondaryTitle} popoverLabel={displaySecondaryTitle} className="truncate text-xs leading-tight text-blue-200/80" /> : <p className="truncate text-xs leading-tight text-blue-200/80">{displaySecondaryTitle}</p> : null}
                 <p className="truncate text-sm text-zinc-300">{typeYearLine || t("movieDetailUnknown")}</p>
-                <p className="truncate text-sm text-zinc-400">{genresLine}</p>
+                <ActionsTruncatedText as="span" revealOnHover text={genresLine} popoverLabel={t("profileFeedGenre")} className="block min-w-0 max-w-full truncate text-sm text-zinc-400" />
                 {isDetailMovieCard ? <RecCoolRatingsCount count={movie.realRatingsCount} locale={locale} truncatedPopover={compactMobileDetail} /> : null}
                 {mobileDetailRatingsRow}
                 {compactMobileDetail ? <div className="mt-auto">{mobileTmdbLogo}</div> : null}
@@ -1719,9 +1720,12 @@ function MovieCard({
   }
 
   return (
-    <Link href={detailHref} className="block">
-      {mobileDetailCardContent}
-    </Link>
+    <div className="relative">
+      <Link href={detailHref} aria-label={`Ver detalle de ${displayTitle}`} className="absolute inset-0 block rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200" />
+      <div className="pointer-events-none relative [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
+        {mobileDetailCardContent}
+      </div>
+    </div>
   );
 }
 
