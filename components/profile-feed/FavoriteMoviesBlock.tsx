@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import ActionsTruncatedText from "./ActionsTruncatedText";
 import { memo, ReactNode, TouchEvent, UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, apiFetch } from "../../lib/api";
 import RatingPopover from "../RatingPopover";
@@ -50,6 +51,11 @@ const VALID_FAVORITE_PRODUCTION_ID_PATTERN = /^[1-9]\d*$/;
 
 function hasValidFavoriteProductionId(movie: FavoriteMovie | undefined): boolean {
   return Boolean(movie && VALID_FAVORITE_PRODUCTION_ID_PATTERN.test(String(movie.id).trim()));
+}
+
+// Portal touches must not start the favorite carousel gesture. Card touches still bubble.
+function stopFavoriteGenrePanelTouch(event: TouchEvent<HTMLDivElement>) {
+  if (!event.currentTarget.contains(event.target as Node)) event.stopPropagation();
 }
 
 function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, onOpenSearch, onUpdateMovieRating }: FavoriteMovieItemProps) {
@@ -143,7 +149,9 @@ function FavoriteMovieItem({ movie, slot, readOnly, viewedUsername, branding, on
                     ) : null}
                     <div className="mt-1 flex min-w-0 flex-col justify-center gap-0.5 pr-1">
                       <p className="truncate text-sm leading-tight text-zinc-300">{movie.year}</p>
-                      <p className="truncate text-sm leading-tight text-zinc-300"><VisitedProfileText enabled={visitedMobileText} text={displayGenre ?? ""} /></p>
+                      <div className="contents" onTouchStart={stopFavoriteGenrePanelTouch} onTouchMove={stopFavoriteGenrePanelTouch} onTouchEnd={stopFavoriteGenrePanelTouch} onTouchCancel={stopFavoriteGenrePanelTouch}>
+                        <ActionsTruncatedText revealOnHover text={displayGenre ?? ""} popoverLabel={t("profileFeedGenre")} className="truncate text-sm leading-tight text-zinc-300" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -295,23 +303,20 @@ const FavoriteSearchResultRow = memo(function FavoriteSearchResultRow({ movie, s
   const isSaving = savingMovieId === movieId;
 
   return (
-    <button
+    <div
       key={movieId}
-      type="button"
-      role="option"
-      aria-selected="false"
-      onClick={() => onSelect(movie)}
-      disabled={Boolean(savingMovieId)}
-      className="grid w-full grid-cols-[44px_minmax(0,1.25fr)_minmax(0,0.78fr)_minmax(0,1fr)] items-start gap-2 rounded-lg border border-transparent px-2.5 py-2 text-left text-xs text-zinc-300 transition hover:border-blue-300/35 hover:bg-white/10 focus:border-blue-300/50 focus:bg-white/10 focus:outline-none disabled:cursor-wait disabled:opacity-70"
+      data-disabled={Boolean(savingMovieId)}
+      className="relative grid w-full grid-cols-[44px_minmax(0,1.25fr)_minmax(0,0.78fr)_minmax(0,1fr)] items-start gap-2 rounded-lg border border-transparent px-2.5 py-2 text-left text-xs text-zinc-300 transition hover:border-blue-300/35 hover:bg-white/10 focus-within:border-blue-300/50 focus-within:bg-white/10 data-[disabled=true]:cursor-wait data-[disabled=true]:opacity-70"
     >
-      <div className="h-[62px] w-[44px] overflow-hidden rounded-md border border-white/15 bg-zinc-900">
+      <button type="button" aria-label={`${movie.displayTitle}, ${movie.year}, ${movie.contentType}`} onClick={() => onSelect(movie)} disabled={Boolean(savingMovieId)} className="absolute inset-0 rounded-lg focus:outline-none disabled:cursor-wait" />
+      <div className="pointer-events-none relative h-[62px] w-[44px] overflow-hidden rounded-md border border-white/15 bg-zinc-900">
         {posterSrc ? (
           <img src={posterSrc} alt={movie.displayTitle} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] leading-tight text-zinc-500">{t("profileFeedNoPoster")}</div>
         )}
       </div>
-      <div className="min-w-0 text-xs text-zinc-200">
+      <div className="pointer-events-none relative min-w-0 text-xs text-zinc-200">
         <p className="line-clamp-2 min-w-0 break-words bg-gradient-to-r from-sky-100 via-blue-300 to-slate-300 bg-clip-text font-semibold leading-snug text-transparent">
           {compactMetadataValue(movie.titleSpanish ?? movie.displayTitle)}
         </p>
@@ -320,11 +325,11 @@ const FavoriteSearchResultRow = memo(function FavoriteSearchResultRow({ movie, s
         </p>
         <p className="mt-0.5 truncate text-[11px] text-zinc-500">{compactMetadataValue(movie.year)}</p>
       </div>
-      <div className="min-w-0 text-[11px] leading-snug">
+      <div className="pointer-events-none relative min-w-0 text-[11px] leading-snug">
         <p className="truncate font-medium text-zinc-200">{compactMetadataValue(movie.contentType)}</p>
-        <p className="truncate text-zinc-500">{movie.genres.length ? movie.genres.join(", ") : "—"}</p>
+        <ActionsTruncatedText revealOnHover text={movie.genres.length ? movie.genres.join(", ") : "—"} popoverLabel={t("profileFeedGenre")} className="pointer-events-none relative truncate text-zinc-500 [&[role=button]]:pointer-events-auto" />
       </div>
-      <div className="min-w-0 text-[11px] leading-snug text-zinc-300">
+      <div className="pointer-events-none relative min-w-0 text-[11px] leading-snug text-zinc-300">
         <p className="truncate text-zinc-400">
           <span className="font-medium text-blue-300">{t("profileFeedDirector")}</span> {compactMetadataValue(movie.director)}
         </p>
@@ -332,7 +337,7 @@ const FavoriteSearchResultRow = memo(function FavoriteSearchResultRow({ movie, s
           <span className="font-medium text-blue-300">{t("profileFeedCast")}</span> {isSaving ? "Guardando…" : castPreview || "—"}
         </p>
       </div>
-    </button>
+    </div>
   );
 });
 
@@ -574,7 +579,7 @@ function FavoriteSearchModal({ slot, open, onClose, onSaved }: FavoriteSearchMod
         />
 
         <div
-          role="listbox"
+          role="group"
           aria-label={t("profileFeedNoResults")}
           className="search-dropdown-scrollbar mt-3 max-h-[360px] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-zinc-900/60 p-1"
           onScroll={handleResultsScroll}

@@ -47,3 +47,18 @@ export function movieMatchesSelectedGenres(movieGenres: string[] | undefined, se
 
   return normalizedSelectedGenres.every((genre) => normalizedMovieGenres.has(genre));
 }
+
+// Display normalization preserves the first spelling and backend order.
+export function productionGenres(value: unknown): string[] {
+  const entries = Array.isArray(value) ? value : [value];
+  const seen = new Set<string>();
+  return entries.flatMap((entry) => {
+    const text = typeof entry === "string" ? entry : entry && typeof entry === "object" && "name" in entry ? String(entry.name) : "";
+    return text.split(GENRE_SPLIT_REGEX);
+  }).map((entry) => entry.trim()).filter((entry) => {
+    const key = normalizeGenreToken(entry);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
