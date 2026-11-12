@@ -1,3 +1,4 @@
+import { productionGenres } from "./genres";
 import { API_BASE_URL, ApiError, apiFetch } from "./api";
 import { MoviePersonCredit, normalizePersonCredit } from "./people";
 
@@ -134,16 +135,7 @@ function toStringList(value: unknown): string[] {
 }
 
 function toGenreList(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return toStringList(value);
-  }
-
-  if (typeof value === "string") {
-    const normalized = value.trim();
-    return normalized ? [normalized] : [];
-  }
-
-  return [];
+  return productionGenres(value);
 }
 
 function resolveGenres(raw: Record<string, unknown>, nestedMovie: Record<string, unknown> | null): string[] {

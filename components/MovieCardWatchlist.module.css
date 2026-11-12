@@ -1,3 +1,8 @@
+/* Two 34px actions, their 6px gap, and 6px of clearance. */
+.reservedMetadataLine {
+  margin-right: 80px;
+}
+
 /* Opt-in styles for Tu cartelera only. All normal card rules remain unchanged. */
 @media (max-width: 767px) {
   /* Retain geometry until the layout effect reveals the final initial mode. */
@@ -35,6 +40,11 @@
     overflow: visible;
     text-overflow: clip;
     overflow-wrap: anywhere;
+  }
+
+  /* In this existing mobile mode the actions occupy their own row. */
+  .watchlist[data-watchlist-tall="true"] .reservedMetadataLine {
+    margin-right: 0;
   }
 
   .watchlist[data-watchlist-tall="true"] [data-watchlist-redundant-title="true"] {

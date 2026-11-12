@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { productionGenres } from "../lib/genres";
+import ActionsTruncatedText from "./profile-feed/ActionsTruncatedText";
 import { memo, useId, useRef, useState } from "react";
 import { useI18n } from "../hooks/useI18n";
 import { resolveMovieTitles } from "../lib/i18n";
@@ -54,8 +56,8 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
   const resolvedTitles = resolveMovieTitles(locale, movie?.titleSpanish, movie?.titleEnglish, movie?.displayTitle ?? movie?.title ?? fallbackLabel);
   const title = resolvedTitles.primary;
   const secondaryTitle = resolvedTitles.secondary ?? movie?.displaySecondaryTitle ?? null;
-  const genres = movie?.genres?.filter(Boolean) ?? [];
-  const genre = genres.length ? genres.slice(0, 3).join(" • ") : "Sin género";
+  const genres = productionGenres(movie?.genres);
+  const genre = genres.length ? genres.join(" • ") : "Sin género";
   const type = movie?.contentType ?? "Movie / Series";
   const year = movie?.year?.trim();
   const hasYear = Boolean(year && year !== "-");
@@ -197,7 +199,8 @@ function WeeklyMiniCard({ movie, fallbackLabel, currentUserId, onRated, isInMyLi
                 )}
 
                 <div className="mt-1.5 min-h-[2.7rem] xl:w-[calc(100%-2.25rem)]">
-                  <DesktopOverflowTicker className="text-[11px] leading-snug text-zinc-400">
+                  <ActionsTruncatedText revealOnHover text={`${genre} • ${type} • ${hasYear ? year : "\u00A0"}`} popoverLabel={genre} className="line-clamp-2 text-[11px] leading-snug text-zinc-400 xl:hidden" />
+                  <DesktopOverflowTicker fullText={`${genre} \u2022 ${type} \u2022 ${hasYear ? year : "\u00A0"}`} className="hidden text-[11px] leading-snug text-zinc-400 xl:block">
                     <span>{genre}</span>
                     <span className="mx-1.5 text-zinc-600">•</span>
                     <span>{type}</span>

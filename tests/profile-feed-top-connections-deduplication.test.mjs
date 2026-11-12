@@ -12,6 +12,12 @@ new Function("module", "exports", ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
 ).outputText)(presentationModule, presentationModule.exports);
 
+const genresModule = { exports: {} };
+new Function("module", "exports", ts.transpileModule(
+  fs.readFileSync("lib/genres.ts", "utf8"),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+).outputText)(genresModule, genresModule.exports);
+
 class ApiError extends Error {
   constructor(status, message) {
     super(message);
@@ -28,6 +34,7 @@ function loadAdapters(apiFetch) {
     "../directed-presentation": presentationModule.exports,
     "../api": { ApiError, apiFetch },
     "../notification-routing-fields": { normalizeNotificationRoutingFields: (value) => value },
+    "../genres": genresModule.exports,
     "../movies": {
       normalizeMovie: (value) => value,
       parseMovieList: (value) => value,
